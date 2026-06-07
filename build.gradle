@@ -1,0 +1,55 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group = 'one.xis.seabattle'
+version = '0.1.0-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+dependencies {
+    implementation 'one.xis:xis-boot:0.18.0-SNAPSHOT'
+    implementation 'one.xis:xis-http-controller:0.18.0-SNAPSHOT'
+}
+
+tasks.withType(JavaCompile) {
+    sourceCompatibility = '17'
+    targetCompatibility = '17'
+}
+
+application {
+    mainClass = 'one.xis.seabattle.SeaBattleApplication'
+}
+
+def lgSeaBattleDir = file('../lg-sea-battle')
+def clientDistDir = file("$lgSeaBattleDir/dist")
+
+tasks.register('buildSeaBattleClient', Exec) {
+    workingDir lgSeaBattleDir
+    commandLine 'npm', 'run', 'build'
+}
+
+tasks.register('copySeaBattleClient', Copy) {
+    dependsOn buildSeaBattleClient
+    from(clientDistDir)
+    into layout.projectDirectory.dir('src/main/resources/public/sea-battle')
+    doFirst {
+        delete layout.projectDirectory.dir('src/main/resources/public/sea-battle')
+    }
+}
+
+processResources.dependsOn copySeaBattleClient
+
+tasks.register('runSeaBattleXis', JavaExec) {
+    group = 'application'
+    description = 'Starts the Sea Battle XIS application.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'one.xis.seabattle.SeaBattleApplication'
+    args = [project.findProperty('port') ?: '9090']
+    dependsOn classes
+}

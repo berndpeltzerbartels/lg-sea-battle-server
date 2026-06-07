@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LG Sea Battle</title>
+    <script type="module" crossorigin src="./assets/index-Cx2yEHWp.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/styles-Cb8D2enq.js">
+    <link rel="modulepreload" crossorigin href="./assets/logDepthDeclaration-B6M5HNH3.js">
+    <link rel="modulepreload" crossorigin href="./assets/helperFunctions-BdnbfThc.js">
+    <link rel="modulepreload" crossorigin href="./assets/fogFragment-DjX0R7j1.js">
+    <link rel="modulepreload" crossorigin href="./assets/default.fragment-BjIk31BE.js">
+    <link rel="modulepreload" crossorigin href="./assets/vertexColorMixing-DEgGXifV.js">
+    <link rel="modulepreload" crossorigin href="./assets/default.vertex-DFpU2VQP.js">
+    <link rel="stylesheet" crossorigin href="./assets/styles-kteliG3_.css">
+  </head>
+  <body>
+    <canvas id="renderCanvas"></canvas>
+    <div id="sinkingWaterOverlay" class="sinking-water-overlay" aria-hidden="true"></div>
+    <div class="hud">
+      <div class="compass" aria-hidden="true">
+        <div id="compassRose" class="compass-rose">
+          <span>N</span>
+          <span>E</span>
+          <span>S</span>
+          <span>W</span>
+        </div>
+        <div id="compassPointer" class="compass-pointer"></div>
+      </div>
+      <div class="nav-panel" aria-hidden="true">
+        <div class="nav-instrument">
+          <div class="nav-title">Map</div>
+          <div class="map-control">
+            <canvas id="mapCanvas" width="180" height="136"></canvas>
+            <input id="mapZoom" type="range" min="0" max="5" step="1" value="1" aria-label="Map zoom" />
+          </div>
+        </div>
+        <div class="nav-instrument">
+          <div class="nav-title">Radar</div>
+          <canvas id="radarCanvas" width="136" height="136"></canvas>
+          <small id="radarStatus">Clear</small>
+        </div>
+      </div>
+      <div class="speed">
+        <span id="speedValue">0.0</span>
+        <small>kn</small>
+        <strong id="engineValue">Stop</strong>
+        <div class="depth-gauge" style="--depth-ratio: 0">
+          <div class="depth-gauge-track">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <strong id="depthValue">Deep</strong>
+        </div>
+      </div>
+      <div class="telegraph" aria-hidden="true">
+        <div class="telegraph-title">Engine</div>
+        <div id="telegraphScale" class="telegraph-scale"></div>
+      </div>
+      <div class="rudder" aria-hidden="true">
+        <div class="rudder-title">Rudder</div>
+        <div class="rudder-gauge">
+          <span class="rudder-mark rudder-mark-port">P 35</span>
+          <span class="rudder-mark rudder-mark-center">0</span>
+          <span class="rudder-mark rudder-mark-starboard">S 35</span>
+          <div id="rudderIndicator" class="rudder-indicator"></div>
+        </div>
+        <strong id="rudderValue">0°</strong>
+      </div>
+    </div>
+  </body>
+</html>
