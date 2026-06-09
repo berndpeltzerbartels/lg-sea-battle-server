@@ -48,7 +48,9 @@ public final class GameSession {
     private static final int ENGINE_FULL = 7;
 
     private final String id;
+    private final WorldMap worldMap;
     private final Map<String, Fleet> fleets;
+    private final List<Vector2> respawnCandidates;
     private final Map<String, Integer> destroyedShipsByTeam = new LinkedHashMap<>();
     private final List<Torpedo> torpedoes = new ArrayList<>();
     private int nextTorpedoId = 1;
@@ -56,14 +58,16 @@ public final class GameSession {
     private double nowSeconds;
     private String state = "running";
 
-    public GameSession() {
-        this("local-test");
+    GameSession(GameSetup setup) {
+        this.id = setup.id();
+        this.worldMap = setup.worldMap();
+        this.fleets = createFleets(setup.fleets());
+        this.respawnCandidates = List.copyOf(setup.respawnCandidates());
+        this.fleets.keySet().forEach(teamId -> destroyedShipsByTeam.put(teamId, 0));
     }
 
-    public GameSession(String id) {
-        this.id = id;
-        this.fleets = createStartingFleets();
-        this.fleets.keySet().forEach(teamId -> destroyedShipsByTeam.put(teamId, 0));
+    WorldMap worldMap() {
+        return worldMap;
     }
 
     public synchronized GameSnapshot snapshot() {
@@ -669,7 +673,7 @@ public final class GameSession {
     }
 
     private Vector2 findRespawnPosition(Ship ship, NavigationService navigationService, WorldMap worldMap, RadarService radarService) {
-        List<Vector2> candidates = respawnCandidates();
+        List<Vector2> candidates = respawnCandidates;
         Vector2 bestCandidate = candidates.get(0);
         double bestScore = Double.NEGATIVE_INFINITY;
         int startIndex = nextRespawnCandidateIndex++;
@@ -762,92 +766,29 @@ public final class GameSession {
         );
     }
 
-    private static Map<String, Fleet> createStartingFleets() {
+    private static Map<String, Fleet> createFleets(List<FleetSetup> fleetSetups) {
         Map<String, Fleet> fleets = new LinkedHashMap<>();
-        fleets.put("red", new Fleet("red", createShips("red", redFormation())));
-        fleets.put("blue", new Fleet("blue", createShips("blue", blueFormation())));
+        fleetSetups.forEach(setup -> fleets.put(setup.teamId(), new Fleet(setup.teamId(), createShips(setup.ships()))));
         return fleets;
     }
 
-    private static List<Ship> createShips(String teamId, double[][] formation) {
-        List<Ship> ships = new ArrayList<>();
-        for (int index = 0; index < formation.length; index += 1) {
-            double[] slot = formation[index];
+    private static List<Ship> createShips(List<ShipSetup> shipSetups) {
+        return shipSetups.stream()
+                .map(GameSession::createShip)
+                .toList();
+    }
+
+    private static Ship createShip(ShipSetup setup) {
             Ship ship = new Ship(
-                    teamId + "-" + (index + 1),
-                    teamId,
-                    new Vector2(slot[0], slot[1]),
-                    MathSupport.normalizeAngle(slot[2]),
-                    "bot"
+                    setup.id(),
+                    setup.teamId(),
+                    setup.position(),
+                    MathSupport.normalizeAngle(setup.heading()),
+                    setup.controlledBy()
             );
-            ship.applyCommand((int) slot[3], (int) slot[4]);
-            ship.nextFireTime(index == 0 ? 0 : 3 + index * 1.5);
-            ships.add(ship);
-        }
-        return ships;
-    }
-
-    private static double[][] redFormation() {
-        return new double[][]{
-                {96, -340, -2.32, ENGINE_STOP, 0},
-                {140, -455, -2.55, ENGINE_SLOW, -4},
-                {-40, -300, -2.0, ENGINE_SLOW, 5},
-                {220, -500, -2.5, ENGINE_HALF, 4},
-                {-260, 1500, 2.8, ENGINE_SLOW, -7},
-                {1420, 760, -2.4, ENGINE_HALF, 5},
-                {520, -1180, -2.1, ENGINE_HALF, -6},
-                {-360, -1160, 0.72, ENGINE_SLOW, 5},
-                {1780, -820, -2.55, ENGINE_TWO_THIRDS, -7},
-                {-1260, 1620, 2.15, ENGINE_SLOW, 6},
-                {1040, 1180, -2.65, ENGINE_HALF, -5},
-                {-920, 920, 1.25, ENGINE_SLOW, 6},
-                {1880, 160, -2.35, ENGINE_HALF, 4},
-                {-1460, -820, 0.62, ENGINE_HALF, -6},
-                {980, -1680, -2.05, ENGINE_SLOW, 5}
-        };
-    }
-
-    private static double[][] blueFormation() {
-        return new double[][]{
-                {-560, -520, 0.9, ENGINE_STOP, 0},
-                {-310, -240, 1.45, ENGINE_SLOW, -5},
-                {-940, -760, 0.65, ENGINE_HALF, 7},
-                {-560, -650, 0.75, ENGINE_HALF, -5},
-                {1120, 420, 2.7, ENGINE_SLOW, 7},
-                {-420, -760, -0.4, ENGINE_HALF, 5},
-                {-860, -1480, -0.45, ENGINE_SLOW, -8},
-                {1120, -1280, -2.2, ENGINE_HALF, -6},
-                {470, 900, -2.8, ENGINE_TWO_THIRDS, 8},
-                {-760, 1040, -2.55, ENGINE_HALF, -5},
-                {1580, 80, 2.95, ENGINE_SLOW, 4},
-                {860, -920, -2.72, ENGINE_HALF, -6},
-                {-1660, -1540, -0.75, ENGINE_HALF, 5},
-                {-980, 60, -1.3, ENGINE_SLOW, -7},
-                {650, -72, -2.58, ENGINE_TWO_THIRDS, 6}
-        };
-    }
-
-    private static List<Vector2> respawnCandidates() {
-        return List.of(
-                new Vector2(96, -340),
-                new Vector2(300, -70),
-                new Vector2(-940, -760),
-                new Vector2(-455, -155),
-                new Vector2(160, 1020),
-                new Vector2(1420, 760),
-                new Vector2(520, -1180),
-                new Vector2(-860, -1480),
-                new Vector2(1120, -1280),
-                new Vector2(470, 900),
-                new Vector2(-760, 1040),
-                new Vector2(1580, 80),
-                new Vector2(-1460, -820),
-                new Vector2(980, -1680),
-                new Vector2(-1260, 1620),
-                new Vector2(1880, 160),
-                new Vector2(-980, 60),
-                new Vector2(1040, 1180)
-        );
+            ship.applyCommand(setup.engineOrder(), setup.rudderDegrees());
+            ship.nextFireTime(setup.nextFireDelaySeconds());
+            return ship;
     }
 
     private double relativeBearing(Ship ship, Vector2 target) {

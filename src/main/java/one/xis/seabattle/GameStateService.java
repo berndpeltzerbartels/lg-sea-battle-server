@@ -5,15 +5,20 @@ import one.xis.context.Service;
 @Service
 public class GameStateService {
 
-    private GameSession session = new GameSession();
-    private final WorldMapService worldMapService;
+    private GameSession session;
+    private final DefaultGameSetupFactory setupFactory;
     private final RadarService radarService;
     private final NavigationService navigationService;
 
-    public GameStateService(WorldMapService worldMapService, RadarService radarService, NavigationService navigationService) {
-        this.worldMapService = worldMapService;
+    public GameStateService(DefaultGameSetupFactory setupFactory, RadarService radarService, NavigationService navigationService) {
+        this.setupFactory = setupFactory;
         this.radarService = radarService;
         this.navigationService = navigationService;
+        this.session = new GameSession(setupFactory.defaultSetup());
+    }
+
+    public WorldMap worldMap() {
+        return session.worldMap();
     }
 
     public GameSnapshot snapshot() {
@@ -21,12 +26,12 @@ public class GameStateService {
     }
 
     public GameSnapshot tick(double deltaSeconds) {
-        session.update(deltaSeconds, radarService, navigationService, worldMapService.world());
+        session.update(deltaSeconds, radarService, navigationService, session.worldMap());
         return session.snapshot();
     }
 
     public GameSnapshot updatePlayerState(PlayerStateUpdate update) {
-        return session.updatePlayerState(update, navigationService, worldMapService.world());
+        return session.updatePlayerState(update, navigationService, session.worldMap());
     }
 
     public GameSnapshot fireTorpedo(FireTorpedoRequest request) {
@@ -37,11 +42,11 @@ public class GameStateService {
         if (request == null || !"bernd".equals(request.adminKey())) {
             throw new IllegalArgumentException("Reset is only available to the host.");
         }
-        session = new GameSession();
+        session = new GameSession(setupFactory.setup(request.setupId()));
         return session.snapshot();
     }
 
     public RadarSnapshot radar(RadarRequest request) {
-        return session.radar(request, radarService, worldMapService.world());
+        return session.radar(request, radarService, session.worldMap());
     }
 }

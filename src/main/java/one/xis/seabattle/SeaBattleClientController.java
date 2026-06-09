@@ -22,14 +22,12 @@ import java.nio.charset.StandardCharsets;
 public class SeaBattleClientController {
 
     private static final String CLIENT_INDEX_RESOURCE = "/public/sea-battle/index.html";
-    private final WorldMapService worldMapService;
     private final GameStateService gameStateService;
     private final SseEndpoint sseEndpoint;
     private final SeaBattleEventService eventService;
 
-    public SeaBattleClientController(WorldMapService worldMapService, GameStateService gameStateService,
+    public SeaBattleClientController(GameStateService gameStateService,
                                      SseEndpoint sseEndpoint, SeaBattleEventService eventService) {
-        this.worldMapService = worldMapService;
         this.gameStateService = gameStateService;
         this.sseEndpoint = sseEndpoint;
         this.eventService = eventService;
@@ -62,7 +60,7 @@ public class SeaBattleClientController {
     @Get("/game/world")
     @Produces(ContentType.JSON_UTF8)
     public WorldMap getWorld() {
-        return worldMapService.world();
+        return gameStateService.worldMap();
     }
 
     @Get("/game/state")

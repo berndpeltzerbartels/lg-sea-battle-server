@@ -1,4 +1,4 @@
 package one.xis.seabattle;
 
-public record ResetGameRequest(String adminKey) {
+public record ResetGameRequest(String adminKey, String setupId) {
 }

@@ -107,7 +107,8 @@ final class Ship {
         heading = MathSupport.normalizeAngle(heading + turnVelocity * deltaSeconds);
 
         position = position.add(Vector2.fromHeading(heading).scale(speed * deltaSeconds));
-        if (navigationService.isShipBlocked(position, heading, worldMap)) {
+        if (navigationService.isShipBlocked(position, heading, worldMap)
+                && navigationService.isShipMovementBlocked(position, heading, speed, worldMap)) {
             position = previousPosition;
             speed = Math.min(0, previousSpeed * 0.15);
             turnVelocity *= 0.35;
