@@ -38,6 +38,10 @@ public class GameStateService {
         return session.fireTorpedo(request);
     }
 
+    public void releasePlayer(String playerId) {
+        session.releasePlayer(playerId);
+    }
+
     public GameSnapshot reset(ResetGameRequest request) {
         if (request == null || !"bernd".equals(request.adminKey())) {
             throw new IllegalArgumentException("Reset is only available to the host.");

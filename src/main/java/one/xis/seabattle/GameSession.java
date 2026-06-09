@@ -114,6 +114,10 @@ public final class GameSession {
         return snapshot();
     }
 
+    public synchronized void releasePlayer(String playerId) {
+        fleets.values().forEach(fleet -> fleet.releasePlayer(playerId));
+    }
+
     public synchronized RadarSnapshot radar(RadarRequest request, RadarService radarService, WorldMap worldMap) {
         Fleet fleet = fleets.get(request.teamId());
         if (fleet == null) {

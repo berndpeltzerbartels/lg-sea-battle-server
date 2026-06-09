@@ -67,4 +67,18 @@ final class Fleet {
     void releaseShip(String shipId) {
         activeShipIdByPlayerId.entrySet().removeIf(entry -> shipId.equals(entry.getValue()));
     }
+
+    void releasePlayer(String playerId) {
+        String shipId = activeShipIdByPlayerId.remove(playerId);
+        if (shipId == null) {
+            return;
+        }
+        activeShips().stream()
+                .filter(ship -> ship.id().equals(shipId))
+                .findFirst()
+                .ifPresent(ship -> {
+                    ship.controlledBy("bot");
+                    ship.nextFireTime(0);
+                });
+    }
 }

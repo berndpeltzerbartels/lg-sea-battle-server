@@ -62,6 +62,26 @@ class GameSessionTest {
     }
 
     @Test
+    void releasePlayerReturnsAssignedShipToBotControl() {
+        GameSession session = new GameSession(new GameSetup(
+                "release-test",
+                new WorldMap(9005, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, 0, 2, 0))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 40, 0, Math.PI, 2, 0)))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(40, 0))
+        ));
+
+        session.updatePlayerState(new PlayerStateUpdate("player-BP-test", "red", 0, 0, 0, 0, 2, 0), navigationService, session.worldMap());
+        assertEquals("player-BP-test", findShip(session.snapshot(), "red-1").controlledBy());
+
+        session.releasePlayer("player-BP-test");
+
+        assertEquals("bot", findShip(session.snapshot(), "red-1").controlledBy());
+    }
+
+    @Test
     void defaultFactoryCanSelectSmallTestSetups() {
         DefaultGameSetupFactory factory = new DefaultGameSetupFactory(new WorldMapService());
 

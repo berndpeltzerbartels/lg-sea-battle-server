@@ -45,6 +45,7 @@ public final class SeaBattleEventService {
         connections.unregister(PLAYER_SCOPE, playerId, emitter);
         if (connections.connectionCount(SseConnectionKey.of(PLAYER_SCOPE, playerId)) == 0) {
             subscriptionsByPlayerId.remove(playerId);
+            gameStateService.releasePlayer(playerId);
         }
     }
 
