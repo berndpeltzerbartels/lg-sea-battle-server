@@ -4,15 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LG Sea Battle</title>
-    <script type="module" crossorigin src="/sea-battle/assets/index-ILku40W1.js"></script>
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/styles-B2bvUItC.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/logDepthDeclaration-D5mQaWKe.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/helperFunctions-Ba6zeTxt.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/fogFragment-DqSmLwFQ.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/default.fragment-k14tA19l.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/vertexColorMixing-CvT47Oqv.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/default.vertex-yZkuau0J.js">
-    <link rel="stylesheet" crossorigin href="/sea-battle/assets/styles-B-BLFgSn.css">
+    <script type="module" crossorigin src="/sea-battle/assets/index-B5e2ShBZ.js"></script>
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/styles-1vlRzPXK.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/logDepthDeclaration-BBYs443A.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/helperFunctions-DuZukYXy.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/fogFragment-IQR069Ob.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/default.fragment-DDbhg6c2.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/vertexColorMixing-CXvVieel.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/default.vertex-YlvMAhXm.js">
+    <link rel="stylesheet" crossorigin href="/sea-battle/assets/styles-DdZ2N8P6.css">
   </head>
   <body>
     <canvas id="renderCanvas"></canvas>
@@ -32,7 +32,9 @@
         <div class="nav-instrument nav-instrument-map">
           <div class="nav-title">Map</div>
           <div class="map-control">
-            <canvas id="mapCanvas" width="180" height="136"></canvas>
+            <div id="mapRowLabels" class="map-row-labels" aria-hidden="true"></div>
+            <canvas id="mapCanvas" width="320" height="230"></canvas>
+            <div id="mapColumnLabels" class="map-column-labels" aria-hidden="true"></div>
             <input id="mapZoom" type="range" min="0" max="5" step="1" value="1" aria-label="Map zoom" />
             <div class="map-meta">
               <strong id="mapSectorValue">--</strong>
@@ -43,7 +45,7 @@
       </div>
       <div class="nav-instrument nav-instrument-radar" aria-hidden="true">
         <div class="nav-title">Radar</div>
-        <canvas id="radarCanvas" width="136" height="136"></canvas>
+        <canvas id="radarCanvas" width="300" height="300"></canvas>
         <small id="radarStatus">Clear</small>
       </div>
       <div class="fleet-status" aria-hidden="true">
