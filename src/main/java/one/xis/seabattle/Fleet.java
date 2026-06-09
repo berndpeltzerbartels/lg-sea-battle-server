@@ -35,14 +35,36 @@ final class Fleet {
     }
 
     Optional<Ship> assignNextShipToPlayer(String playerId) {
+        Optional<Ship> assignedShip = assignedShip(playerId);
+        if (assignedShip.isPresent()) {
+            return assignedShip;
+        }
+
         Optional<Ship> availableShip = activeShips().stream()
                 .filter(ship -> "bot".equals(ship.controlledBy()))
                 .findFirst();
+        if (availableShip.isEmpty() && ships.size() == 1) {
+            availableShip = activeShips().stream().findFirst();
+        }
         availableShip.ifPresent(ship -> {
-            ship.controlledBy("player");
+            ship.controlledBy(playerId);
             ship.nextFireTime(0);
             activeShipIdByPlayerId.put(playerId, ship.id());
         });
         return availableShip;
+    }
+
+    Optional<Ship> assignedShip(String playerId) {
+        String shipId = activeShipIdByPlayerId.get(playerId);
+        if (shipId == null) {
+            return Optional.empty();
+        }
+        return activeShips().stream()
+                .filter(ship -> ship.id().equals(shipId))
+                .findFirst();
+    }
+
+    void releaseShip(String shipId) {
+        activeShipIdByPlayerId.entrySet().removeIf(entry -> shipId.equals(entry.getValue()));
     }
 }

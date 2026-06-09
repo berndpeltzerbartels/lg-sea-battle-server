@@ -4,15 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LG Sea Battle</title>
-    <script type="module" crossorigin src="./assets/index-SU23Wv3F.js"></script>
-    <link rel="modulepreload" crossorigin href="./assets/styles-CIpdE1P9.js">
-    <link rel="modulepreload" crossorigin href="./assets/logDepthDeclaration-isKXA4_5.js">
-    <link rel="modulepreload" crossorigin href="./assets/helperFunctions-B8SSI3jT.js">
-    <link rel="modulepreload" crossorigin href="./assets/fogFragment-BO4cMISq.js">
-    <link rel="modulepreload" crossorigin href="./assets/default.fragment-XX3wLvTt.js">
-    <link rel="modulepreload" crossorigin href="./assets/vertexColorMixing-CkuSJveG.js">
-    <link rel="modulepreload" crossorigin href="./assets/default.vertex-BidT2GFp.js">
-    <link rel="stylesheet" crossorigin href="./assets/styles-CqHIbSIY.css">
+    <script type="module" crossorigin src="/sea-battle/assets/index-C-cU1Fgu.js"></script>
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/styles-CxpuGUuL.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/logDepthDeclaration-DzQ0dnHl.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/helperFunctions-V7yo9nS9.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/fogFragment-BwHjBk5Q.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/default.fragment-DtPsMGWL.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/vertexColorMixing-CVZGUMPL.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/default.vertex-BbymMQB2.js">
+    <link rel="stylesheet" crossorigin href="/sea-battle/assets/styles-LV4Yc1h-.css">
   </head>
   <body>
     <canvas id="renderCanvas"></canvas>
@@ -28,23 +28,46 @@
         <div id="compassPointer" class="compass-pointer"></div>
       </div>
       <div class="nav-panel" aria-hidden="true">
-        <div class="nav-instrument nav-instrument-radar">
-          <div class="nav-title">Radar</div>
-          <canvas id="radarCanvas" width="156" height="156"></canvas>
-          <small id="radarStatus">Clear</small>
-        </div>
         <div class="nav-instrument nav-instrument-map">
           <div class="nav-title">Map</div>
           <div class="map-control">
             <canvas id="mapCanvas" width="180" height="136"></canvas>
             <input id="mapZoom" type="range" min="0" max="5" step="1" value="1" aria-label="Map zoom" />
+            <div class="map-meta">
+              <strong id="mapSectorValue">--</strong>
+              <span id="mapCoordinateValue">--</span>
+            </div>
           </div>
         </div>
+      </div>
+      <div class="nav-instrument nav-instrument-radar" aria-hidden="true">
+        <div class="nav-title">Radar</div>
+        <canvas id="radarCanvas" width="136" height="136"></canvas>
+        <small id="radarStatus">Clear</small>
+      </div>
+      <div class="fleet-status" aria-hidden="true">
+        <div class="fleet-status-row fleet-status-light">
+          <span>Light</span>
+          <strong id="lightFleetValue">0/0</strong>
+        </div>
+        <div class="fleet-status-row fleet-status-dark">
+          <span>Dark</span>
+          <strong id="darkFleetValue">0/0</strong>
+        </div>
+      </div>
+      <div class="player-list" aria-hidden="true">
+        <div class="player-list-title">Players</div>
+        <div id="playerListRows" class="player-list-rows"></div>
+        <button id="resetGameButton" class="reset-game-button" type="button">Restart</button>
       </div>
       <div class="speed">
         <span id="speedValue">0.0</span>
         <small>kn</small>
         <strong id="engineValue">Stop</strong>
+        <div class="torpedo-stock">
+          <small>Torp</small>
+          <strong id="torpedoStockValue">--</strong>
+        </div>
         <div class="depth-gauge" style="--depth-ratio: 0">
           <div class="depth-gauge-track">
             <span></span>

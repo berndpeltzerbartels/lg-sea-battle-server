@@ -7,6 +7,7 @@ public record ShipSnapshot(
         double z,
         double heading,
         double speed,
+        double turnVelocity,
         int rudderDegrees,
         int engineOrder,
         String state,

@@ -6,6 +6,7 @@ final class Torpedo {
     private final String teamId;
     private final String shipId;
     private Vector2 position;
+    private Vector2 previousPosition;
     private final double heading;
     private final double speed;
     private final double firedAtSeconds;
@@ -18,6 +19,7 @@ final class Torpedo {
         this.teamId = teamId;
         this.shipId = shipId;
         this.position = position;
+        this.previousPosition = position;
         this.heading = heading;
         this.speed = speed;
         this.firedAtSeconds = firedAtSeconds;
@@ -28,12 +30,45 @@ final class Torpedo {
         return state;
     }
 
+    String teamId() {
+        return teamId;
+    }
+
+    String shipId() {
+        return shipId;
+    }
+
+    String id() {
+        return id;
+    }
+
+    Vector2 position() {
+        return position;
+    }
+
+    Vector2 previousPosition() {
+        return previousPosition;
+    }
+
+    double heading() {
+        return heading;
+    }
+
+    double speed() {
+        return speed;
+    }
+
+    void hit() {
+        state = "hit";
+    }
+
     void update(double deltaSeconds) {
         if (!"running".equals(state)) {
             return;
         }
 
         double step = speed * deltaSeconds;
+        previousPosition = position;
         position = position.add(Vector2.fromHeading(heading).scale(step));
         runDistance += step;
         if (runDistance >= maxRange) {

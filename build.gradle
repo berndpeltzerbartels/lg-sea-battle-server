@@ -1,6 +1,6 @@
 plugins {
     id 'java'
-    id 'application'
+    id 'one.xis.plugin'
 }
 
 group = 'one.xis.seabattle'
@@ -13,17 +13,13 @@ java {
 }
 
 dependencies {
-    implementation 'one.xis:xis-boot:0.18.0-SNAPSHOT'
-    implementation 'one.xis:xis-http-controller:0.18.0-SNAPSHOT'
+    implementation 'one.xis:xis-http-controller'
+    implementation 'com.google.code.gson:gson:2.10.1'
 }
 
 tasks.withType(JavaCompile) {
     sourceCompatibility = '17'
     targetCompatibility = '17'
-}
-
-application {
-    mainClass = 'one.xis.seabattle.SeaBattleApplication'
 }
 
 def lgSeaBattleDir = file('../lg-sea-battle')

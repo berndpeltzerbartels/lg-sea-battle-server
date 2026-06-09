@@ -1,12 +1,12 @@
 package one.xis.seabattle;
 
-import one.xis.boot.XISBootApplication;
-import one.xis.boot.XISBootRunner;
+import one.xis.http.XISHttpApplication;
+import one.xis.http.XISHttpRunner;
 
-@XISBootApplication
+@XISHttpApplication
 public class SeaBattleApplication {
 
     public static void main(String[] args) {
-        XISBootRunner.run(SeaBattleApplication.class, args);
+        XISHttpRunner.run(SeaBattleApplication.class, args);
     }
 }

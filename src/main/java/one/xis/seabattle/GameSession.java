@@ -4,12 +4,55 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public final class GameSession {
 
+    private static final double TORPEDO_BROAD_PHASE_RADIUS = 6.2;
+    private static final double TORPEDO_HULL_MARGIN = 0.28;
+    private static final double TORPEDO_SWEEP_STEP = 1.15;
+    private static final double RAM_HIT_RADIUS = 4.8;
+    private static final double RAM_BOW_OFFSET = 4.45;
+    private static final double RAM_STERN_LENGTH = -4.05;
+    private static final double RAM_BOW_LENGTH = 4.45;
+    private static final double RAM_SIDE_FORWARD_MIN = -2.85;
+    private static final double RAM_SIDE_FORWARD_MAX = 2.95;
+    private static final double RAM_SIDE_MARGIN = 0.42;
+    private static final double RAM_SIDE_ANGLE_TOLERANCE = Math.toRadians(45);
+    private static final double BOT_FIRE_ARC = 0.16;
+    private static final double BOT_CLOSE_FIRE_ARC = 1.15;
+    private static final double BOT_CLOSE_FIRE_RANGE = 145;
+    private static final double BOT_AIM_ERROR = 0.055;
+    private static final double BOT_RAM_RANGE = 34;
+    private static final double BOT_TORPEDO_EVADE_RANGE = 115;
+    private static final double BOT_TORPEDO_LOOKOUT_FORWARD_OFFSET = 4.5;
+    private static final double BOT_TORPEDO_LOOKOUT_ARC = 0.38;
+    private static final double BOT_TORPEDO_INCOMING_ARC = 0.34;
+    private static final double BOT_TORPEDO_THREAT_CORRIDOR = 8.0;
+    private static final double BOT_SHALLOW_WARNING_DEPTH_METERS = 16.0;
+    private static final double BOT_SHALLOW_ESCAPE_DEPTH_METERS = 8.0;
+    private static final double BOT_ESCAPE_CLEAR_DEPTH_METERS = 18.0;
+    private static final double BOT_RETURN_TO_LAND_DISTANCE = 720;
+    private static final double BOT_PATROL_LAND_DISTANCE = 470;
+    private static final double BOT_ESCORT_JOIN_RANGE = 680;
+    private static final double BOT_ESCORT_MIN_DISTANCE = 95;
+    private static final double BOT_ESCORT_TARGET_DISTANCE = 150;
+    private static final double RESPAWN_DELAY_SECONDS = 8;
+    private static final double RESPAWN_HUMAN_RADAR_MARGIN = 120;
+    private static final double RESPAWN_MIN_SHIP_DISTANCE = 170;
+    private static final int ENGINE_ASTERN = 1;
+    private static final int ENGINE_STOP = 2;
+    private static final int ENGINE_SLOW = 3;
+    private static final int ENGINE_HALF = 5;
+    private static final int ENGINE_TWO_THIRDS = 6;
+    private static final int ENGINE_FULL = 7;
+
     private final String id;
     private final Map<String, Fleet> fleets;
+    private final Map<String, Integer> destroyedShipsByTeam = new LinkedHashMap<>();
     private final List<Torpedo> torpedoes = new ArrayList<>();
+    private int nextTorpedoId = 1;
+    private int nextRespawnCandidateIndex;
     private double nowSeconds;
     private String state = "running";
 
@@ -20,6 +63,7 @@ public final class GameSession {
     public GameSession(String id) {
         this.id = id;
         this.fleets = createStartingFleets();
+        this.fleets.keySet().forEach(teamId -> destroyedShipsByTeam.put(teamId, 0));
     }
 
     public synchronized GameSnapshot snapshot() {
@@ -29,34 +73,672 @@ public final class GameSession {
                 state,
                 MathSupport.round(nowSeconds),
                 allShips().stream()
-                        .filter(ship -> "active".equals(ship.state()))
+                        .filter(ship -> ship.isVisibleInSnapshot(nowSeconds))
                         .map(Ship::snapshot)
                         .toList(),
                 torpedoes.stream()
                         .filter(torpedo -> "running".equals(torpedo.state()))
                         .map(Torpedo::snapshot)
-                        .toList()
+                        .toList(),
+                Map.copyOf(destroyedShipsByTeam)
         );
     }
 
-    public synchronized void update(double deltaSeconds) {
+    public synchronized GameSnapshot updatePlayerState(PlayerStateUpdate update, NavigationService navigationService, WorldMap worldMap) {
+        Fleet fleet = fleets.get(update.teamId());
+        if (fleet == null) {
+            throw new IllegalArgumentException("Unknown team: " + update.teamId());
+        }
+
+        Optional<Ship> assignedShip = fleet.assignedShip(update.playerId());
+        Ship ship = assignedShip
+                .or(() -> fleet.assignNextShipToPlayer(update.playerId()))
+                .orElseThrow(() -> new IllegalStateException("No active ship available for team: " + update.teamId()));
+        ship.applyCommand(update.engineOrder(), update.rudderDegrees());
+        return snapshot();
+    }
+
+    public synchronized GameSnapshot fireTorpedo(FireTorpedoRequest request) {
+        Fleet fleet = fleets.get(request.teamId());
+        if (fleet == null) {
+            throw new IllegalArgumentException("Unknown team: " + request.teamId());
+        }
+
+        Ship ship = fleet.assignedShip(request.playerId())
+                .orElseThrow(() -> new IllegalStateException("No active ship assigned to player: " + request.playerId()));
+        fireTorpedo(ship, 2.4, 0);
+        return snapshot();
+    }
+
+    public synchronized RadarSnapshot radar(RadarRequest request, RadarService radarService, WorldMap worldMap) {
+        Fleet fleet = fleets.get(request.teamId());
+        if (fleet == null) {
+            throw new IllegalArgumentException("Unknown team: " + request.teamId());
+        }
+
+        Ship observer = fleet.assignedShip(request.playerId())
+                .or(() -> fleet.activeShips().stream().findFirst())
+                .orElseThrow(() -> new IllegalStateException("No active ship available for team: " + request.teamId()));
+        List<RadarContact> contacts = allShips().stream()
+                .filter(contact -> radarService.isVisible(observer, contact, worldMap))
+                .map(contact -> radarContact(observer, contact))
+                .toList();
+
+        return new RadarSnapshot(
+                "radar",
+                id,
+                MathSupport.round(nowSeconds),
+                observer.id(),
+                observer.teamId(),
+                MathSupport.round(observer.position().x()),
+                MathSupport.round(observer.position().z()),
+                MathSupport.round(observer.heading()),
+                MathSupport.round(radarService.range()),
+                contacts
+        );
+    }
+
+    public synchronized void update(double deltaSeconds, RadarService radarService, NavigationService navigationService, WorldMap worldMap) {
         if (!"running".equals(state)) {
             return;
         }
         nowSeconds += deltaSeconds;
-        allShips().forEach(ship -> ship.update(deltaSeconds));
-        torpedoes.forEach(torpedo -> torpedo.update(deltaSeconds));
+        commandBots(radarService, navigationService, worldMap);
+        allShips().forEach(ship -> ship.update(deltaSeconds, navigationService, worldMap));
+        updateTorpedoes(deltaSeconds, navigationService, worldMap);
+        updateRamCollisions();
+        respawnSunkShips(navigationService, worldMap, radarService);
         torpedoes.removeIf(torpedo -> !"running".equals(torpedo.state()));
         checkGameOver();
     }
 
-    private void checkGameOver() {
-        long activeFleets = fleets.values().stream()
-                .filter(Fleet::hasActiveShips)
-                .count();
-        if (activeFleets <= 1) {
-            state = "finished";
+    public synchronized void update(double deltaSeconds) {
+        throw new IllegalStateException("World navigation is required for server simulation");
+    }
+
+    private void commandBots(RadarService radarService, NavigationService navigationService, WorldMap worldMap) {
+        if (radarService == null || worldMap == null) {
+            return;
         }
+
+        allShips().stream()
+                .filter(ship -> "active".equals(ship.state()))
+                .filter(ship -> "bot".equals(ship.controlledBy()))
+                .forEach(ship -> commandBot(ship, radarService, navigationService, worldMap));
+    }
+
+    private void commandBot(Ship ship, RadarService radarService, NavigationService navigationService, WorldMap worldMap) {
+        if (escapeBlockedWater(ship, navigationService, worldMap)) {
+            return;
+        }
+
+        Optional<Torpedo> threat = visibleIncomingTorpedo(ship);
+        if (threat.isPresent()) {
+            evadeTorpedo(ship, threat.get(), navigationService, worldMap);
+            return;
+        }
+
+        Optional<Vector2> nearestLandCenter = nearestLandCenter(ship.position(), worldMap);
+        double nearestLandDistance = nearestLandCenter
+                .map(center -> ship.position().distanceTo(center))
+                .orElse(0.0);
+        if (nearestLandDistance > BOT_RETURN_TO_LAND_DISTANCE && nearestLandCenter.isPresent()) {
+            steerToward(ship, nearestLandCenter.get(), ENGINE_TWO_THIRDS, navigationService, worldMap);
+            return;
+        }
+
+        Optional<Ship> target = visibleTargets(ship, radarService, worldMap).stream()
+                .min((left, right) -> Double.compare(
+                        ship.position().distanceTo(left.position()),
+                        ship.position().distanceTo(right.position())
+                ));
+        if (target.isEmpty()) {
+            if (nearestLandDistance > BOT_PATROL_LAND_DISTANCE && nearestLandCenter.isPresent()) {
+                steerToward(ship, nearestLandCenter.get(), ENGINE_HALF, navigationService, worldMap);
+                return;
+            }
+            if (escortHumanLeader(ship, navigationService, worldMap)) {
+                return;
+            }
+            patrol(ship, navigationService, worldMap);
+            return;
+        }
+
+        aimAtTarget(ship, target.get(), navigationService, worldMap);
+    }
+
+    private boolean escapeBlockedWater(Ship ship, NavigationService navigationService, WorldMap worldMap) {
+        Vector2 forward = Vector2.fromHeading(ship.heading());
+        double lookAheadDistance = MathSupport.clamp(Math.abs(ship.speed()) * 6.0 + 22.0, 24.0, 78.0);
+        Vector2 nearLookAhead = ship.position().add(forward.scale(14));
+        Vector2 farLookAhead = ship.position().add(forward.scale(lookAheadDistance));
+        boolean blockedHere = navigationService.isShipBlocked(ship.position(), ship.heading(), worldMap);
+        boolean blockedAhead = navigationService.isShipBlocked(nearLookAhead, ship.heading(), worldMap)
+                || navigationService.isShipBlocked(farLookAhead, ship.heading(), worldMap);
+        double depthHere = navigationService.waterDepthMeters(ship.position(), worldMap);
+        double depthAhead = Math.min(
+                navigationService.waterDepthMeters(nearLookAhead, worldMap),
+                navigationService.waterDepthMeters(farLookAhead, worldMap)
+        );
+
+        if (blockedHere) {
+            ship.applyCommand(ENGINE_STOP, 0);
+            return true;
+        }
+
+        if (blockedAhead || depthHere < BOT_SHALLOW_ESCAPE_DEPTH_METERS) {
+            double safeHeading = chooseSafeEscapeHeading(ship, navigationService, worldMap);
+            int rudder = rudderTowardHeading(ship, safeHeading);
+            ship.applyCommand(ENGINE_SLOW, rudder);
+            return true;
+        }
+
+        if (depthAhead < BOT_SHALLOW_WARNING_DEPTH_METERS) {
+            int rudder = rudderTowardHeading(ship, chooseSafeEscapeHeading(ship, navigationService, worldMap));
+            ship.applyCommand(ENGINE_SLOW, rudder);
+            return true;
+        }
+
+        return false;
+    }
+
+    private double chooseSafeEscapeHeading(Ship ship, NavigationService navigationService, WorldMap worldMap) {
+        double bestHeading = MathSupport.normalizeAngle(ship.heading() + Math.PI);
+        double bestScore = Double.NEGATIVE_INFINITY;
+        for (int step = -12; step <= 12; step += 1) {
+            double offset = step * (Math.PI / 12.0);
+            double heading = MathSupport.normalizeAngle(ship.heading() + offset);
+            double score = escapeCourseScore(ship, heading, navigationService, worldMap);
+            if (score > bestScore) {
+                bestScore = score;
+                bestHeading = heading;
+            }
+        }
+        return bestHeading;
+    }
+
+    private double escapeCourseScore(Ship ship, double heading, NavigationService navigationService, WorldMap worldMap) {
+        double score = 0;
+        Vector2 forward = Vector2.fromHeading(heading);
+        double[] distances = {18, 34, 58, 88, 128, 170};
+        for (int index = 0; index < distances.length; index += 1) {
+            Vector2 sample = ship.position().add(forward.scale(distances[index]));
+            if (navigationService.isShipBlocked(sample, heading, worldMap)) {
+                score -= 5000 - index * 250;
+                continue;
+            }
+            double depth = navigationService.waterDepthMeters(sample, worldMap);
+            score += Math.min(depth, 70) * (1.0 + index * 0.18);
+            if (depth < BOT_ESCAPE_CLEAR_DEPTH_METERS) {
+                score -= (BOT_ESCAPE_CLEAR_DEPTH_METERS - depth) * (70 - index * 6);
+            }
+        }
+
+        double turn = Math.abs(MathSupport.normalizeAngle(heading - ship.heading()));
+        score -= turn * 18;
+        if (turn > Math.PI * 0.82) {
+            score -= 35;
+        }
+        score += Math.sin(stablePhase(ship.id()) + heading * 1.7) * 2.5;
+        return score;
+    }
+
+    private int rudderTowardHeading(Ship ship, double heading) {
+        double targetBearing = MathSupport.normalizeAngle(heading - ship.heading());
+        return (int) Math.round(MathSupport.clamp(targetBearing / 0.58, -1, 1) * 35);
+    }
+
+    private void applyBotCommand(Ship ship, int engineOrder, int rudder, NavigationService navigationService, WorldMap worldMap) {
+        if (EngineOrders.speedFor(engineOrder) <= 0) {
+            ship.applyCommand(engineOrder, rudder);
+            return;
+        }
+
+        double plannedHeading = plannedBotCourseHeading(ship, rudder);
+        if (isBotCourseSafe(ship, plannedHeading, navigationService, worldMap)) {
+            ship.applyCommand(engineOrder, rudder);
+            return;
+        }
+
+        double escapeHeading = chooseSafeEscapeHeading(ship, navigationService, worldMap);
+        ship.applyCommand(Math.min(engineOrder, ENGINE_SLOW), rudderTowardHeading(ship, escapeHeading));
+    }
+
+    private double plannedBotCourseHeading(Ship ship, int rudder) {
+        double turn = MathSupport.clamp(rudder / 35.0, -1, 1);
+        return MathSupport.normalizeAngle(ship.heading() + turn * 0.48);
+    }
+
+    private boolean isBotCourseSafe(Ship ship, double heading, NavigationService navigationService, WorldMap worldMap) {
+        Vector2 forward = Vector2.fromHeading(heading);
+        double[] distances = {28, 55, 92, 138};
+        for (double distance : distances) {
+            Vector2 sample = ship.position().add(forward.scale(distance));
+            if (navigationService.isShipBlocked(sample, heading, worldMap)) {
+                return false;
+            }
+            if (navigationService.waterDepthMeters(sample, worldMap) < BOT_SHALLOW_WARNING_DEPTH_METERS) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private List<Ship> visibleTargets(Ship ship, RadarService radarService, WorldMap worldMap) {
+        return allShips().stream()
+                .filter(target -> !target.teamId().equals(ship.teamId()))
+                .filter(target -> radarService.isVisible(ship, target, worldMap))
+                .toList();
+    }
+
+    private Optional<Torpedo> visibleIncomingTorpedo(Ship ship) {
+        return torpedoes.stream()
+                .filter(torpedo -> "running".equals(torpedo.state()))
+                .filter(torpedo -> !torpedo.teamId().equals(ship.teamId()))
+                .filter(torpedo -> botCanSeeIncomingTorpedo(ship, torpedo))
+                .min((left, right) -> Double.compare(
+                        ship.position().distanceTo(left.position()),
+                        ship.position().distanceTo(right.position())
+                ));
+    }
+
+    private boolean botCanSeeIncomingTorpedo(Ship ship, Torpedo torpedo) {
+        Vector2 lookoutPosition = ship.position()
+                .add(Vector2.fromHeading(ship.heading()).scale(BOT_TORPEDO_LOOKOUT_FORWARD_OFFSET));
+        if (lookoutPosition.distanceTo(torpedo.position()) > BOT_TORPEDO_EVADE_RANGE) {
+            return false;
+        }
+
+        double bearingFromLookout = MathSupport.normalizeAngle(angleTo(torpedo.position(), lookoutPosition) - ship.heading());
+        if (Math.abs(bearingFromLookout) > BOT_TORPEDO_LOOKOUT_ARC) {
+            return false;
+        }
+
+        double incomingAngle = angularDistance(angleTo(ship.position(), torpedo.position()), torpedo.heading());
+        if (incomingAngle > BOT_TORPEDO_INCOMING_ARC) {
+            return false;
+        }
+
+        return torpedoTrackDistanceToShip(torpedo, ship.position()) <= BOT_TORPEDO_THREAT_CORRIDOR;
+    }
+
+    private double torpedoTrackDistanceToShip(Torpedo torpedo, Vector2 shipPosition) {
+        Vector2 forward = Vector2.fromHeading(torpedo.heading());
+        Vector2 toShip = shipPosition.subtract(torpedo.position());
+        double alongTrack = toShip.x() * forward.x() + toShip.z() * forward.z();
+        if (alongTrack < 0) {
+            return Double.POSITIVE_INFINITY;
+        }
+        Vector2 closestPoint = torpedo.position().add(forward.scale(alongTrack));
+        return closestPoint.distanceTo(shipPosition);
+    }
+
+    private void evadeTorpedo(Ship ship, Torpedo torpedo, NavigationService navigationService, WorldMap worldMap) {
+        double side = relativeBearing(ship, torpedo.position()) >= 0 ? -1 : 1;
+        int rudder = (int) (side * 35);
+        applyBotCommand(ship, ENGINE_FULL, rudder, navigationService, worldMap);
+    }
+
+    private void patrol(Ship ship, NavigationService navigationService, WorldMap worldMap) {
+        double wander = Math.sin(nowSeconds * 0.13 + stablePhase(ship.id())) * 18;
+        applyBotCommand(ship, ENGINE_HALF, (int) Math.round(wander), navigationService, worldMap);
+    }
+
+    private Optional<Vector2> nearestLandCenter(Vector2 position, WorldMap worldMap) {
+        return worldMap.landmasses().stream()
+                .map(landmass -> new Vector2(landmass.x(), landmass.z()))
+                .min((left, right) -> Double.compare(
+                        position.distanceTo(left),
+                        position.distanceTo(right)
+                ));
+    }
+
+    private void steerToward(Ship ship, Vector2 target, int engineOrder, NavigationService navigationService, WorldMap worldMap) {
+        double targetBearing = relativeBearing(ship, target);
+        int rudder = (int) Math.round(MathSupport.clamp(targetBearing / 0.7, -1, 1) * 35);
+        applyBotCommand(ship, engineOrder, rudder, navigationService, worldMap);
+    }
+
+    private boolean escortHumanLeader(Ship ship, NavigationService navigationService, WorldMap worldMap) {
+        Optional<Ship> leader = activeTeamShips(ship.teamId()).stream()
+                .filter(candidate -> !"bot".equals(candidate.controlledBy()))
+                .min((left, right) -> Double.compare(
+                        ship.position().distanceTo(left.position()),
+                        ship.position().distanceTo(right.position())
+                ));
+        if (leader.isEmpty()) {
+            return false;
+        }
+
+        Ship human = leader.get();
+        double distanceToHuman = ship.position().distanceTo(human.position());
+        if (distanceToHuman > BOT_ESCORT_JOIN_RANGE) {
+            return false;
+        }
+        if (distanceToHuman < BOT_ESCORT_MIN_DISTANCE) {
+            steerAwayFrom(ship, human.position(), Math.abs(human.speed()) < 0.8 ? ENGINE_STOP : ENGINE_SLOW, navigationService, worldMap);
+            return true;
+        }
+
+        Vector2 escortPoint = escortPointFor(ship, human);
+        double distanceToEscortPoint = ship.position().distanceTo(escortPoint);
+        int engineOrder = escortEngineOrder(distanceToEscortPoint, human.speed());
+        steerToward(ship, escortPoint, engineOrder, navigationService, worldMap);
+        return true;
+    }
+
+    private List<Ship> activeTeamShips(String teamId) {
+        return allShips().stream()
+                .filter(ship -> teamId.equals(ship.teamId()))
+                .filter(ship -> "active".equals(ship.state()))
+                .toList();
+    }
+
+    private Vector2 escortPointFor(Ship ship, Ship leader) {
+        double side = stablePhase(ship.id()) % 2.0 >= 1.0 ? 1.0 : -1.0;
+        double lane = 70 + (stablePhase(ship.id()) % 0.8) * 36;
+        double sternOffset = BOT_ESCORT_TARGET_DISTANCE + (stablePhase(ship.id()) % 0.6) * 45;
+        Vector2 forward = Vector2.fromHeading(leader.heading());
+        Vector2 right = new Vector2(Math.cos(leader.heading()), -Math.sin(leader.heading()));
+        return leader.position()
+                .add(forward.scale(-sternOffset))
+                .add(right.scale(side * lane));
+    }
+
+    private int escortEngineOrder(double distanceToEscortPoint, double leaderSpeed) {
+        if (distanceToEscortPoint < 45 && Math.abs(leaderSpeed) < 0.8) {
+            return ENGINE_STOP;
+        }
+        if (distanceToEscortPoint < 90) {
+            return Math.abs(leaderSpeed) < 2.5 ? ENGINE_SLOW : ENGINE_HALF;
+        }
+        if (distanceToEscortPoint < 180) {
+            return ENGINE_HALF;
+        }
+        return ENGINE_TWO_THIRDS;
+    }
+
+    private void steerAwayFrom(Ship ship, Vector2 point, int engineOrder, NavigationService navigationService, WorldMap worldMap) {
+        Vector2 away = ship.position().add(ship.position().subtract(point).normalized().scale(130));
+        steerToward(ship, away, engineOrder, navigationService, worldMap);
+    }
+
+    private void aimAtTarget(Ship ship, Ship target, NavigationService navigationService, WorldMap worldMap) {
+        double distance = ship.position().distanceTo(target.position());
+        double targetBearing = relativeBearing(ship, target.position());
+        double aimError = Math.sin(nowSeconds * 0.31 + stablePhase(ship.id())) * BOT_AIM_ERROR;
+        double steerError = MathSupport.normalizeAngle(targetBearing + aimError);
+        int rudder = (int) Math.round(MathSupport.clamp(steerError / 0.58, -1, 1) * 35);
+        int engineOrder = distance < BOT_RAM_RANGE ? ENGINE_SLOW : distance < 130 ? ENGINE_SLOW : ENGINE_HALF;
+        applyBotCommand(ship, engineOrder, rudder, navigationService, worldMap);
+
+        boolean closeInFront = distance <= BOT_CLOSE_FIRE_RANGE && Math.abs(targetBearing) <= BOT_CLOSE_FIRE_ARC;
+        boolean aimedShot = distance >= 65 && distance <= 230 && Math.abs(steerError) <= BOT_FIRE_ARC;
+        if (closeInFront || aimedShot) {
+            fireTorpedo(ship, 10.5 + Math.abs(Math.sin(stablePhase(ship.id()))) * 3.0, aimError * 0.65);
+        }
+    }
+
+    private void updateRamCollisions() {
+        List<Ship> activeShips = allShips().stream()
+                .filter(ship -> "active".equals(ship.state()))
+                .toList();
+        for (int i = 0; i < activeShips.size(); i += 1) {
+            Ship left = activeShips.get(i);
+            for (int j = i + 1; j < activeShips.size(); j += 1) {
+                Ship right = activeShips.get(j);
+
+                RamImpact leftImpact = ramImpact(left, right);
+                RamImpact rightImpact = ramImpact(right, left);
+                if (!leftImpact.hits() && !rightImpact.hits()
+                        && left.position().distanceTo(right.position()) > RAM_HIT_RADIUS) {
+                    continue;
+                }
+
+                boolean leftSideRamsRight = leftImpact.isCleanSideHit();
+                boolean rightSideRamsLeft = rightImpact.isCleanSideHit();
+                if (leftSideRamsRight && !rightSideRamsLeft) {
+                    sinkShip(right);
+                    left.stopAfterRamImpact();
+                } else if (rightSideRamsLeft && !leftSideRamsRight) {
+                    sinkShip(left);
+                    right.stopAfterRamImpact();
+                } else {
+                    sinkShip(left);
+                    sinkShip(right);
+                }
+            }
+        }
+    }
+
+    private RamImpact ramImpact(Ship attacker, Ship target) {
+        if (attacker.speed() < 1.8) {
+            return RamImpact.miss();
+        }
+
+        Vector2 attackerBow = attacker.position()
+                .add(Vector2.fromHeading(attacker.heading()).scale(RAM_BOW_OFFSET));
+        LocalHullPoint hit = localHullPoint(attackerBow, target);
+        if (hit.forward() < RAM_STERN_LENGTH - 0.2 || hit.forward() > RAM_BOW_LENGTH + 0.2) {
+            return RamImpact.miss();
+        }
+
+        double halfWidth = enemyHullHalfWidthAt(hit.forward());
+        if (Math.abs(hit.right()) > halfWidth + RAM_SIDE_MARGIN) {
+            return RamImpact.miss();
+        }
+
+        double relativeHeading = angularDistance(attacker.heading(), target.heading());
+        double sideAngleError = Math.abs((Math.PI / 2) - Math.min(relativeHeading, Math.PI - relativeHeading));
+        boolean sideAngle = sideAngleError <= RAM_SIDE_ANGLE_TOLERANCE;
+        boolean sideHit = hit.forward() >= RAM_SIDE_FORWARD_MIN
+                && hit.forward() <= RAM_SIDE_FORWARD_MAX
+                && (sideAngle || Math.abs(hit.right()) >= Math.max(0.12, halfWidth - RAM_SIDE_MARGIN));
+        return new RamImpact(true, sideHit);
+    }
+
+    private LocalHullPoint localHullPoint(Vector2 point, Ship ship) {
+        double dx = point.x() - ship.position().x();
+        double dz = point.z() - ship.position().z();
+        return new LocalHullPoint(
+                dx * Math.cos(ship.heading()) - dz * Math.sin(ship.heading()),
+                dx * Math.sin(ship.heading()) + dz * Math.cos(ship.heading())
+        );
+    }
+
+    private double enemyHullHalfWidthAt(double forward) {
+        double[][] sections = {
+                {-4.05, 0.39},
+                {-2.3, 0.61},
+                {1.55, 0.66},
+                {3.25, 0.31},
+                {4.45, 0.04}
+        };
+
+        if (forward <= sections[0][0]) {
+            return sections[0][1];
+        }
+
+        for (int i = 0; i < sections.length - 1; i += 1) {
+            double currentForward = sections[i][0];
+            double nextForward = sections[i + 1][0];
+            if (forward <= nextForward) {
+                double t = (forward - currentForward) / (nextForward - currentForward);
+                return sections[i][1] + (sections[i + 1][1] - sections[i][1]) * t;
+            }
+        }
+
+        return sections[sections.length - 1][1];
+    }
+
+    private record LocalHullPoint(double right, double forward) {
+    }
+
+    private record RamImpact(boolean hits, boolean isCleanSideHit) {
+        static RamImpact miss() {
+            return new RamImpact(false, false);
+        }
+    }
+
+    private void updateTorpedoes(double deltaSeconds, NavigationService navigationService, WorldMap worldMap) {
+        for (Torpedo torpedo : torpedoes) {
+            torpedo.update(deltaSeconds);
+            if (!"running".equals(torpedo.state())) {
+                continue;
+            }
+
+            if (torpedoHitsLand(torpedo, navigationService, worldMap)) {
+                torpedo.hit();
+                continue;
+            }
+
+            allShips().stream()
+                    .filter(ship -> "active".equals(ship.state()))
+                    .filter(ship -> !ship.id().equals(torpedo.shipId()))
+                    .filter(ship -> torpedoHitsShip(torpedo, ship))
+                    .findFirst()
+                    .ifPresent(ship -> {
+                        sinkShip(ship);
+                        torpedo.hit();
+                    });
+        }
+    }
+
+    private boolean torpedoHitsLand(Torpedo torpedo, NavigationService navigationService, WorldMap worldMap) {
+        double segmentLength = torpedo.previousPosition().distanceTo(torpedo.position());
+        int samples = Math.max(1, (int) Math.ceil(segmentLength / TORPEDO_SWEEP_STEP));
+        for (int index = 0; index <= samples; index += 1) {
+            double t = samples == 0 ? 1 : (double) index / samples;
+            Vector2 sample = new Vector2(
+                    torpedo.previousPosition().x() + (torpedo.position().x() - torpedo.previousPosition().x()) * t,
+                    torpedo.previousPosition().z() + (torpedo.position().z() - torpedo.previousPosition().z()) * t
+            );
+            if (navigationService.isTorpedoBlocked(sample, worldMap)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean torpedoHitsShip(Torpedo torpedo, Ship ship) {
+        if (ship.position().distanceTo(torpedo.position()) > TORPEDO_BROAD_PHASE_RADIUS
+                && ship.position().distanceTo(torpedo.previousPosition()) > TORPEDO_BROAD_PHASE_RADIUS) {
+            return false;
+        }
+
+        double segmentLength = torpedo.previousPosition().distanceTo(torpedo.position());
+        int samples = Math.max(1, (int) Math.ceil(segmentLength / TORPEDO_SWEEP_STEP));
+        for (int index = 0; index <= samples; index += 1) {
+            double t = samples == 0 ? 1 : (double) index / samples;
+            Vector2 sample = new Vector2(
+                    torpedo.previousPosition().x() + (torpedo.position().x() - torpedo.previousPosition().x()) * t,
+                    torpedo.previousPosition().z() + (torpedo.position().z() - torpedo.previousPosition().z()) * t
+            );
+            if (pointHitsShipHull(sample, ship, TORPEDO_HULL_MARGIN)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean pointHitsShipHull(Vector2 point, Ship ship, double margin) {
+        LocalHullPoint hit = localHullPoint(point, ship);
+        if (hit.forward() < RAM_STERN_LENGTH - margin || hit.forward() > RAM_BOW_LENGTH + margin) {
+            return false;
+        }
+
+        return Math.abs(hit.right()) <= enemyHullHalfWidthAt(hit.forward()) + margin;
+    }
+
+    private void sinkShip(Ship ship) {
+        if (!ship.sink(nowSeconds + RESPAWN_DELAY_SECONDS)) {
+            return;
+        }
+        destroyedShipsByTeam.merge(ship.teamId(), 1, Integer::sum);
+        Optional.ofNullable(fleets.get(ship.teamId())).ifPresent(fleet -> fleet.releaseShip(ship.id()));
+    }
+
+    private void respawnSunkShips(NavigationService navigationService, WorldMap worldMap, RadarService radarService) {
+        allShips().stream()
+                .filter(ship -> ship.isReadyToRespawn(nowSeconds))
+                .forEach(ship -> {
+                    Vector2 position = findRespawnPosition(ship, navigationService, worldMap, radarService);
+                    double heading = MathSupport.normalizeAngle(angleTo(nearestLandCenter(position, worldMap).orElse(new Vector2(0, 0)), position) + Math.PI);
+                    ship.respawn(position, heading, nowSeconds);
+                });
+    }
+
+    private Vector2 findRespawnPosition(Ship ship, NavigationService navigationService, WorldMap worldMap, RadarService radarService) {
+        List<Vector2> candidates = respawnCandidates();
+        Vector2 bestCandidate = candidates.get(0);
+        double bestScore = Double.NEGATIVE_INFINITY;
+        int startIndex = nextRespawnCandidateIndex++;
+        for (int offset = 0; offset < candidates.size(); offset += 1) {
+            Vector2 candidate = candidates.get((startIndex + offset) % candidates.size());
+            if (navigationService.isShipBlocked(candidate, ship.heading(), worldMap)) {
+                continue;
+            }
+            if (activeShipsTooClose(candidate)) {
+                continue;
+            }
+            double distanceToHumans = distanceToNearestHumanShip(candidate);
+            double score = distanceToHumans + distanceToNearestLand(candidate, worldMap) * 0.15;
+            if (score > bestScore) {
+                bestCandidate = candidate;
+                bestScore = score;
+            }
+            if (distanceToHumans > radarService.range() + RESPAWN_HUMAN_RADAR_MARGIN) {
+                return candidate;
+            }
+        }
+        return bestCandidate;
+    }
+
+    private boolean activeShipsTooClose(Vector2 candidate) {
+        return allShips().stream()
+                .filter(ship -> "active".equals(ship.state()))
+                .anyMatch(ship -> ship.position().distanceTo(candidate) < RESPAWN_MIN_SHIP_DISTANCE);
+    }
+
+    private double distanceToNearestHumanShip(Vector2 candidate) {
+        return allShips().stream()
+                .filter(ship -> "active".equals(ship.state()))
+                .filter(ship -> !"bot".equals(ship.controlledBy()))
+                .mapToDouble(ship -> ship.position().distanceTo(candidate))
+                .min()
+                .orElse(Double.POSITIVE_INFINITY);
+    }
+
+    private double distanceToNearestLand(Vector2 candidate, WorldMap worldMap) {
+        return worldMap.landmasses().stream()
+                .mapToDouble(landmass -> candidate.distanceTo(new Vector2(landmass.x(), landmass.z())))
+                .min()
+                .orElse(0);
+    }
+
+    private boolean fireTorpedo(Ship ship, double cooldownSeconds, double headingOffsetRadians) {
+        if (!ship.canFire(nowSeconds)) {
+            return false;
+        }
+
+        ship.markFired(nowSeconds, cooldownSeconds);
+        double heading = MathSupport.normalizeAngle(ship.heading() + headingOffsetRadians);
+        Vector2 muzzlePosition = ship.position().add(Vector2.fromHeading(heading).scale(5.0));
+        torpedoes.add(new Torpedo(
+                "torpedo-" + nextTorpedoId++,
+                ship.teamId(),
+                ship.id(),
+                muzzlePosition,
+                heading,
+                24 + Math.max(0, ship.speed()) * 0.35,
+                nowSeconds,
+                RadarService.RADAR_RANGE
+        ));
+        return true;
+    }
+
+    private void checkGameOver() {
+        state = "running";
     }
 
     private List<Ship> allShips() {
@@ -65,26 +747,123 @@ public final class GameSession {
                 .toList();
     }
 
+    private RadarContact radarContact(Ship observer, Ship contact) {
+        double dx = contact.position().x() - observer.position().x();
+        double dz = contact.position().z() - observer.position().z();
+        double bearing = MathSupport.normalizeAngle(Math.atan2(dx, dz) - observer.heading());
+        return new RadarContact(
+                contact.id(),
+                contact.teamId(),
+                MathSupport.round(contact.position().x()),
+                MathSupport.round(contact.position().z()),
+                MathSupport.round(contact.heading()),
+                MathSupport.round(observer.position().distanceTo(contact.position())),
+                MathSupport.round(bearing)
+        );
+    }
+
     private static Map<String, Fleet> createStartingFleets() {
         Map<String, Fleet> fleets = new LinkedHashMap<>();
-        fleets.put("red", new Fleet("red", createShips("red", -420, -220, 0.85)));
-        fleets.put("blue", new Fleet("blue", createShips("blue", 420, 220, -2.3)));
+        fleets.put("red", new Fleet("red", createShips("red", redFormation())));
+        fleets.put("blue", new Fleet("blue", createShips("blue", blueFormation())));
         return fleets;
     }
 
-    private static List<Ship> createShips(String teamId, double baseX, double baseZ, double heading) {
+    private static List<Ship> createShips(String teamId, double[][] formation) {
         List<Ship> ships = new ArrayList<>();
-        for (int index = 0; index < 5; index += 1) {
+        for (int index = 0; index < formation.length; index += 1) {
+            double[] slot = formation[index];
             Ship ship = new Ship(
                     teamId + "-" + (index + 1),
                     teamId,
-                    new Vector2(baseX + index * 18, baseZ + (index % 2) * 26),
-                    heading,
+                    new Vector2(slot[0], slot[1]),
+                    MathSupport.normalizeAngle(slot[2]),
                     "bot"
             );
-            ship.nextFireTime(5 + index * 2.5);
+            ship.applyCommand((int) slot[3], (int) slot[4]);
+            ship.nextFireTime(index == 0 ? 0 : 3 + index * 1.5);
             ships.add(ship);
         }
         return ships;
+    }
+
+    private static double[][] redFormation() {
+        return new double[][]{
+                {96, -340, -2.32, ENGINE_STOP, 0},
+                {140, -455, -2.55, ENGINE_SLOW, -4},
+                {-40, -300, -2.0, ENGINE_SLOW, 5},
+                {220, -500, -2.5, ENGINE_HALF, 4},
+                {-260, 1500, 2.8, ENGINE_SLOW, -7},
+                {1420, 760, -2.4, ENGINE_HALF, 5},
+                {520, -1180, -2.1, ENGINE_HALF, -6},
+                {-360, -1160, 0.72, ENGINE_SLOW, 5},
+                {1780, -820, -2.55, ENGINE_TWO_THIRDS, -7},
+                {-1260, 1620, 2.15, ENGINE_SLOW, 6},
+                {1040, 1180, -2.65, ENGINE_HALF, -5},
+                {-920, 920, 1.25, ENGINE_SLOW, 6},
+                {1880, 160, -2.35, ENGINE_HALF, 4},
+                {-1460, -820, 0.62, ENGINE_HALF, -6},
+                {980, -1680, -2.05, ENGINE_SLOW, 5}
+        };
+    }
+
+    private static double[][] blueFormation() {
+        return new double[][]{
+                {-560, -520, 0.9, ENGINE_STOP, 0},
+                {-310, -240, 1.45, ENGINE_SLOW, -5},
+                {-940, -760, 0.65, ENGINE_HALF, 7},
+                {-560, -650, 0.75, ENGINE_HALF, -5},
+                {1120, 420, 2.7, ENGINE_SLOW, 7},
+                {-420, -760, -0.4, ENGINE_HALF, 5},
+                {-860, -1480, -0.45, ENGINE_SLOW, -8},
+                {1120, -1280, -2.2, ENGINE_HALF, -6},
+                {470, 900, -2.8, ENGINE_TWO_THIRDS, 8},
+                {-760, 1040, -2.55, ENGINE_HALF, -5},
+                {1580, 80, 2.95, ENGINE_SLOW, 4},
+                {860, -920, -2.72, ENGINE_HALF, -6},
+                {-1660, -1540, -0.75, ENGINE_HALF, 5},
+                {-980, 60, -1.3, ENGINE_SLOW, -7},
+                {650, -72, -2.58, ENGINE_TWO_THIRDS, 6}
+        };
+    }
+
+    private static List<Vector2> respawnCandidates() {
+        return List.of(
+                new Vector2(96, -340),
+                new Vector2(300, -70),
+                new Vector2(-940, -760),
+                new Vector2(-455, -155),
+                new Vector2(160, 1020),
+                new Vector2(1420, 760),
+                new Vector2(520, -1180),
+                new Vector2(-860, -1480),
+                new Vector2(1120, -1280),
+                new Vector2(470, 900),
+                new Vector2(-760, 1040),
+                new Vector2(1580, 80),
+                new Vector2(-1460, -820),
+                new Vector2(980, -1680),
+                new Vector2(-1260, 1620),
+                new Vector2(1880, 160),
+                new Vector2(-980, 60),
+                new Vector2(1040, 1180)
+        );
+    }
+
+    private double relativeBearing(Ship ship, Vector2 target) {
+        return MathSupport.normalizeAngle(angleTo(target, ship.position()) - ship.heading());
+    }
+
+    private double angleTo(Vector2 target, Vector2 from) {
+        return Math.atan2(target.x() - from.x(), target.z() - from.z());
+    }
+
+    private double angularDistance(double left, double right) {
+        return Math.abs(MathSupport.normalizeAngle(left - right));
+    }
+
+    private double stablePhase(String value) {
+        int hash = Math.abs(value.hashCode());
+        return (hash % 6283) / 1000.0;
     }
 }

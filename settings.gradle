@@ -1,7 +1,26 @@
 pluginManagement {
+    def xisVersionFile = file('../../xis/gradle.properties')
+    if (!xisVersionFile.isFile()) {
+        throw new GradleException("XIS version file not found: ${xisVersionFile}. Check out 'xis' next to the LG folder.")
+    }
+    def xisProperties = new Properties()
+    xisVersionFile.withInputStream { xisProperties.load(it) }
+    def xisVersion = xisProperties.getProperty('projectVersion')
+    if (xisVersion == null || xisVersion.isBlank()) {
+        throw new GradleException("Property 'projectVersion' not found in ${xisVersionFile}.")
+    }
+
     repositories {
         mavenLocal()
+        mavenCentral()
         gradlePluginPortal()
+    }
+    resolutionStrategy {
+        eachPlugin {
+            if (requested.id.id == 'one.xis.plugin') {
+                useVersion(xisVersion)
+            }
+        }
     }
 }
 
