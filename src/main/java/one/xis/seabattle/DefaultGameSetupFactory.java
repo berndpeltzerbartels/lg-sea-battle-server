@@ -27,6 +27,7 @@ final class DefaultGameSetupFactory {
             case "single-island" -> singleIslandSetup();
             case "ram-side" -> ramSideSetup();
             case "explosion-demo" -> explosionDemoSetup();
+            case "dense-land" -> denseLandSetup();
             default -> throw new IllegalArgumentException("Unknown game setup: " + setupId);
         };
     }
@@ -131,6 +132,18 @@ final class DefaultGameSetupFactory {
                         ))
                 ),
                 List.of(new Vector2(0, -2100), new Vector2(70, -540), new Vector2(205, -540))
+        );
+    }
+
+    private GameSetup denseLandSetup() {
+        return new GameSetup(
+                "dense-land",
+                worldMapService.denseWorld(),
+                List.of(
+                        new FleetSetup("red", createShips("red", denseRedFormation())),
+                        new FleetSetup("blue", createShips("blue", denseBlueFormation()))
+                ),
+                denseRespawnCandidates()
         );
     }
 
@@ -240,6 +253,69 @@ final class DefaultGameSetupFactory {
                 new Vector2(1880, 160),
                 new Vector2(-980, 60),
                 new Vector2(1040, 1180)
+        );
+    }
+
+    private static double[][] denseRedFormation() {
+        return new double[][]{
+                {-180, -520, -0.58, ENGINE_STOP, 0},
+                {-260, -420, -0.42, ENGINE_SLOW, 4},
+                {-40, -480, -0.75, ENGINE_SLOW, -4},
+                {-413, 82, -0.1, ENGINE_HALF, 5},
+                {-210, 240, -0.32, ENGINE_SLOW, -5},
+                {-340, 520, -0.9, ENGINE_HALF, 4},
+                {-961, 133, 0.35, ENGINE_SLOW, -6},
+                {-1260, -220, 0.15, ENGINE_HALF, 5},
+                {-1235, 395, -0.25, ENGINE_SLOW, -4},
+                {-1173, -826, 0.75, ENGINE_HALF, 6},
+                {-488, -1080, 0.62, ENGINE_SLOW, -5},
+                {92, -671, -0.9, ENGINE_HALF, 4},
+                {205, 365, -1.18, ENGINE_SLOW, -6},
+                {-1441, -303, 0.48, ENGINE_HALF, 5},
+                {429, 216, -1.4, ENGINE_SLOW, -4}
+        };
+    }
+
+    private static double[][] denseBlueFormation() {
+        return new double[][]{
+                {370, -335, 2.55, ENGINE_STOP, 0},
+                {485, -203, 2.72, ENGINE_SLOW, -5},
+                {195, -505, 2.35, ENGINE_SLOW, 5},
+                {543, 208, 3.0, ENGINE_HALF, -4},
+                {369, 248, 2.82, ENGINE_SLOW, 6},
+                {663, 265, 2.35, ENGINE_HALF, -5},
+                {1010, 260, -2.95, ENGINE_SLOW, 5},
+                {1340, -190, -2.92, ENGINE_HALF, -5},
+                {1525, 820, 2.8, ENGINE_SLOW, 4},
+                {1128, -773, -2.4, ENGINE_HALF, -6},
+                {560, -1120, -2.25, ENGINE_SLOW, 5},
+                {20, -995, 2.2, ENGINE_HALF, -4},
+                {-50, 430, 2.05, ENGINE_SLOW, 5},
+                {1260, -180, -2.7, ENGINE_HALF, -5},
+                {-360, 40, 1.65, ENGINE_SLOW, 4}
+        };
+    }
+
+    private static List<Vector2> denseRespawnCandidates() {
+        return List.of(
+                new Vector2(-180, -520),
+                new Vector2(370, -335),
+                new Vector2(-413, 82),
+                new Vector2(543, 208),
+                new Vector2(-210, 240),
+                new Vector2(369, 248),
+                new Vector2(-340, 520),
+                new Vector2(663, 265),
+                new Vector2(-961, 133),
+                new Vector2(1010, 260),
+                new Vector2(-1260, -220),
+                new Vector2(1340, -190),
+                new Vector2(-1173, -826),
+                new Vector2(1128, -773),
+                new Vector2(92, -671),
+                new Vector2(20, -995),
+                new Vector2(429, 216),
+                new Vector2(-360, 40)
         );
     }
 }

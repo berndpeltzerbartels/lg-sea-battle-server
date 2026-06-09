@@ -40,6 +40,7 @@ public final class GameSession {
     private static final double RESPAWN_DELAY_SECONDS = 8;
     private static final double RESPAWN_HUMAN_RADAR_MARGIN = 120;
     private static final double RESPAWN_MIN_SHIP_DISTANCE = 170;
+    private static final double TORPEDO_IMPACT_VISIBILITY_SECONDS = 3.0;
     private static final int ENGINE_ASTERN = 1;
     private static final int ENGINE_STOP = 2;
     private static final int ENGINE_SLOW = 3;
@@ -53,6 +54,7 @@ public final class GameSession {
     private final List<Vector2> respawnCandidates;
     private final Map<String, Integer> destroyedShipsByTeam = new LinkedHashMap<>();
     private final List<Torpedo> torpedoes = new ArrayList<>();
+    private final List<TorpedoImpactSnapshot> torpedoImpacts = new ArrayList<>();
     private int nextTorpedoId = 1;
     private int nextRespawnCandidateIndex;
     private double nowSeconds;
@@ -83,6 +85,9 @@ public final class GameSession {
                 torpedoes.stream()
                         .filter(torpedo -> "running".equals(torpedo.state()))
                         .map(Torpedo::snapshot)
+                        .toList(),
+                torpedoImpacts.stream()
+                        .filter(impact -> nowSeconds - impact.t() <= TORPEDO_IMPACT_VISIBILITY_SECONDS)
                         .toList(),
                 Map.copyOf(destroyedShipsByTeam)
         );
@@ -157,6 +162,7 @@ public final class GameSession {
         updateRamCollisions();
         respawnSunkShips(navigationService, worldMap, radarService);
         torpedoes.removeIf(torpedo -> !"running".equals(torpedo.state()));
+        torpedoImpacts.removeIf(impact -> nowSeconds - impact.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
         checkGameOver();
     }
 
@@ -505,12 +511,25 @@ public final class GameSession {
 
                 boolean leftSideRamsRight = leftImpact.isCleanSideHit();
                 boolean rightSideRamsLeft = rightImpact.isCleanSideHit();
-                if (leftSideRamsRight && !rightSideRamsLeft) {
+                boolean headOnCollision = leftImpact.isBowHit() && rightImpact.isBowHit()
+                        && angularDistance(left.heading(), right.heading()) > Math.toRadians(135);
+                if (headOnCollision) {
+                    sinkShip(left);
+                    sinkShip(right);
+                } else if (leftSideRamsRight && !rightSideRamsLeft) {
                     sinkShip(right);
                     left.stopAfterRamImpact();
                 } else if (rightSideRamsLeft && !leftSideRamsRight) {
                     sinkShip(left);
                     right.stopAfterRamImpact();
+                } else if (leftSideRamsRight && rightSideRamsLeft) {
+                    if (leftImpact.sideScore() > rightImpact.sideScore()) {
+                        sinkShip(right);
+                        left.stopAfterRamImpact();
+                    } else {
+                        sinkShip(left);
+                        right.stopAfterRamImpact();
+                    }
                 } else {
                     sinkShip(left);
                     sinkShip(right);
@@ -524,10 +543,21 @@ public final class GameSession {
             return RamImpact.miss();
         }
 
+        RamImpact bestImpact = RamImpact.miss();
+        for (double bowOffset : List.of(RAM_BOW_OFFSET, RAM_BOW_OFFSET - 1.15, RAM_BOW_OFFSET - 2.3)) {
+            RamImpact impact = ramImpactAt(attacker, target, bowOffset);
+            if (impact.sideScore() > bestImpact.sideScore() || (impact.hits() && !bestImpact.hits())) {
+                bestImpact = impact;
+            }
+        }
+        return bestImpact;
+    }
+
+    private RamImpact ramImpactAt(Ship attacker, Ship target, double bowOffset) {
         Vector2 attackerBow = attacker.position()
-                .add(Vector2.fromHeading(attacker.heading()).scale(RAM_BOW_OFFSET));
+                .add(Vector2.fromHeading(attacker.heading()).scale(bowOffset));
         LocalHullPoint hit = localHullPoint(attackerBow, target);
-        if (hit.forward() < RAM_STERN_LENGTH - 0.2 || hit.forward() > RAM_BOW_LENGTH + 0.2) {
+        if (hit.forward() < RAM_STERN_LENGTH - RAM_SIDE_MARGIN || hit.forward() > RAM_BOW_LENGTH + RAM_SIDE_MARGIN) {
             return RamImpact.miss();
         }
 
@@ -541,8 +571,14 @@ public final class GameSession {
         boolean sideAngle = sideAngleError <= RAM_SIDE_ANGLE_TOLERANCE;
         boolean sideHit = hit.forward() >= RAM_SIDE_FORWARD_MIN
                 && hit.forward() <= RAM_SIDE_FORWARD_MAX
-                && (sideAngle || Math.abs(hit.right()) >= Math.max(0.12, halfWidth - RAM_SIDE_MARGIN));
-        return new RamImpact(true, sideHit);
+                && sideAngle;
+        boolean bowHit = hit.forward() > RAM_BOW_LENGTH - 1.15;
+        double sideScore = sideHit
+                ? (1 - sideAngleError / RAM_SIDE_ANGLE_TOLERANCE)
+                + MathSupport.clamp((halfWidth + RAM_SIDE_MARGIN - Math.abs(hit.right())) / (halfWidth + RAM_SIDE_MARGIN), 0, 1) * 0.35
+                + MathSupport.clamp(attacker.speed() / 8.0, 0, 1) * 0.25
+                : 0;
+        return new RamImpact(true, sideHit, bowHit, sideScore);
     }
 
     private LocalHullPoint localHullPoint(Vector2 point, Ship ship) {
@@ -582,21 +618,26 @@ public final class GameSession {
     private record LocalHullPoint(double right, double forward) {
     }
 
-    private record RamImpact(boolean hits, boolean isCleanSideHit) {
+    private record RamImpact(boolean hits, boolean isCleanSideHit, boolean isBowHit, double sideScore) {
         static RamImpact miss() {
-            return new RamImpact(false, false);
+            return new RamImpact(false, false, false, 0);
         }
     }
 
     private void updateTorpedoes(double deltaSeconds, NavigationService navigationService, WorldMap worldMap) {
         for (Torpedo torpedo : torpedoes) {
             torpedo.update(deltaSeconds);
+            if ("expired".equals(torpedo.state())) {
+                recordTorpedoImpact(torpedo, "expired", null);
+                continue;
+            }
             if (!"running".equals(torpedo.state())) {
                 continue;
             }
 
             if (torpedoHitsLand(torpedo, navigationService, worldMap)) {
                 torpedo.hit();
+                recordTorpedoImpact(torpedo, "land-hit", null);
                 continue;
             }
 
@@ -608,8 +649,23 @@ public final class GameSession {
                     .ifPresent(ship -> {
                         sinkShip(ship);
                         torpedo.hit();
+                        recordTorpedoImpact(torpedo, "ship-hit", ship.id());
                     });
         }
+    }
+
+    private void recordTorpedoImpact(Torpedo torpedo, String reason, String targetShipId) {
+        torpedoImpacts.add(new TorpedoImpactSnapshot(
+                torpedo.id(),
+                torpedo.teamId(),
+                torpedo.shipId(),
+                targetShipId,
+                reason,
+                MathSupport.round(torpedo.position().x()),
+                MathSupport.round(torpedo.position().z()),
+                MathSupport.round(torpedo.heading()),
+                MathSupport.round(nowSeconds)
+        ));
     }
 
     private boolean torpedoHitsLand(Torpedo torpedo, NavigationService navigationService, WorldMap worldMap) {

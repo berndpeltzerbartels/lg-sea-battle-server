@@ -10,6 +10,7 @@ public record GameSnapshot(
         double t,
         List<ShipSnapshot> ships,
         List<TorpedoSnapshot> torpedoes,
+        List<TorpedoImpactSnapshot> torpedoImpacts,
         Map<String, Integer> destroyedShipsByTeam
 ) {
 }

@@ -62,6 +62,26 @@ class GameSessionTest {
     }
 
     @Test
+    void diagonalSideRamSinksTargetOnly() {
+        GameSession session = new GameSession(new GameSetup(
+                "diagonal-ram-test",
+                new WorldMap(9003, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, Math.PI / 4, 5, 0))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 41, 41, 0, 2, 0)))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(41, 41))
+        ));
+
+        GameSnapshot snapshot = tickUntilShipState(session, "blue-1", "sunk", 30);
+
+        assertEquals("active", findShip(snapshot, "red-1").state());
+        assertEquals("sunk", findShip(snapshot, "blue-1").state());
+        assertEquals(1, snapshot.destroyedShipsByTeam().get("blue"));
+        assertEquals(0, snapshot.destroyedShipsByTeam().get("red"));
+    }
+
+    @Test
     void releasePlayerReturnsAssignedShipToBotControl() {
         GameSession session = new GameSession(new GameSetup(
                 "release-test",
@@ -99,6 +119,11 @@ class GameSessionTest {
         GameSetup explosionDemo = factory.setup("explosion-demo");
         assertEquals("explosion-demo", explosionDemo.id());
         assertEquals(30, explosionDemo.fleets().stream().mapToInt(fleet -> fleet.ships().size()).sum());
+
+        GameSetup denseLand = factory.setup("dense-land");
+        assertEquals("dense-land", denseLand.id());
+        assertEquals(9, denseLand.worldMap().version());
+        assertEquals(30, denseLand.fleets().stream().mapToInt(fleet -> fleet.ships().size()).sum());
     }
 
     @Test
@@ -109,6 +134,58 @@ class GameSessionTest {
     @Test
     void explosionDemoPlacesShipsAndRespawnsInNavigableWater() {
         assertSetupPlacesShipsAndRespawnsInNavigableWater(new DefaultGameSetupFactory(new WorldMapService()).setup("explosion-demo"));
+    }
+
+    @Test
+    void denseLandPlacesShipsAndRespawnsInNavigableWater() {
+        assertSetupPlacesShipsAndRespawnsInNavigableWater(new DefaultGameSetupFactory(new WorldMapService()).setup("dense-land"));
+    }
+
+    @Test
+    void denseLandKeepsActiveShipsInNavigableWaterDuringSimulation() {
+        GameSetup setup = new DefaultGameSetupFactory(new WorldMapService()).setup("dense-land");
+        GameSession session = new GameSession(setup);
+
+        for (int tick = 0; tick < 400; tick += 1) {
+            session.update(0.05, radarService, navigationService, session.worldMap());
+            assertActiveShipsNavigable("tick " + tick, session.snapshot(), session.worldMap());
+        }
+    }
+
+    @Test
+    void denseLandNavigationBoundaryMatchesVisibleLandBoundary() {
+        WorldMap worldMap = new DefaultGameSetupFactory(new WorldMapService()).setup("dense-land").worldMap();
+        List<String> mismatches = new java.util.ArrayList<>();
+
+        for (Landmass landmass : worldMap.landmasses()) {
+            if ("island".equals(landmass.kind())) {
+                continue;
+            }
+            sampleBoundaryPoints(landmass).stream()
+                    .filter(point -> !isInLandWater(point, landmass))
+                    .forEach(point -> {
+                        double visibleDistance = shapeDistance(point, landmass, landmass.rx(), landmass.rz());
+                        double navigationDistance = shapeDistance(point, landmass, landmass.navigationRx(), landmass.navigationRz());
+                        double blockDistance = blockDistance(landmass);
+                        if (visibleDistance < blockDistance && navigationDistance >= blockDistance) {
+                            mismatches.add(landmass.name() + " visible land is navigable at " + point
+                                    + " visible=" + visibleDistance + " navigation=" + navigationDistance);
+                        }
+                        if (navigationDistance < blockDistance && visibleDistance >= blockDistance + 0.02) {
+                            mismatches.add(landmass.name() + " invisible land blocks at " + point
+                                    + " visible=" + visibleDistance + " navigation=" + navigationDistance);
+                        }
+                    });
+        }
+
+        assertTrue(mismatches.isEmpty(), String.join("\n", mismatches.stream().limit(40).toList()));
+    }
+
+    @Test
+    void denseLandVolcanoCenterIsNotNavigableWater() {
+        WorldMap worldMap = new DefaultGameSetupFactory(new WorldMapService()).setup("dense-land").worldMap();
+
+        assertTrue(navigationService.isShipBlocked(new Vector2(310, -201), 2.55, worldMap));
     }
 
     @Test
@@ -152,6 +229,129 @@ class GameSessionTest {
                 .forEach(blockedPositions::add);
 
         assertTrue(blockedPositions.isEmpty(), String.join("\n", blockedPositions));
+    }
+
+    private void assertActiveShipsNavigable(String label, GameSnapshot snapshot, WorldMap worldMap) {
+        List<String> blockedPositions = new java.util.ArrayList<>();
+        snapshot.ships().stream()
+                .filter(ship -> "active".equals(ship.state()))
+                .filter(ship -> navigationService.isShipBlocked(new Vector2(ship.x(), ship.z()), ship.heading(), worldMap))
+                .map(ship -> label + " " + ship.id() + " is blocked at "
+                        + new Vector2(ship.x(), ship.z()) + " nearest "
+                        + nearestNavigable(worldMap, new Vector2(ship.x(), ship.z()), ship.heading()))
+                .forEach(blockedPositions::add);
+
+        assertTrue(blockedPositions.isEmpty(), String.join("\n", blockedPositions));
+    }
+
+    private List<Vector2> sampleBoundaryPoints(Landmass landmass) {
+        List<Vector2> points = new java.util.ArrayList<>();
+        double minX = landmass.x() - landmass.rx() * 1.18;
+        double maxX = landmass.x() + landmass.rx() * 1.18;
+        double minZ = landmass.z() - landmass.rz() * 1.18;
+        double maxZ = landmass.z() + landmass.rz() * 1.18;
+        double step = Math.max(4, Math.min(18, Math.min(landmass.rx(), landmass.rz()) / 5));
+
+        for (double x = minX; x <= maxX; x += step) {
+            for (double z = minZ; z <= maxZ; z += step) {
+                points.add(new Vector2(x, z));
+            }
+        }
+        return points;
+    }
+
+    private double shapeDistance(Vector2 position, Landmass landmass, double rx, double rz) {
+        double localX = position.x() - landmass.x();
+        double localZ = position.z() - landmass.z();
+        double nx = localX / rx;
+        double nz = localZ / rz;
+        double distance = Math.sqrt(nx * nx + nz * nz);
+        if (!"coastline".equals(landmass.kind())) {
+            return distance;
+        }
+        double angle = Math.atan2(nz, nx);
+        return distance / coastRadiusFactor(angle, landmass);
+    }
+
+    private double blockDistance(Landmass landmass) {
+        return "coastline".equals(landmass.kind()) ? 1.055 : 1;
+    }
+
+    private boolean isInLandWater(Vector2 position, Landmass landmass) {
+        double localX = position.x() - landmass.x();
+        double localZ = position.z() - landmass.z();
+        return isInWaterway(localX, localZ, landmass)
+                || isInLake(localX, localZ, landmass);
+    }
+
+    private boolean isInWaterway(double localX, double localZ, Landmass landmass) {
+        return landmass.waterways().stream().anyMatch(waterway ->
+                distanceToSegment(localX, localZ, waterway.from().x(), waterway.from().z(),
+                        waterway.to().x(), waterway.to().z()) <= waterway.width() * 0.58
+        );
+    }
+
+    private boolean isInLake(double localX, double localZ, Landmass landmass) {
+        return landmass.lakes().stream().anyMatch(lake -> {
+            double nx = (localX - lake.x()) / lake.rx();
+            double nz = (localZ - lake.z()) / lake.rz();
+            return nx * nx + nz * nz <= 1;
+        });
+    }
+
+    private double fjordCarve(double localX, double localZ, double rx, double rz, Landmass landmass) {
+        double carve = 0;
+        for (Fjord fjord : landmass.fjords()) {
+            double dirX = Math.sin(fjord.angle());
+            double dirZ = Math.cos(fjord.angle());
+            double along = (localX * dirX) / rx + (localZ * dirZ) / rz;
+            double across = Math.abs((localX * dirZ) / rx - (localZ * dirX) / rz);
+            double reach = fjord.reach();
+            double width = fjord.width();
+            double outerFade = 1 - MathSupport.smoothstep(1.02, 1.16, along);
+            double innerFade = MathSupport.smoothstep(1 - reach, 1 - reach + 0.18, along);
+            double channel = 1 - MathSupport.smoothstep(width * 0.45, width, across);
+            carve = Math.max(carve, channel * outerFade * innerFade);
+        }
+        return carve;
+    }
+
+    private double coastRadiusFactor(double angle, Landmass landmass) {
+        double roughness = landmass.coastRoughness() == null ? 0.16 : landmass.coastRoughness();
+        double seed = stableNameSeed(landmass.name()) * 0.013;
+        double broad = Math.sin(angle * 2 + seed) * 0.62;
+        double bays = Math.sin(angle * 4 - seed * 0.7) * 0.42;
+        double small = Math.sin(angle * 7 + seed * 1.4) * 0.2;
+        double fjordBite = 0;
+        for (Fjord fjord : landmass.fjords()) {
+            double width = Math.max(0.08, fjord.width());
+            double angleDistance = Math.abs(MathSupport.normalizeAngle(angle - fjord.angle()));
+            double mouth = 1 - MathSupport.smoothstep(width * 0.45, width * 1.9, angleDistance);
+            fjordBite = Math.max(fjordBite, mouth * (0.18 + width * 0.9));
+        }
+        return MathSupport.clamp(1 + (broad + bays + small) * roughness - fjordBite, 0.56, 1.42);
+    }
+
+    private int stableNameSeed(String name) {
+        int seed = 0;
+        for (int i = 0; i < name.length(); i += 1) {
+            seed = (seed * 31 + name.charAt(i)) % 9973;
+        }
+        return seed;
+    }
+
+    private double distanceToSegment(double px, double pz, double ax, double az, double bx, double bz) {
+        double dx = bx - ax;
+        double dz = bz - az;
+        double lengthSquared = dx * dx + dz * dz;
+        double t = lengthSquared == 0
+                ? 0
+                : MathSupport.clamp(((px - ax) * dx + (pz - az) * dz) / lengthSquared, 0, 1);
+        double nearestX = ax + dx * t;
+        double nearestZ = az + dz * t;
+        double ox = px - nearestX;
+        double oz = pz - nearestZ;
+        return Math.sqrt(ox * ox + oz * oz);
     }
 
     private Vector2 nearestNavigable(WorldMap worldMap, Vector2 origin, double heading) {

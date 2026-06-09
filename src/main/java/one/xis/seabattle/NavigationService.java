@@ -118,13 +118,8 @@ final class NavigationService {
     private boolean isInLandWater(Vector2 position, Landmass landmass) {
         double localX = position.x() - landmass.x();
         double localZ = position.z() - landmass.z();
-        return isInFjordWater(localX, localZ, landmass)
-                || isInWaterway(localX, localZ, landmass)
+        return isInWaterway(localX, localZ, landmass)
                 || isInLake(localX, localZ, landmass);
-    }
-
-    private boolean isInFjordWater(double localX, double localZ, Landmass landmass) {
-        return fjordCarve(localX, localZ, landmass.rx(), landmass.rz(), landmass) > 0.58;
     }
 
     private double fjordCarve(double localX, double localZ, double rx, double rz, Landmass landmass) {
@@ -136,11 +131,10 @@ final class NavigationService {
             double across = Math.abs((localX * dirZ) / rx - (localZ * dirX) / rz);
             double reach = fjord.reach();
             double width = fjord.width();
-            double mouthToCenter = MathSupport.smoothstep(1.03, 0.12, along);
-            double fromCoast = MathSupport.smoothstep(-1.02, -0.1, along);
+            double outerFade = 1 - MathSupport.smoothstep(1.02, 1.16, along);
+            double innerFade = MathSupport.smoothstep(1 - reach, 1 - reach + 0.18, along);
             double channel = 1 - MathSupport.smoothstep(width * 0.45, width, across);
-            double depth = MathSupport.smoothstep(reach, 0.08, Math.abs(along));
-            carve = Math.max(carve, channel * mouthToCenter * fromCoast * depth);
+            carve = Math.max(carve, channel * outerFade * innerFade);
         }
         return carve;
     }
