@@ -50,6 +50,7 @@ public final class GameSession {
     private final Map<String, Fleet> fleets;
     private final List<Vector2> respawnCandidates;
     private final Map<String, Integer> destroyedShipsByTeam = new LinkedHashMap<>();
+    private final Map<String, Integer> killsByPlayer = new LinkedHashMap<>();
     private final List<Torpedo> torpedoes = new ArrayList<>();
     private final List<TorpedoImpactSnapshot> torpedoImpacts = new ArrayList<>();
     private int nextTorpedoId = 1;
@@ -86,7 +87,8 @@ public final class GameSession {
                 torpedoImpacts.stream()
                         .filter(impact -> nowSeconds - impact.t() <= TORPEDO_IMPACT_VISIBILITY_SECONDS)
                         .toList(),
-                Map.copyOf(destroyedShipsByTeam)
+                Map.copyOf(destroyedShipsByTeam),
+                Map.copyOf(killsByPlayer)
         );
     }
 
@@ -495,25 +497,25 @@ public final class GameSession {
                 boolean headOnCollision = leftImpact.isBowHit() && rightImpact.isBowHit()
                         && angularDistance(left.heading(), right.heading()) > Math.toRadians(135);
                 if (headOnCollision) {
-                    sinkShip(left);
-                    sinkShip(right);
+                    sinkShip(left, right.controlledBy());
+                    sinkShip(right, left.controlledBy());
                 } else if (leftSideRamsRight && !rightSideRamsLeft) {
-                    sinkShip(right);
+                    sinkShip(right, left.controlledBy());
                     left.stopAfterRamImpact();
                 } else if (rightSideRamsLeft && !leftSideRamsRight) {
-                    sinkShip(left);
+                    sinkShip(left, right.controlledBy());
                     right.stopAfterRamImpact();
                 } else if (leftSideRamsRight && rightSideRamsLeft) {
                     if (leftImpact.sideScore() > rightImpact.sideScore()) {
-                        sinkShip(right);
+                        sinkShip(right, left.controlledBy());
                         left.stopAfterRamImpact();
                     } else {
-                        sinkShip(left);
+                        sinkShip(left, right.controlledBy());
                         right.stopAfterRamImpact();
                     }
                 } else {
-                    sinkShip(left);
-                    sinkShip(right);
+                    sinkShip(left, right.controlledBy());
+                    sinkShip(right, left.controlledBy());
                 }
             }
         }
@@ -628,7 +630,7 @@ public final class GameSession {
                     .filter(ship -> torpedoHitsShip(torpedo, ship))
                     .findFirst()
                     .ifPresent(ship -> {
-                        sinkShip(ship);
+                        sinkShip(ship, shooterController(torpedo.shipId()));
                         torpedo.hit();
                         recordTorpedoImpact(torpedo, "ship-hit", ship.id());
                     });
@@ -696,11 +698,46 @@ public final class GameSession {
     }
 
     private void sinkShip(Ship ship) {
+        sinkShip(ship, null);
+    }
+
+    private void sinkShip(Ship ship, String creditedPlayerId) {
+        Integer scoreDelta = isHumanController(creditedPlayerId)
+                ? scoreDeltaFor(creditedPlayerId, ship.teamId())
+                : null;
         if (!ship.sink(nowSeconds + RESPAWN_DELAY_SECONDS)) {
             return;
         }
         destroyedShipsByTeam.merge(ship.teamId(), 1, Integer::sum);
+        if (scoreDelta != null) {
+            killsByPlayer.merge(creditedPlayerId, scoreDelta, Integer::sum);
+        }
         Optional.ofNullable(fleets.get(ship.teamId())).ifPresent(fleet -> fleet.releaseShip(ship.id()));
+    }
+
+    private int scoreDeltaFor(String creditedPlayerId, String sunkTeamId) {
+        return teamIdForController(creditedPlayerId)
+                .map(teamId -> teamId.equals(sunkTeamId) ? -1 : 1)
+                .orElse(1);
+    }
+
+    private Optional<String> teamIdForController(String controller) {
+        return allShips().stream()
+                .filter(ship -> controller.equals(ship.controlledBy()))
+                .map(Ship::teamId)
+                .findFirst();
+    }
+
+    private String shooterController(String shipId) {
+        return allShips().stream()
+                .filter(ship -> ship.id().equals(shipId))
+                .map(Ship::controlledBy)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private boolean isHumanController(String controller) {
+        return controller != null && !controller.isBlank() && !"bot".equals(controller) && !"scenario".equals(controller);
     }
 
     private void respawnSunkShips(NavigationService navigationService, WorldMap worldMap, RadarService radarService) {

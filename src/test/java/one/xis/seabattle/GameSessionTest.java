@@ -82,6 +82,78 @@ class GameSessionTest {
     }
 
     @Test
+    void playerSideRamEnemyScoresKillWithoutSinkingAttacker() {
+        String playerId = "player-BP-test";
+        GameSession session = new GameSession(new GameSetup(
+                "player-ram-score-test",
+                new WorldMap(9007, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, Math.PI / 2, "bot", 5, 0))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 56, 0, 0, 2, 0)))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(56, 0))
+        ));
+
+        GameSnapshot snapshot = tickPlayerForwardUntilShipState(
+                session, playerId, "red", "blue-1", "sunk", new Vector2(0, 0), Math.PI / 2, 24
+        );
+
+        assertEquals("active", findShip(snapshot, "red-1").state());
+        assertEquals("sunk", findShip(snapshot, "blue-1").state());
+        assertEquals(1, snapshot.destroyedShipsByTeam().get("blue"));
+        assertEquals(0, snapshot.destroyedShipsByTeam().get("red"));
+        assertEquals(1, snapshot.killsByPlayer().get(playerId));
+    }
+
+    @Test
+    void playerSideRamFriendlyShipSubtractsScore() {
+        String playerId = "player-BP-test";
+        GameSession session = new GameSession(new GameSetup(
+                "player-friendly-ram-score-test",
+                new WorldMap(9008, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-1", "red", 0, 0, Math.PI / 2, "bot", 5, 0),
+                                ship("red-2", "red", 56, 0, 0, 2, 0)
+                        )),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 240, 240, Math.PI, 2, 0)))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(56, 0), new Vector2(240, 240))
+        ));
+
+        GameSnapshot snapshot = tickPlayerForwardUntilShipState(
+                session, playerId, "red", "red-2", "sunk", new Vector2(0, 0), Math.PI / 2, 24
+        );
+
+        assertEquals("active", findShip(snapshot, "red-1").state());
+        assertEquals("sunk", findShip(snapshot, "red-2").state());
+        assertEquals(1, snapshot.destroyedShipsByTeam().get("red"));
+        assertEquals(-1, snapshot.killsByPlayer().get(playerId));
+    }
+
+    @Test
+    void diagonalPlayerSideRamEnemyScoresKillWithoutSinkingAttacker() {
+        String playerId = "player-BP-test";
+        GameSession session = new GameSession(new GameSetup(
+                "player-diagonal-ram-score-test",
+                new WorldMap(9009, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, Math.PI / 4, playerId, 5, 0))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 41, 41, 0, 2, 0)))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(41, 41))
+        ));
+
+        GameSnapshot snapshot = tickPlayerForwardUntilShipState(
+                session, playerId, "red", "blue-1", "sunk", new Vector2(0, 0), Math.PI / 4, 30
+        );
+
+        assertEquals("active", findShip(snapshot, "red-1").state());
+        assertEquals("sunk", findShip(snapshot, "blue-1").state());
+        assertEquals(1, snapshot.killsByPlayer().get(playerId));
+    }
+
+    @Test
     void releasePlayerReturnsAssignedShipToBotControl() {
         GameSession session = new GameSession(new GameSetup(
                 "release-test",
@@ -444,6 +516,28 @@ class GameSessionTest {
         return snapshot;
     }
 
+    private GameSnapshot tickPlayerForwardUntilShipState(GameSession session, String playerId, String teamId,
+                                                         String shipId, String state, Vector2 startPosition,
+                                                         double heading, double maxSeconds) {
+        GameSnapshot snapshot = session.snapshot();
+        double speed = 9.6;
+        for (double elapsed = 0; elapsed < maxSeconds; elapsed += 0.05) {
+            Vector2 position = startPosition.add(Vector2.fromHeading(heading).scale(speed * elapsed));
+            session.updatePlayerState(
+                    new PlayerStateUpdate(playerId, teamId, position.x(), position.z(), heading, speed, 0, 7, 0, elapsed),
+                    navigationService,
+                    session.worldMap()
+            );
+            session.update(0.05, radarService, navigationService, session.worldMap());
+            snapshot = session.snapshot();
+            ShipSnapshot ship = findShip(snapshot, shipId);
+            if (ship != null && state.equals(ship.state())) {
+                return snapshot;
+            }
+        }
+        return snapshot;
+    }
+
     private ShipSnapshot findShip(GameSnapshot snapshot, String shipId) {
         return snapshot.ships().stream()
                 .filter(ship -> shipId.equals(ship.id()))
@@ -452,12 +546,17 @@ class GameSessionTest {
     }
 
     private ShipSetup ship(String id, String teamId, double x, double z, double heading, int engineOrder, int rudderDegrees) {
+        return ship(id, teamId, x, z, heading, "scenario", engineOrder, rudderDegrees);
+    }
+
+    private ShipSetup ship(String id, String teamId, double x, double z, double heading, String controlledBy,
+                           int engineOrder, int rudderDegrees) {
         return new ShipSetup(
                 id,
                 teamId,
                 new Vector2(x, z),
                 MathSupport.normalizeAngle(heading),
-                "scenario",
+                controlledBy,
                 engineOrder,
                 rudderDegrees,
                 99
