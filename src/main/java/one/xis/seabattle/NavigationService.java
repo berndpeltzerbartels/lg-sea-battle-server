@@ -5,9 +5,6 @@ import one.xis.context.Service;
 @Service
 final class NavigationService {
 
-    private static final double TORPEDO_MINIMUM_DEPTH_METERS = 1.0;
-    private static final double MAX_DEPTH_METERS = 110.0;
-
     boolean isShipBlocked(Vector2 position, double heading, WorldMap worldMap) {
         return isShipBlocked(position, heading, worldMap, ShipPointRange.ALL);
     }
@@ -20,27 +17,7 @@ final class NavigationService {
     }
 
     boolean isTorpedoBlocked(Vector2 position, WorldMap worldMap) {
-        return waterDepthMeters(position, worldMap) < TORPEDO_MINIMUM_DEPTH_METERS;
-    }
-
-    double waterDepthMeters(Vector2 position, WorldMap worldMap) {
-        double nearestCoastDistance = worldMap.landmasses().stream()
-                .mapToDouble(landmass -> {
-                    double distance = shapeDistance(position, landmass, landmass.rx(), landmass.rz());
-                    double coastDistance = isInLandWater(position, landmass)
-                            ? Math.max(0.08, Math.abs(distance - 0.72))
-                            : distance - blockDistance(landmass);
-                    return coastDistance;
-                })
-                .min()
-                .orElse(Double.POSITIVE_INFINITY);
-
-        if (nearestCoastDistance <= 0) {
-            return 0;
-        }
-
-        double ratio = MathSupport.clamp(1 - Math.exp(-nearestCoastDistance / 1.25), 0, 1);
-        return 2 + ratio * (MAX_DEPTH_METERS - 2);
+        return isBlocked(position, worldMap);
     }
 
     private boolean isShipBlocked(Vector2 position, double heading, WorldMap worldMap, ShipPointRange pointRange) {
@@ -94,7 +71,7 @@ final class NavigationService {
     }
 
     private boolean isBlockedByLandmass(Vector2 position, Landmass landmass) {
-        double distance = shapeDistance(position, landmass, landmass.navigationRx(), landmass.navigationRz());
+        double distance = shapeDistance(position, landmass, landmass.rx(), landmass.rz());
         return distance < blockDistance(landmass) && !isInLandWater(position, landmass);
     }
 
@@ -112,7 +89,7 @@ final class NavigationService {
     }
 
     private double blockDistance(Landmass landmass) {
-        return "coastline".equals(landmass.kind()) ? 1.055 : 1;
+        return 1;
     }
 
     private boolean isInLandWater(Vector2 position, Landmass landmass) {

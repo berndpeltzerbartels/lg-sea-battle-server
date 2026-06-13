@@ -29,9 +29,6 @@ public final class GameSession {
     private static final double BOT_TORPEDO_LOOKOUT_ARC = 0.38;
     private static final double BOT_TORPEDO_INCOMING_ARC = 0.34;
     private static final double BOT_TORPEDO_THREAT_CORRIDOR = 8.0;
-    private static final double BOT_SHALLOW_WARNING_DEPTH_METERS = 16.0;
-    private static final double BOT_SHALLOW_ESCAPE_DEPTH_METERS = 8.0;
-    private static final double BOT_ESCAPE_CLEAR_DEPTH_METERS = 18.0;
     private static final double BOT_RETURN_TO_LAND_DISTANCE = 720;
     private static final double BOT_PATROL_LAND_DISTANCE = 470;
     private static final double BOT_ESCORT_JOIN_RANGE = 680;
@@ -231,26 +228,15 @@ public final class GameSession {
         boolean blockedHere = navigationService.isShipBlocked(ship.position(), ship.heading(), worldMap);
         boolean blockedAhead = navigationService.isShipBlocked(nearLookAhead, ship.heading(), worldMap)
                 || navigationService.isShipBlocked(farLookAhead, ship.heading(), worldMap);
-        double depthHere = navigationService.waterDepthMeters(ship.position(), worldMap);
-        double depthAhead = Math.min(
-                navigationService.waterDepthMeters(nearLookAhead, worldMap),
-                navigationService.waterDepthMeters(farLookAhead, worldMap)
-        );
 
         if (blockedHere) {
             ship.applyCommand(ENGINE_STOP, 0);
             return true;
         }
 
-        if (blockedAhead || depthHere < BOT_SHALLOW_ESCAPE_DEPTH_METERS) {
+        if (blockedAhead) {
             double safeHeading = chooseSafeEscapeHeading(ship, navigationService, worldMap);
             int rudder = rudderTowardHeading(ship, safeHeading);
-            ship.applyCommand(ENGINE_SLOW, rudder);
-            return true;
-        }
-
-        if (depthAhead < BOT_SHALLOW_WARNING_DEPTH_METERS) {
-            int rudder = rudderTowardHeading(ship, chooseSafeEscapeHeading(ship, navigationService, worldMap));
             ship.applyCommand(ENGINE_SLOW, rudder);
             return true;
         }
@@ -283,11 +269,7 @@ public final class GameSession {
                 score -= 5000 - index * 250;
                 continue;
             }
-            double depth = navigationService.waterDepthMeters(sample, worldMap);
-            score += Math.min(depth, 70) * (1.0 + index * 0.18);
-            if (depth < BOT_ESCAPE_CLEAR_DEPTH_METERS) {
-                score -= (BOT_ESCAPE_CLEAR_DEPTH_METERS - depth) * (70 - index * 6);
-            }
+            score += distances[index] * (1.0 + index * 0.18);
         }
 
         double turn = Math.abs(MathSupport.normalizeAngle(heading - ship.heading()));
@@ -331,9 +313,6 @@ public final class GameSession {
         for (double distance : distances) {
             Vector2 sample = ship.position().add(forward.scale(distance));
             if (navigationService.isShipBlocked(sample, heading, worldMap)) {
-                return false;
-            }
-            if (navigationService.waterDepthMeters(sample, worldMap) < BOT_SHALLOW_WARNING_DEPTH_METERS) {
                 return false;
             }
         }
