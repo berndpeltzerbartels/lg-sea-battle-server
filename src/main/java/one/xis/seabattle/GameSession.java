@@ -103,7 +103,7 @@ public final class GameSession {
         Ship ship = assignedShip
                 .or(() -> fleet.assignNextShipToPlayer(update.playerId()))
                 .orElseThrow(() -> new IllegalStateException("No active ship available for team: " + update.teamId()));
-        ship.applyCommand(update.engineOrder(), update.rudderDegrees());
+        ship.applyPlayerState(update, navigationService, worldMap);
         return snapshot();
     }
 
@@ -157,7 +157,9 @@ public final class GameSession {
         }
         nowSeconds += deltaSeconds;
         commandBots(radarService, navigationService, worldMap);
-        allShips().forEach(ship -> ship.update(deltaSeconds, navigationService, worldMap));
+        allShips().stream()
+                .filter(Ship::isServerSimulated)
+                .forEach(ship -> ship.update(deltaSeconds, navigationService, worldMap));
         updateTorpedoes(deltaSeconds, navigationService, worldMap);
         updateRamCollisions();
         respawnSunkShips(navigationService, worldMap, radarService);

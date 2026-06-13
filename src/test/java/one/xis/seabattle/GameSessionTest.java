@@ -93,12 +93,44 @@ class GameSessionTest {
                 List.of(new Vector2(0, 0), new Vector2(40, 0))
         ));
 
-        session.updatePlayerState(new PlayerStateUpdate("player-BP-test", "red", 0, 0, 0, 0, 2, 0), navigationService, session.worldMap());
+        session.updatePlayerState(new PlayerStateUpdate("player-BP-test", "red", 0, 0, 0, 0, 0, 2, 0, 0), navigationService, session.worldMap());
         assertEquals("player-BP-test", findShip(session.snapshot(), "red-1").controlledBy());
 
         session.releasePlayer("player-BP-test");
 
         assertEquals("bot", findShip(session.snapshot(), "red-1").controlledBy());
+    }
+
+    @Test
+    void playerStateUsesClientPositionWithoutServerAdvancingHumanShip() {
+        GameSession session = new GameSession(new GameSetup(
+                "client-authority-test",
+                new WorldMap(9006, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, 0, 2, 0))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 200, 0, Math.PI, 2, 0)))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(200, 0))
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-BP-test", "red", 15, 25, 0.7, 9.6, 0.12, 7, 14, 123.45),
+                navigationService,
+                session.worldMap()
+        );
+        ShipSnapshot afterClientUpdate = findShip(session.snapshot(), "red-1");
+        assertEquals(15, afterClientUpdate.x(), 0.001);
+        assertEquals(25, afterClientUpdate.z(), 0.001);
+        assertEquals(0.7, afterClientUpdate.heading(), 0.001);
+        assertEquals(9.6, afterClientUpdate.speed(), 0.001);
+        assertEquals(0.12, afterClientUpdate.turnVelocity(), 0.001);
+
+        session.update(0.5, new RadarService(), navigationService, session.worldMap());
+
+        ShipSnapshot afterServerTick = findShip(session.snapshot(), "red-1");
+        assertEquals(15, afterServerTick.x(), 0.001);
+        assertEquals(25, afterServerTick.z(), 0.001);
+        assertEquals(0.7, afterServerTick.heading(), 0.001);
     }
 
     @Test

@@ -7,7 +7,9 @@ public record PlayerStateUpdate(
         double z,
         double heading,
         double speed,
+        double turnVelocity,
         int engineOrder,
-        int rudderDegrees
+        int rudderDegrees,
+        double clientTime
 ) {
 }

@@ -2,7 +2,9 @@ package one.xis.seabattle;
 
 final class Ship {
 
-    private static final double MAX_ACCEPTED_PLAYER_POSITION_DELTA = 24;
+    private static final double MAX_ACCEPTED_PLAYER_POSITION_DELTA = 90;
+    private static final double MAX_ACCEPTED_PLAYER_SPEED = 16;
+    private static final double MAX_ACCEPTED_PLAYER_TURN_VELOCITY = 1.2;
 
     private final String id;
     private final String teamId;
@@ -42,6 +44,14 @@ final class Ship {
         return controlledBy;
     }
 
+    boolean isBotControlled() {
+        return "bot".equals(controlledBy);
+    }
+
+    boolean isServerSimulated() {
+        return isBotControlled() || "scenario".equals(controlledBy);
+    }
+
     void controlledBy(String controlledBy) {
         this.controlledBy = controlledBy;
     }
@@ -75,15 +85,21 @@ final class Ship {
             return;
         }
         Vector2 requestedPosition = new Vector2(update.x(), update.z());
-        if (position.distanceTo(requestedPosition) > MAX_ACCEPTED_PLAYER_POSITION_DELTA
-                || navigationService.isShipBlocked(requestedPosition, update.heading(), worldMap)) {
+        boolean implausiblePosition = position.distanceTo(requestedPosition) > MAX_ACCEPTED_PLAYER_POSITION_DELTA;
+        boolean blockedPosition = navigationService.isShipBlocked(requestedPosition, update.heading(), worldMap);
+        if (implausiblePosition || blockedPosition) {
             applyCommand(update.engineOrder(), update.rudderDegrees());
             return;
         }
 
         position = requestedPosition;
         heading = MathSupport.normalizeAngle(update.heading());
-        speed = update.speed();
+        speed = MathSupport.clamp(update.speed(), -MAX_ACCEPTED_PLAYER_SPEED, MAX_ACCEPTED_PLAYER_SPEED);
+        turnVelocity = MathSupport.clamp(
+                update.turnVelocity(),
+                -MAX_ACCEPTED_PLAYER_TURN_VELOCITY,
+                MAX_ACCEPTED_PLAYER_TURN_VELOCITY
+        );
         engineOrder = MathSupport.clamp(update.engineOrder(), 0, 8);
         rudderDegrees = MathSupport.clamp(update.rudderDegrees(), -35, 35);
     }

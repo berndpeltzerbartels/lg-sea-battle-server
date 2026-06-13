@@ -118,7 +118,7 @@ final class DefaultGameSetupFactory {
                                 ship("blue-2", "blue", 225, -500, -Math.PI / 2, ENGINE_STOP, 0, 0.1),
                                 ship("blue-3", "blue", 190, -480, -Math.PI / 2, ENGINE_STOP, 0, 0.2),
                                 ship("blue-4", "blue", 245, -420, -Math.PI / 2, ENGINE_STOP, 0, 0.3),
-                                ship("blue-5", "blue", 221, -397, -Math.PI / 2, ENGINE_STOP, 0, 0.4),
+                                ship("blue-5", "blue", 240, -405, -Math.PI / 2, ENGINE_STOP, 0, 0.4),
                                 ship("blue-6", "blue", 260, -340, -Math.PI / 2, ENGINE_STOP, 0, 0.5),
                                 ship("blue-7", "blue", 65, -520, -Math.PI / 2, ENGINE_STOP, 0, 0.15),
                                 ship("blue-8", "blue", 90, -480, -Math.PI / 2, ENGINE_STOP, 0, 0.25),
