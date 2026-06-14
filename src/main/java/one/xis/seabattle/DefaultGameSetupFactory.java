@@ -12,6 +12,10 @@ final class DefaultGameSetupFactory {
     private static final int ENGINE_SLOW = 3;
     private static final int ENGINE_HALF = 5;
     private static final int ENGINE_TWO_THIRDS = 6;
+    private static final String TEAM_DARK = "dark";
+    private static final String TEAM_LIGHT = "light";
+    private static final String TEAM_GREEN = "green";
+    private static final String TEAM_SAND = "sand";
 
     private final WorldMapService worldMapService;
 
@@ -24,6 +28,7 @@ final class DefaultGameSetupFactory {
             return defaultSetup();
         }
         return switch (setupId) {
+            case "islands" -> openIslandsSetup();
             case "single-island" -> singleIslandSetup();
             case "ram-side" -> ramSideSetup();
             case "explosion-demo" -> explosionDemoSetup();
@@ -33,12 +38,16 @@ final class DefaultGameSetupFactory {
     }
 
     GameSetup defaultSetup() {
+        return denseLandSetup();
+    }
+
+    private GameSetup openIslandsSetup() {
         return new GameSetup(
-                "local-test",
+                "islands",
                 worldMapService.world(),
                 List.of(
-                        new FleetSetup("red", createShips("red", redFormation())),
-                        new FleetSetup("blue", createShips("blue", blueFormation()))
+                        new FleetSetup(TEAM_DARK, createShips(TEAM_DARK, redFormation())),
+                        new FleetSetup(TEAM_LIGHT, createShips(TEAM_LIGHT, blueFormation()))
                 ),
                 respawnCandidates()
         );
@@ -140,8 +149,10 @@ final class DefaultGameSetupFactory {
                 "dense-land",
                 worldMapService.denseWorld(),
                 List.of(
-                        new FleetSetup("red", createShips("red", denseRedFormation())),
-                        new FleetSetup("blue", createShips("blue", denseBlueFormation()))
+                        new FleetSetup(TEAM_DARK, createShips(TEAM_DARK, formationSlice(denseRedFormation(), 0, 8))),
+                        new FleetSetup(TEAM_LIGHT, createShips(TEAM_LIGHT, formationSlice(denseBlueFormation(), 0, 8))),
+                        new FleetSetup(TEAM_GREEN, createShips(TEAM_GREEN, formationSlice(denseRedFormation(), 7, 8))),
+                        new FleetSetup(TEAM_SAND, createShips(TEAM_SAND, formationSlice(denseBlueFormation(), 7, 8)))
                 ),
                 denseRespawnCandidates()
         );
@@ -191,6 +202,14 @@ final class DefaultGameSetupFactory {
             ));
         }
         return ships;
+    }
+
+    private static double[][] formationSlice(double[][] formation, int start, int length) {
+        double[][] slice = new double[length][];
+        for (int index = 0; index < length; index += 1) {
+            slice[index] = formation[start + index];
+        }
+        return slice;
     }
 
     private static double[][] redFormation() {

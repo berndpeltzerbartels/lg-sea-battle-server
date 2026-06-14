@@ -275,7 +275,9 @@ class GameSessionTest {
         GameSetup denseLand = factory.setup("dense-land");
         assertEquals("dense-land", denseLand.id());
         assertEquals(9, denseLand.worldMap().version());
-        assertEquals(30, denseLand.fleets().stream().mapToInt(fleet -> fleet.ships().size()).sum());
+        assertEquals(32, denseLand.fleets().stream().mapToInt(fleet -> fleet.ships().size()).sum());
+        assertEquals(List.of("dark", "light", "green", "sand"),
+                denseLand.fleets().stream().map(FleetSetup::teamId).toList());
     }
 
     @Test
