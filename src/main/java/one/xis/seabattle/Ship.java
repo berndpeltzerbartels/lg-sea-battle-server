@@ -149,6 +149,17 @@ final class Ship {
         rudderDegrees = 0;
     }
 
+    void glanceOff(double headingImpulse, double speedFactor) {
+        if (!"active".equals(state)) {
+            return;
+        }
+        heading = MathSupport.normalizeAngle(heading + headingImpulse);
+        speed *= MathSupport.clamp(speedFactor, 0, 1);
+        turnVelocity *= 0.25;
+        engineOrder = Math.min(engineOrder, 4);
+        rudderDegrees = 0;
+    }
+
     boolean sink(double respawnAtSeconds) {
         if (!"active".equals(state)) {
             return false;

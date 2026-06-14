@@ -19,6 +19,8 @@ public final class GameSession {
     private static final double RAM_SIDE_FORWARD_MAX = 2.95;
     private static final double RAM_SIDE_MARGIN = 0.42;
     private static final double RAM_SIDE_ANGLE_TOLERANCE = Math.toRadians(45);
+    private static final double RAM_GLANCING_COLLISION_ANGLE = Math.toRadians(30);
+    private static final double RAM_GLANCING_HEADING_IMPULSE = Math.toRadians(9);
     private static final double BOT_FIRE_ARC = 0.16;
     private static final double BOT_CLOSE_FIRE_ARC = 1.15;
     private static final double BOT_CLOSE_FIRE_RANGE = 145;
@@ -492,33 +494,48 @@ public final class GameSession {
                     continue;
                 }
 
-                boolean leftSideRamsRight = leftImpact.isCleanSideHit();
-                boolean rightSideRamsLeft = rightImpact.isCleanSideHit();
                 boolean headOnCollision = leftImpact.isBowHit() && rightImpact.isBowHit()
                         && angularDistance(left.heading(), right.heading()) > Math.toRadians(135);
+                boolean glancingCollision = isGlancingCollision(left, right);
                 if (headOnCollision) {
                     sinkShip(left, right.controlledBy());
                     sinkShip(right, left.controlledBy());
-                } else if (leftSideRamsRight && !rightSideRamsLeft) {
-                    sinkShip(right, left.controlledBy());
-                    left.stopAfterRamImpact();
-                } else if (rightSideRamsLeft && !leftSideRamsRight) {
-                    sinkShip(left, right.controlledBy());
-                    right.stopAfterRamImpact();
-                } else if (leftSideRamsRight && rightSideRamsLeft) {
-                    if (leftImpact.sideScore() > rightImpact.sideScore()) {
-                        sinkShip(right, left.controlledBy());
-                        left.stopAfterRamImpact();
-                    } else {
-                        sinkShip(left, right.controlledBy());
-                        right.stopAfterRamImpact();
-                    }
+                } else if (glancingCollision) {
+                    resolveGlancingRam(left, right);
+                } else if (leftImpact.hits() || rightImpact.hits()) {
+                    resolveSideRamBySpeed(left, right);
                 } else {
-                    sinkShip(left, right.controlledBy());
-                    sinkShip(right, left.controlledBy());
+                    resolveSideRamBySpeed(left, right);
                 }
             }
         }
+    }
+
+    private void resolveGlancingRam(Ship left, Ship right) {
+        double side = Math.signum(MathSupport.normalizeAngle(right.heading() - left.heading()));
+        if (side == 0) {
+            side = 1;
+        }
+        left.glanceOff(-side * RAM_GLANCING_HEADING_IMPULSE, 0.55);
+        right.glanceOff(side * RAM_GLANCING_HEADING_IMPULSE, 0.55);
+    }
+
+    private void resolveSideRamBySpeed(Ship left, Ship right) {
+        double leftSpeed = Math.max(0, left.speed());
+        double rightSpeed = Math.max(0, right.speed());
+        if (leftSpeed >= rightSpeed) {
+            sinkShip(right, left.controlledBy());
+            left.stopAfterRamImpact();
+        } else {
+            sinkShip(left, right.controlledBy());
+            right.stopAfterRamImpact();
+        }
+    }
+
+    private boolean isGlancingCollision(Ship left, Ship right) {
+        double relativeHeading = angularDistance(left.heading(), right.heading());
+        double acuteHeading = Math.min(relativeHeading, Math.PI - relativeHeading);
+        return acuteHeading < RAM_GLANCING_COLLISION_ANGLE;
     }
 
     private RamImpact ramImpact(Ship attacker, Ship target) {
