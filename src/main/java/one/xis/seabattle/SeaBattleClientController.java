@@ -26,6 +26,11 @@ public class SeaBattleClientController {
         this.eventService = eventService;
     }
 
+    @Get("/")
+    public ResponseEntity<?> redirectToStartPage() {
+        return ResponseEntity.redirect("/index.html");
+    }
+
     @Get("/sea-battle")
     public ResponseEntity<?> redirectToClientApp() {
         return ResponseEntity.redirect("/sea-battle/app");

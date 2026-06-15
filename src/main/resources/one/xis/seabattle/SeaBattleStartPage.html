@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html xmlns:xis="https://xis.one/xsd" lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sea Battle</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #092433;
+            color: #f7fbff;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            margin: 0;
+            background:
+                linear-gradient(180deg, rgb(94 137 166 / 86%) 0 44%, rgb(11 41 54 / 94%) 44% 100%),
+                radial-gradient(circle at 78% 28%, rgb(230 172 93 / 22%), transparent 28%),
+                #092433;
+        }
+
+        main {
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: minmax(280px, 520px) minmax(300px, 1fr);
+            gap: clamp(22px, 5vw, 72px);
+            align-items: center;
+            width: min(1180px, calc(100vw - 44px));
+            margin: 0 auto;
+            padding: clamp(26px, 5vw, 68px) 0;
+        }
+
+        .intro {
+            display: grid;
+            gap: 18px;
+        }
+
+        .kicker,
+        label,
+        .panel-title {
+            color: #a8eeed;
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: 0;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(42px, 7vw, 86px);
+            line-height: 0.92;
+            letter-spacing: 0;
+        }
+
+        .intro p {
+            max-width: 48ch;
+            margin: 0;
+            color: #d8e9ef;
+            font-size: clamp(16px, 2vw, 19px);
+            line-height: 1.48;
+        }
+
+        .scene-line {
+            height: 150px;
+            position: relative;
+            overflow: hidden;
+            border-bottom: 2px solid rgb(163 226 232 / 54%);
+        }
+
+        .scene-line::before,
+        .scene-line::after {
+            content: "";
+            position: absolute;
+            bottom: -2px;
+            background: #587a58;
+            clip-path: polygon(0 100%, 12% 62%, 18% 70%, 32% 30%, 46% 74%, 60% 48%, 78% 68%, 100% 36%, 100% 100%);
+        }
+
+        .scene-line::before {
+            left: -6%;
+            width: 68%;
+            height: 118px;
+            opacity: 0.72;
+        }
+
+        .scene-line::after {
+            right: -8%;
+            width: 74%;
+            height: 150px;
+            opacity: 0.48;
+        }
+
+        .start-card,
+        .status-card {
+            border: 1px solid rgb(191 231 238 / 26%);
+            border-radius: 8px;
+            background: rgb(3 23 33 / 70%);
+            box-shadow: 0 26px 90px rgb(0 0 0 / 30%);
+            backdrop-filter: blur(12px);
+        }
+
+        .start-card {
+            display: grid;
+            gap: 18px;
+            padding: clamp(18px, 3vw, 28px);
+        }
+
+        form {
+            display: grid;
+            gap: 16px;
+        }
+
+        .field {
+            display: grid;
+            gap: 7px;
+        }
+
+        input,
+        select {
+            width: 100%;
+            min-height: 48px;
+            border: 1px solid rgb(196 232 238 / 36%);
+            border-radius: 7px;
+            background: rgb(2 18 27 / 82%);
+            color: #f7fbff;
+            font: 900 18px/1 Inter, ui-sans-serif, system-ui, sans-serif;
+            letter-spacing: 0;
+            outline: none;
+        }
+
+        input {
+            padding: 10px 14px;
+            text-transform: uppercase;
+        }
+
+        select {
+            padding: 10px 12px;
+        }
+
+        input:focus,
+        select:focus {
+            border-color: #a8eeed;
+            box-shadow: 0 0 0 3px rgb(168 238 237 / 18%);
+        }
+
+        .error {
+            border-color: #ff7d65;
+            box-shadow: 0 0 0 3px rgb(255 125 101 / 16%);
+        }
+
+        .message {
+            min-height: 16px;
+            color: #ffb39f;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        button {
+            min-height: 50px;
+            border: 0;
+            border-radius: 7px;
+            background: #d9f4f5;
+            color: #082330;
+            font: 950 14px/1 Inter, ui-sans-serif, system-ui, sans-serif;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+
+        .status-card {
+            display: grid;
+            gap: 16px;
+            padding: 18px;
+        }
+
+        .teams {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .team {
+            min-height: 94px;
+            padding: 12px;
+            border: 1px solid rgb(201 232 234 / 18%);
+            border-radius: 7px;
+            background: rgb(8 35 45 / 62%);
+        }
+
+        .team strong,
+        .player strong {
+            display: block;
+            color: #f7fbff;
+            font-size: 15px;
+        }
+
+        .team small,
+        .player span,
+        .empty {
+            color: #bfd3da;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .players {
+            display: grid;
+            gap: 7px;
+            max-height: 220px;
+            overflow: auto;
+            padding-right: 4px;
+        }
+
+        .player {
+            display: grid;
+            grid-template-columns: 56px 1fr auto auto;
+            gap: 10px;
+            align-items: center;
+            min-height: 34px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            background: rgb(1 14 20 / 46%);
+        }
+
+        .player em {
+            color: #a8eeed;
+            font-style: normal;
+            font-weight: 900;
+        }
+
+        @media (max-width: 840px) {
+            main {
+                grid-template-columns: 1fr;
+                align-items: start;
+            }
+
+            .scene-line {
+                height: 92px;
+            }
+        }
+    </style>
+</head>
+<body>
+<main>
+    <section class="intro" aria-label="Sea Battle">
+        <span class="kicker">Multiplayer prototype</span>
+        <h1>Sea Battle</h1>
+        <p>Waehle Kennung und Flotte. Danach uebernimmst du ein Boot dieser Partei und gehst direkt in die laufende Schlacht.</p>
+        <div class="scene-line" aria-hidden="true"></div>
+    </section>
+
+    <section class="start-card">
+        <form xis:binding="start">
+            <xis:global-messages/>
+
+            <div class="field">
+                <label for="initials" xis:binding="initials" xis:error-class="error">Kennung</label>
+                <input id="initials"
+                       xis:binding="initials"
+                       xis:error-class="error"
+                       maxlength="5"
+                       pattern="[A-Za-z0-9]{1,5}"
+                       autocomplete="off"
+                       autofocus>
+                <div class="message" xis:message-for="initials"></div>
+            </div>
+
+            <div class="field">
+                <label for="team" xis:binding="team" xis:error-class="error">Flotte</label>
+                <select id="team" xis:binding="team" xis:error-class="error">
+                    <xis:foreach var="team" array="${teams}">
+                        <option value="${team.id}">${team.label}</option>
+                    </xis:foreach>
+                </select>
+                <div class="message" xis:message-for="team"></div>
+            </div>
+
+            <button type="submit" xis:action="startGame">Einsteigen</button>
+        </form>
+
+        <section class="status-card" aria-label="Aktueller Spielstand">
+            <div class="panel-title">Flotten</div>
+            <div class="teams">
+                <div class="team" xis:foreach="team:${teams}">
+                    <strong>${team.name}</strong>
+                    <small>${team.players} Spieler / ${team.activeShips} aktive Schiffe</small>
+                    <small>${team.description}</small>
+                </div>
+            </div>
+
+            <div class="panel-title">Anwesende Spieler</div>
+            <div class="players">
+                <div class="empty" xis:if="empty(players)">Noch keine menschlichen Spieler im Gefecht.</div>
+                <div class="player" xis:foreach="player:${players}">
+                    <strong>${player.initials}</strong>
+                    <span>${player.team} / ${player.ship}</span>
+                    <em>${player.kills}</em>
+                    <span>${player.sector}</span>
+                </div>
+            </div>
+        </section>
+    </section>
+</main>
+</body>
+</html>
