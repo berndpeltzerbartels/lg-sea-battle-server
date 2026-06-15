@@ -8,20 +8,13 @@ import one.xis.http.HttpResponse;
 import one.xis.http.PathVariable;
 import one.xis.http.Post;
 import one.xis.http.Produces;
-import one.xis.http.PublicResources;
 import one.xis.http.RequestBody;
 import one.xis.http.ResponseEntity;
 import one.xis.http.SseEndpoint;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-
 @Controller
-@PublicResources("/public")
 public class SeaBattleClientController {
 
-    private static final String CLIENT_INDEX_RESOURCE = "/public/sea-battle/index.html";
     private final GameStateService gameStateService;
     private final SseEndpoint sseEndpoint;
     private final SeaBattleEventService eventService;
@@ -36,25 +29,6 @@ public class SeaBattleClientController {
     @Get("/sea-battle")
     public ResponseEntity<?> redirectToClientApp() {
         return ResponseEntity.redirect("/sea-battle/app");
-    }
-
-    @Get("/")
-    @Produces(ContentType.TEXT_HTML_UTF8)
-    public ResponseEntity<String> getRootClientApp() {
-        return getClientApp();
-    }
-
-    @Get("/sea-battle/app")
-    @Produces(ContentType.TEXT_HTML_UTF8)
-    public ResponseEntity<String> getClientApp() {
-        try (InputStream input = getClass().getResourceAsStream(CLIENT_INDEX_RESOURCE)) {
-            if (input == null) {
-                return ResponseEntity.notFound();
-            }
-            return ResponseEntity.ok(new String(input.readAllBytes(), StandardCharsets.UTF_8));
-        } catch (IOException e) {
-            return ResponseEntity.status(500, "Could not load Sea Battle client.");
-        }
     }
 
     @Get("/game/world")
