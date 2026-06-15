@@ -312,22 +312,14 @@ class GameSessionTest {
         List<String> mismatches = new java.util.ArrayList<>();
 
         for (Landmass landmass : worldMap.landmasses()) {
-            if ("island".equals(landmass.kind())) {
-                continue;
-            }
+            WorldMap singleLandmassMap = new WorldMap(worldMap.version(), List.of(landmass));
             sampleBoundaryPoints(landmass).stream()
-                    .filter(point -> !isInLandWater(point, landmass))
                     .forEach(point -> {
-                        double visibleDistance = shapeDistance(point, landmass, landmass.rx(), landmass.rz());
-                        double navigationDistance = shapeDistance(point, landmass, landmass.navigationRx(), landmass.navigationRz());
-                        double blockDistance = blockDistance(landmass);
-                        if (visibleDistance < blockDistance && navigationDistance >= blockDistance) {
-                            mismatches.add(landmass.name() + " visible land is navigable at " + point
-                                    + " visible=" + visibleDistance + " navigation=" + navigationDistance);
-                        }
-                        if (navigationDistance < blockDistance && visibleDistance >= blockDistance + 0.02) {
-                            mismatches.add(landmass.name() + " invisible land blocks at " + point
-                                    + " visible=" + visibleDistance + " navigation=" + navigationDistance);
+                        boolean visibleBlocked = LandGeometry.isBlockedByLandmass(point, landmass);
+                        boolean navigationBlocked = navigationService.isTorpedoBlocked(point, singleLandmassMap);
+                        if (visibleBlocked != navigationBlocked) {
+                            mismatches.add(landmass.name() + " has split visible/navigation boundary at " + point
+                                    + " visibleBlocked=" + visibleBlocked + " navigationBlocked=" + navigationBlocked);
                         }
                     });
         }
@@ -412,100 +404,6 @@ class GameSessionTest {
             }
         }
         return points;
-    }
-
-    private double shapeDistance(Vector2 position, Landmass landmass, double rx, double rz) {
-        double localX = position.x() - landmass.x();
-        double localZ = position.z() - landmass.z();
-        double nx = localX / rx;
-        double nz = localZ / rz;
-        double distance = Math.sqrt(nx * nx + nz * nz);
-        if (!"coastline".equals(landmass.kind())) {
-            return distance;
-        }
-        double angle = Math.atan2(nz, nx);
-        return distance / coastRadiusFactor(angle, landmass);
-    }
-
-    private double blockDistance(Landmass landmass) {
-        return "coastline".equals(landmass.kind()) ? 1.055 : 1;
-    }
-
-    private boolean isInLandWater(Vector2 position, Landmass landmass) {
-        double localX = position.x() - landmass.x();
-        double localZ = position.z() - landmass.z();
-        return isInWaterway(localX, localZ, landmass)
-                || isInLake(localX, localZ, landmass);
-    }
-
-    private boolean isInWaterway(double localX, double localZ, Landmass landmass) {
-        return landmass.waterways().stream().anyMatch(waterway ->
-                distanceToSegment(localX, localZ, waterway.from().x(), waterway.from().z(),
-                        waterway.to().x(), waterway.to().z()) <= waterway.width() * 0.58
-        );
-    }
-
-    private boolean isInLake(double localX, double localZ, Landmass landmass) {
-        return landmass.lakes().stream().anyMatch(lake -> {
-            double nx = (localX - lake.x()) / lake.rx();
-            double nz = (localZ - lake.z()) / lake.rz();
-            return nx * nx + nz * nz <= 1;
-        });
-    }
-
-    private double fjordCarve(double localX, double localZ, double rx, double rz, Landmass landmass) {
-        double carve = 0;
-        for (Fjord fjord : landmass.fjords()) {
-            double dirX = Math.sin(fjord.angle());
-            double dirZ = Math.cos(fjord.angle());
-            double along = (localX * dirX) / rx + (localZ * dirZ) / rz;
-            double across = Math.abs((localX * dirZ) / rx - (localZ * dirX) / rz);
-            double reach = fjord.reach();
-            double width = fjord.width();
-            double outerFade = 1 - MathSupport.smoothstep(1.02, 1.16, along);
-            double innerFade = MathSupport.smoothstep(1 - reach, 1 - reach + 0.18, along);
-            double channel = 1 - MathSupport.smoothstep(width * 0.45, width, across);
-            carve = Math.max(carve, channel * outerFade * innerFade);
-        }
-        return carve;
-    }
-
-    private double coastRadiusFactor(double angle, Landmass landmass) {
-        double roughness = landmass.coastRoughness() == null ? 0.16 : landmass.coastRoughness();
-        double seed = stableNameSeed(landmass.name()) * 0.013;
-        double broad = Math.sin(angle * 2 + seed) * 0.62;
-        double bays = Math.sin(angle * 4 - seed * 0.7) * 0.42;
-        double small = Math.sin(angle * 7 + seed * 1.4) * 0.2;
-        double fjordBite = 0;
-        for (Fjord fjord : landmass.fjords()) {
-            double width = Math.max(0.08, fjord.width());
-            double angleDistance = Math.abs(MathSupport.normalizeAngle(angle - fjord.angle()));
-            double mouth = 1 - MathSupport.smoothstep(width * 0.45, width * 1.9, angleDistance);
-            fjordBite = Math.max(fjordBite, mouth * (0.18 + width * 0.9));
-        }
-        return MathSupport.clamp(1 + (broad + bays + small) * roughness - fjordBite, 0.56, 1.42);
-    }
-
-    private int stableNameSeed(String name) {
-        int seed = 0;
-        for (int i = 0; i < name.length(); i += 1) {
-            seed = (seed * 31 + name.charAt(i)) % 9973;
-        }
-        return seed;
-    }
-
-    private double distanceToSegment(double px, double pz, double ax, double az, double bx, double bz) {
-        double dx = bx - ax;
-        double dz = bz - az;
-        double lengthSquared = dx * dx + dz * dz;
-        double t = lengthSquared == 0
-                ? 0
-                : MathSupport.clamp(((px - ax) * dx + (pz - az) * dz) / lengthSquared, 0, 1);
-        double nearestX = ax + dx * t;
-        double nearestZ = az + dz * t;
-        double ox = px - nearestX;
-        double oz = pz - nearestZ;
-        return Math.sqrt(ox * ox + oz * oz);
     }
 
     private Vector2 nearestNavigable(WorldMap worldMap, Vector2 origin, double heading) {
