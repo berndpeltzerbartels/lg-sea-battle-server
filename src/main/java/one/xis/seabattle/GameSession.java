@@ -46,6 +46,9 @@ public final class GameSession {
     private static final int ENGINE_HALF = 5;
     private static final int ENGINE_TWO_THIRDS = 6;
     private static final int ENGINE_FULL = 7;
+    private static final int SCORE_ENEMY_SUNK = 1;
+    private static final int SCORE_FRIENDLY_SUNK = -2;
+    private static final int SCORE_PLAYER_SUNK = -3;
 
     private final String id;
     private final WorldMap worldMap;
@@ -732,15 +735,15 @@ public final class GameSession {
             killsByPlayer.merge(creditedPlayerId, scoreDelta, Integer::sum);
         }
         if (isHumanController(sunkController)) {
-            killsByPlayer.merge(sunkController, -5, Integer::sum);
+            killsByPlayer.merge(sunkController, SCORE_PLAYER_SUNK, Integer::sum);
         }
         Optional.ofNullable(fleets.get(ship.teamId())).ifPresent(fleet -> fleet.releaseShip(ship.id()));
     }
 
     private int scoreDeltaFor(String creditedPlayerId, String sunkTeamId) {
         return teamIdForController(creditedPlayerId)
-                .map(teamId -> teamId.equals(sunkTeamId) ? -1 : 1)
-                .orElse(1);
+                .map(teamId -> teamId.equals(sunkTeamId) ? SCORE_FRIENDLY_SUNK : SCORE_ENEMY_SUNK)
+                .orElse(SCORE_ENEMY_SUNK);
     }
 
     private Optional<String> teamIdForController(String controller) {

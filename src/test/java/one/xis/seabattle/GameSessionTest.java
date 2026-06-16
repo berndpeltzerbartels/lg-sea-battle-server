@@ -176,11 +176,11 @@ class GameSessionTest {
         assertEquals("active", findShip(snapshot, "red-1").state());
         assertEquals("sunk", findShip(snapshot, "red-2").state());
         assertEquals(1, snapshot.destroyedShipsByTeam().get("red"));
-        assertEquals(-1, snapshot.killsByPlayer().get(playerId));
+        assertEquals(-2, snapshot.killsByPlayer().get(playerId));
     }
 
     @Test
-    void playerLosesFivePointsWhenSunk() {
+    void playerLosesThreePointsWhenSunk() {
         String playerId = "player-BP-test";
         GameSession session = new GameSession(new GameSetup(
                 "player-sunk-score-test",
@@ -196,7 +196,7 @@ class GameSessionTest {
 
         assertEquals("active", findShip(snapshot, "red-1").state());
         assertEquals("sunk", findShip(snapshot, "blue-1").state());
-        assertEquals(-5, snapshot.killsByPlayer().get(playerId));
+        assertEquals(-3, snapshot.killsByPlayer().get(playerId));
     }
 
     @Test
