@@ -6,13 +6,16 @@ import one.xis.ModelData;
 import one.xis.Page;
 import one.xis.PageUrlResponse;
 import one.xis.WelcomePage;
+import one.xis.validation.ValidationFailedException;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @WelcomePage
@@ -20,13 +23,14 @@ import java.util.stream.Collectors;
 public class SeaBattleStartPage {
 
     private static final List<TeamOption> TEAMS = List.of(
-            new TeamOption("light", "Light", "Helle Flotte", "Kuestennah, gut sichtbar"),
-            new TeamOption("dark", "Dark", "Dunkle Flotte", "Tarnung im Abendlicht"),
-            new TeamOption("green", "Green", "Gruene Flotte", "Zwischen Inseln schwerer zu lesen"),
-            new TeamOption("sand", "Sand", "Sand-Flotte", "Unauffaellig an Kueste und Strand")
+            new TeamOption("light", "Light"),
+            new TeamOption("dark", "Dark"),
+            new TeamOption("green", "Green"),
+            new TeamOption("sand", "Sand")
     );
 
     private final GameStateService gameStateService;
+    private final Map<String, String> playerNameByAlias = new ConcurrentHashMap<>();
 
     public SeaBattleStartPage(GameStateService gameStateService) {
         this.gameStateService = gameStateService;
@@ -34,22 +38,16 @@ public class SeaBattleStartPage {
 
     @FormData("start")
     SeaBattleStartForm start() {
-        return new SeaBattleStartForm("", "light");
+        return new SeaBattleStartForm("", "", "light");
     }
 
     @ModelData("teams")
     List<TeamOption> teams() {
-        Map<String, Long> occupiedShips = gameStateService.snapshot().ships().stream()
-                .filter(ship -> ship.controlledBy() != null && !ship.controlledBy().isBlank())
-                .collect(Collectors.groupingBy(ShipSnapshot::teamId, Collectors.counting()));
-        Map<String, Long> activeShips = gameStateService.snapshot().ships().stream()
-                .filter(ship -> "active".equals(ship.state()))
-                .collect(Collectors.groupingBy(ShipSnapshot::teamId, Collectors.counting()));
+        Map<String, List<PlayerEntry>> playersByTeam = players().stream()
+                .collect(Collectors.groupingBy(PlayerEntry::teamId, LinkedHashMap::new, Collectors.toList()));
 
         return TEAMS.stream()
-                .map(team -> team.withCounts(
-                        occupiedShips.getOrDefault(team.id(), 0L).intValue(),
-                        activeShips.getOrDefault(team.id(), 0L).intValue()))
+                .map(team -> team.withPlayers(playersByTeam.getOrDefault(team.id(), List.of())))
                 .toList();
     }
 
@@ -59,7 +57,9 @@ public class SeaBattleStartPage {
         return gameStateService.snapshot().ships().stream()
                 .filter(ship -> ship.controlledBy() != null && ship.controlledBy().startsWith("player-"))
                 .map(ship -> new PlayerEntry(
+                        playerName(playerInitials(ship.controlledBy())),
                         playerInitials(ship.controlledBy()),
+                        ship.teamId(),
                         teamLabel(ship.teamId()),
                         ship.id().toUpperCase(Locale.ROOT).replace("-", " "),
                         kills.getOrDefault(ship.controlledBy(), 0),
@@ -71,8 +71,31 @@ public class SeaBattleStartPage {
     @Action
     PageUrlResponse startGame(@FormData("start") SeaBattleStartForm form) {
         String initials = form.initials().toUpperCase(Locale.ROOT);
-        String url = "/sea-battle/app?team=" + encode(form.team()) + "&initials=" + encode(initials);
+        if (isAliasActive(initials)) {
+            throw new ValidationFailedException("/start/initials", "seaBattle.aliasTaken");
+        }
+        String name = normalizeName(form.name());
+        playerNameByAlias.put(initials, name);
+        String url = "/sea-battle/app?team=" + encode(form.team())
+                + "&initials=" + encode(initials)
+                + "&playerName=" + encode(name);
         return new PageUrlResponse(url);
+    }
+
+    private boolean isAliasActive(String initials) {
+        return playerNameByAlias.containsKey(initials) || gameStateService.snapshot().ships().stream()
+                .map(ShipSnapshot::controlledBy)
+                .filter(controller -> controller != null && controller.startsWith("player-"))
+                .map(this::playerInitials)
+                .anyMatch(initials::equals);
+    }
+
+    private String normalizeName(String value) {
+        return value == null ? "" : value.trim().replaceAll("\\s+", " ");
+    }
+
+    private String playerName(String initials) {
+        return playerNameByAlias.getOrDefault(initials, "-");
     }
 
     private String teamLabel(String teamId) {
@@ -107,16 +130,16 @@ public class SeaBattleStartPage {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
-    public record TeamOption(String id, String label, String name, String description, int players, int activeShips) {
-        TeamOption(String id, String label, String name, String description) {
-            this(id, label, name, description, 0, 0);
+    public record TeamOption(String id, String label, List<PlayerEntry> players) {
+        TeamOption(String id, String label) {
+            this(id, label, List.of());
         }
 
-        TeamOption withCounts(int players, int activeShips) {
-            return new TeamOption(id, label, name, description, players, activeShips);
+        TeamOption withPlayers(List<PlayerEntry> players) {
+            return new TeamOption(id, label, List.copyOf(players));
         }
     }
 
-    public record PlayerEntry(String initials, String team, String ship, int kills, String sector) {
+    public record PlayerEntry(String name, String initials, String teamId, String team, String ship, int kills, String sector) {
     }
 }
