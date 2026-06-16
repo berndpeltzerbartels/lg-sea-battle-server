@@ -359,6 +359,60 @@ class GameSessionTest {
         assertTrue(navigationService.isShipMovementBlocked(ship.position(), ship.heading(), -1, worldMap));
     }
 
+    @Test
+    void respawnSelectionUsesCandidatesAsRoundRobin() {
+        List<Vector2> candidates = List.of(
+                new Vector2(-200, 0),
+                new Vector2(0, 0),
+                new Vector2(200, 0)
+        );
+        GameSession session = new GameSession(new GameSetup(
+                "respawn-round-robin-test",
+                new WorldMap(9012, List.of()),
+                List.of(),
+                candidates
+        ));
+        Ship sunkShip = new Ship("red-1", "red", new Vector2(0, -500), 0, "bot");
+
+        assertEquals(candidates.get(0), session.findRespawnPosition(sunkShip, navigationService, session.worldMap(), radarService));
+        assertEquals(candidates.get(1), session.findRespawnPosition(sunkShip, navigationService, session.worldMap(), radarService));
+        assertEquals(candidates.get(2), session.findRespawnPosition(sunkShip, navigationService, session.worldMap(), radarService));
+        assertEquals(candidates.get(0), session.findRespawnPosition(sunkShip, navigationService, session.worldMap(), radarService));
+    }
+
+    @Test
+    void respawnSelectionDoesNotRepeatLastCandidateWhenAllCandidatesAreNegative() {
+        List<Vector2> candidates = List.of(
+                new Vector2(-500, 0),
+                new Vector2(0, 0),
+                new Vector2(500, 0)
+        );
+        GameSession session = new GameSession(new GameSetup(
+                "respawn-negative-round-robin-test",
+                new WorldMap(9013, List.of()),
+                List.of(new FleetSetup("red", List.of(
+                        ship("red-a", "red", -500, 0, 0, 2, 0),
+                        ship("red-b", "red", 0, 0, 0, 2, 0),
+                        ship("red-c", "red", 500, 0, 0, 2, 0)
+                ))),
+                candidates
+        ));
+        Ship sunkShip = new Ship("red-1", "red", new Vector2(0, -500), 0, "bot");
+
+        Vector2 first = session.findRespawnPosition(sunkShip, navigationService, session.worldMap(), radarService);
+        Vector2 second = session.findRespawnPosition(sunkShip, navigationService, session.worldMap(), radarService);
+
+        assertEquals(candidates.get(0), first);
+        assertEquals(candidates.get(1), second);
+    }
+
+    @Test
+    void defaultSetupHasEnoughRespawnCandidates() {
+        GameSetup setup = new DefaultGameSetupFactory(new WorldMapService()).setup("default");
+
+        assertTrue(setup.respawnCandidates().size() >= 10);
+    }
+
     private void assertSetupPlacesShipsAndRespawnsInNavigableWater(GameSetup setup) {
         List<String> blockedPositions = new java.util.ArrayList<>();
         setup.fleets().stream()

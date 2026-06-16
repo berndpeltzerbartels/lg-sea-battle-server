@@ -57,6 +57,7 @@ public final class GameSession {
     private final List<TorpedoImpactSnapshot> torpedoImpacts = new ArrayList<>();
     private int nextTorpedoId = 1;
     private int nextRespawnCandidateIndex;
+    private int lastRespawnCandidateIndex = -1;
     private double nowSeconds;
     private String state = "running";
 
@@ -767,30 +768,50 @@ public final class GameSession {
                 });
     }
 
-    private Vector2 findRespawnPosition(Ship ship, NavigationService navigationService, WorldMap worldMap, RadarService radarService) {
+    Vector2 findRespawnPosition(Ship ship, NavigationService navigationService, WorldMap worldMap, RadarService radarService) {
         List<Vector2> candidates = respawnCandidates;
-        Vector2 bestCandidate = candidates.get(0);
-        double bestScore = Double.NEGATIVE_INFINITY;
-        int startIndex = nextRespawnCandidateIndex++;
+        if (candidates.isEmpty()) {
+            return ship.position();
+        }
+        RespawnChoice firstDifferentCandidate = null;
+        RespawnChoice firstNavigableCandidate = null;
+        RespawnChoice firstCandidate = null;
+        int startIndex = nextRespawnCandidateIndex;
         for (int offset = 0; offset < candidates.size(); offset += 1) {
-            Vector2 candidate = candidates.get((startIndex + offset) % candidates.size());
-            if (navigationService.isShipBlocked(candidate, ship.heading(), worldMap)) {
-                continue;
-            }
-            if (activeShipsTooClose(candidate)) {
-                continue;
-            }
+            int index = Math.floorMod(startIndex + offset, candidates.size());
+            Vector2 candidate = candidates.get(index);
+            RespawnChoice choice = new RespawnChoice(index, candidate);
+            boolean sameAsLast = index == lastRespawnCandidateIndex;
+            boolean blocked = navigationService.isShipBlocked(candidate, ship.heading(), worldMap);
+            boolean activeShipsTooClose = activeShipsTooClose(candidate);
             double distanceToHumans = distanceToNearestHumanShip(candidate);
-            double score = distanceToHumans + distanceToNearestLand(candidate, worldMap) * 0.15;
-            if (score > bestScore) {
-                bestCandidate = candidate;
-                bestScore = score;
+            boolean tooCloseToHuman = distanceToHumans <= radarService.range() + RESPAWN_HUMAN_RADAR_MARGIN;
+
+            if (!sameAsLast && !blocked && !activeShipsTooClose && !tooCloseToHuman) {
+                return selectRespawnChoice(choice, candidates.size());
             }
-            if (distanceToHumans > radarService.range() + RESPAWN_HUMAN_RADAR_MARGIN) {
-                return candidate;
+            if (!sameAsLast && !blocked && firstNavigableCandidate == null) {
+                firstNavigableCandidate = choice;
+            }
+            if (!sameAsLast && firstDifferentCandidate == null) {
+                firstDifferentCandidate = choice;
+            }
+            if (firstCandidate == null) {
+                firstCandidate = choice;
             }
         }
-        return bestCandidate;
+        RespawnChoice fallback = firstNavigableCandidate != null
+                ? firstNavigableCandidate
+                : firstDifferentCandidate != null
+                ? firstDifferentCandidate
+                : firstCandidate;
+        return selectRespawnChoice(fallback, candidates.size());
+    }
+
+    private Vector2 selectRespawnChoice(RespawnChoice choice, int candidateCount) {
+        lastRespawnCandidateIndex = choice.index();
+        nextRespawnCandidateIndex = Math.floorMod(choice.index() + 1, candidateCount);
+        return choice.position();
     }
 
     private boolean activeShipsTooClose(Vector2 candidate) {
@@ -808,11 +829,7 @@ public final class GameSession {
                 .orElse(Double.POSITIVE_INFINITY);
     }
 
-    private double distanceToNearestLand(Vector2 candidate, WorldMap worldMap) {
-        return worldMap.landmasses().stream()
-                .mapToDouble(landmass -> candidate.distanceTo(new Vector2(landmass.x(), landmass.z())))
-                .min()
-                .orElse(0);
+    private record RespawnChoice(int index, Vector2 position) {
     }
 
     private boolean fireTorpedo(Ship ship, double cooldownSeconds, double headingOffsetRadians) {
