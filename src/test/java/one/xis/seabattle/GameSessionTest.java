@@ -180,6 +180,26 @@ class GameSessionTest {
     }
 
     @Test
+    void playerLosesFivePointsWhenSunk() {
+        String playerId = "player-BP-test";
+        GameSession session = new GameSession(new GameSetup(
+                "player-sunk-score-test",
+                new WorldMap(9014, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, Math.PI / 2, 5, 0))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 56, 0, 0, playerId, 2, 0)))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(56, 0))
+        ));
+
+        GameSnapshot snapshot = tickUntilShipState(session, "blue-1", "sunk", 24);
+
+        assertEquals("active", findShip(snapshot, "red-1").state());
+        assertEquals("sunk", findShip(snapshot, "blue-1").state());
+        assertEquals(-5, snapshot.killsByPlayer().get(playerId));
+    }
+
+    @Test
     void diagonalPlayerSideRamEnemyScoresKillWithoutSinkingAttacker() {
         String playerId = "player-BP-test";
         GameSession session = new GameSession(new GameSetup(
@@ -275,9 +295,25 @@ class GameSessionTest {
         GameSetup denseLand = factory.setup("dense-land");
         assertEquals("dense-land", denseLand.id());
         assertEquals(9, denseLand.worldMap().version());
-        assertEquals(32, denseLand.fleets().stream().mapToInt(fleet -> fleet.ships().size()).sum());
-        assertEquals(List.of("dark", "light", "green", "sand"),
+        assertEquals(30, denseLand.fleets().stream().mapToInt(fleet -> fleet.ships().size()).sum());
+        assertEquals(List.of("dark", "light"),
                 denseLand.fleets().stream().map(FleetSetup::teamId).toList());
+        assertEquals(List.of(15, 15), denseLand.fleets().stream().map(fleet -> fleet.ships().size()).toList());
+    }
+
+    @Test
+    void denseLandAddsAdditionalPartiesOnlyForRequestedHumanTeams() {
+        DefaultGameSetupFactory factory = new DefaultGameSetupFactory(new WorldMapService());
+
+        GameSetup threeTeams = factory.setup("dense-land", List.of("green"));
+        assertEquals(List.of("dark", "light", "green"),
+                threeTeams.fleets().stream().map(FleetSetup::teamId).toList());
+        assertEquals(List.of(10, 10, 10), threeTeams.fleets().stream().map(fleet -> fleet.ships().size()).toList());
+
+        GameSetup fourTeams = factory.setup("dense-land", List.of("green", "sand"));
+        assertEquals(List.of("dark", "light", "green", "sand"),
+                fourTeams.fleets().stream().map(FleetSetup::teamId).toList());
+        assertEquals(List.of(8, 8, 7, 7), fourTeams.fleets().stream().map(fleet -> fleet.ships().size()).toList());
     }
 
     @Test

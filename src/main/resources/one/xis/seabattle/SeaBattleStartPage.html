@@ -319,7 +319,7 @@
                 <label for="team" xis:binding="team" xis:error-class="error">Flotte</label>
                 <select id="team" xis:binding="team" xis:error-class="error">
                     <option value="">Flotte waehlen</option>
-                    <xis:foreach var="team" array="teams">
+                    <xis:foreach var="team" array="teamOptions">
                         <option value="${team.id}">${team.label}</option>
                     </xis:foreach>
                 </select>
@@ -343,7 +343,7 @@
                                 <span class="player-name">${player.name}</span>
                                 <strong class="player-alias">${player.initials}</strong>
                                 <span class="player-meta">${player.ship} / ${player.sector}</span>
-                                <em class="player-score">K${player.kills}</em>
+                                <em class="player-score">${player.kills}</em>
                             </div>
                         </xis:foreach>
                     </div>

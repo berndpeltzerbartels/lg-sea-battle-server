@@ -720,6 +720,7 @@ public final class GameSession {
     }
 
     private void sinkShip(Ship ship, String creditedPlayerId) {
+        String sunkController = ship.controlledBy();
         Integer scoreDelta = isHumanController(creditedPlayerId)
                 ? scoreDeltaFor(creditedPlayerId, ship.teamId())
                 : null;
@@ -729,6 +730,9 @@ public final class GameSession {
         destroyedShipsByTeam.merge(ship.teamId(), 1, Integer::sum);
         if (scoreDelta != null) {
             killsByPlayer.merge(creditedPlayerId, scoreDelta, Integer::sum);
+        }
+        if (isHumanController(sunkController)) {
+            killsByPlayer.merge(sunkController, -5, Integer::sum);
         }
         Optional.ofNullable(fleets.get(ship.teamId())).ifPresent(fleet -> fleet.releaseShip(ship.id()));
     }

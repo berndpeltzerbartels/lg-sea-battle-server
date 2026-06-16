@@ -47,8 +47,14 @@ public class SeaBattleStartPage {
                 .collect(Collectors.groupingBy(PlayerEntry::teamId, LinkedHashMap::new, Collectors.toList()));
 
         return TEAMS.stream()
+                .filter(team -> isBaseTeam(team.id()) || playersByTeam.containsKey(team.id()))
                 .map(team -> team.withPlayers(playersByTeam.getOrDefault(team.id(), List.of())))
                 .toList();
+    }
+
+    @ModelData("teamOptions")
+    List<TeamOption> teamOptions() {
+        return TEAMS;
     }
 
     @ModelData("players")
@@ -76,10 +82,15 @@ public class SeaBattleStartPage {
         }
         String name = normalizeName(form.name());
         playerNameByAlias.put(initials, name);
+        gameStateService.activateTeam(form.team());
         String url = "/sea-battle/app?team=" + encode(form.team())
                 + "&initials=" + encode(initials)
                 + "&playerName=" + encode(name);
         return new PageUrlResponse(url);
+    }
+
+    private boolean isBaseTeam(String teamId) {
+        return "dark".equals(teamId) || "light".equals(teamId);
     }
 
     private boolean isAliasActive(String initials) {

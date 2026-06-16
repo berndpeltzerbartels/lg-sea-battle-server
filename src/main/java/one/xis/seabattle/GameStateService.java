@@ -2,6 +2,10 @@ package one.xis.seabattle;
 
 import one.xis.context.Service;
 
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+
 @Service
 public class GameStateService {
 
@@ -9,6 +13,8 @@ public class GameStateService {
     private final DefaultGameSetupFactory setupFactory;
     private final RadarService radarService;
     private final NavigationService navigationService;
+    private final Set<String> requestedTeamIds = new LinkedHashSet<>();
+    private String setupId = "default";
 
     public GameStateService(DefaultGameSetupFactory setupFactory, RadarService radarService, NavigationService navigationService) {
         this.setupFactory = setupFactory;
@@ -31,10 +37,12 @@ public class GameStateService {
     }
 
     public GameSnapshot updatePlayerState(PlayerStateUpdate update) {
+        activateTeam(update.teamId());
         return session.updatePlayerState(update, navigationService, session.worldMap());
     }
 
     public GameSnapshot fireTorpedo(FireTorpedoRequest request) {
+        activateTeam(request.teamId());
         return session.fireTorpedo(request);
     }
 
@@ -46,11 +54,22 @@ public class GameStateService {
         if (request == null || !"bernd".equals(request.adminKey())) {
             throw new IllegalArgumentException("Reset is only available to the host.");
         }
-        session = new GameSession(setupFactory.setup(request.setupId()));
+        setupId = request.setupId();
+        requestedTeamIds.clear();
+        session = new GameSession(setupFactory.setup(setupId, List.copyOf(requestedTeamIds)));
         return session.snapshot();
     }
 
     public RadarSnapshot radar(RadarRequest request) {
+        activateTeam(request.teamId());
         return session.radar(request, radarService, session.worldMap());
+    }
+
+    public synchronized void activateTeam(String teamId) {
+        if (!setupFactory.isKnownTeam(teamId) || requestedTeamIds.contains(teamId)) {
+            return;
+        }
+        requestedTeamIds.add(teamId);
+        session = new GameSession(setupFactory.setup(setupId, List.copyOf(requestedTeamIds)));
     }
 }

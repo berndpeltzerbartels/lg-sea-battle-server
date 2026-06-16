@@ -3,7 +3,9 @@ package one.xis.seabattle;
 import one.xis.context.Service;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 final class DefaultGameSetupFactory {
@@ -16,6 +18,8 @@ final class DefaultGameSetupFactory {
     private static final String TEAM_LIGHT = "light";
     private static final String TEAM_GREEN = "green";
     private static final String TEAM_SAND = "sand";
+    private static final List<String> BASE_TEAMS = List.of(TEAM_DARK, TEAM_LIGHT);
+    private static final List<String> TEAM_ORDER = List.of(TEAM_DARK, TEAM_LIGHT, TEAM_GREEN, TEAM_SAND);
 
     private final WorldMapService worldMapService;
 
@@ -24,21 +28,29 @@ final class DefaultGameSetupFactory {
     }
 
     GameSetup setup(String setupId) {
+        return setup(setupId, List.of());
+    }
+
+    GameSetup setup(String setupId, List<String> requestedTeamIds) {
         if (setupId == null || setupId.isBlank() || "default".equals(setupId)) {
-            return defaultSetup();
+            return defaultSetup(requestedTeamIds);
         }
         return switch (setupId) {
             case "islands" -> openIslandsSetup();
             case "single-island" -> singleIslandSetup();
             case "ram-side" -> ramSideSetup();
             case "explosion-demo" -> explosionDemoSetup();
-            case "dense-land" -> denseLandSetup();
+            case "dense-land" -> denseLandSetup(activeTeamIds(requestedTeamIds));
             default -> throw new IllegalArgumentException("Unknown game setup: " + setupId);
         };
     }
 
     GameSetup defaultSetup() {
-        return denseLandSetup();
+        return defaultSetup(List.of());
+    }
+
+    GameSetup defaultSetup(List<String> requestedTeamIds) {
+        return denseLandSetup(activeTeamIds(requestedTeamIds));
     }
 
     private GameSetup openIslandsSetup() {
@@ -145,17 +157,20 @@ final class DefaultGameSetupFactory {
     }
 
     private GameSetup denseLandSetup() {
+        return denseLandSetup(activeTeamIds(List.of()));
+    }
+
+    private GameSetup denseLandSetup(List<String> activeTeamIds) {
         return new GameSetup(
                 "dense-land",
                 worldMapService.denseWorld(),
-                List.of(
-                        new FleetSetup(TEAM_DARK, createShips(TEAM_DARK, formationSlice(denseRedFormation(), 0, 8))),
-                        new FleetSetup(TEAM_LIGHT, createShips(TEAM_LIGHT, formationSlice(denseBlueFormation(), 0, 8))),
-                        new FleetSetup(TEAM_GREEN, createShips(TEAM_GREEN, formationSlice(denseRedFormation(), 7, 8))),
-                        new FleetSetup(TEAM_SAND, createShips(TEAM_SAND, formationSlice(denseBlueFormation(), 7, 8)))
-                ),
+                createDenseFleets(activeTeamIds),
                 denseRespawnCandidates()
         );
+    }
+
+    boolean isKnownTeam(String teamId) {
+        return TEAM_ORDER.contains(teamId);
     }
 
     private static ShipSetup ship(String id, String teamId, double x, double z, double heading, int engineOrder,
@@ -204,12 +219,39 @@ final class DefaultGameSetupFactory {
         return ships;
     }
 
-    private static double[][] formationSlice(double[][] formation, int start, int length) {
-        double[][] slice = new double[length][];
-        for (int index = 0; index < length; index += 1) {
-            slice[index] = formation[start + index];
+    private static List<FleetSetup> createDenseFleets(List<String> activeTeamIds) {
+        List<List<double[]>> slotsByTeam = new ArrayList<>();
+        activeTeamIds.forEach(ignored -> slotsByTeam.add(new ArrayList<>()));
+        List<double[]> slots = denseFormationSlots();
+        for (int index = 0; index < slots.size(); index += 1) {
+            slotsByTeam.get(index % activeTeamIds.size()).add(slots.get(index));
         }
-        return slice;
+
+        List<FleetSetup> fleets = new ArrayList<>();
+        for (int index = 0; index < activeTeamIds.size(); index += 1) {
+            String teamId = activeTeamIds.get(index);
+            fleets.add(new FleetSetup(teamId, createShips(teamId, slotsByTeam.get(index).toArray(double[][]::new))));
+        }
+        return fleets;
+    }
+
+    private static List<String> activeTeamIds(List<String> requestedTeamIds) {
+        Set<String> activeTeams = new LinkedHashSet<>(BASE_TEAMS);
+        TEAM_ORDER.stream()
+                .filter(team -> requestedTeamIds != null && requestedTeamIds.contains(team))
+                .forEach(activeTeams::add);
+        return List.copyOf(activeTeams);
+    }
+
+    private static List<double[]> denseFormationSlots() {
+        List<double[]> slots = new ArrayList<>();
+        for (double[] slot : denseRedFormation()) {
+            slots.add(slot);
+        }
+        for (double[] slot : denseBlueFormation()) {
+            slots.add(slot);
+        }
+        return slots;
     }
 
     private static double[][] redFormation() {
