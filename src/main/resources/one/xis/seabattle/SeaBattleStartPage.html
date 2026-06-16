@@ -318,6 +318,7 @@
             <div class="field">
                 <label for="team" xis:binding="team" xis:error-class="error">Flotte</label>
                 <select id="team" xis:binding="team" xis:error-class="error">
+                    <option value="">Flotte waehlen</option>
                     <xis:foreach var="team" array="teams">
                         <option value="${team.id}">${team.label}</option>
                     </xis:foreach>

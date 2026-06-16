@@ -38,7 +38,7 @@ public class SeaBattleStartPage {
 
     @FormData("start")
     SeaBattleStartForm start() {
-        return new SeaBattleStartForm("", "", "light");
+        return new SeaBattleStartForm("", "", "");
     }
 
     @ModelData("teams")
