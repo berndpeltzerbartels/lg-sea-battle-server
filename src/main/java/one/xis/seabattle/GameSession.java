@@ -782,6 +782,8 @@ public final class GameSession {
         }
         RespawnChoice firstDifferentCandidate = null;
         RespawnChoice firstNavigableCandidate = null;
+        RespawnChoice bestFallbackCandidate = null;
+        double bestFallbackScore = Double.NEGATIVE_INFINITY;
         RespawnChoice firstCandidate = null;
         int startIndex = nextRespawnCandidateIndex;
         for (int offset = 0; offset < candidates.size(); offset += 1) {
@@ -797,6 +799,13 @@ public final class GameSession {
             if (!sameAsLast && !blocked && !activeShipsTooClose && !tooCloseToHuman) {
                 return selectRespawnChoice(choice, candidates.size());
             }
+            if (!sameAsLast && !blocked) {
+                double fallbackScore = distanceToHumans - (activeShipsTooClose ? radarService.range() * 2 : 0);
+                if (fallbackScore > bestFallbackScore) {
+                    bestFallbackScore = fallbackScore;
+                    bestFallbackCandidate = choice;
+                }
+            }
             if (!sameAsLast && !blocked && firstNavigableCandidate == null) {
                 firstNavigableCandidate = choice;
             }
@@ -807,7 +816,9 @@ public final class GameSession {
                 firstCandidate = choice;
             }
         }
-        RespawnChoice fallback = firstNavigableCandidate != null
+        RespawnChoice fallback = bestFallbackCandidate != null
+                ? bestFallbackCandidate
+                : firstNavigableCandidate != null
                 ? firstNavigableCandidate
                 : firstDifferentCandidate != null
                 ? firstDifferentCandidate

@@ -463,6 +463,27 @@ class GameSessionTest {
     }
 
     @Test
+    void respawnFallbackPrefersCandidateFarthestFromHumanShips() {
+        String playerId = "player-BP-test";
+        List<Vector2> candidates = List.of(
+                new Vector2(120, 0),
+                new Vector2(420, 0),
+                new Vector2(860, 0)
+        );
+        GameSession session = new GameSession(new GameSetup(
+                "respawn-human-distance-fallback-test",
+                new WorldMap(9016, List.of()),
+                List.of(new FleetSetup("red", List.of(
+                        ship("red-human", "red", 0, 0, 0, playerId, 2, 0)
+                ))),
+                candidates
+        ));
+        Ship sunkShip = new Ship("blue-1", "blue", new Vector2(0, -500), 0, "bot");
+
+        assertEquals(candidates.get(2), session.findRespawnPosition(sunkShip, navigationService, session.worldMap(), radarService));
+    }
+
+    @Test
     void defaultSetupHasEnoughRespawnCandidates() {
         GameSetup setup = new DefaultGameSetupFactory(new WorldMapService()).setup("default");
 
