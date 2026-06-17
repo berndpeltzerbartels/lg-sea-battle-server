@@ -22,7 +22,12 @@ import java.util.stream.Collectors;
 @Page("/index.html")
 public class SeaBattleStartPage {
 
-    private static final List<TeamOption> TEAMS = List.of(
+    private static final List<TeamOption> PUBLIC_TEAMS = List.of(
+            new TeamOption("light", "Light"),
+            new TeamOption("dark", "Dark")
+    );
+
+    private static final List<TeamOption> ALL_TEAMS = List.of(
             new TeamOption("light", "Light"),
             new TeamOption("dark", "Dark"),
             new TeamOption("green", "Green"),
@@ -46,15 +51,14 @@ public class SeaBattleStartPage {
         Map<String, List<PlayerEntry>> playersByTeam = players().stream()
                 .collect(Collectors.groupingBy(PlayerEntry::teamId, LinkedHashMap::new, Collectors.toList()));
 
-        return TEAMS.stream()
-                .filter(team -> isBaseTeam(team.id()) || playersByTeam.containsKey(team.id()))
+        return PUBLIC_TEAMS.stream()
                 .map(team -> team.withPlayers(playersByTeam.getOrDefault(team.id(), List.of())))
                 .toList();
     }
 
     @ModelData("teamOptions")
     List<TeamOption> teamOptions() {
-        return TEAMS;
+        return PUBLIC_TEAMS;
     }
 
     @ModelData("players")
@@ -80,17 +84,13 @@ public class SeaBattleStartPage {
         if (isAliasActive(initials)) {
             throw new ValidationFailedException("/start/initials", "seaBattle.aliasTaken");
         }
-        String name = normalizeName(form.name());
-        playerNameByAlias.put(initials, name);
+        String nickname = normalizeName(form.nickname());
+        playerNameByAlias.put(initials, nickname);
         gameStateService.activateTeam(form.team());
         String url = "/sea-battle/app?team=" + encode(form.team())
                 + "&initials=" + encode(initials)
-                + "&playerName=" + encode(name);
+                + "&playerName=" + encode(nickname);
         return new PageUrlResponse(url);
-    }
-
-    private boolean isBaseTeam(String teamId) {
-        return "dark".equals(teamId) || "light".equals(teamId);
     }
 
     private boolean isAliasActive(String initials) {
@@ -110,7 +110,7 @@ public class SeaBattleStartPage {
     }
 
     private String teamLabel(String teamId) {
-        return TEAMS.stream()
+        return ALL_TEAMS.stream()
                 .filter(team -> team.id().equals(teamId))
                 .map(TeamOption::label)
                 .findFirst()

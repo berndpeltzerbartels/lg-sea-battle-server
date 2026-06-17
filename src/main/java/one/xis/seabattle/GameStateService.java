@@ -66,7 +66,7 @@ public class GameStateService {
     }
 
     public synchronized void activateTeam(String teamId) {
-        if (!setupFactory.isKnownTeam(teamId) || requestedTeamIds.contains(teamId)) {
+        if (!setupFactory.isKnownTeam(teamId) || !setupFactory.isPublicTeam(teamId) || requestedTeamIds.contains(teamId)) {
             return;
         }
         requestedTeamIds.add(teamId);

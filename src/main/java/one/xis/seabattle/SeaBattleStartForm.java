@@ -7,8 +7,8 @@ import one.xis.validation.RegExpr;
 public record SeaBattleStartForm(
         @Mandatory
         @RegExpr("[\\p{L}0-9 .'-]{2,40}")
-        @LabelKey("seaBattle.name")
-        String name,
+        @LabelKey("seaBattle.nickname")
+        String nickname,
 
         @Mandatory
         @RegExpr("[A-Za-z0-9]{1,5}")
@@ -16,7 +16,7 @@ public record SeaBattleStartForm(
         String initials,
 
         @Mandatory
-        @RegExpr("light|dark|green|sand")
+        @RegExpr("light|dark")
         @LabelKey("seaBattle.team")
         String team
 ) {

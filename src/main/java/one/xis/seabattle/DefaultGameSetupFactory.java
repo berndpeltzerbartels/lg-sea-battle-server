@@ -173,6 +173,10 @@ final class DefaultGameSetupFactory {
         return TEAM_ORDER.contains(teamId);
     }
 
+    boolean isPublicTeam(String teamId) {
+        return BASE_TEAMS.contains(teamId);
+    }
+
     private static ShipSetup ship(String id, String teamId, double x, double z, double heading, int engineOrder,
                                   int rudderDegrees, double nextFireDelaySeconds) {
         return new ShipSetup(
