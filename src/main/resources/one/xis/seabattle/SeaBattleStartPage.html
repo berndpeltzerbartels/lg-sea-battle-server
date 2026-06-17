@@ -305,14 +305,17 @@
             </div>
 
             <div class="field">
-                <label for="initials" xis:binding="initials" xis:error-class="error">Kennung</label>
-                <input id="initials"
-                       xis:binding="initials"
+                <label for="alias" xis:binding="alias" xis:error-class="error">Kennung</label>
+                <input id="alias"
+                       xis:binding="alias"
                        xis:error-class="error"
                        maxlength="5"
                        pattern="[A-Za-z0-9]{1,5}"
-                       autocomplete="off">
-                <div class="message" xis:message-for="initials"></div>
+                       autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="characters"
+                       spellcheck="false">
+                <div class="message" xis:message-for="alias"></div>
             </div>
 
             <div class="field">

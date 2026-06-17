@@ -17,7 +17,6 @@ public final class SeaBattleEventService {
 
     private static final String PLAYER_SCOPE = "sea-battle-player";
     private static final long TICK_MILLIS = 100;
-    private static final double TICK_SECONDS = TICK_MILLIS / 1000.0;
 
     private final SseConnectionHub connections;
     private final GameStateService gameStateService;
@@ -54,12 +53,16 @@ public final class SeaBattleEventService {
             return;
         }
 
-        GameSnapshot state = gameStateService.tick(TICK_SECONDS);
-        subscriptionsByPlayerId.keySet().forEach(playerId -> send(playerId, createMessage(state)));
+        GameSnapshot state = gameStateService.snapshot();
+        subscriptionsByPlayerId.forEach((playerId, request) -> send(playerId, createMessage(state, request)));
     }
 
     private GameStreamMessage createMessage(GameSnapshot state) {
         return new GameStreamMessage("game-stream", state, null);
+    }
+
+    private GameStreamMessage createMessage(GameSnapshot state, RadarRequest request) {
+        return new GameStreamMessage("game-stream", state, gameStateService.radar(request));
     }
 
     private void send(String playerId, GameStreamMessage message) {

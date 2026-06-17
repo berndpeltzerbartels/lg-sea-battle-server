@@ -80,9 +80,9 @@ public class SeaBattleStartPage {
 
     @Action
     PageUrlResponse startGame(@FormData("start") SeaBattleStartForm form) {
-        String initials = form.initials().toUpperCase(Locale.ROOT);
+        String initials = form.alias().toUpperCase(Locale.ROOT);
         if (isAliasActive(initials)) {
-            throw new ValidationFailedException("/start/initials", "seaBattle.aliasTaken");
+            throw new ValidationFailedException("/start/alias", "seaBattle.aliasTaken");
         }
         String nickname = normalizeName(form.nickname());
         playerNameByAlias.put(initials, nickname);

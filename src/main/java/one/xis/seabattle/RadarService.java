@@ -20,6 +20,21 @@ final class RadarService {
         return !LandGeometry.lineIntersectsRadarBlockingLand(observer.position(), contact.position(), worldMap);
     }
 
+    boolean isVisible(ShipSnapshot observer, ShipSnapshot contact, WorldMap worldMap) {
+        if (observer.id().equals(contact.id())) {
+            return false;
+        }
+        if (!"active".equals(observer.state()) || !"active".equals(contact.state())) {
+            return false;
+        }
+        Vector2 observerPosition = new Vector2(observer.x(), observer.z());
+        Vector2 contactPosition = new Vector2(contact.x(), contact.z());
+        if (observerPosition.distanceTo(contactPosition) > RADAR_RANGE) {
+            return false;
+        }
+        return !LandGeometry.lineIntersectsRadarBlockingLand(observerPosition, contactPosition, worldMap);
+    }
+
     double range() {
         return RADAR_RANGE;
     }
