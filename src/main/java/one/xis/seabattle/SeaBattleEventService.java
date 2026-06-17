@@ -16,7 +16,8 @@ import java.util.concurrent.TimeUnit;
 public final class SeaBattleEventService {
 
     private static final String PLAYER_SCOPE = "sea-battle-player";
-    private static final double TICK_SECONDS = 0.25;
+    private static final long TICK_MILLIS = 100;
+    private static final double TICK_SECONDS = TICK_MILLIS / 1000.0;
 
     private final SseConnectionHub connections;
     private final GameStateService gameStateService;
@@ -31,7 +32,7 @@ public final class SeaBattleEventService {
     public SeaBattleEventService(SseConnectionHub connections, GameStateService gameStateService) {
         this.connections = connections;
         this.gameStateService = gameStateService;
-        executor.scheduleAtFixedRate(this::broadcastTick, 250, 250, TimeUnit.MILLISECONDS);
+        executor.scheduleAtFixedRate(this::broadcastTick, TICK_MILLIS, TICK_MILLIS, TimeUnit.MILLISECONDS);
     }
 
     public void register(String playerId, String teamId, SseEmitter emitter) {

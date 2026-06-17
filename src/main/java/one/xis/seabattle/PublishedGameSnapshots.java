@@ -23,7 +23,7 @@ final class PublishedGameSnapshots {
         return snapshots.get(0);
     }
 
-    synchronized GameSnapshot publish(GameSnapshot snapshot) {
+    GameSnapshot publish(GameSnapshot snapshot) {
         long nextSequence = sequence.get() + 1;
         snapshots.set(slot(nextSequence), snapshot);
         sequence.set(nextSequence);
