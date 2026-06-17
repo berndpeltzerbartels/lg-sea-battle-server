@@ -17,7 +17,7 @@ final class RadarService {
         if (observer.position().distanceTo(contact.position()) > RADAR_RANGE) {
             return false;
         }
-        return !LandGeometry.lineIntersectsBlockedLand(observer.position(), contact.position(), worldMap);
+        return !LandGeometry.lineIntersectsRadarBlockingLand(observer.position(), contact.position(), worldMap);
     }
 
     double range() {

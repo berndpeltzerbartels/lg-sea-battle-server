@@ -3,6 +3,11 @@ package one.xis.seabattle;
 final class LandGeometry {
 
     private static final double LINE_SAMPLE_DISTANCE = 8.0;
+    private static final double COASTLINE_NAVIGATION_BLOCK_DISTANCE = 1.06;
+    private static final double COASTLINE_RADAR_BLOCK_DISTANCE = 0.86;
+    private static final double ISLAND_NAVIGATION_BLOCK_DISTANCE = 1.02;
+    private static final double ISLAND_RADAR_BLOCK_DISTANCE = 0.92;
+    private static final double STEEP_ROCK_BLOCK_DISTANCE = 1.0;
 
     private LandGeometry() {
     }
@@ -14,10 +19,23 @@ final class LandGeometry {
 
     static boolean isBlockedByLandmass(Vector2 position, Landmass landmass) {
         double distance = shapeDistance(position, landmass);
-        return distance < blockDistance(landmass) && !isInLandWater(position, landmass);
+        return distance < navigationBlockDistance(landmass) && !isInLandWater(position, landmass);
+    }
+
+    static boolean isRadarBlockedByLandmass(Vector2 position, Landmass landmass) {
+        double distance = shapeDistance(position, landmass);
+        return distance < radarBlockDistance(landmass) && !isInLandWater(position, landmass);
     }
 
     static boolean lineIntersectsBlockedLand(Vector2 from, Vector2 to, WorldMap worldMap) {
+        return lineIntersectsLand(from, to, worldMap, false);
+    }
+
+    static boolean lineIntersectsRadarBlockingLand(Vector2 from, Vector2 to, WorldMap worldMap) {
+        return lineIntersectsLand(from, to, worldMap, true);
+    }
+
+    private static boolean lineIntersectsLand(Vector2 from, Vector2 to, WorldMap worldMap, boolean radarOnly) {
         double length = from.distanceTo(to);
         if (length <= 0.001) {
             return false;
@@ -29,11 +47,18 @@ final class LandGeometry {
                     from.x() + (to.x() - from.x()) * t,
                     from.z() + (to.z() - from.z()) * t
             );
-            if (isBlocked(sample, worldMap)) {
+            if (isBlocked(sample, worldMap, radarOnly)) {
                 return true;
             }
         }
         return false;
+    }
+
+    private static boolean isBlocked(Vector2 position, WorldMap worldMap, boolean radarOnly) {
+        return worldMap.landmasses().stream()
+                .anyMatch(landmass -> radarOnly
+                        ? isRadarBlockedByLandmass(position, landmass)
+                        : isBlockedByLandmass(position, landmass));
     }
 
     static double shapeDistance(Vector2 position, Landmass landmass) {
@@ -49,8 +74,18 @@ final class LandGeometry {
         return distance / coastRadiusFactor(angle, landmass);
     }
 
-    static double blockDistance(Landmass landmass) {
-        return 1;
+    static double navigationBlockDistance(Landmass landmass) {
+        if ("coastline".equals(landmass.kind())) {
+            return COASTLINE_NAVIGATION_BLOCK_DISTANCE;
+        }
+        return isSteepRock(landmass) ? STEEP_ROCK_BLOCK_DISTANCE : ISLAND_NAVIGATION_BLOCK_DISTANCE;
+    }
+
+    static double radarBlockDistance(Landmass landmass) {
+        if ("coastline".equals(landmass.kind())) {
+            return COASTLINE_RADAR_BLOCK_DISTANCE;
+        }
+        return isSteepRock(landmass) ? STEEP_ROCK_BLOCK_DISTANCE : ISLAND_RADAR_BLOCK_DISTANCE;
     }
 
     static boolean isInLandWater(Vector2 position, Landmass landmass) {
@@ -111,5 +146,16 @@ final class LandGeometry {
             seed = (seed * 31 + name.charAt(i)) % 9973;
         }
         return seed;
+    }
+
+    private static boolean isSteepRock(Landmass landmass) {
+        String name = landmass.name();
+        return "island".equals(landmass.kind())
+                && (name.contains("rock")
+                || name.contains("rocks")
+                || name.contains("stack")
+                || name.contains("needle")
+                || name.contains("skerry")
+                || name.contains("skerries"));
     }
 }
