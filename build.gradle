@@ -27,6 +27,10 @@ tasks.withType(JavaCompile) {
 
 tasks.withType(Test) {
     useJUnitPlatform()
+    systemProperties System.getProperties().findAll { key, _ -> key.toString().startsWith('seaBattle.') }
+    testLogging {
+        showStandardStreams = Boolean.getBoolean('seaBattle.directBenchmark')
+    }
 }
 
 def lgSeaBattleDir = file('../lg-sea-battle')
