@@ -9,11 +9,12 @@ import java.util.Set;
 @Service
 public class GameStateService {
 
-    private GameSession session;
+    private volatile GameSession session;
     private final DefaultGameSetupFactory setupFactory;
     private final RadarService radarService;
     private final NavigationService navigationService;
     private final Set<String> requestedTeamIds = new LinkedHashSet<>();
+    private volatile PublishedGameSnapshots publishedSnapshots;
     private String setupId = "default";
 
     public GameStateService(DefaultGameSetupFactory setupFactory, RadarService radarService, NavigationService navigationService) {
@@ -21,6 +22,7 @@ public class GameStateService {
         this.radarService = radarService;
         this.navigationService = navigationService;
         this.session = new GameSession(setupFactory.defaultSetup());
+        this.publishedSnapshots = new PublishedGameSnapshots(session.snapshot());
     }
 
     public WorldMap worldMap() {
@@ -28,36 +30,44 @@ public class GameStateService {
     }
 
     public GameSnapshot snapshot() {
-        return session.snapshot();
+        return publishedSnapshots.current();
     }
 
-    public GameSnapshot tick(double deltaSeconds) {
+    public synchronized GameSnapshot tick(double deltaSeconds) {
         session.update(deltaSeconds, radarService, navigationService, session.worldMap());
-        return session.snapshot();
+        return publishedSnapshots.publish(session.snapshot());
     }
 
     public GameSnapshot updatePlayerState(PlayerStateUpdate update) {
         activateTeam(update.teamId());
-        return session.updatePlayerState(update, navigationService, session.worldMap());
+        synchronized (this) {
+            session.applyPlayerState(update, navigationService, session.worldMap());
+            return publishedSnapshots.current();
+        }
     }
 
     public GameSnapshot fireTorpedo(FireTorpedoRequest request) {
         activateTeam(request.teamId());
-        return session.fireTorpedo(request);
+        synchronized (this) {
+            session.applyFireTorpedo(request);
+            return publishedSnapshots.current();
+        }
     }
 
-    public void releasePlayer(String playerId) {
+    public synchronized void releasePlayer(String playerId) {
         session.releasePlayer(playerId);
+        publishedSnapshots.publish(session.snapshot());
     }
 
-    public GameSnapshot reset(ResetGameRequest request) {
+    public synchronized GameSnapshot reset(ResetGameRequest request) {
         if (request == null || !"bernd".equals(request.adminKey())) {
             throw new IllegalArgumentException("Reset is only available to the host.");
         }
         setupId = request.setupId();
         requestedTeamIds.clear();
         session = new GameSession(setupFactory.setup(setupId, List.copyOf(requestedTeamIds)));
-        return session.snapshot();
+        publishedSnapshots = new PublishedGameSnapshots(session.snapshot());
+        return publishedSnapshots.current();
     }
 
     public RadarSnapshot radar(RadarRequest request) {
@@ -71,5 +81,6 @@ public class GameStateService {
         }
         requestedTeamIds.add(teamId);
         session = new GameSession(setupFactory.setup(setupId, List.copyOf(requestedTeamIds)));
+        publishedSnapshots = new PublishedGameSnapshots(session.snapshot());
     }
 }

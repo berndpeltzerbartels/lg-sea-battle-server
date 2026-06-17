@@ -55,6 +55,42 @@ class GameSessionDirectBenchmarkTest {
         totalMetrics.print();
     }
 
+    @Test
+    void benchmarksShadowModelBuildPerTick() {
+        assumeTrue(Boolean.getBoolean("seaBattle.shadowBenchmark"),
+                "Run with -DseaBattle.shadowBenchmark=true to execute the shadow model benchmark.");
+
+        int clients = Integer.getInteger("seaBattle.benchmark.clients", 30);
+        int updateClients = Math.min(Integer.getInteger("seaBattle.benchmark.updateClients", clients), clients);
+        int durationSeconds = Integer.getInteger("seaBattle.benchmark.durationSeconds", 20);
+        int hz = Integer.getInteger("seaBattle.benchmark.hz", 4);
+        int measuredRounds = Integer.getInteger("seaBattle.benchmark.rounds", 3);
+        int warmupRounds = Integer.getInteger("seaBattle.benchmark.warmupRounds", 1);
+        int ticks = durationSeconds * hz;
+
+        BenchmarkMetrics totalMetrics = new BenchmarkMetrics();
+
+        for (int round = 1; round <= warmupRounds + measuredRounds; round += 1) {
+            boolean warmup = round <= warmupRounds;
+            BenchmarkMetrics roundMetrics = new BenchmarkMetrics();
+            runShadowRound(clients, updateClients, ticks, hz, roundMetrics);
+
+            if (warmup) {
+                System.out.printf(Locale.ROOT, "%nShadow warmup round %d ignored.%n", round);
+            } else {
+                int measuredRound = round - warmupRounds;
+                totalMetrics.addAll(roundMetrics);
+                System.out.printf(Locale.ROOT, "%nShadow measured round %d/%d: clients=%d, updateClients=%d, ticks=%d, hz=%d%n",
+                        measuredRound, measuredRounds, clients, updateClients, ticks, hz);
+                roundMetrics.print();
+            }
+        }
+
+        System.out.printf(Locale.ROOT, "%nCombined shadow model benchmark: clients=%d, updateClients=%d, measuredRounds=%d, ticksPerRound=%d, hz=%d%n",
+                clients, updateClients, measuredRounds, ticks, hz);
+        totalMetrics.print();
+    }
+
     private void runRound(int clients, int updateClients, int ticks, int hz, BenchmarkMetrics metrics) throws Exception {
         GameSession session = new GameSession(new DefaultGameSetupFactory(new WorldMapService()).defaultSetup());
         List<BenchmarkClient> benchmarkClients = createClients(clients, session.snapshot());
@@ -92,6 +128,42 @@ class GameSessionDirectBenchmarkTest {
         } finally {
             executor.shutdown();
             executor.awaitTermination(5, TimeUnit.SECONDS);
+        }
+    }
+
+    private void runShadowRound(int clients, int updateClients, int ticks, int hz, BenchmarkMetrics metrics) {
+        GameSession session = new GameSession(new DefaultGameSetupFactory(new WorldMapService()).defaultSetup());
+        List<BenchmarkClient> benchmarkClients = createClients(clients, session.snapshot());
+        List<BenchmarkClient> activeClients = benchmarkClients.stream().limit(updateClients).toList();
+        assignPlayers(session, activeClients);
+
+        for (int tick = 1; tick <= ticks; tick += 1) {
+            double elapsedSeconds = (double) tick / hz;
+
+            metrics.measure("apply-player-commands", () -> activeClients.forEach(client -> session.updatePlayerState(
+                    playerUpdate(client, elapsedSeconds),
+                    navigationService,
+                    session.worldMap()
+            )));
+
+            metrics.measure("game-tick", () -> session.update(1.0 / hz, radarService, navigationService, session.worldMap()));
+
+            metrics.measure("shadow-state", session::snapshot);
+
+            metrics.measure("shadow-radars", () -> benchmarkClients.forEach(client -> session.radar(
+                    new RadarRequest(client.playerId(), client.teamId()),
+                    radarService,
+                    session.worldMap()
+            )));
+
+            metrics.measure("shadow-model-total", () -> {
+                session.snapshot();
+                benchmarkClients.forEach(client -> session.radar(
+                        new RadarRequest(client.playerId(), client.teamId()),
+                        radarService,
+                        session.worldMap()
+                ));
+            });
         }
     }
 

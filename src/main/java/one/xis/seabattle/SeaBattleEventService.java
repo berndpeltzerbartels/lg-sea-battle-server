@@ -35,10 +35,9 @@ public final class SeaBattleEventService {
     }
 
     public void register(String playerId, String teamId, SseEmitter emitter) {
-        RadarRequest request = new RadarRequest(playerId, teamId);
-        subscriptionsByPlayerId.put(playerId, request);
+        subscriptionsByPlayerId.put(playerId, new RadarRequest(playerId, teamId));
         connections.register(PLAYER_SCOPE, playerId, emitter);
-        send(playerId, createMessage(request, gameStateService.snapshot()));
+        send(playerId, createMessage(gameStateService.snapshot()));
     }
 
     public void unregister(String playerId, SseEmitter emitter) {
@@ -55,11 +54,11 @@ public final class SeaBattleEventService {
         }
 
         GameSnapshot state = gameStateService.tick(TICK_SECONDS);
-        subscriptionsByPlayerId.forEach((playerId, request) -> send(playerId, createMessage(request, state)));
+        subscriptionsByPlayerId.keySet().forEach(playerId -> send(playerId, createMessage(state)));
     }
 
-    private GameStreamMessage createMessage(RadarRequest request, GameSnapshot state) {
-        return new GameStreamMessage("game-stream", state, gameStateService.radar(request));
+    private GameStreamMessage createMessage(GameSnapshot state) {
+        return new GameStreamMessage("game-stream", state, null);
     }
 
     private void send(String playerId, GameStreamMessage message) {
