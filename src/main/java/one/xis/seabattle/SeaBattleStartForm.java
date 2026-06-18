@@ -13,7 +13,7 @@ public record SeaBattleStartForm(
         @Mandatory
         @RegExpr("[A-Za-z0-9]{1,5}")
         @LabelKey("seaBattle.alias")
-        String initials,
+        String alias,
 
         @Mandatory
         @RegExpr("light|dark")

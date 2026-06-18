@@ -99,6 +99,11 @@ public final class GameSession {
     }
 
     public synchronized GameSnapshot updatePlayerState(PlayerStateUpdate update, NavigationService navigationService, WorldMap worldMap) {
+        applyPlayerState(update, navigationService, worldMap);
+        return snapshot();
+    }
+
+    public synchronized void applyPlayerState(PlayerStateUpdate update, NavigationService navigationService, WorldMap worldMap) {
         Fleet fleet = fleets.get(update.teamId());
         if (fleet == null) {
             throw new IllegalArgumentException("Unknown team: " + update.teamId());
@@ -109,10 +114,14 @@ public final class GameSession {
                 .or(() -> fleet.assignNextShipToPlayer(update.playerId()))
                 .orElseThrow(() -> new IllegalStateException("No active ship available for team: " + update.teamId()));
         ship.applyPlayerState(update, navigationService, worldMap);
-        return snapshot();
     }
 
     public synchronized GameSnapshot fireTorpedo(FireTorpedoRequest request) {
+        applyFireTorpedo(request);
+        return snapshot();
+    }
+
+    public synchronized void applyFireTorpedo(FireTorpedoRequest request) {
         Fleet fleet = fleets.get(request.teamId());
         if (fleet == null) {
             throw new IllegalArgumentException("Unknown team: " + request.teamId());
@@ -121,7 +130,6 @@ public final class GameSession {
         Ship ship = fleet.assignedShip(request.playerId())
                 .orElseThrow(() -> new IllegalStateException("No active ship assigned to player: " + request.playerId()));
         fireTorpedo(ship, 2.4, 0);
-        return snapshot();
     }
 
     public synchronized void releasePlayer(String playerId) {
