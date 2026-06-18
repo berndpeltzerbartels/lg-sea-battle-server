@@ -2,14 +2,11 @@ package one.xis.seabattle;
 
 import one.xis.context.Service;
 
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -23,8 +20,7 @@ public class GameStateService {
     private final RadarService radarService;
     private final NavigationService navigationService;
     private final Set<String> requestedTeamIds = new LinkedHashSet<>();
-    private final Set<RadarKey> radarSubscriptions = ConcurrentHashMap.newKeySet();
-    private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(task -> {
+    private final ExecutorService executor = Executors.newSingleThreadExecutor(task -> {
         Thread thread = new Thread(task, "sea-battle-game-state");
         thread.setDaemon(true);
         return thread;
@@ -38,7 +34,7 @@ public class GameStateService {
         this.navigationService = navigationService;
         this.session = new GameSession(setupFactory.defaultSetup());
         this.publishedModel = publishCurrentModel();
-        executor.scheduleAtFixedRate(this::safeTick, TICK_MILLIS, TICK_MILLIS, TimeUnit.MILLISECONDS);
+        executor.execute(this::runTickLoop);
     }
 
     public WorldMap worldMap() {
@@ -61,7 +57,6 @@ public class GameStateService {
 
     public GameSnapshot updatePlayerState(PlayerStateUpdate update) {
         activateTeam(update.teamId());
-        radarSubscriptions.add(new RadarKey(update.playerId(), update.teamId()));
         synchronized (this) {
             session.applyPlayerState(update, navigationService, session.worldMap());
             return publishedModel.state();
@@ -80,7 +75,6 @@ public class GameStateService {
         synchronized (this) {
             session.releasePlayer(playerId);
         }
-        radarSubscriptions.removeIf(key -> key.playerId().equals(playerId));
     }
 
     public GameSnapshot reset(ResetGameRequest request) {
@@ -91,7 +85,6 @@ public class GameStateService {
         synchronized (this) {
             setupId = request.setupId();
             requestedTeamIds.clear();
-            radarSubscriptions.clear();
             session = new GameSession(setupFactory.setup(setupId, List.copyOf(requestedTeamIds)));
             view = captureSessionView();
         }
@@ -101,10 +94,8 @@ public class GameStateService {
 
     public RadarSnapshot radar(RadarRequest request) {
         activateTeam(request.teamId());
-        radarSubscriptions.add(RadarKey.from(request));
         PublishedGameModel model = publishedModel;
-        RadarSnapshot radar = model.radar(request);
-        return radar != null ? radar : emptyRadar(request, model.state());
+        return radarFromSnapshot(request, model.state(), session.worldMap());
     }
 
     public void activateTeam(String teamId) {
@@ -125,33 +116,34 @@ public class GameStateService {
     }
 
     private void publishModel(SessionView view) {
-        publishedModel = buildPublishedModel(view.state(), view.worldMap(), Set.copyOf(radarSubscriptions));
+        publishedModel = buildPublishedModel(view.state());
     }
 
     private PublishedGameModel publishCurrentModel() {
-        return buildPublishedModel(session.snapshot(), session.worldMap(), Set.copyOf(radarSubscriptions));
+        return buildPublishedModel(session.snapshot());
     }
 
     /*
-     * Build the public read model from immutable snapshots. Do not call
-     * GameSession.radar(...) here: GameSession is synchronized and mutable, so that
-     * would put the expensive radar work back onto the session lock.
+     * Keep the published model independent of player-specific radar views. The
+     * client already receives the full snapshot and renders its own radar from it;
+     * precomputing one radar image per player made publishing scale with clients.
      */
-    private PublishedGameModel buildPublishedModel(GameSnapshot state, WorldMap worldMap, Set<RadarKey> subscriptions) {
-        Map<RadarKey, RadarSnapshot> radars = new LinkedHashMap<>();
-        for (RadarKey key : subscriptions) {
-            RadarRequest request = new RadarRequest(key.playerId(), key.teamId());
-            radars.put(key, radarFromSnapshot(request, state, worldMap));
-        }
-        return new PublishedGameModel(state, Map.copyOf(radars));
+    private PublishedGameModel buildPublishedModel(GameSnapshot state) {
+        return new PublishedGameModel(state);
     }
 
     private RadarSnapshot radarFromSnapshot(RadarRequest request, GameSnapshot state, WorldMap worldMap) {
+        SpatialIndex<ShipSnapshot> shipIndex = SpatialIndex.from(
+                state.ships(),
+                ship -> new Vector2(ship.x(), ship.z()),
+                radarService.range() / 3.0
+        );
         ShipSnapshot observer = observerFor(request, state);
         if (observer == null) {
             return new RadarSnapshot("radar", state.sessionId(), state.t(), "", request.teamId(), 0, 0, 0, radarService.range(), List.of());
         }
-        List<RadarContact> contacts = state.ships().stream()
+        Vector2 observerPosition = new Vector2(observer.x(), observer.z());
+        List<RadarContact> contacts = shipIndex.near(observerPosition, radarService.range()).stream()
                 .filter(contact -> radarService.isVisible(observer, contact, worldMap))
                 .map(contact -> radarContact(observer, contact))
                 .toList();
@@ -199,31 +191,46 @@ public class GameStateService {
     private record SessionView(GameSnapshot state, WorldMap worldMap) {
     }
 
-    private void safeTick() {
+    private void runTickLoop() {
+        long periodNanos = TimeUnit.MILLISECONDS.toNanos(TICK_MILLIS);
+        long nextStart = System.nanoTime() + periodNanos;
+        long previousStart = System.nanoTime();
+        while (!Thread.currentThread().isInterrupted()) {
+            long now = System.nanoTime();
+            if (now < nextStart) {
+                sleepNanos(nextStart - now);
+            }
+
+            long started = System.nanoTime();
+            double deltaSeconds = Math.max(TICK_SECONDS, (started - previousStart) / 1_000_000_000.0);
+            previousStart = started;
+            safeTick(deltaSeconds);
+
+            long completed = System.nanoTime();
+            nextStart += periodNanos;
+            while (nextStart < completed) {
+                nextStart += periodNanos;
+            }
+        }
+    }
+
+    private void safeTick(double deltaSeconds) {
         try {
-            tick(TICK_SECONDS);
+            tick(deltaSeconds);
         } catch (RuntimeException exception) {
             System.err.println("Sea Battle game tick failed: " + exception.getMessage());
             exception.printStackTrace(System.err);
         }
     }
 
-    private RadarSnapshot emptyRadar(RadarRequest request, GameSnapshot state) {
-        ShipSnapshot observer = observerFor(request, state);
-        if (observer == null) {
-            return new RadarSnapshot("radar", state.sessionId(), state.t(), "", request.teamId(), 0, 0, 0, radarService.range(), List.of());
+    private void sleepNanos(long nanos) {
+        if (nanos <= 0) {
+            return;
         }
-        return new RadarSnapshot(
-                "radar",
-                state.sessionId(),
-                state.t(),
-                observer.id(),
-                observer.teamId(),
-                MathSupport.round(observer.x()),
-                MathSupport.round(observer.z()),
-                MathSupport.round(observer.heading()),
-                MathSupport.round(radarService.range()),
-                List.of()
-        );
+        try {
+            TimeUnit.NANOSECONDS.sleep(nanos);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+        }
     }
 }

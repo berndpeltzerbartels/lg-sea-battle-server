@@ -4,15 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LG Sea Battle</title>
-    <script type="module" crossorigin src="/sea-battle/assets/index-LSwB_ZF7.js"></script>
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/styles-Iwh2awtq.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/logDepthDeclaration-_DXKVBlM.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/helperFunctions-BLOqTRKm.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/fogFragment-D5LUDQHn.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/default.fragment-9RGvE5ny.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/vertexColorMixing-FSck8ZVa.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/default.vertex-D2NO0ckP.js">
-    <link rel="stylesheet" crossorigin href="/sea-battle/assets/styles-CKokBloP.css">
+    <script type="module" crossorigin src="/sea-battle/assets/index-B65ZWHCV.js"></script>
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/styles-oN_Azy_3.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/logDepthDeclaration-Ctx9kIvD.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/helperFunctions-thCqvjo1.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/fogFragment-BAqinEKV.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/default.fragment-CeNxW_Sp.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/vertexColorMixing-D6CcY2Vo.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/default.vertex-BiQQjhJX.js">
+    <link rel="stylesheet" crossorigin href="/sea-battle/assets/styles-DxkBTarw.css">
   </head>
   <body>
     <canvas id="renderCanvas"></canvas>
@@ -48,7 +48,16 @@
         <canvas id="radarCanvas" width="300" height="300"></canvas>
         <small id="radarStatus">Clear</small>
       </div>
-      <div id="fleetStatusRows" class="fleet-status" aria-hidden="true"></div>
+      <div class="fleet-status" aria-hidden="true">
+        <div class="fleet-status-row fleet-status-light">
+          <span>Light</span>
+          <strong id="lightFleetValue">0/0</strong>
+        </div>
+        <div class="fleet-status-row fleet-status-dark">
+          <span>Dark</span>
+          <strong id="darkFleetValue">0/0</strong>
+        </div>
+      </div>
       <div class="player-list" aria-hidden="true">
         <div class="player-list-title">Players</div>
         <div id="playerListRows" class="player-list-rows"></div>

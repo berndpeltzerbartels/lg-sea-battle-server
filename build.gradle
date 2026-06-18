@@ -13,7 +13,7 @@ java {
 }
 
 dependencies {
-    implementation 'one.xis:xis-boot-http'
+    implementation project.hasProperty('seaBattleNative') ? 'one.xis:xis-boot-native' : 'one.xis:xis-boot-http'
     implementation 'com.google.code.gson:gson:2.10.1'
 
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.2'
@@ -52,6 +52,9 @@ tasks.register('copySeaBattleClient', Copy) {
 }
 
 processResources.dependsOn copySeaBattleClient
+tasks.matching { it.name == 'xisGenerateNativeResourceCatalog' }.configureEach {
+    dependsOn copySeaBattleClient
+}
 
 tasks.register('runSeaBattleXis', JavaExec) {
     group = 'application'
@@ -60,4 +63,52 @@ tasks.register('runSeaBattleXis', JavaExec) {
     mainClass = 'one.xis.seabattle.SeaBattleApplication'
     args = [project.findProperty('port') ?: '9090']
     dependsOn classes
+}
+
+tasks.register('runDirectBenchmark', JavaExec) {
+    group = 'verification'
+    description = 'Runs the Sea Battle direct in-memory benchmark without HTTP.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'one.xis.seabattle.GameSessionDirectBenchmarkMain'
+    args = [
+            '--clients', project.findProperty('clients') ?: '30',
+            '--update-clients', project.findProperty('updateClients') ?: '30',
+            '--duration', project.findProperty('duration') ?: '20',
+            '--hz', project.findProperty('hz') ?: '4',
+            '--rounds', project.findProperty('rounds') ?: '3',
+            '--warmup-rounds', project.findProperty('warmupRounds') ?: '1'
+    ]
+    if (project.hasProperty('shadow')) {
+        args += ['--shadow']
+    }
+    dependsOn classes
+}
+
+tasks.register('compileDirectBenchmarkNative', Exec) {
+    group = 'verification'
+    description = 'Compiles the Sea Battle direct in-memory benchmark as a native executable without HTTP.'
+    dependsOn compileJava
+
+    doFirst {
+        def graalVmHome = project.findProperty('graalVmHome') ?: System.getenv('GRAALVM_HOME')
+        executable graalVmHome ? file("$graalVmHome/bin/native-image").absolutePath : 'native-image'
+        def outputFile = layout.buildDirectory.file('native/game-session-direct-benchmark').get().asFile
+        outputFile.parentFile.mkdirs()
+        def directDependencyNames = ['xis-context']
+        def directDependencies = configurations.runtimeClasspath.resolvedConfiguration.resolvedArtifacts
+                .findAll { directDependencyNames.contains(it.name) }
+                .collect { it.file }
+        def nativeClasspath = (sourceSets.main.output.classesDirs.files + directDependencies)
+                .findAll { it.exists() }
+                .collect { it.absolutePath }
+                .join(File.pathSeparator)
+        args '--no-fallback',
+                '--initialize-at-build-time=org.slf4j',
+                '-O3',
+                '-march=native',
+                '-cp',
+                nativeClasspath,
+                'one.xis.seabattle.GameSessionDirectBenchmarkMain',
+                outputFile.absolutePath
+    }
 }

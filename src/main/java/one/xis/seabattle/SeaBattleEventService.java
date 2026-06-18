@@ -6,7 +6,7 @@ import one.xis.http.SseConnectionKey;
 import one.xis.http.SseConnectionHub;
 import one.xis.http.SseEmitter;
 
-import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -21,7 +21,7 @@ public final class SeaBattleEventService {
     private final SseConnectionHub connections;
     private final GameStateService gameStateService;
     private final Gson gson = new Gson();
-    private final Map<String, RadarRequest> subscriptionsByPlayerId = new ConcurrentHashMap<>();
+    private final Set<String> players = ConcurrentHashMap.newKeySet();
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(task -> {
         Thread thread = new Thread(task, "sea-battle-events");
         thread.setDaemon(true);
@@ -35,7 +35,7 @@ public final class SeaBattleEventService {
     }
 
     public void register(String playerId, String teamId, SseEmitter emitter) {
-        subscriptionsByPlayerId.put(playerId, new RadarRequest(playerId, teamId));
+        players.add(playerId);
         connections.register(PLAYER_SCOPE, playerId, emitter);
         send(playerId, createMessage(gameStateService.snapshot()));
     }
@@ -43,26 +43,22 @@ public final class SeaBattleEventService {
     public void unregister(String playerId, SseEmitter emitter) {
         connections.unregister(PLAYER_SCOPE, playerId, emitter);
         if (connections.connectionCount(SseConnectionKey.of(PLAYER_SCOPE, playerId)) == 0) {
-            subscriptionsByPlayerId.remove(playerId);
+            players.remove(playerId);
             gameStateService.releasePlayer(playerId);
         }
     }
 
     private void broadcastTick() {
-        if (subscriptionsByPlayerId.isEmpty()) {
+        if (players.isEmpty()) {
             return;
         }
 
         GameSnapshot state = gameStateService.snapshot();
-        subscriptionsByPlayerId.forEach((playerId, request) -> send(playerId, createMessage(state, request)));
+        players.forEach(playerId -> send(playerId, createMessage(state)));
     }
 
     private GameStreamMessage createMessage(GameSnapshot state) {
         return new GameStreamMessage("game-stream", state, null);
-    }
-
-    private GameStreamMessage createMessage(GameSnapshot state, RadarRequest request) {
-        return new GameStreamMessage("game-stream", state, gameStateService.radar(request));
     }
 
     private void send(String playerId, GameStreamMessage message) {
