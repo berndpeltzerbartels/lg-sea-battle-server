@@ -72,9 +72,12 @@ public class GameStateService {
     }
 
     public void releasePlayer(String playerId) {
+        SessionView view;
         synchronized (this) {
             session.releasePlayer(playerId);
+            view = captureSessionView();
         }
+        publishModel(view);
     }
 
     public GameSnapshot reset(ResetGameRequest request) {

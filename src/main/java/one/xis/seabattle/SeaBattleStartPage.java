@@ -15,7 +15,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @WelcomePage
@@ -35,10 +34,11 @@ public class SeaBattleStartPage {
     );
 
     private final GameStateService gameStateService;
-    private final Map<String, String> playerNameByAlias = new ConcurrentHashMap<>();
+    private final SeaBattlePlayerRegistry playerRegistry;
 
-    public SeaBattleStartPage(GameStateService gameStateService) {
+    public SeaBattleStartPage(GameStateService gameStateService, SeaBattlePlayerRegistry playerRegistry) {
         this.gameStateService = gameStateService;
+        this.playerRegistry = playerRegistry;
     }
 
     @FormData("start")
@@ -85,7 +85,7 @@ public class SeaBattleStartPage {
             throw new ValidationFailedException("/start/alias", "seaBattle.aliasTaken");
         }
         String nickname = normalizeName(form.nickname());
-        playerNameByAlias.put(initials, nickname);
+        playerRegistry.register(initials, nickname);
         gameStateService.activateTeam(form.team());
         String url = "/sea-battle/app?team=" + encode(form.team())
                 + "&initials=" + encode(initials)
@@ -94,7 +94,7 @@ public class SeaBattleStartPage {
     }
 
     private boolean isAliasActive(String initials) {
-        return playerNameByAlias.containsKey(initials) || gameStateService.snapshot().ships().stream()
+        return playerRegistry.isAliasRegistered(initials) || gameStateService.snapshot().ships().stream()
                 .map(ShipSnapshot::controlledBy)
                 .filter(controller -> controller != null && controller.startsWith("player-"))
                 .map(this::playerInitials)
@@ -106,7 +106,7 @@ public class SeaBattleStartPage {
     }
 
     private String playerName(String initials) {
-        return playerNameByAlias.getOrDefault(initials, "-");
+        return playerRegistry.playerName(initials);
     }
 
     private String teamLabel(String teamId) {

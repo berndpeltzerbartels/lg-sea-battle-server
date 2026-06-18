@@ -20,6 +20,7 @@ public final class SeaBattleEventService {
 
     private final SseConnectionHub connections;
     private final GameStateService gameStateService;
+    private final SeaBattlePlayerRegistry playerRegistry;
     private final Gson gson = new Gson();
     private final Set<String> players = ConcurrentHashMap.newKeySet();
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(task -> {
@@ -28,9 +29,11 @@ public final class SeaBattleEventService {
         return thread;
     });
 
-    public SeaBattleEventService(SseConnectionHub connections, GameStateService gameStateService) {
+    public SeaBattleEventService(SseConnectionHub connections, GameStateService gameStateService,
+                                 SeaBattlePlayerRegistry playerRegistry) {
         this.connections = connections;
         this.gameStateService = gameStateService;
+        this.playerRegistry = playerRegistry;
         executor.scheduleAtFixedRate(this::broadcastTick, TICK_MILLIS, TICK_MILLIS, TimeUnit.MILLISECONDS);
     }
 
@@ -43,9 +46,14 @@ public final class SeaBattleEventService {
     public void unregister(String playerId, SseEmitter emitter) {
         connections.unregister(PLAYER_SCOPE, playerId, emitter);
         if (connections.connectionCount(SseConnectionKey.of(PLAYER_SCOPE, playerId)) == 0) {
-            players.remove(playerId);
-            gameStateService.releasePlayer(playerId);
+            unregisterPlayer(playerId);
         }
+    }
+
+    public void unregisterPlayer(String playerId) {
+        players.remove(playerId);
+        playerRegistry.unregisterPlayer(playerId);
+        gameStateService.releasePlayer(playerId);
     }
 
     private void broadcastTick() {
