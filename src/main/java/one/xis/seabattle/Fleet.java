@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 
 final class Fleet {
 
@@ -40,9 +41,10 @@ final class Fleet {
             return assignedShip;
         }
 
-        Optional<Ship> availableShip = activeShips().stream()
+        List<Ship> availableShips = activeShips().stream()
                 .filter(ship -> "bot".equals(ship.controlledBy()))
-                .findFirst();
+                .toList();
+        Optional<Ship> availableShip = randomShip(availableShips);
         if (availableShip.isEmpty() && ships.size() == 1) {
             availableShip = activeShips().stream().findFirst();
         }
@@ -52,6 +54,13 @@ final class Fleet {
             activeShipIdByPlayerId.put(playerId, ship.id());
         });
         return availableShip;
+    }
+
+    private Optional<Ship> randomShip(List<Ship> candidates) {
+        if (candidates.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(candidates.get(ThreadLocalRandom.current().nextInt(candidates.size())));
     }
 
     Optional<Ship> assignedShip(String playerId) {

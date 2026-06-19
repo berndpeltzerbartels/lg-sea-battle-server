@@ -85,11 +85,16 @@ public class SeaBattleStartPage {
             throw new ValidationFailedException("/start/alias", "seaBattle.aliasTaken");
         }
         String nickname = normalizeName(form.nickname());
+        boolean gameIsEmpty = players().isEmpty();
         playerRegistry.register(initials, nickname);
+        if (gameIsEmpty) {
+            gameStateService.resetToSetup("dense-land");
+        }
         gameStateService.activateTeam(form.team());
         String url = "/sea-battle/app?team=" + encode(form.team())
                 + "&initials=" + encode(initials)
-                + "&playerName=" + encode(nickname);
+                + "&playerName=" + encode(nickname)
+                + (gameIsEmpty ? "&setup=dense-land" : "");
         return new PageUrlResponse(url);
     }
 

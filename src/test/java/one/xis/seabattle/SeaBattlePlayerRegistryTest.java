@@ -22,4 +22,22 @@ class SeaBattlePlayerRegistryTest {
         assertFalse(registry.isAliasRegistered("BP"));
         assertEquals("-", registry.playerName("BP"));
     }
+
+    @Test
+    void replacingAliasOwnerKeepsReservationForNewPlayer() {
+        SeaBattlePlayerRegistry registry = new SeaBattlePlayerRegistry();
+
+        registry.register("BP", "Bernd");
+        assertEquals(null, registry.registerPlayer("player-BP-first", "Bernd"));
+        assertEquals("player-BP-first", registry.registerPlayer("player-BP-second", "Bernd"));
+
+        registry.unregisterPlayer("player-BP-first");
+
+        assertTrue(registry.isAliasRegistered("BP"));
+        assertEquals("Bernd", registry.playerName("BP"));
+
+        registry.unregisterPlayer("player-BP-second");
+
+        assertFalse(registry.isAliasRegistered("BP"));
+    }
 }

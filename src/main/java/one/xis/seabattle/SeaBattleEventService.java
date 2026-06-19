@@ -38,6 +38,10 @@ public final class SeaBattleEventService {
     }
 
     public void register(String playerId, String teamId, SseEmitter emitter) {
+        String replacedPlayerId = playerRegistry.registerPlayer(playerId, playerRegistry.playerName(initialsFromPlayerId(playerId)));
+        if (replacedPlayerId != null) {
+            unregisterPlayer(replacedPlayerId);
+        }
         players.add(playerId);
         connections.register(PLAYER_SCOPE, playerId, emitter);
         send(playerId, createMessage(gameStateService.snapshot()));
@@ -71,5 +75,17 @@ public final class SeaBattleEventService {
 
     private void send(String playerId, GameStreamMessage message) {
         connections.sendData(PLAYER_SCOPE, playerId, gson.toJson(message));
+    }
+
+    private String initialsFromPlayerId(String playerId) {
+        String prefix = "player-";
+        if (playerId == null || !playerId.startsWith(prefix)) {
+            return "";
+        }
+        int end = playerId.indexOf('-', prefix.length());
+        if (end <= prefix.length()) {
+            return playerId.substring(prefix.length()).toUpperCase();
+        }
+        return playerId.substring(prefix.length(), end).toUpperCase();
     }
 }

@@ -9,25 +9,45 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class SeaBattlePlayerRegistry {
 
-    private final Map<String, String> playerNameByAlias = new ConcurrentHashMap<>();
+    private final Map<String, PlayerRegistration> registrationByAlias = new ConcurrentHashMap<>();
 
     public void register(String initials, String nickname) {
-        playerNameByAlias.put(normalizeAlias(initials), nickname);
+        registrationByAlias.put(normalizeAlias(initials), new PlayerRegistration(null, nickname));
+    }
+
+    public String registerPlayer(String playerId, String nickname) {
+        String initials = initialsFromPlayerId(playerId);
+        if (initials.isBlank()) {
+            return null;
+        }
+        PlayerRegistration previous = registrationByAlias.put(
+                initials,
+                new PlayerRegistration(playerId, nickname == null || nickname.isBlank() ? playerName(initials) : nickname)
+        );
+        if (previous == null || previous.playerId() == null || previous.playerId().equals(playerId)) {
+            return null;
+        }
+        return previous.playerId();
     }
 
     public void unregisterPlayer(String playerId) {
         String initials = initialsFromPlayerId(playerId);
-        if (!initials.isBlank()) {
-            playerNameByAlias.remove(initials);
+        if (initials.isBlank()) {
+            return;
         }
+        registrationByAlias.computeIfPresent(initials, (ignored, registration) ->
+                registration.playerId() == null || registration.playerId().equals(playerId) ? null : registration);
     }
 
     public boolean isAliasRegistered(String initials) {
-        return playerNameByAlias.containsKey(normalizeAlias(initials));
+        return registrationByAlias.containsKey(normalizeAlias(initials));
     }
 
     public String playerName(String initials) {
-        return playerNameByAlias.getOrDefault(normalizeAlias(initials), "-");
+        PlayerRegistration registration = registrationByAlias.get(normalizeAlias(initials));
+        return registration == null || registration.nickname() == null || registration.nickname().isBlank()
+                ? "-"
+                : registration.nickname();
     }
 
     private String initialsFromPlayerId(String playerId) {
@@ -44,5 +64,8 @@ public class SeaBattlePlayerRegistry {
 
     private String normalizeAlias(String initials) {
         return initials == null ? "" : initials.toUpperCase(Locale.ROOT);
+    }
+
+    private record PlayerRegistration(String playerId, String nickname) {
     }
 }

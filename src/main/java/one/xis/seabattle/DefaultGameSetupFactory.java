@@ -40,6 +40,7 @@ final class DefaultGameSetupFactory {
             case "single-island" -> singleIslandSetup();
             case "ram-side" -> ramSideSetup();
             case "explosion-demo" -> explosionDemoSetup();
+            case "escort-debug" -> escortDebugSetup();
             case "dense-land" -> denseLandSetup(activeTeamIds(requestedTeamIds));
             default -> throw new IllegalArgumentException("Unknown game setup: " + setupId);
         };
@@ -153,6 +154,27 @@ final class DefaultGameSetupFactory {
                         ))
                 ),
                 List.of(new Vector2(0, -2100), new Vector2(70, -540), new Vector2(205, -540))
+        );
+    }
+
+    private GameSetup escortDebugSetup() {
+        WorldMap worldMap = worldMapService.denseWorld();
+        return new GameSetup(
+                "escort-debug",
+                worldMap,
+                List.of(
+                        new FleetSetup(TEAM_LIGHT, List.of(
+                                ship("light-1", TEAM_LIGHT, -180, -520, -0.58, ENGINE_SLOW, 0, 3),
+                                ship("light-2", TEAM_LIGHT, -260, -420, -0.42, ENGINE_SLOW, 4, 3),
+                                ship("light-3", TEAM_LIGHT, -40, -480, -0.75, ENGINE_SLOW, -4, 3)
+                        )),
+                        new FleetSetup(TEAM_DARK, List.of(
+                                ship("dark-1", TEAM_DARK, 543, 208, 3.0, ENGINE_STOP, 0, 12),
+                                ship("dark-2", TEAM_DARK, 1010, 260, -2.95, ENGINE_STOP, 0, 14),
+                                ship("dark-3", TEAM_DARK, 1128, -773, -2.4, ENGINE_STOP, 0, 16)
+                        ))
+                ),
+                denseRespawnCandidates()
         );
     }
 
@@ -357,7 +379,7 @@ final class DefaultGameSetupFactory {
                 {20, -995, 2.2, ENGINE_HALF, -4},
                 {-50, 430, 2.05, ENGINE_SLOW, 5},
                 {1260, -180, -2.7, ENGINE_HALF, -5},
-                {-360, 40, 1.65, ENGINE_SLOW, 4}
+                {-720, -360, 1.65, ENGINE_SLOW, 4}
         };
     }
 
@@ -380,7 +402,7 @@ final class DefaultGameSetupFactory {
                 new Vector2(92, -671),
                 new Vector2(20, -995),
                 new Vector2(429, 216),
-                new Vector2(-360, 40)
+                new Vector2(-720, -360)
         );
     }
 }

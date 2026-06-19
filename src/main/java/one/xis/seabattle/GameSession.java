@@ -36,6 +36,7 @@ public final class GameSession {
     private static final double BOT_ESCORT_JOIN_RANGE = 680;
     private static final double BOT_ESCORT_MIN_DISTANCE = 95;
     private static final double BOT_ESCORT_TARGET_DISTANCE = 150;
+    private static final double BOT_GLANCING_RAM_BACKOFF_SECONDS = 1.15;
     private static final double RESPAWN_DELAY_SECONDS = 8;
     private static final double RESPAWN_HUMAN_RADAR_MARGIN = 120;
     private static final double RESPAWN_MIN_SHIP_DISTANCE = 170;
@@ -46,6 +47,7 @@ public final class GameSession {
     private static final int ENGINE_HALF = 5;
     private static final int ENGINE_TWO_THIRDS = 6;
     private static final int ENGINE_FULL = 7;
+    private static final int ENGINE_FLANK = 8;
     private static final int SCORE_ENEMY_SUNK = 1;
     private static final int SCORE_FRIENDLY_SUNK = -2;
     private static final int SCORE_PLAYER_SUNK = -3;
@@ -206,13 +208,7 @@ public final class GameSession {
             evadeTorpedo(ship, threat.get(), navigationService, worldMap);
             return;
         }
-
-        Optional<Vector2> nearestLandCenter = nearestLandCenter(ship.position(), worldMap);
-        double nearestLandDistance = nearestLandCenter
-                .map(center -> ship.position().distanceTo(center))
-                .orElse(0.0);
-        if (nearestLandDistance > BOT_RETURN_TO_LAND_DISTANCE && nearestLandCenter.isPresent()) {
-            steerToward(ship, nearestLandCenter.get(), ENGINE_TWO_THIRDS, navigationService, worldMap);
+        if (ship.applyGlancingRamBackoff(nowSeconds)) {
             return;
         }
 
@@ -222,18 +218,31 @@ public final class GameSession {
                         ship.position().distanceTo(right.position())
                 ));
         if (target.isEmpty()) {
-            if (nearestLandDistance > BOT_PATROL_LAND_DISTANCE && nearestLandCenter.isPresent()) {
-                steerToward(ship, nearestLandCenter.get(), ENGINE_HALF, navigationService, worldMap);
-                return;
-            }
-            if (escortHumanLeader(ship, navigationService, worldMap)) {
-                return;
-            }
-            patrol(ship, navigationService, worldMap);
+            moveWithoutTarget(ship, navigationService, worldMap);
             return;
         }
 
         aimAtTarget(ship, target.get(), navigationService, worldMap);
+    }
+
+    private void moveWithoutTarget(Ship ship, NavigationService navigationService, WorldMap worldMap) {
+        if (escortHumanLeader(ship, navigationService, worldMap)) {
+            return;
+        }
+
+        Optional<Vector2> nearestLandCenter = nearestLandCenter(ship.position(), worldMap);
+        double nearestLandDistance = nearestLandCenter
+                .map(center -> ship.position().distanceTo(center))
+                .orElse(0.0);
+        if (nearestLandDistance > BOT_RETURN_TO_LAND_DISTANCE && nearestLandCenter.isPresent()) {
+            steerToward(ship, nearestLandCenter.get(), ENGINE_TWO_THIRDS, navigationService, worldMap);
+            return;
+        }
+        if (nearestLandDistance > BOT_PATROL_LAND_DISTANCE && nearestLandCenter.isPresent()) {
+            steerToward(ship, nearestLandCenter.get(), ENGINE_HALF, navigationService, worldMap);
+            return;
+        }
+        patrol(ship, navigationService, worldMap);
     }
 
     private boolean escapeBlockedWater(Ship ship, NavigationService navigationService, WorldMap worldMap) {
@@ -308,9 +317,10 @@ public final class GameSession {
             return;
         }
 
+        int cruisingEngineOrder = Math.max(engineOrder, ENGINE_HALF);
         double plannedHeading = plannedBotCourseHeading(ship, rudder);
         if (isBotCourseSafe(ship, plannedHeading, navigationService, worldMap)) {
-            ship.applyCommand(engineOrder, rudder);
+            ship.applyCommand(cruisingEngineOrder, rudder);
             return;
         }
 
@@ -466,7 +476,7 @@ public final class GameSession {
         if (distanceToEscortPoint < 180) {
             return ENGINE_HALF;
         }
-        return ENGINE_TWO_THIRDS;
+        return ENGINE_FLANK;
     }
 
     private void steerAwayFrom(Ship ship, Vector2 point, int engineOrder, NavigationService navigationService, WorldMap worldMap) {
@@ -528,8 +538,16 @@ public final class GameSession {
         if (side == 0) {
             side = 1;
         }
-        left.glanceOff(-side * RAM_GLANCING_HEADING_IMPULSE, 0.55);
-        right.glanceOff(side * RAM_GLANCING_HEADING_IMPULSE, 0.55);
+        resolveGlancingShip(left, -side * RAM_GLANCING_HEADING_IMPULSE);
+        resolveGlancingShip(right, side * RAM_GLANCING_HEADING_IMPULSE);
+    }
+
+    private void resolveGlancingShip(Ship ship, double headingImpulse) {
+        if (ship.isBotControlled()) {
+            ship.backOffAfterGlancingRam(nowSeconds, BOT_GLANCING_RAM_BACKOFF_SECONDS);
+        } else {
+            ship.glanceOff(headingImpulse, 0.55);
+        }
     }
 
     private void resolveSideRamBySpeed(Ship left, Ship right) {

@@ -84,9 +84,13 @@ public class GameStateService {
         if (request == null || !"bernd".equals(request.adminKey())) {
             throw new IllegalArgumentException("Reset is only available to the host.");
         }
+        return resetToSetup(request.setupId());
+    }
+
+    public GameSnapshot resetToSetup(String nextSetupId) {
         SessionView view;
         synchronized (this) {
-            setupId = request.setupId();
+            setupId = nextSetupId;
             requestedTeamIds.clear();
             session = new GameSession(setupFactory.setup(setupId, List.copyOf(requestedTeamIds)));
             view = captureSessionView();

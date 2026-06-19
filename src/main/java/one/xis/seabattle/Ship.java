@@ -5,6 +5,7 @@ final class Ship {
     private static final double MAX_ACCEPTED_PLAYER_POSITION_DELTA = 90;
     private static final double MAX_ACCEPTED_PLAYER_SPEED = 16;
     private static final double MAX_ACCEPTED_PLAYER_TURN_VELOCITY = 1.2;
+    private static final int ENGINE_ASTERN = 1;
 
     private final String id;
     private final String teamId;
@@ -19,6 +20,7 @@ final class Ship {
     private int torpedoesRemaining = 12;
     private double nextFireTime;
     private double respawnAtSeconds = Double.POSITIVE_INFINITY;
+    private double glancingRamBackoffUntilSeconds = Double.NEGATIVE_INFINITY;
 
     Ship(String id, String teamId, Vector2 position, double heading, String controlledBy) {
         this.id = id;
@@ -78,6 +80,14 @@ final class Ship {
         }
         this.engineOrder = MathSupport.clamp(engineOrder, 0, 8);
         this.rudderDegrees = MathSupport.clamp(rudderDegrees, -35, 35);
+    }
+
+    boolean applyGlancingRamBackoff(double nowSeconds) {
+        if (!"active".equals(state) || nowSeconds >= glancingRamBackoffUntilSeconds) {
+            return false;
+        }
+        applyCommand(ENGINE_ASTERN, 0);
+        return true;
     }
 
     void applyPlayerState(PlayerStateUpdate update, NavigationService navigationService, WorldMap worldMap) {
@@ -160,6 +170,17 @@ final class Ship {
         rudderDegrees = 0;
     }
 
+    void backOffAfterGlancingRam(double nowSeconds, double durationSeconds) {
+        if (!"active".equals(state)) {
+            return;
+        }
+        glancingRamBackoffUntilSeconds = Math.max(glancingRamBackoffUntilSeconds, nowSeconds + durationSeconds);
+        speed = Math.min(0, speed * 0.15);
+        turnVelocity *= 0.25;
+        engineOrder = ENGINE_ASTERN;
+        rudderDegrees = 0;
+    }
+
     boolean sink(double respawnAtSeconds) {
         if (!"active".equals(state)) {
             return false;
@@ -171,6 +192,7 @@ final class Ship {
         engineOrder = 2;
         controlledBy = "bot";
         this.respawnAtSeconds = respawnAtSeconds;
+        glancingRamBackoffUntilSeconds = Double.NEGATIVE_INFINITY;
         return true;
     }
 
@@ -194,6 +216,7 @@ final class Ship {
         torpedoesRemaining = 12;
         nextFireTime = nowSeconds + 3;
         respawnAtSeconds = Double.POSITIVE_INFINITY;
+        glancingRamBackoffUntilSeconds = Double.NEGATIVE_INFINITY;
     }
 
     ShipSnapshot snapshot() {

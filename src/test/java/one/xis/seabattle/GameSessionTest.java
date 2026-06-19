@@ -11,6 +11,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GameSessionTest {
 
+    private static final int ENGINE_ASTERN = 1;
+    private static final int ENGINE_FLANK = 8;
+
     private final RadarService radarService = new RadarService();
     private final NavigationService navigationService = new NavigationService();
 
@@ -34,6 +37,114 @@ class GameSessionTest {
         assertEquals(2, snapshot.ships().size());
         assertEquals("red-1", snapshot.ships().get(0).id());
         assertEquals("blue-1", snapshot.ships().get(1).id());
+    }
+
+    @Test
+    void escortBotUsesFlankWhenFallingBehindHumanLeader() {
+        GameSession session = new GameSession(new GameSetup(
+                "escort-speed-test",
+                new WorldMap(9013, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-1", "light", 0, 0, 0, "player-BP", 5, 0),
+                                ship("light-2", "light", -560, -80, 0, "bot", 2, 0)
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(-560, -80))
+        ));
+
+        session.update(0.05, radarService, navigationService, session.worldMap());
+
+        assertEquals(ENGINE_FLANK, findShip(session.snapshot(), "light-2").engineOrder());
+    }
+
+    @Test
+    void escortBotFollowsHumanBeforeReturningToLand() {
+        GameSession session = new GameSession(new GameSetup(
+                "escort-priority-test",
+                new WorldMap(9014, List.of(testIsland("far-land", 0, 0, 90, 90))),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-1", "light", 1000, 1000, 0, "player-BP", 5, 0),
+                                ship("light-2", "light", 600, 940, 0, "bot", 2, 0)
+                        ))
+                ),
+                List.of(new Vector2(1000, 1000), new Vector2(600, 940))
+        ));
+
+        session.update(0.05, radarService, navigationService, session.worldMap());
+
+        assertEquals(ENGINE_FLANK, findShip(session.snapshot(), "light-2").engineOrder());
+    }
+
+    @Test
+    void botTargetsCloserHumanPlayerEvenWhenAnotherEnemyIsVisible() {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-human-target-priority-test",
+                new WorldMap(9017, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-1", "red", 0, 0, 0, "bot", 2, 0)
+                        )),
+                        new FleetSetup("blue", List.of(
+                                ship("blue-human", "blue", -80, 0, 0, "player-BP-test", 5, 0),
+                                ship("blue-bot", "blue", 300, 0, 0, "bot", 5, 0)
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(-80, 0), new Vector2(300, 0))
+        ));
+
+        session.update(0.05, radarService, navigationService, session.worldMap());
+
+        ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
+        assertEquals(5, attacker.engineOrder());
+        assertTrue(attacker.rudderDegrees() < 0);
+    }
+
+    @Test
+    void botTargetsHumanPlayerApproachingFromBehind() {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-human-behind-test",
+                new WorldMap(9018, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-1", "red", 0, 0, 0, "bot", 2, 0)
+                        )),
+                        new FleetSetup("blue", List.of(
+                                ship("blue-human", "blue", -80, 0, 0, "player-BP-test", 5, 0)
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(-80, 0))
+        ));
+
+        session.update(0.05, radarService, navigationService, session.worldMap());
+
+        ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
+        assertEquals(5, attacker.engineOrder());
+        assertTrue(attacker.rudderDegrees() < 0);
+    }
+
+    @Test
+    void botTargetsHumanPlayerApproachingFromSide() {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-human-side-test",
+                new WorldMap(9019, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-1", "red", 0, 0, 0, "bot", 2, 0)
+                        )),
+                        new FleetSetup("blue", List.of(
+                                ship("blue-human", "blue", 80, 0, 0, "player-BP-test", 5, 0)
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(80, 0))
+        ));
+
+        session.update(0.05, radarService, navigationService, session.worldMap());
+
+        ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
+        assertEquals(5, attacker.engineOrder());
+        assertTrue(attacker.rudderDegrees() > 0);
     }
 
     @Test
@@ -127,6 +238,28 @@ class GameSessionTest {
         assertEquals(0, snapshot.destroyedShipsByTeam().get("blue"));
         assertTrue(Math.abs(MathSupport.normalizeAngle(attacker.heading() - attackerHeading)) > Math.toRadians(2));
         assertTrue(Math.abs(MathSupport.normalizeAngle(target.heading())) > Math.toRadians(2));
+    }
+
+    @Test
+    void botGlancingRamBacksBothShipsAway() {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-glancing-ram-test",
+                new WorldMap(9020, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, 0, "bot", 5, 0))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 3, 0, Math.PI, "bot", 5, 0)))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(3, 0))
+        ));
+
+        GameSnapshot snapshot = tickUntilShipsUseEngineOrder(session, ENGINE_ASTERN, 1);
+
+        ShipSnapshot attacker = findShip(snapshot, "red-1");
+        ShipSnapshot target = findShip(snapshot, "blue-1");
+        assertEquals("active", attacker.state());
+        assertEquals("active", target.state());
+        assertEquals(ENGINE_ASTERN, attacker.engineOrder());
+        assertEquals(ENGINE_ASTERN, target.engineOrder());
     }
 
     @Test
@@ -242,6 +375,33 @@ class GameSessionTest {
     }
 
     @Test
+    void joiningPlayerTakesOneOfTheAvailableFleetShips() {
+        GameSession session = new GameSession(new GameSetup(
+                "player-start-choice-test",
+                new WorldMap(9017, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-1", "red", -100, 0, 0, "bot", 2, 0),
+                                ship("red-2", "red", 0, 0, 0, "bot", 2, 0),
+                                ship("red-3", "red", 100, 0, 0, "bot", 2, 0)
+                        )),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 400, 0, Math.PI, 2, 0)))
+                ),
+                List.of(new Vector2(-100, 0), new Vector2(0, 0), new Vector2(100, 0), new Vector2(400, 0))
+        ));
+
+        session.updatePlayerState(new PlayerStateUpdate("player-BP-test", "red", 0, 0, 0, 0, 0, 2, 0, 0),
+                navigationService, session.worldMap());
+
+        List<String> controlledShips = session.snapshot().ships().stream()
+                .filter(ship -> "player-BP-test".equals(ship.controlledBy()))
+                .map(ShipSnapshot::id)
+                .toList();
+        assertEquals(1, controlledShips.size());
+        assertTrue(List.of("red-1", "red-2", "red-3").contains(controlledShips.get(0)));
+    }
+
+    @Test
     void playerStateUsesClientPositionWithoutServerAdvancingHumanShip() {
         GameSession session = new GameSession(new GameSetup(
                 "client-authority-test",
@@ -292,6 +452,10 @@ class GameSessionTest {
         assertEquals("explosion-demo", explosionDemo.id());
         assertEquals(30, explosionDemo.fleets().stream().mapToInt(fleet -> fleet.ships().size()).sum());
 
+        GameSetup escortDebug = factory.setup("escort-debug");
+        assertEquals("escort-debug", escortDebug.id());
+        assertEquals(6, escortDebug.fleets().stream().mapToInt(fleet -> fleet.ships().size()).sum());
+
         GameSetup denseLand = factory.setup("dense-land");
         assertEquals("dense-land", denseLand.id());
         assertEquals(9, denseLand.worldMap().version());
@@ -329,6 +493,11 @@ class GameSessionTest {
     @Test
     void denseLandPlacesShipsAndRespawnsInNavigableWater() {
         assertSetupPlacesShipsAndRespawnsInNavigableWater(new DefaultGameSetupFactory(new WorldMapService()).setup("dense-land"));
+    }
+
+    @Test
+    void escortDebugPlacesShipsAndRespawnsInNavigableWater() {
+        assertSetupPlacesShipsAndRespawnsInNavigableWater(new DefaultGameSetupFactory(new WorldMapService()).setup("escort-debug"));
     }
 
     @Test
@@ -603,6 +772,22 @@ class GameSessionTest {
             ShipSnapshot red = findShip(snapshot, "red-1");
             ShipSnapshot blue = findShip(snapshot, "blue-1");
             if (red != null && blue != null && new Vector2(red.x(), red.z()).distanceTo(new Vector2(blue.x(), blue.z())) < 6) {
+                return snapshot;
+            }
+        }
+        return snapshot;
+    }
+
+    private GameSnapshot tickUntilShipsUseEngineOrder(GameSession session, int engineOrder, double maxSeconds) {
+        GameSnapshot snapshot = session.snapshot();
+        for (double elapsed = 0; elapsed < maxSeconds; elapsed += 0.05) {
+            session.update(0.05, radarService, navigationService, session.worldMap());
+            snapshot = session.snapshot();
+            ShipSnapshot red = findShip(snapshot, "red-1");
+            ShipSnapshot blue = findShip(snapshot, "blue-1");
+            if (red != null && blue != null
+                    && red.engineOrder() == engineOrder
+                    && blue.engineOrder() == engineOrder) {
                 return snapshot;
             }
         }
