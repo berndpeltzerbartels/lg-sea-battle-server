@@ -171,7 +171,7 @@ class WorldMapService {
                         fjords(new Fjord(0.12, 0.1, 0.48))),
                 coastline("copper_sound", 260, 520, 185, 132, 1.18, 28.0, 0.21,
                         fjords(new Fjord(-2.1, 0.11, 0.56), new Fjord(0.72, 0.1, 0.48))),
-                coastline("copper_north_ridge", 260, 720, 170, 112, 1.24, 34.0, 0.22,
+                coastline("copper_north_ridge", 260, 820, 158, 104, 1.24, 34.0, 0.22,
                         fjords(new Fjord(-2.2, 0.1, 0.48))),
                 coastline("nightfall_island", -940, 1760, 175, 126, 1.2, 30.0, 0.2,
                         fjords(new Fjord(-0.4, 0.1, 0.52))),
@@ -204,7 +204,7 @@ class WorldMapService {
                 island("far_west_bank", -2060, -520, 42, 1.0, 78, 42),
                 island("far_east_bank", 2110, 210, 46, 1.02, 82, 44)
         ));
-        return new WorldMap(9, landmasses);
+        return new WorldMap(10, landmasses);
     }
 
     private Landmass westernContinent() {
