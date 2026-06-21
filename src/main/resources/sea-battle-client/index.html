@@ -4,19 +4,41 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LG Sea Battle</title>
-    <script type="module" crossorigin src="/sea-battle/assets/index-EzpmLci3.js"></script>
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/styles-Iwh2awtq.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/logDepthDeclaration-_DXKVBlM.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/helperFunctions-BLOqTRKm.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/fogFragment-D5LUDQHn.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/default.fragment-9RGvE5ny.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/vertexColorMixing-FSck8ZVa.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/default.vertex-D2NO0ckP.js">
-    <link rel="stylesheet" crossorigin href="/sea-battle/assets/styles-CKokBloP.css">
+    <script type="module" crossorigin src="/sea-battle/assets/index-DhsKvgDi.js"></script>
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/styles-LMnEMN3o.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/logDepthDeclaration-C8ALh9s8.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/helperFunctions-C7NJyMPq.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/fogFragment-ax-Xxq8c.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/default.fragment-CYyny_jW.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/vertexColorMixing-Cmgbmnop.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/default.vertex-DBleUrqj.js">
+    <link rel="stylesheet" crossorigin href="/sea-battle/assets/styles-BMRiq-Ua.css">
   </head>
   <body>
+    <script>
+      window.__seaBattleShowStartupError = function (title, detail) {
+        const message = detail && (detail.stack || detail.message || String(detail));
+        document.body.dataset.startupError = message || title;
+        document.body.innerHTML =
+          '<main class="startup-error">' +
+          '<h1>' + String(title || 'Sea Battle startup failed') + '</h1>' +
+          '<p>' + String(message || 'Unknown JavaScript error') + '</p>' +
+          '<small>Open the browser console for the full trace.</small>' +
+          '</main>';
+      };
+      window.addEventListener("error", function (event) {
+        window.__seaBattleShowStartupError("Sea Battle JavaScript error", event.error || event.message);
+      });
+      window.addEventListener("unhandledrejection", function (event) {
+        window.__seaBattleShowStartupError("Sea Battle startup failed", event.reason);
+      });
+    </script>
     <canvas id="renderCanvas"></canvas>
     <div id="sinkingWaterOverlay" class="sinking-water-overlay" aria-hidden="true"></div>
+    <div class="mobile-orientation-hint" aria-hidden="true">
+      <strong>Rotate device</strong>
+      <span>Sea Battle is built for landscape play.</span>
+    </div>
     <div class="hud">
       <div class="compass" aria-hidden="true">
         <div id="compassRose" class="compass-rose">
@@ -85,6 +107,7 @@
         </div>
         <strong id="rudderValue">0°</strong>
       </div>
+      <button id="mobileFireButton" class="mobile-fire-button" type="button" aria-label="Fire torpedo">Fire</button>
     </div>
   </body>
 </html>

@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GameSessionTest {
 
-    private static final int ENGINE_ASTERN = 1;
+    private static final int ENGINE_FULL_ASTERN = 0;
     private static final int ENGINE_FLANK = 8;
 
     private final RadarService radarService = new RadarService();
@@ -252,14 +252,49 @@ class GameSessionTest {
                 List.of(new Vector2(0, 0), new Vector2(3, 0))
         ));
 
-        GameSnapshot snapshot = tickUntilShipsUseEngineOrder(session, ENGINE_ASTERN, 1);
+        GameSnapshot snapshot = tickUntilShipsUseEngineOrder(session, ENGINE_FULL_ASTERN, 1);
 
         ShipSnapshot attacker = findShip(snapshot, "red-1");
         ShipSnapshot target = findShip(snapshot, "blue-1");
         assertEquals("active", attacker.state());
         assertEquals("active", target.state());
-        assertEquals(ENGINE_ASTERN, attacker.engineOrder());
-        assertEquals(ENGINE_ASTERN, target.engineOrder());
+        assertEquals(ENGINE_FULL_ASTERN, attacker.engineOrder());
+        assertEquals(ENGINE_FULL_ASTERN, target.engineOrder());
+    }
+
+    @Test
+    void botGlancingRamBackoffSteersAndOpensDistance() {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-glancing-ram-steer-test",
+                new WorldMap(9021, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, 0, "bot", 5, 0))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 3, 0, Math.PI, "bot", 5, 0)))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(3, 0))
+        ));
+
+        double initialDistance = distanceBetween(session.snapshot(), "red-1", "blue-1");
+        GameSnapshot snapshot = session.snapshot();
+        for (double elapsed = 0; elapsed < 2.7; elapsed += 0.05) {
+            session.update(0.05, radarService, navigationService, session.worldMap());
+            snapshot = session.snapshot();
+        }
+
+        ShipSnapshot attacker = findShip(snapshot, "red-1");
+        ShipSnapshot target = findShip(snapshot, "blue-1");
+        assertEquals("active", attacker.state());
+        assertEquals("active", target.state());
+        assertEquals(ENGINE_FULL_ASTERN, attacker.engineOrder());
+        assertEquals(ENGINE_FULL_ASTERN, target.engineOrder());
+        assertTrue(Math.abs(attacker.rudderDegrees()) > 0);
+        assertTrue(Math.abs(target.rudderDegrees()) > 0);
+        double finalDistance = distanceBetween(snapshot, "red-1", "blue-1");
+        assertTrue(
+                finalDistance > initialDistance + 6.0,
+                "expected distance to grow from " + initialDistance + " to more than " + (initialDistance + 6.0)
+                        + " but was " + finalDistance
+        );
     }
 
     @Test
@@ -455,6 +490,12 @@ class GameSessionTest {
         GameSetup escortDebug = factory.setup("escort-debug");
         assertEquals("escort-debug", escortDebug.id());
         assertEquals(6, escortDebug.fleets().stream().mapToInt(fleet -> fleet.ships().size()).sum());
+
+        GameSetup landmarkTour = factory.setup("landmark-tour");
+        assertEquals("landmark-tour", landmarkTour.id());
+        assertEquals(9, landmarkTour.worldMap().version());
+        assertEquals(1, landmarkTour.fleets().stream().mapToInt(fleet -> fleet.ships().size()).sum());
+        assertEquals(List.of("light"), landmarkTour.fleets().stream().map(FleetSetup::teamId).toList());
 
         GameSetup denseLand = factory.setup("dense-land");
         assertEquals("dense-land", denseLand.id());
@@ -821,6 +862,12 @@ class GameSessionTest {
                 .filter(ship -> shipId.equals(ship.id()))
                 .findFirst()
                 .orElse(null);
+    }
+
+    private double distanceBetween(GameSnapshot snapshot, String leftShipId, String rightShipId) {
+        ShipSnapshot left = findShip(snapshot, leftShipId);
+        ShipSnapshot right = findShip(snapshot, rightShipId);
+        return new Vector2(left.x(), left.z()).distanceTo(new Vector2(right.x(), right.z()));
     }
 
     private ShipSetup ship(String id, String teamId, double x, double z, double heading, int engineOrder, int rudderDegrees) {

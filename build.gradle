@@ -33,12 +33,31 @@ tasks.withType(Test) {
     }
 }
 
-def lgSeaBattleDir = file('../lg-sea-battle')
+def lgSeaBattleDir = file('../client')
 def clientDistDir = file("$lgSeaBattleDir/dist")
+
+def resolveNpmExecutable() {
+    def executableName = org.gradle.internal.os.OperatingSystem.current().isWindows() ? 'npm.cmd' : 'npm'
+    def pathCandidates = (System.getenv('PATH') ?: '')
+            .split(File.pathSeparator)
+            .findAll { it }
+            .collect { new File(it, executableName) }
+    def fixedCandidates = [
+            '/opt/homebrew/bin/npm',
+            '/usr/local/bin/npm',
+            '/usr/bin/npm'
+    ].collect { new File(it) }
+
+    def executable = (pathCandidates + fixedCandidates).find { it.isFile() && it.canExecute() }
+    if (executable != null) {
+        return executable.absolutePath
+    }
+    throw new GradleException("npm executable not found. Gradle PATH=${System.getenv('PATH')}")
+}
 
 tasks.register('buildSeaBattleClient', Exec) {
     workingDir lgSeaBattleDir
-    commandLine 'npm', 'run', 'build'
+    commandLine resolveNpmExecutable(), 'run', 'build'
 }
 
 tasks.register('copySeaBattleClient', Copy) {

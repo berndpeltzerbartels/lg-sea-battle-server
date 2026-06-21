@@ -5,7 +5,7 @@ final class Ship {
     private static final double MAX_ACCEPTED_PLAYER_POSITION_DELTA = 90;
     private static final double MAX_ACCEPTED_PLAYER_SPEED = 16;
     private static final double MAX_ACCEPTED_PLAYER_TURN_VELOCITY = 1.2;
-    private static final int ENGINE_ASTERN = 1;
+    private static final int ENGINE_FULL_ASTERN = 0;
 
     private final String id;
     private final String teamId;
@@ -21,6 +21,7 @@ final class Ship {
     private double nextFireTime;
     private double respawnAtSeconds = Double.POSITIVE_INFINITY;
     private double glancingRamBackoffUntilSeconds = Double.NEGATIVE_INFINITY;
+    private Vector2 glancingRamBackoffTarget;
 
     Ship(String id, String teamId, Vector2 position, double heading, String controlledBy) {
         this.id = id;
@@ -84,9 +85,10 @@ final class Ship {
 
     boolean applyGlancingRamBackoff(double nowSeconds) {
         if (!"active".equals(state) || nowSeconds >= glancingRamBackoffUntilSeconds) {
+            glancingRamBackoffTarget = null;
             return false;
         }
-        applyCommand(ENGINE_ASTERN, 0);
+        applyCommand(ENGINE_FULL_ASTERN, glancingRamBackoffRudder());
         return true;
     }
 
@@ -170,15 +172,31 @@ final class Ship {
         rudderDegrees = 0;
     }
 
-    void backOffAfterGlancingRam(double nowSeconds, double durationSeconds) {
+    void backOffAfterGlancingRam(double nowSeconds, double durationSeconds, Vector2 targetPosition) {
         if (!"active".equals(state)) {
             return;
         }
+        boolean alreadyBackingOff = nowSeconds < glancingRamBackoffUntilSeconds;
         glancingRamBackoffUntilSeconds = Math.max(glancingRamBackoffUntilSeconds, nowSeconds + durationSeconds);
-        speed = Math.min(0, speed * 0.15);
-        turnVelocity *= 0.25;
-        engineOrder = ENGINE_ASTERN;
-        rudderDegrees = 0;
+        glancingRamBackoffTarget = targetPosition;
+        if (!alreadyBackingOff) {
+            speed = Math.min(0, speed * 0.15);
+            turnVelocity *= 0.25;
+        }
+        engineOrder = ENGINE_FULL_ASTERN;
+        rudderDegrees = glancingRamBackoffRudder();
+    }
+
+    private int glancingRamBackoffRudder() {
+        if (glancingRamBackoffTarget == null) {
+            return 0;
+        }
+        double desiredHeading = Math.atan2(
+                glancingRamBackoffTarget.x() - position.x(),
+                glancingRamBackoffTarget.z() - position.z()
+        );
+        double targetBearing = MathSupport.normalizeAngle(desiredHeading - heading);
+        return (int) Math.round(MathSupport.clamp(-targetBearing / 0.58, -1, 1) * 35);
     }
 
     boolean sink(double respawnAtSeconds) {
@@ -217,6 +235,7 @@ final class Ship {
         nextFireTime = nowSeconds + 3;
         respawnAtSeconds = Double.POSITIVE_INFINITY;
         glancingRamBackoffUntilSeconds = Double.NEGATIVE_INFINITY;
+        glancingRamBackoffTarget = null;
     }
 
     ShipSnapshot snapshot() {

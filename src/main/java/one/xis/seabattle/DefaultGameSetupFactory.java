@@ -41,6 +41,7 @@ final class DefaultGameSetupFactory {
             case "ram-side" -> ramSideSetup();
             case "explosion-demo" -> explosionDemoSetup();
             case "escort-debug" -> escortDebugSetup();
+            case "landmark-tour" -> landmarkTourSetup();
             case "dense-land" -> denseLandSetup(activeTeamIds(requestedTeamIds));
             default -> throw new IllegalArgumentException("Unknown game setup: " + setupId);
         };
@@ -187,6 +188,17 @@ final class DefaultGameSetupFactory {
                 "dense-land",
                 worldMapService.denseWorld(),
                 createDenseFleets(activeTeamIds),
+                denseRespawnCandidates()
+        );
+    }
+
+    private GameSetup landmarkTourSetup() {
+        return new GameSetup(
+                "landmark-tour",
+                worldMapService.denseWorld(),
+                List.of(new FleetSetup(TEAM_LIGHT, List.of(
+                        ship("light-1", TEAM_LIGHT, -460, -560, -0.35, "bot", ENGINE_STOP, 0, 99)
+                ))),
                 denseRespawnCandidates()
         );
     }
