@@ -12,12 +12,16 @@ import one.xis.http.RequestBody;
 import one.xis.http.ResponseEntity;
 import one.xis.http.SseEndpoint;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Logger;
 
 @Controller
 public class SeaBattleClientController {
 
     private static final Logger LOGGER = Logger.getLogger(SeaBattleClientController.class.getName());
+    private static final int MAX_CLIENT_ERRORS = 50;
+    private static final List<ClientErrorReport> RECENT_CLIENT_ERRORS = new ArrayList<>();
 
     private final GameStateService gameStateService;
     private final SseEndpoint sseEndpoint;
@@ -82,6 +86,7 @@ public class SeaBattleClientController {
             LOGGER.warning("Sea Battle client error report was empty");
             return ResponseEntity.noContent();
         }
+        rememberClientError(report);
         LOGGER.warning(() -> "Sea Battle client error"
                 + " type=" + safe(report.type())
                 + " message=" + safe(report.message())
@@ -94,6 +99,14 @@ public class SeaBattleClientController {
                 + " userAgent=" + safe(report.userAgent())
                 + " stack=" + safe(report.stack()));
         return ResponseEntity.noContent();
+    }
+
+    @Get("/game/client-errors")
+    @Produces(ContentType.JSON_UTF8)
+    public List<ClientErrorReport> getClientErrors() {
+        synchronized (RECENT_CLIENT_ERRORS) {
+            return List.copyOf(RECENT_CLIENT_ERRORS);
+        }
     }
 
     @Get("/game/events/{playerId}/{teamId}")
@@ -122,5 +135,14 @@ public class SeaBattleClientController {
             return "-";
         }
         return value.replace('\n', ' ').replace('\r', ' ');
+    }
+
+    private static void rememberClientError(ClientErrorReport report) {
+        synchronized (RECENT_CLIENT_ERRORS) {
+            RECENT_CLIENT_ERRORS.add(report);
+            while (RECENT_CLIENT_ERRORS.size() > MAX_CLIENT_ERRORS) {
+                RECENT_CLIENT_ERRORS.remove(0);
+            }
+        }
     }
 }

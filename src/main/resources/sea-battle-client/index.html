@@ -44,15 +44,15 @@
             payload.viewport = window.innerWidth + "x" + window.innerHeight;
             var body = JSON.stringify(payload);
             if (navigator.sendBeacon && typeof Blob === "function") {
-              navigator.sendBeacon("/game/client-error", new Blob([body], { type: "application/json" }));
-              return;
+              if (navigator.sendBeacon("/game/client-error", new Blob([body], { type: "application/json" }))) {
+                return;
+              }
             }
             if (window.fetch) {
               fetch("/game/client-error", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: body,
-                keepalive: true
+                body: body
               }).catch(function () {});
               return;
             }
@@ -72,12 +72,16 @@
 
         window.addEventListener("error", function (event) {
           var detail = event.error || event.message;
-          var message = text(detail) || "JavaScript error";
+          var source = event.filename || "";
+          if (!source && event.target && (event.target.src || event.target.href)) {
+            source = event.target.src || event.target.href;
+          }
+          var message = text(detail) || (source ? "Resource load error: " + source : "JavaScript error");
           show("Sea Battle JavaScript error", detail);
           report({
             type: "error",
             message: message,
-            source: event.filename || "",
+            source: source,
             line: event.lineno || 0,
             column: event.colno || 0,
             stack: event.error && event.error.stack ? String(event.error.stack) : ""
