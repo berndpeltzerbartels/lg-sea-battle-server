@@ -12,8 +12,12 @@ import one.xis.http.RequestBody;
 import one.xis.http.ResponseEntity;
 import one.xis.http.SseEndpoint;
 
+import java.util.logging.Logger;
+
 @Controller
 public class SeaBattleClientController {
+
+    private static final Logger LOGGER = Logger.getLogger(SeaBattleClientController.class.getName());
 
     private final GameStateService gameStateService;
     private final SseEndpoint sseEndpoint;
@@ -72,6 +76,26 @@ public class SeaBattleClientController {
         return gameStateService.radar(request);
     }
 
+    @Post("/game/client-error")
+    public ResponseEntity<?> reportClientError(@RequestBody ClientErrorReport report) {
+        if (report == null) {
+            LOGGER.warning("Sea Battle client error report was empty");
+            return ResponseEntity.noContent();
+        }
+        LOGGER.warning(() -> "Sea Battle client error"
+                + " type=" + safe(report.type())
+                + " message=" + safe(report.message())
+                + " source=" + safe(report.source())
+                + " line=" + report.line()
+                + " column=" + report.column()
+                + " screen=" + safe(report.screen())
+                + " viewport=" + safe(report.viewport())
+                + " url=" + safe(report.url())
+                + " userAgent=" + safe(report.userAgent())
+                + " stack=" + safe(report.stack()));
+        return ResponseEntity.noContent();
+    }
+
     @Get("/game/events/{playerId}/{teamId}")
     public void subscribeToGameEvents(@PathVariable("playerId") String playerId,
                                       @PathVariable("teamId") String teamId,
@@ -91,5 +115,12 @@ public class SeaBattleClientController {
                 }
             });
         }, emitter -> eventService.unregister(playerId, emitter));
+    }
+
+    private static String safe(String value) {
+        if (value == null || value.isBlank()) {
+            return "-";
+        }
+        return value.replace('\n', ' ').replace('\r', ' ');
     }
 }

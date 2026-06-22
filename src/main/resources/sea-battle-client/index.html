@@ -3,8 +3,102 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function () {
+        var reported = {};
+
+        function text(value) {
+          if (!value) return "";
+          if (typeof value === "string") return value;
+          if (value.stack) return String(value.stack);
+          if (value.message) return String(value.message);
+          return String(value);
+        }
+
+        function show(title, detail) {
+          var message = text(detail) || title || "Unknown JavaScript error";
+          var body = document.body;
+          if (!body) {
+            window.__seaBattlePendingStartupError = { title: title, detail: message };
+            return;
+          }
+          body.setAttribute("data-startup-error", message);
+          body.innerHTML =
+            '<main class="startup-error">' +
+            '<h1>' + String(title || 'Sea Battle JavaScript error') + '</h1>' +
+            '<p>' + message.replace(/[<>&]/g, function (character) {
+              return character === '<' ? '&lt;' : character === '>' ? '&gt;' : '&amp;';
+            }) + '</p>' +
+            '<small>Dieser Fehler wurde an den Sea-Battle-Server gemeldet.</small>' +
+            '</main>';
+        }
+
+        function report(payload) {
+          try {
+            var key = [payload.message, payload.source, payload.line, payload.column].join("|");
+            if (reported[key]) return;
+            reported[key] = true;
+            payload.url = location.href;
+            payload.userAgent = navigator.userAgent;
+            payload.screen = screen.width + "x" + screen.height;
+            payload.viewport = window.innerWidth + "x" + window.innerHeight;
+            var body = JSON.stringify(payload);
+            if (navigator.sendBeacon && typeof Blob === "function") {
+              navigator.sendBeacon("/game/client-error", new Blob([body], { type: "application/json" }));
+              return;
+            }
+            if (window.fetch) {
+              fetch("/game/client-error", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: body,
+                keepalive: true
+              }).catch(function () {});
+              return;
+            }
+            var request = new XMLHttpRequest();
+            request.open("POST", "/game/client-error", true);
+            request.setRequestHeader("Content-Type", "application/json");
+            request.send(body);
+          } catch (ignored) {
+            // Do not let diagnostic reporting create another startup failure.
+          }
+        }
+
+        window.__seaBattleShowStartupError = function (title, detail) {
+          show(title, detail);
+          report({ type: "startup", message: text(detail) || title || "startup error" });
+        };
+
+        window.addEventListener("error", function (event) {
+          var detail = event.error || event.message;
+          var message = text(detail) || "JavaScript error";
+          show("Sea Battle JavaScript error", detail);
+          report({
+            type: "error",
+            message: message,
+            source: event.filename || "",
+            line: event.lineno || 0,
+            column: event.colno || 0,
+            stack: event.error && event.error.stack ? String(event.error.stack) : ""
+          });
+        });
+
+        window.addEventListener("unhandledrejection", function (event) {
+          var message = text(event.reason) || "Unhandled promise rejection";
+          show("Sea Battle startup failed", event.reason || message);
+          report({ type: "unhandledrejection", message: message, stack: message });
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+          if (window.__seaBattlePendingStartupError) {
+            show(window.__seaBattlePendingStartupError.title, window.__seaBattlePendingStartupError.detail);
+          }
+        });
+      })();
+    </script>
     <title>LG Sea Battle</title>
-    <script type="module" crossorigin src="/sea-battle/assets/index-DyaCGF8m.js"></script>
+    <script type="module" crossorigin src="/sea-battle/assets/index-BuEPHJsz.js"></script>
     <link rel="modulepreload" crossorigin href="/sea-battle/assets/styles-DFO6iot9.js">
     <link rel="modulepreload" crossorigin href="/sea-battle/assets/logDepthDeclaration-DP4lweGT.js">
     <link rel="modulepreload" crossorigin href="/sea-battle/assets/helperFunctions-DgrHFj-M.js">
@@ -15,24 +109,6 @@
     <link rel="stylesheet" crossorigin href="/sea-battle/assets/styles-S363ji12.css">
   </head>
   <body>
-    <script>
-      window.__seaBattleShowStartupError = function (title, detail) {
-        const message = detail && (detail.stack || detail.message || String(detail));
-        document.body.dataset.startupError = message || title;
-        document.body.innerHTML =
-          '<main class="startup-error">' +
-          '<h1>' + String(title || 'Sea Battle startup failed') + '</h1>' +
-          '<p>' + String(message || 'Unknown JavaScript error') + '</p>' +
-          '<small>Open the browser console for the full trace.</small>' +
-          '</main>';
-      };
-      window.addEventListener("error", function (event) {
-        window.__seaBattleShowStartupError("Sea Battle JavaScript error", event.error || event.message);
-      });
-      window.addEventListener("unhandledrejection", function (event) {
-        window.__seaBattleShowStartupError("Sea Battle startup failed", event.reason);
-      });
-    </script>
     <canvas id="renderCanvas"></canvas>
     <div id="sinkingWaterOverlay" class="sinking-water-overlay" aria-hidden="true"></div>
     <div class="mobile-orientation-hint" aria-hidden="true">
