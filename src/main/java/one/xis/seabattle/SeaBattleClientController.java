@@ -14,6 +14,7 @@ import one.xis.http.SseEndpoint;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 import java.util.logging.Logger;
 
 @Controller
@@ -80,6 +81,12 @@ public class SeaBattleClientController {
         return gameStateService.radar(request);
     }
 
+    @Get("/game/version")
+    @Produces(ContentType.JSON_UTF8)
+    public BuildInfo getBuildInfo() {
+        return loadBuildInfo();
+    }
+
     @Post("/game/client-error")
     public ResponseEntity<?> reportClientError(@RequestBody ClientErrorReport report) {
         if (report == null) {
@@ -144,5 +151,21 @@ public class SeaBattleClientController {
                 RECENT_CLIENT_ERRORS.remove(0);
             }
         }
+    }
+
+    private static BuildInfo loadBuildInfo() {
+        Properties properties = new Properties();
+        try (var input = SeaBattleClientController.class.getResourceAsStream("/sea-battle-build.properties")) {
+            if (input != null) {
+                properties.load(input);
+            }
+        } catch (Exception e) {
+            LOGGER.warning(() -> "Could not read Sea Battle build info: " + e.getMessage());
+        }
+        return new BuildInfo(
+                properties.getProperty("version", "unknown"),
+                properties.getProperty("commit", "unknown"),
+                properties.getProperty("buildTime", "unknown")
+        );
     }
 }

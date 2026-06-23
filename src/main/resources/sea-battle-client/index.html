@@ -3,9 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>window.__SEA_BATTLE_CLIENT_VERSION__ = {"version":"0.1.0","buildTime":"2026-06-23T18:14:52.456Z","commit":"c523f04"};</script>
     <script>
       (function () {
         var reported = {};
+        var serverBuild = null;
+        var reportStatus = "not sent";
 
         function text(value) {
           if (!value) return "";
@@ -15,22 +18,63 @@
           return String(value);
         }
 
-        function show(title, detail) {
+        function buildLabel(info) {
+          if (!info) return "unknown";
+          var version = info.version || "unknown";
+          var commit = info.commit ? " " + info.commit : "";
+          var buildTime = info.buildTime ? " " + info.buildTime : "";
+          return version + commit + buildTime;
+        }
+
+        function diagnosticText() {
+          return "Client " + buildLabel(window.__SEA_BATTLE_CLIENT_VERSION__) +
+            " | Server " + buildLabel(serverBuild) +
+            " | Report " + reportStatus;
+        }
+
+        function escape(value) {
+          return String(value || "").replace(/[<>&]/g, function (character) {
+            return character === '<' ? '&lt;' : character === '>' ? '&gt;' : '&amp;';
+          });
+        }
+
+        function errorDetails(payload, fallback) {
+          var lines = [];
+          lines.push("message: " + (payload && payload.message ? payload.message : text(fallback)));
+          if (payload && payload.source) lines.push("source: " + payload.source);
+          if (payload && (payload.line || payload.column)) lines.push("line: " + (payload.line || 0) + " column: " + (payload.column || 0));
+          if (payload && payload.stack) lines.push("stack: " + payload.stack);
+          lines.push("url: " + location.href);
+          lines.push("userAgent: " + navigator.userAgent);
+          lines.push("screen: " + screen.width + "x" + screen.height + " viewport: " + window.innerWidth + "x" + window.innerHeight);
+          return lines.join("\n");
+        }
+
+        function refreshDiagnostics() {
+          var target = document.getElementById("startupDiagnostic");
+          if (target) target.textContent = diagnosticText();
+          var clientTarget = document.getElementById("clientVersionValue");
+          if (clientTarget) clientTarget.textContent = buildLabel(window.__SEA_BATTLE_CLIENT_VERSION__);
+          var serverTarget = document.getElementById("serverVersionValue");
+          if (serverTarget) serverTarget.textContent = buildLabel(serverBuild);
+        }
+
+        function show(title, detail, payload) {
           var message = text(detail) || title || "Unknown JavaScript error";
           var body = document.body;
           if (!body) {
-            window.__seaBattlePendingStartupError = { title: title, detail: message };
+            window.__seaBattlePendingStartupError = { title: title, detail: message, payload: payload };
             return;
           }
           body.setAttribute("data-startup-error", message);
           body.innerHTML =
             '<main class="startup-error">' +
             '<h1>' + String(title || 'Sea Battle JavaScript error') + '</h1>' +
-            '<p>' + message.replace(/[<>&]/g, function (character) {
-              return character === '<' ? '&lt;' : character === '>' ? '&gt;' : '&amp;';
-            }) + '</p>' +
-            '<small>Dieser Fehler wurde an den Sea-Battle-Server gemeldet.</small>' +
+            '<p>' + escape(message) + '</p>' +
+            '<small id="startupDiagnostic">' + escape(diagnosticText()) + '</small>' +
+            '<pre id="startupErrorDetails">' + escape(errorDetails(payload, detail)) + '</pre>' +
             '</main>';
+          refreshDiagnostics();
         }
 
         function report(payload) {
@@ -45,6 +89,8 @@
             var body = JSON.stringify(payload);
             if (navigator.sendBeacon && typeof Blob === "function") {
               if (navigator.sendBeacon("/game/client-error", new Blob([body], { type: "application/json" }))) {
+                reportStatus = "sent by beacon";
+                refreshDiagnostics();
                 return;
               }
             }
@@ -53,12 +99,24 @@
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: body
-              }).catch(function () {});
+              }).then(function (response) {
+                reportStatus = response && response.ok ? "sent by fetch" : "fetch status " + (response ? response.status : "unknown");
+                refreshDiagnostics();
+              }).catch(function () {
+                reportStatus = "fetch failed";
+                refreshDiagnostics();
+              });
               return;
             }
             var request = new XMLHttpRequest();
             request.open("POST", "/game/client-error", true);
             request.setRequestHeader("Content-Type", "application/json");
+            request.onreadystatechange = function () {
+              if (request.readyState === 4) {
+                reportStatus = request.status >= 200 && request.status < 300 ? "sent by xhr" : "xhr status " + request.status;
+                refreshDiagnostics();
+              }
+            };
             request.send(body);
           } catch (ignored) {
             // Do not let diagnostic reporting create another startup failure.
@@ -66,8 +124,9 @@
         }
 
         window.__seaBattleShowStartupError = function (title, detail) {
-          show(title, detail);
-          report({ type: "startup", message: text(detail) || title || "startup error" });
+          var payload = { type: "startup", message: text(detail) || title || "startup error" };
+          show(title, detail, payload);
+          report(payload);
         };
 
         window.addEventListener("error", function (event) {
@@ -77,40 +136,65 @@
             source = event.target.src || event.target.href;
           }
           var message = text(detail) || (source ? "Resource load error: " + source : "JavaScript error");
-          show("Sea Battle JavaScript error", detail);
-          report({
+          var payload = {
             type: "error",
             message: message,
             source: source,
             line: event.lineno || 0,
             column: event.colno || 0,
             stack: event.error && event.error.stack ? String(event.error.stack) : ""
-          });
+          };
+          show("Sea Battle JavaScript error", detail || message, payload);
+          report(payload);
         });
 
         window.addEventListener("unhandledrejection", function (event) {
           var message = text(event.reason) || "Unhandled promise rejection";
-          show("Sea Battle startup failed", event.reason || message);
-          report({ type: "unhandledrejection", message: message, stack: message });
+          var payload = { type: "unhandledrejection", message: message, stack: message };
+          show("Sea Battle startup failed", event.reason || message, payload);
+          report(payload);
         });
 
         document.addEventListener("DOMContentLoaded", function () {
+          refreshDiagnostics();
           if (window.__seaBattlePendingStartupError) {
-            show(window.__seaBattlePendingStartupError.title, window.__seaBattlePendingStartupError.detail);
+            show(
+              window.__seaBattlePendingStartupError.title,
+              window.__seaBattlePendingStartupError.detail,
+              window.__seaBattlePendingStartupError.payload
+            );
           }
         });
+
+        try {
+          var versionRequest = new XMLHttpRequest();
+          versionRequest.open("GET", "/game/version", true);
+          versionRequest.onreadystatechange = function () {
+            if (versionRequest.readyState === 4 && versionRequest.status >= 200 && versionRequest.status < 300) {
+              try {
+                serverBuild = JSON.parse(versionRequest.responseText);
+              } catch (ignored) {
+                serverBuild = { version: "invalid response" };
+              }
+              refreshDiagnostics();
+            }
+          };
+          versionRequest.send();
+        } catch (ignored) {
+          // The module code also asks for the version once it starts successfully.
+        }
       })();
     </script>
     <title>LG Sea Battle</title>
-    <script type="module" crossorigin src="/sea-battle/assets/index-BuEPHJsz.js"></script>
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/styles-DFO6iot9.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/logDepthDeclaration-DP4lweGT.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/helperFunctions-DgrHFj-M.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/fogFragment-0UiC4nAT.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/default.fragment-503Bz5_6.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/vertexColorMixing-Dvi7kjVP.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/default.vertex-DvYNp7Ni.js">
-    <link rel="stylesheet" crossorigin href="/sea-battle/assets/styles-S363ji12.css">
+    <script type="module" crossorigin src="/sea-battle/assets/index-n0PBTtxx.js"></script>
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/styles-C6gCUiBS.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/logDepthDeclaration-BpvaUo6k.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/helperFunctions-C3PcFjVw.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/fogFragment-CIeSHpWH.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/default.fragment-BaG12aMt.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/vertexColorMixing-DlCnxvPt.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/default.vertex-B5l-DeR2.js">
+    <link rel="stylesheet" crossorigin href="/sea-battle/assets/styles-DVHYbazz.css">
   </head>
   <body>
     <canvas id="renderCanvas"></canvas>
@@ -151,6 +235,10 @@
         <small id="radarStatus">Clear</small>
       </div>
       <div id="fleetStatusRows" class="fleet-status" aria-hidden="true"></div>
+      <div class="version-panel" aria-hidden="true">
+        <span>Client <strong id="clientVersionValue">--</strong></span>
+        <span>Server <strong id="serverVersionValue">--</strong></span>
+      </div>
       <div class="player-list" aria-hidden="true">
         <div class="player-list-title">Players</div>
         <div id="playerListRows" class="player-list-rows"></div>

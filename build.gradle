@@ -12,6 +12,14 @@ java {
     }
 }
 
+sourceSets {
+    main {
+        resources {
+            srcDir layout.buildDirectory.dir('generated/resources/build-info')
+        }
+    }
+}
+
 dependencies {
     implementation project.hasProperty('seaBattleNative') ? 'one.xis:xis-boot-native' : 'one.xis:xis-boot-http'
     implementation 'com.google.code.gson:gson:2.10.1'
@@ -35,6 +43,16 @@ tasks.withType(Test) {
 
 def lgSeaBattleDir = file('../client')
 def clientDistDir = file("$lgSeaBattleDir/dist")
+
+def gitCommit() {
+    try {
+        return providers.exec {
+            commandLine 'git', 'rev-parse', '--short', 'HEAD'
+        }.standardOutput.asText.get().trim()
+    } catch (ignored) {
+        return 'unknown'
+    }
+}
 
 def resolveNpmExecutable() {
     def executableName = org.gradle.internal.os.OperatingSystem.current().isWindows() ? 'npm.cmd' : 'npm'
@@ -70,9 +88,24 @@ tasks.register('copySeaBattleClient', Copy) {
     }
 }
 
-processResources.dependsOn copySeaBattleClient
+tasks.register('generateBuildInfo') {
+    def outputFile = layout.buildDirectory.file('generated/resources/build-info/sea-battle-build.properties')
+    outputs.file(outputFile)
+    outputs.upToDateWhen { false }
+    doLast {
+        def file = outputFile.get().asFile
+        file.parentFile.mkdirs()
+        file.text = [
+                "version=${project.version}",
+                "commit=${gitCommit()}",
+                "buildTime=${new Date().format("yyyy-MM-dd'T'HH:mm:ssXXX")}"
+        ].join('\n') + '\n'
+    }
+}
+
+processResources.dependsOn copySeaBattleClient, generateBuildInfo
 tasks.matching { it.name == 'xisGenerateNativeResourceCatalog' }.configureEach {
-    dependsOn copySeaBattleClient
+    dependsOn copySeaBattleClient, generateBuildInfo
 }
 
 tasks.register('runSeaBattleXis', JavaExec) {
