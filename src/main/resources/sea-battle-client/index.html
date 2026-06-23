@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script>window.__SEA_BATTLE_CLIENT_VERSION__ = {"version":"0.1.0","buildTime":"2026-06-23T18:24:21.753Z","commit":"9e56146"};</script>
+    <script>window.__SEA_BATTLE_CLIENT_VERSION__ = {"version":"0.1.0","buildTime":"2026-06-23T18:32:00.118Z","commit":"7bcaabd"};</script>
     <script>
       (function () {
         var reported = {};
@@ -27,6 +27,46 @@
 
         function stackOf(value) {
           return value && value.stack ? String(value.stack) : "";
+        }
+
+        function describeValue(value, depth) {
+          if (value === null) return "null";
+          if (value === undefined) return "undefined";
+          if (typeof value === "string") return JSON.stringify(value);
+          if (typeof value === "number" || typeof value === "boolean") return String(value);
+          if (typeof value === "function") return "[function " + (value.name || "anonymous") + "]";
+          if (depth <= 0) return Object.prototype.toString.call(value);
+          var parts = [];
+          try {
+            var keys = [];
+            for (var key in value) keys.push(key);
+            Object.getOwnPropertyNames(value).forEach(function (key) {
+              if (keys.indexOf(key) < 0) keys.push(key);
+            });
+            keys.slice(0, 40).forEach(function (key) {
+              var entry;
+              try {
+                entry = describeValue(value[key], depth - 1);
+              } catch (error) {
+                entry = "[unreadable: " + messageOf(error) + "]";
+              }
+              parts.push(key + ": " + entry);
+            });
+            if (keys.length > 40) parts.push("... " + (keys.length - 40) + " more");
+          } catch (error) {
+            parts.push("[properties unavailable: " + messageOf(error) + "]");
+          }
+          return Object.prototype.toString.call(value) + " { " + parts.join(", ") + " }";
+        }
+
+        function copyBasicContext(payload) {
+          payload.url = location.href;
+          payload.userAgent = navigator.userAgent;
+          payload.screen = screen.width + "x" + screen.height;
+          payload.viewport = window.innerWidth + "x" + window.innerHeight;
+          payload.clientVersion = buildLabel(window.__SEA_BATTLE_CLIENT_VERSION__);
+          payload.serverVersion = buildLabel(serverBuild);
+          return payload;
         }
 
         function buildLabel(info) {
@@ -67,6 +107,19 @@
           lines.push("url: " + location.href);
           lines.push("userAgent: " + navigator.userAgent);
           lines.push("screen: " + screen.width + "x" + screen.height + " viewport: " + window.innerWidth + "x" + window.innerHeight);
+          lines.push("");
+          lines.push("RAW PAYLOAD");
+          try {
+            lines.push(JSON.stringify(payload || {}, null, 2));
+          } catch (error) {
+            lines.push("[payload stringify failed] " + messageOf(error));
+            lines.push(describeValue(payload, 2));
+          }
+          if (fallback && typeof fallback !== "string") {
+            lines.push("");
+            lines.push("RAW DETAIL");
+            lines.push(describeValue(fallback, 2));
+          }
           return lines.join("\n");
         }
 
@@ -102,10 +155,7 @@
             var key = [payload.message, payload.source, payload.line, payload.column].join("|");
             if (reported[key]) return;
             reported[key] = true;
-            payload.url = location.href;
-            payload.userAgent = navigator.userAgent;
-            payload.screen = screen.width + "x" + screen.height;
-            payload.viewport = window.innerWidth + "x" + window.innerHeight;
+            copyBasicContext(payload);
             var body = JSON.stringify(payload);
             if (navigator.sendBeacon && typeof Blob === "function") {
               if (navigator.sendBeacon("/game/client-error", new Blob([body], { type: "application/json" }))) {
@@ -144,9 +194,30 @@
         }
 
         window.__seaBattleShowStartupError = function (title, detail) {
-          var payload = { type: "startup", message: messageOf(detail) || title || "startup error", stack: stackOf(detail) };
+          var payload = copyBasicContext({
+            type: "startup",
+            message: messageOf(detail) || title || "startup error",
+            stack: stackOf(detail),
+            rawDetail: describeValue(detail, 2)
+          });
           show(title, detail, payload);
           report(payload);
+        };
+
+        window.onerror = function (message, source, line, column, error) {
+          var payload = copyBasicContext({
+            type: "window.onerror",
+            message: messageOf(message) || messageOf(error) || "window.onerror",
+            source: source || "",
+            line: line || 0,
+            column: column || 0,
+            stack: stackOf(error),
+            rawMessage: describeValue(message, 2),
+            rawError: describeValue(error, 2)
+          });
+          show("Sea Battle JavaScript error", error || message, payload);
+          report(payload);
+          return false;
         };
 
         window.addEventListener("error", function (event) {
@@ -156,21 +227,33 @@
             source = event.target.src || event.target.href;
           }
           var message = messageOf(detail) || (source ? "Resource load error: " + source : "JavaScript error");
-          var payload = {
+          var payload = copyBasicContext({
             type: "error",
             message: message,
             source: source,
             line: event.lineno || 0,
             column: event.colno || 0,
-            stack: stackOf(event.error)
-          };
+            stack: stackOf(event.error),
+            eventType: event.type || "",
+            eventPhase: event.eventPhase || 0,
+            targetTagName: event.target && event.target.tagName ? event.target.tagName : "",
+            targetSource: event.target && (event.target.src || event.target.href) ? (event.target.src || event.target.href) : "",
+            rawEvent: describeValue(event, 2),
+            rawError: describeValue(event.error, 2)
+          });
           show("Sea Battle JavaScript error", detail || message, payload);
           report(payload);
         });
 
         window.addEventListener("unhandledrejection", function (event) {
           var message = messageOf(event.reason) || "Unhandled promise rejection";
-          var payload = { type: "unhandledrejection", message: message, stack: stackOf(event.reason) };
+          var payload = copyBasicContext({
+            type: "unhandledrejection",
+            message: message,
+            stack: stackOf(event.reason),
+            rawReason: describeValue(event.reason, 2),
+            rawEvent: describeValue(event, 2)
+          });
           show("Sea Battle startup failed", event.reason || message, payload);
           report(payload);
         });
@@ -206,15 +289,15 @@
       })();
     </script>
     <title>LG Sea Battle</title>
-    <script type="module" crossorigin src="/sea-battle/assets/index-n0PBTtxx.js"></script>
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/styles-C6gCUiBS.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/logDepthDeclaration-BpvaUo6k.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/helperFunctions-C3PcFjVw.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/fogFragment-CIeSHpWH.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/default.fragment-BaG12aMt.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/vertexColorMixing-DlCnxvPt.js">
-    <link rel="modulepreload" crossorigin href="/sea-battle/assets/default.vertex-B5l-DeR2.js">
-    <link rel="stylesheet" crossorigin href="/sea-battle/assets/styles-DVHYbazz.css">
+    <script type="module" crossorigin src="/sea-battle/assets/index-CLdtFQHo.js"></script>
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/styles-Br_EyLHl.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/logDepthDeclaration-VqJa0yrS.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/helperFunctions-sBEvAWdL.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/fogFragment-BRDS-GCB.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/default.fragment-CQ7jrNgz.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/vertexColorMixing-DHFu0inO.js">
+    <link rel="modulepreload" crossorigin href="/sea-battle/assets/default.vertex-JHr6TLMH.js">
+    <link rel="stylesheet" crossorigin href="/sea-battle/assets/styles-BuqbxqOt.css">
   </head>
   <body>
     <canvas id="renderCanvas"></canvas>
