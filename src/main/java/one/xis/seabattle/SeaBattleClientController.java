@@ -108,6 +108,11 @@ public class SeaBattleClientController {
         return ResponseEntity.noContent();
     }
 
+    @Post("/game/client-performance")
+    public ResponseEntity<?> reportClientPerformance() {
+        return ResponseEntity.noContent();
+    }
+
     @Get("/game/client-errors")
     @Produces(ContentType.JSON_UTF8)
     public List<ClientErrorReport> getClientErrors() {

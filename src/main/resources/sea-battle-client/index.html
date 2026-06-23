@@ -3,12 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script>window.__SEA_BATTLE_CLIENT_VERSION__ = {"version":"0.1.0","buildTime":"2026-06-23T18:42:07.467Z","commit":"a168d7a"};</script>
+    <script>window.__SEA_BATTLE_CLIENT_VERSION__ = {"version":"0.1.0","buildTime":"2026-06-23T19:45:01.484Z","commit":"c91cdb1"};</script>
     <script>
       (function () {
         var reported = {};
         var serverBuild = null;
-        var reportStatus = "not sent";
 
         function text(value) {
           if (!value) return "";
@@ -59,14 +58,7 @@
 
         function diagnosticText() {
           return "Client " + buildLabel(window.__SEA_BATTLE_CLIENT_VERSION__) +
-            " | Server " + buildLabel(serverBuild) +
-            " | Report " + reportStatus;
-        }
-
-        function escape(value) {
-          return String(value || "").replace(/[<>&]/g, function (character) {
-            return character === '<' ? '&lt;' : character === '>' ? '&gt;' : '&amp;';
-          });
+            " | Server " + buildLabel(serverBuild);
         }
 
         function errorDetails(payload, fallback) {
@@ -125,7 +117,6 @@
           lines.push("screen: " + screen.width + "x" + screen.height + " viewport: " + window.innerWidth + "x" + window.innerHeight);
           lines.push("clientVersion: " + (payload && payload.clientVersion ? payload.clientVersion : buildLabel(window.__SEA_BATTLE_CLIENT_VERSION__)));
           lines.push("serverVersion: " + (payload && payload.serverVersion ? payload.serverVersion : buildLabel(serverBuild)));
-          lines.push("reportStatus: " + reportStatus);
           return lines.join("\n");
         }
 
@@ -146,49 +137,28 @@
             return;
           }
           body.setAttribute("data-startup-error", message);
-          body.innerHTML =
-            '<main class="startup-error">' +
-            '<h1>' + String(title || 'Sea Battle JavaScript error') + '</h1>' +
-            '<small id="startupDiagnostic">' + escape(diagnosticText()) + '</small>' +
-            '<pre id="startupErrorDetails">' + escape(errorDetails(payload, detail)) + '</pre>' +
-            '</main>';
+          body.textContent = "";
+          var main = document.createElement("main");
+          main.className = "startup-error";
+          var heading = document.createElement("h1");
+          heading.textContent = String(title || "Sea Battle JavaScript error");
+          var diagnostic = document.createElement("small");
+          diagnostic.id = "startupDiagnostic";
+          diagnostic.textContent = diagnosticText();
+          var details = document.createElement("pre");
+          details.id = "startupErrorDetails";
+          details.textContent = errorDetails(payload, detail);
+          main.appendChild(heading);
+          main.appendChild(diagnostic);
+          main.appendChild(details);
+          body.appendChild(main);
           refreshDiagnostics();
         }
 
-        function report(payload) {
+        function markSeen(payload) {
           var key = [payload.message, payload.source, payload.line, payload.column].join("|");
           if (reported[key]) return;
           reported[key] = true;
-          copyBasicContext(payload);
-          var body = JSON.stringify(payload);
-          if (navigator.sendBeacon && typeof Blob === "function") {
-            if (navigator.sendBeacon("/game/client-error", new Blob([body], { type: "application/json" }))) {
-              reportStatus = "sent by beacon";
-              refreshDiagnostics();
-              return;
-            }
-          }
-          if (window.fetch) {
-            fetch("/game/client-error", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: body
-            }).then(function (response) {
-              reportStatus = response && response.ok ? "sent by fetch" : "fetch status " + (response ? response.status : "unknown");
-              refreshDiagnostics();
-            });
-            return;
-          }
-          var request = new XMLHttpRequest();
-          request.open("POST", "/game/client-error", true);
-          request.setRequestHeader("Content-Type", "application/json");
-          request.onreadystatechange = function () {
-            if (request.readyState === 4) {
-              reportStatus = request.status >= 200 && request.status < 300 ? "sent by xhr" : "xhr status " + request.status;
-              refreshDiagnostics();
-            }
-          };
-          request.send(body);
         }
 
         window.__seaBattleShowStartupError = function (title, detail) {
@@ -198,7 +168,7 @@
             stack: stackOf(detail)
           });
           show(title, detail, payload);
-          report(payload);
+          markSeen(payload);
         };
 
         window.onerror = function (message, source, line, column, error) {
@@ -219,7 +189,7 @@
             onerrorErrorStack: stackOf(error)
           });
           show("Sea Battle JavaScript error", error || message, payload);
-          report(payload);
+          markSeen(payload);
           return false;
         };
 
@@ -251,7 +221,7 @@
             eventErrorStack: stackOf(event.error)
           });
           show("Sea Battle JavaScript error", detail || message, payload);
-          report(payload);
+          markSeen(payload);
         });
 
         window.addEventListener("unhandledrejection", function (event) {
@@ -266,7 +236,7 @@
             reasonStack: stackOf(event.reason)
           });
           show("Sea Battle startup failed", event.reason || message, payload);
-          report(payload);
+          markSeen(payload);
         });
 
         document.addEventListener("DOMContentLoaded", function () {
@@ -292,7 +262,7 @@
       })();
     </script>
     <title>LG Sea Battle</title>
-    <script type="module" crossorigin src="/sea-battle/assets/index-CLdtFQHo.js"></script>
+    <script type="module" crossorigin src="/sea-battle/assets/index-CtJLvTz-.js"></script>
     <link rel="modulepreload" crossorigin href="/sea-battle/assets/styles-Br_EyLHl.js">
     <link rel="modulepreload" crossorigin href="/sea-battle/assets/logDepthDeclaration-VqJa0yrS.js">
     <link rel="modulepreload" crossorigin href="/sea-battle/assets/helperFunctions-sBEvAWdL.js">
