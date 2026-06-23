@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script>window.__SEA_BATTLE_CLIENT_VERSION__ = {"version":"0.1.0","buildTime":"2026-06-23T18:14:52.456Z","commit":"c523f04"};</script>
+    <script>window.__SEA_BATTLE_CLIENT_VERSION__ = {"version":"0.1.0","buildTime":"2026-06-23T18:24:21.753Z","commit":"9e56146"};</script>
     <script>
       (function () {
         var reported = {};
@@ -16,6 +16,17 @@
           if (value.stack) return String(value.stack);
           if (value.message) return String(value.message);
           return String(value);
+        }
+
+        function messageOf(value) {
+          if (!value) return "";
+          if (typeof value === "string") return value;
+          if (value.message) return String(value.message);
+          return String(value);
+        }
+
+        function stackOf(value) {
+          return value && value.stack ? String(value.stack) : "";
         }
 
         function buildLabel(info) {
@@ -40,10 +51,19 @@
 
         function errorDetails(payload, fallback) {
           var lines = [];
-          lines.push("message: " + (payload && payload.message ? payload.message : text(fallback)));
-          if (payload && payload.source) lines.push("source: " + payload.source);
-          if (payload && (payload.line || payload.column)) lines.push("line: " + (payload.line || 0) + " column: " + (payload.column || 0));
-          if (payload && payload.stack) lines.push("stack: " + payload.stack);
+          lines.push("MESSAGE");
+          lines.push(payload && payload.message ? payload.message : messageOf(fallback));
+          lines.push("");
+          lines.push("SOURCE");
+          lines.push(payload && payload.source ? payload.source : "not available");
+          lines.push("");
+          lines.push("POSITION");
+          lines.push("line: " + (payload && payload.line ? payload.line : 0) + " column: " + (payload && payload.column ? payload.column : 0));
+          lines.push("");
+          lines.push("STACK");
+          lines.push(payload && payload.stack ? payload.stack : "not available from this browser");
+          lines.push("");
+          lines.push("CONTEXT");
           lines.push("url: " + location.href);
           lines.push("userAgent: " + navigator.userAgent);
           lines.push("screen: " + screen.width + "x" + screen.height + " viewport: " + window.innerWidth + "x" + window.innerHeight);
@@ -124,7 +144,7 @@
         }
 
         window.__seaBattleShowStartupError = function (title, detail) {
-          var payload = { type: "startup", message: text(detail) || title || "startup error" };
+          var payload = { type: "startup", message: messageOf(detail) || title || "startup error", stack: stackOf(detail) };
           show(title, detail, payload);
           report(payload);
         };
@@ -135,22 +155,22 @@
           if (!source && event.target && (event.target.src || event.target.href)) {
             source = event.target.src || event.target.href;
           }
-          var message = text(detail) || (source ? "Resource load error: " + source : "JavaScript error");
+          var message = messageOf(detail) || (source ? "Resource load error: " + source : "JavaScript error");
           var payload = {
             type: "error",
             message: message,
             source: source,
             line: event.lineno || 0,
             column: event.colno || 0,
-            stack: event.error && event.error.stack ? String(event.error.stack) : ""
+            stack: stackOf(event.error)
           };
           show("Sea Battle JavaScript error", detail || message, payload);
           report(payload);
         });
 
         window.addEventListener("unhandledrejection", function (event) {
-          var message = text(event.reason) || "Unhandled promise rejection";
-          var payload = { type: "unhandledrejection", message: message, stack: message };
+          var message = messageOf(event.reason) || "Unhandled promise rejection";
+          var payload = { type: "unhandledrejection", message: message, stack: stackOf(event.reason) };
           show("Sea Battle startup failed", event.reason || message, payload);
           report(payload);
         });
