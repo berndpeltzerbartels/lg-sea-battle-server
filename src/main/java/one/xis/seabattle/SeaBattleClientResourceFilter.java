@@ -90,8 +90,6 @@ public class SeaBattleClientResourceFilter implements HttpFilter {
     }
 
     private String cacheControl(String resourcePath) {
-        return resourcePath.endsWith(".html")
-                ? "no-cache"
-                : "public, max-age=31536000, immutable";
+        return "no-store";
     }
 }
