@@ -38,7 +38,7 @@ public final class SeaBattleEventService {
     }
 
     public void register(String playerId, String teamId, SseEmitter emitter) {
-        String replacedPlayerId = playerRegistry.registerPlayer(playerId, playerRegistry.playerName(initialsFromPlayerId(playerId)));
+        String replacedPlayerId = playerRegistry.registerPlayer(playerId, playerRegistry.playerName(initialsFromPlayerId(playerId)), teamId);
         if (replacedPlayerId != null) {
             unregisterPlayer(replacedPlayerId);
         }

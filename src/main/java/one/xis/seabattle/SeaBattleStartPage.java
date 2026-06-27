@@ -63,17 +63,26 @@ public class SeaBattleStartPage {
 
     @ModelData("players")
     List<PlayerEntry> players() {
-        Map<String, Integer> kills = gameStateService.snapshot().killsByPlayer();
-        return gameStateService.snapshot().ships().stream()
+        GameSnapshot snapshot = gameStateService.snapshot();
+        Map<String, Integer> kills = snapshot.killsByPlayer();
+        Map<String, ShipSnapshot> shipsByPlayer = snapshot.ships().stream()
                 .filter(ship -> ship.controlledBy() != null && ship.controlledBy().startsWith("player-"))
-                .map(ship -> new PlayerEntry(
-                        playerName(playerInitials(ship.controlledBy())),
-                        playerInitials(ship.controlledBy()),
-                        ship.teamId(),
-                        teamLabel(ship.teamId()),
-                        ship.id().toUpperCase(Locale.ROOT).replace("-", " "),
-                        kills.getOrDefault(ship.controlledBy(), 0),
-                        mapSector(ship.x(), ship.z())))
+                .collect(Collectors.toMap(ShipSnapshot::controlledBy, ship -> ship, (left, ignored) -> left));
+
+        return playerRegistry.players().stream()
+                .map(player -> {
+                    ShipSnapshot ship = player.playerId() == null ? null : shipsByPlayer.get(player.playerId());
+                    String teamId = ship == null ? player.teamId() : ship.teamId();
+                    String playerId = player.playerId();
+                    return new PlayerEntry(
+                            displayName(player.nickname()),
+                            player.initials(),
+                            teamId,
+                            teamLabel(teamId),
+                            ship == null ? "-" : ship.id().toUpperCase(Locale.ROOT).replace("-", " "),
+                            playerId == null ? 0 : kills.getOrDefault(playerId, 0),
+                            ship == null ? "-" : mapSector(ship.x(), ship.z()));
+                })
                 .sorted(Comparator.comparing(PlayerEntry::team).thenComparing(PlayerEntry::initials))
                 .toList();
     }
@@ -86,7 +95,7 @@ public class SeaBattleStartPage {
         }
         String nickname = normalizeName(form.nickname());
         boolean gameIsEmpty = players().isEmpty();
-        playerRegistry.register(initials, nickname);
+        playerRegistry.register(initials, nickname, form.team());
         if (gameIsEmpty) {
             gameStateService.resetToSetup("dense-land");
         }
@@ -99,19 +108,15 @@ public class SeaBattleStartPage {
     }
 
     private boolean isAliasActive(String initials) {
-        return playerRegistry.isAliasRegistered(initials) || gameStateService.snapshot().ships().stream()
-                .map(ShipSnapshot::controlledBy)
-                .filter(controller -> controller != null && controller.startsWith("player-"))
-                .map(this::playerInitials)
-                .anyMatch(initials::equals);
+        return playerRegistry.isAliasRegistered(initials);
     }
 
     private String normalizeName(String value) {
         return value == null ? "" : value.trim().replaceAll("\\s+", " ");
     }
 
-    private String playerName(String initials) {
-        return playerRegistry.playerName(initials);
+    private String displayName(String value) {
+        return value == null || value.isBlank() ? "-" : value;
     }
 
     private String teamLabel(String teamId) {
@@ -120,18 +125,6 @@ public class SeaBattleStartPage {
                 .map(TeamOption::label)
                 .findFirst()
                 .orElse(teamId);
-    }
-
-    private String playerInitials(String playerId) {
-        String prefix = "player-";
-        if (!playerId.startsWith(prefix)) {
-            return playerId;
-        }
-        int end = playerId.indexOf('-', prefix.length());
-        if (end <= prefix.length()) {
-            return playerId.substring(prefix.length()).toUpperCase(Locale.ROOT);
-        }
-        return playerId.substring(prefix.length(), end).toUpperCase(Locale.ROOT);
     }
 
     private String mapSector(double x, double z) {

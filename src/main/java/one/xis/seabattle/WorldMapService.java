@@ -202,7 +202,8 @@ class WorldMapService {
                 island("west_gap_outer", -1710, -650, 34, 1.0, 66, 36),
                 island("east_gap_outer", 1740, 260, 36, 1.0, 68, 38),
                 island("far_west_bank", -2060, -520, 42, 1.0, 78, 42),
-                island("far_east_bank", 2110, 210, 46, 1.02, 82, 44)
+                island("far_east_bank", 2110, 210, 46, 1.02, 82, 44),
+                island("north_watch_bank", 278, 2235, 46, 1.02, 44, 82)
         ));
         return new WorldMap(10, landmasses);
     }
