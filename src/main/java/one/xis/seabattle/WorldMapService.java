@@ -80,7 +80,7 @@ class WorldMapService {
                 island("delta_reef_chain_a", 1110, 250, 12, 0.92, 18, 12),
                 island("delta_reef_chain_b", 1215, 300, 15, 1.1, 22, 15),
                 island("delta_reef_chain_c", 1270, 180, 10, 1.3, 15, 10),
-                coastline("southern_cliffs", 148, -855, 268, 134, 1.38, 24.0, 0.24,
+                coastline("southern_cliffs", 148, -855, 268, 134, 1.78, 20.0, 0.22,
                         fjords(new Fjord(0.12, 0.14, 0.78), new Fjord(-0.48, 0.11, 0.66))),
                 island("southern_gate_rocks", -96, -706, 18, 1.15, 25, 18),
                 island("southern_outer_stack", 332, -698, 20, 1.05, 28, 21),
