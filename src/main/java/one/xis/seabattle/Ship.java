@@ -18,6 +18,8 @@ final class Ship {
     private String controlledBy;
     private String state = "active";
     private int torpedoesRemaining = 12;
+    private String vesselType = VesselTypes.TORPEDO_BOAT;
+    private String depthState = VesselTypes.SURFACE;
     private double nextFireTime;
     private double respawnAtSeconds = Double.POSITIVE_INFINITY;
     private double glancingRamBackoffUntilSeconds = Double.NEGATIVE_INFINITY;
@@ -55,8 +57,21 @@ final class Ship {
         return isBotControlled() || "scenario".equals(controlledBy);
     }
 
+    boolean isSubmerged() {
+        return VesselTypes.SUBMARINE.equals(vesselType) && VesselTypes.SUBMERGED.equals(depthState);
+    }
+
+    boolean isSubmarineExposed() {
+        return VesselTypes.SUBMARINE.equals(vesselType) && !VesselTypes.SUBMERGED.equals(depthState);
+    }
+
     void controlledBy(String controlledBy) {
         this.controlledBy = controlledBy;
+    }
+
+    void resetVesselForBotControl() {
+        vesselType = VesselTypes.TORPEDO_BOAT;
+        depthState = VesselTypes.SURFACE;
     }
 
     Vector2 position() {
@@ -96,6 +111,8 @@ final class Ship {
         if (!"active".equals(state)) {
             return;
         }
+        vesselType = VesselTypes.normalizeVesselType(update.vesselType());
+        depthState = VesselTypes.normalizeDepthState(update.depthState(), vesselType);
         Vector2 requestedPosition = new Vector2(update.x(), update.z());
         boolean implausiblePosition = position.distanceTo(requestedPosition) > MAX_ACCEPTED_PLAYER_POSITION_DELTA;
         boolean blockedPosition = navigationService.isShipBlocked(requestedPosition, update.heading(), worldMap);
@@ -209,6 +226,8 @@ final class Ship {
         rudderDegrees = 0;
         engineOrder = 2;
         controlledBy = "bot";
+        vesselType = VesselTypes.TORPEDO_BOAT;
+        depthState = VesselTypes.SURFACE;
         this.respawnAtSeconds = respawnAtSeconds;
         glancingRamBackoffUntilSeconds = Double.NEGATIVE_INFINITY;
         return true;
@@ -232,6 +251,8 @@ final class Ship {
         controlledBy = "bot";
         state = "active";
         torpedoesRemaining = 12;
+        vesselType = VesselTypes.TORPEDO_BOAT;
+        depthState = VesselTypes.SURFACE;
         nextFireTime = nowSeconds + 3;
         respawnAtSeconds = Double.POSITIVE_INFINITY;
         glancingRamBackoffUntilSeconds = Double.NEGATIVE_INFINITY;
@@ -251,7 +272,9 @@ final class Ship {
                 engineOrder,
                 state,
                 controlledBy,
-                torpedoesRemaining
+                torpedoesRemaining,
+                vesselType,
+                depthState
         );
     }
 }

@@ -43,7 +43,7 @@ public class SeaBattleStartPage {
 
     @FormData("start")
     SeaBattleStartForm start() {
-        return new SeaBattleStartForm("", "", "");
+        return new SeaBattleStartForm("", "", "", "torpedo_boat");
     }
 
     @ModelData("teams")
@@ -95,7 +95,7 @@ public class SeaBattleStartPage {
         }
         String nickname = normalizeName(form.nickname());
         boolean gameIsEmpty = players().isEmpty();
-        playerRegistry.register(initials, nickname, form.team());
+        playerRegistry.register(initials, nickname, form.team(), form.vesselType());
         if (gameIsEmpty) {
             gameStateService.resetToSetup("dense-land");
         }
@@ -103,6 +103,7 @@ public class SeaBattleStartPage {
         String url = "/sea-battle/app?team=" + encode(form.team())
                 + "&initials=" + encode(initials)
                 + "&playerName=" + encode(nickname)
+                + "&vessel=" + encode(form.vesselType())
                 + (gameIsEmpty ? "&setup=dense-land" : "");
         return new PageUrlResponse(url);
     }

@@ -329,6 +329,15 @@
                 <div class="message" xis:message-for="team"></div>
             </div>
 
+            <div class="field">
+                <label for="vesselType" xis:binding="vesselType" xis:error-class="error">Schiff</label>
+                <select id="vesselType" xis:binding="vesselType" xis:error-class="error">
+                    <option value="torpedo_boat">Torpedoboot</option>
+                    <option value="submarine">U-Boot</option>
+                </select>
+                <div class="message" xis:message-for="vesselType"></div>
+            </div>
+
             <button type="submit" xis:action="startGame">Einsteigen</button>
         </form>
     </section>

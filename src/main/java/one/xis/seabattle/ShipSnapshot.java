@@ -12,6 +12,8 @@ public record ShipSnapshot(
         int engineOrder,
         String state,
         String controlledBy,
-        int torpedoesRemaining
+        int torpedoesRemaining,
+        String vesselType,
+        String depthState
 ) {
 }

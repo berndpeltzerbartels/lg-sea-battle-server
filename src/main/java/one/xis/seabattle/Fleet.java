@@ -87,6 +87,7 @@ final class Fleet {
                 .findFirst()
                 .ifPresent(ship -> {
                     ship.controlledBy("bot");
+                    ship.resetVesselForBotControl();
                     ship.nextFireTime(0);
                 });
     }

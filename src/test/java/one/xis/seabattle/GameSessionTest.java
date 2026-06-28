@@ -401,7 +401,8 @@ class GameSessionTest {
                 List.of(new Vector2(0, 0), new Vector2(40, 0))
         ));
 
-        session.updatePlayerState(new PlayerStateUpdate("player-BP-test", "red", 0, 0, 0, 0, 0, 2, 0, 0), navigationService, session.worldMap());
+        session.updatePlayerState(new PlayerStateUpdate("player-BP-test", "red", 0, 0, 0, 0, 0, 2, 0, 0,
+                VesselTypes.TORPEDO_BOAT, VesselTypes.SURFACE), navigationService, session.worldMap());
         assertEquals("player-BP-test", findShip(session.snapshot(), "red-1").controlledBy());
 
         session.releasePlayer("player-BP-test");
@@ -425,7 +426,8 @@ class GameSessionTest {
                 List.of(new Vector2(-100, 0), new Vector2(0, 0), new Vector2(100, 0), new Vector2(400, 0))
         ));
 
-        session.updatePlayerState(new PlayerStateUpdate("player-BP-test", "red", 0, 0, 0, 0, 0, 2, 0, 0),
+        session.updatePlayerState(new PlayerStateUpdate("player-BP-test", "red", 0, 0, 0, 0, 0, 2, 0, 0,
+                        VesselTypes.TORPEDO_BOAT, VesselTypes.SURFACE),
                 navigationService, session.worldMap());
 
         List<String> controlledShips = session.snapshot().ships().stream()
@@ -449,7 +451,8 @@ class GameSessionTest {
         ));
 
         session.updatePlayerState(
-                new PlayerStateUpdate("player-BP-test", "red", 15, 25, 0.7, 9.6, 0.12, 7, 14, 123.45),
+                new PlayerStateUpdate("player-BP-test", "red", 15, 25, 0.7, 9.6, 0.12, 7, 14, 123.45,
+                        VesselTypes.TORPEDO_BOAT, VesselTypes.SURFACE),
                 navigationService,
                 session.worldMap()
         );
@@ -466,6 +469,55 @@ class GameSessionTest {
         assertEquals(15, afterServerTick.x(), 0.001);
         assertEquals(25, afterServerTick.z(), 0.001);
         assertEquals(0.7, afterServerTick.heading(), 0.001);
+    }
+
+    @Test
+    void playerStateCanMarkAssignedShipAsSubmarine() {
+        GameSession session = new GameSession(new GameSetup(
+                "submarine-player-state-test",
+                new WorldMap(9020, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, 0, 2, 0))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 200, 0, Math.PI, 2, 0)))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(200, 0))
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-BP-test", "red", 0, 0, 0, 0, 0, 2, 0, 1,
+                        VesselTypes.SUBMARINE, VesselTypes.PERISCOPE),
+                navigationService,
+                session.worldMap()
+        );
+
+        ShipSnapshot ship = findShip(session.snapshot(), "red-1");
+        assertEquals(VesselTypes.SUBMARINE, ship.vesselType());
+        assertEquals(VesselTypes.PERISCOPE, ship.depthState());
+    }
+
+    @Test
+    void exposedSubmarineLosesRamAgainstTorpedoBoat() {
+        GameSession session = new GameSession(new GameSetup(
+                "submarine-ram-test",
+                new WorldMap(9021, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-sub", "red", 0, 0, 0, "player-BP-test", 2, 0))),
+                        new FleetSetup("blue", List.of(ship("blue-boat", "blue", -56, 0, Math.PI / 2, 5, 0)))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(-56, 0))
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-BP-test", "red", 0, 0, 0, 0, 0, 2, 0, 1,
+                        VesselTypes.SUBMARINE, VesselTypes.PERISCOPE),
+                navigationService,
+                session.worldMap()
+        );
+
+        GameSnapshot snapshot = tickUntilShipState(session, "red-sub", "sunk", 30);
+
+        assertEquals("sunk", findShip(snapshot, "red-sub").state());
+        assertEquals("active", findShip(snapshot, "blue-boat").state());
     }
 
     @Test
@@ -843,7 +895,8 @@ class GameSessionTest {
         for (double elapsed = 0; elapsed < maxSeconds; elapsed += 0.05) {
             Vector2 position = startPosition.add(Vector2.fromHeading(heading).scale(speed * elapsed));
             session.updatePlayerState(
-                    new PlayerStateUpdate(playerId, teamId, position.x(), position.z(), heading, speed, 0, 7, 0, elapsed),
+                    new PlayerStateUpdate(playerId, teamId, position.x(), position.z(), heading, speed, 0, 7, 0, elapsed,
+                            VesselTypes.TORPEDO_BOAT, VesselTypes.SURFACE),
                     navigationService,
                     session.worldMap()
             );

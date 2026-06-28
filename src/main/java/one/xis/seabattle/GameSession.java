@@ -515,6 +515,9 @@ public final class GameSession {
                         && left.position().distanceTo(right.position()) > RAM_HIT_RADIUS) {
                     continue;
                 }
+                if (resolveSubmarineRam(left, right)) {
+                    continue;
+                }
 
                 boolean headOnCollision = leftImpact.isBowHit() && rightImpact.isBowHit()
                         && angularDistance(left.heading(), right.heading()) > Math.toRadians(135);
@@ -531,6 +534,23 @@ public final class GameSession {
                 }
             }
         }
+    }
+
+    private boolean resolveSubmarineRam(Ship left, Ship right) {
+        if (left.isSubmerged() || right.isSubmerged()) {
+            return true;
+        }
+        if (left.isSubmarineExposed() && !right.isSubmarineExposed()) {
+            sinkShip(left, right.controlledBy());
+            right.stopAfterRamImpact();
+            return true;
+        }
+        if (right.isSubmarineExposed() && !left.isSubmarineExposed()) {
+            sinkShip(right, left.controlledBy());
+            left.stopAfterRamImpact();
+            return true;
+        }
+        return false;
     }
 
     private void resolveGlancingRam(Ship left, Ship right) {

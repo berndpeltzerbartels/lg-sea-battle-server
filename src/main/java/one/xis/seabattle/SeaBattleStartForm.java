@@ -18,6 +18,11 @@ public record SeaBattleStartForm(
         @Mandatory
         @RegExpr("light|dark")
         @LabelKey("seaBattle.team")
-        String team
+        String team,
+
+        @Mandatory
+        @RegExpr("torpedo_boat|submarine")
+        @LabelKey("seaBattle.vesselType")
+        String vesselType
 ) {
 }

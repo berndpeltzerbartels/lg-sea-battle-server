@@ -13,8 +13,11 @@ public class SeaBattlePlayerRegistry {
 
     private final Map<String, PlayerRegistration> registrationByAlias = new ConcurrentHashMap<>();
 
-    public void register(String initials, String nickname, String teamId) {
-        registrationByAlias.put(normalizeAlias(initials), new PlayerRegistration(null, nickname, teamId));
+    public void register(String initials, String nickname, String teamId, String vesselType) {
+        registrationByAlias.put(
+                normalizeAlias(initials),
+                new PlayerRegistration(null, nickname, teamId, VesselTypes.normalizeVesselType(vesselType))
+        );
     }
 
     public String registerPlayer(String playerId, String nickname, String teamId) {
@@ -27,7 +30,8 @@ public class SeaBattlePlayerRegistry {
                 new PlayerRegistration(
                         playerId,
                         nickname == null || nickname.isBlank() ? playerName(initials) : nickname,
-                        teamId == null || teamId.isBlank() ? playerTeam(initials) : teamId
+                        teamId == null || teamId.isBlank() ? playerTeam(initials) : teamId,
+                        playerVesselType(initials)
                 )
         );
         if (previous == null || previous.playerId() == null || previous.playerId().equals(playerId)) {
@@ -63,13 +67,19 @@ public class SeaBattlePlayerRegistry {
                 : registration.teamId();
     }
 
+    public String playerVesselType(String initials) {
+        PlayerRegistration registration = registrationByAlias.get(normalizeAlias(initials));
+        return registration == null ? VesselTypes.TORPEDO_BOAT : VesselTypes.normalizeVesselType(registration.vesselType());
+    }
+
     public List<RegisteredPlayer> players() {
         return registrationByAlias.entrySet().stream()
                 .map(entry -> new RegisteredPlayer(
                         entry.getKey(),
                         entry.getValue().nickname(),
                         entry.getValue().teamId(),
-                        entry.getValue().playerId()))
+                        entry.getValue().playerId(),
+                        entry.getValue().vesselType()))
                 .sorted(Comparator.comparing(RegisteredPlayer::teamId).thenComparing(RegisteredPlayer::initials))
                 .toList();
     }
@@ -90,9 +100,9 @@ public class SeaBattlePlayerRegistry {
         return initials == null ? "" : initials.toUpperCase(Locale.ROOT);
     }
 
-    private record PlayerRegistration(String playerId, String nickname, String teamId) {
+    private record PlayerRegistration(String playerId, String nickname, String teamId, String vesselType) {
     }
 
-    public record RegisteredPlayer(String initials, String nickname, String teamId, String playerId) {
+    public record RegisteredPlayer(String initials, String nickname, String teamId, String playerId, String vesselType) {
     }
 }
