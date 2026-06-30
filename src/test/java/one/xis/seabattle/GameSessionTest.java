@@ -401,7 +401,7 @@ class GameSessionTest {
                 List.of(new Vector2(0, 0), new Vector2(40, 0))
         ));
 
-        session.updatePlayerState(new PlayerStateUpdate("player-BP-test", "red", 0, 0, 0, 0, 0, 2, 0, 0), navigationService, session.worldMap());
+        session.updatePlayerState(new PlayerStateUpdate("player-BP-test", "red", 0, 0, 0, 0, 0, 2, 0, 0, false), navigationService, session.worldMap());
         assertEquals("player-BP-test", findShip(session.snapshot(), "red-1").controlledBy());
 
         session.releasePlayer("player-BP-test");
@@ -425,7 +425,7 @@ class GameSessionTest {
                 List.of(new Vector2(-100, 0), new Vector2(0, 0), new Vector2(100, 0), new Vector2(400, 0))
         ));
 
-        session.updatePlayerState(new PlayerStateUpdate("player-BP-test", "red", 0, 0, 0, 0, 0, 2, 0, 0),
+        session.updatePlayerState(new PlayerStateUpdate("player-BP-test", "red", 0, 0, 0, 0, 0, 2, 0, 0, false),
                 navigationService, session.worldMap());
 
         List<String> controlledShips = session.snapshot().ships().stream()
@@ -449,7 +449,7 @@ class GameSessionTest {
         ));
 
         session.updatePlayerState(
-                new PlayerStateUpdate("player-BP-test", "red", 15, 25, 0.7, 9.6, 0.12, 7, 14, 123.45),
+                new PlayerStateUpdate("player-BP-test", "red", 15, 25, 0.7, 9.6, 0.12, 7, 14, 123.45, false),
                 navigationService,
                 session.worldMap()
         );
@@ -493,13 +493,13 @@ class GameSessionTest {
 
         GameSetup landmarkTour = factory.setup("landmark-tour");
         assertEquals("landmark-tour", landmarkTour.id());
-        assertEquals(15, landmarkTour.worldMap().version());
+        assertEquals(16, landmarkTour.worldMap().version());
         assertEquals(1, landmarkTour.fleets().stream().mapToInt(fleet -> fleet.ships().size()).sum());
         assertEquals(List.of("light"), landmarkTour.fleets().stream().map(FleetSetup::teamId).toList());
 
         GameSetup denseLand = factory.setup("dense-land");
         assertEquals("dense-land", denseLand.id());
-        assertEquals(15, denseLand.worldMap().version());
+        assertEquals(16, denseLand.worldMap().version());
         assertEquals(30, denseLand.fleets().stream().mapToInt(fleet -> fleet.ships().size()).sum());
         assertEquals(List.of("dark", "light"),
                 denseLand.fleets().stream().map(FleetSetup::teamId).toList());
@@ -843,7 +843,7 @@ class GameSessionTest {
         for (double elapsed = 0; elapsed < maxSeconds; elapsed += 0.05) {
             Vector2 position = startPosition.add(Vector2.fromHeading(heading).scale(speed * elapsed));
             session.updatePlayerState(
-                    new PlayerStateUpdate(playerId, teamId, position.x(), position.z(), heading, speed, 0, 7, 0, elapsed),
+                    new PlayerStateUpdate(playerId, teamId, position.x(), position.z(), heading, speed, 0, 7, 0, elapsed, false),
                     navigationService,
                     session.worldMap()
             );

@@ -10,6 +10,7 @@ public record PlayerStateUpdate(
         double turnVelocity,
         int engineOrder,
         int rudderDegrees,
-        double clientTime
+        double clientTime,
+        boolean debugTeleport
 ) {
 }

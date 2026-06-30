@@ -99,7 +99,7 @@ final class Ship {
         Vector2 requestedPosition = new Vector2(update.x(), update.z());
         boolean implausiblePosition = position.distanceTo(requestedPosition) > MAX_ACCEPTED_PLAYER_POSITION_DELTA;
         boolean blockedPosition = navigationService.isShipBlocked(requestedPosition, update.heading(), worldMap);
-        if (implausiblePosition || blockedPosition) {
+        if ((!update.debugTeleport() && implausiblePosition) || blockedPosition) {
             applyCommand(update.engineOrder(), update.rudderDegrees());
             return;
         }

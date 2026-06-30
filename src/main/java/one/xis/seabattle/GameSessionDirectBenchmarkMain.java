@@ -327,7 +327,8 @@ public class GameSessionDirectBenchmarkMain {
                 Math.sin(elapsedSeconds * 0.35 + client.index()) * 0.025,
                 6,
                 (int) Math.round(Math.sin(elapsedSeconds * 0.45 + client.index()) * 18),
-                elapsedSeconds
+                elapsedSeconds,
+                false
         );
     }
 
