@@ -137,7 +137,7 @@ class WorldMapService {
                         fjords(new Fjord(-2.65, 0.12, 0.58), new Fjord(0.45, 0.1, 0.52))),
                 coastline("raven_ridge_west", -1590, 1370, 175, 116, 1.22, 32.0, 0.22,
                         fjords(new Fjord(1.95, 0.11, 0.48))),
-                coastline("raven_ridge_south", -1295, 1085, 185, 118, 1.2, 30.0, 0.23,
+                coastline("raven_ridge_south", -1295, 1025, 185, 118, 1.2, 30.0, 0.23,
                         fjords(new Fjord(-2.2, 0.12, 0.54))),
                 coastline("greyhook_island", -860, -1260, 210, 145, 1.24, 34.0, 0.21,
                         fjords(new Fjord(1.82, 0.12, 0.62), new Fjord(-0.2, 0.1, 0.48))),
@@ -188,7 +188,7 @@ class WorldMapService {
                 island("wolf_outer", -1160, 760, 25, 1.08, 42, 28),
                 island("wolf_inner", -680, 510, 20, 1.0, 36, 22),
                 island("southern_teeth_d", 505, -1285, 20, 1.15, 34, 20),
-                island("southern_teeth_e", 1245, -1045, 22, 1.05, 38, 24),
+                island("southern_teeth_e", 1080, -940, 22, 1.05, 38, 24),
                 island("ember_gate", -650, -1080, 22, 1.05, 38, 24),
                 island("ember_outer", -1380, -920, 28, 0.98, 50, 28),
                 island("ash_gate", 820, 1010, 22, 1.08, 38, 24),
@@ -206,7 +206,7 @@ class WorldMapService {
                 island("north_watch_bank", 278, 2235, 46, 1.02, 44, 82),
                 island("south_watch_bank", 920, -2700, 46, 1.02, 44, 82)
         ));
-        return new WorldMap(11, landmasses);
+        return new WorldMap(12, landmasses);
     }
 
     private Landmass westernContinent() {
