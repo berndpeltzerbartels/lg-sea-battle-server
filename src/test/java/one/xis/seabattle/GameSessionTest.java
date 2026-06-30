@@ -493,13 +493,13 @@ class GameSessionTest {
 
         GameSetup landmarkTour = factory.setup("landmark-tour");
         assertEquals("landmark-tour", landmarkTour.id());
-        assertEquals(10, landmarkTour.worldMap().version());
+        assertEquals(11, landmarkTour.worldMap().version());
         assertEquals(1, landmarkTour.fleets().stream().mapToInt(fleet -> fleet.ships().size()).sum());
         assertEquals(List.of("light"), landmarkTour.fleets().stream().map(FleetSetup::teamId).toList());
 
         GameSetup denseLand = factory.setup("dense-land");
         assertEquals("dense-land", denseLand.id());
-        assertEquals(10, denseLand.worldMap().version());
+        assertEquals(11, denseLand.worldMap().version());
         assertEquals(30, denseLand.fleets().stream().mapToInt(fleet -> fleet.ships().size()).sum());
         assertEquals(List.of("dark", "light"),
                 denseLand.fleets().stream().map(FleetSetup::teamId).toList());

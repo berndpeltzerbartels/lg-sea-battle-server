@@ -188,7 +188,7 @@ class WorldMapService {
                 island("wolf_outer", -1160, 760, 25, 1.08, 42, 28),
                 island("wolf_inner", -680, 510, 20, 1.0, 36, 22),
                 island("southern_teeth_d", 505, -1285, 20, 1.15, 34, 20),
-                island("southern_teeth_e", 1110, -940, 22, 1.05, 38, 24),
+                island("southern_teeth_e", 1245, -1045, 22, 1.05, 38, 24),
                 island("ember_gate", -650, -1080, 22, 1.05, 38, 24),
                 island("ember_outer", -1380, -920, 28, 0.98, 50, 28),
                 island("ash_gate", 820, 1010, 22, 1.08, 38, 24),
@@ -203,9 +203,10 @@ class WorldMapService {
                 island("east_gap_outer", 1740, 260, 36, 1.0, 68, 38),
                 island("far_west_bank", -2060, -520, 42, 1.0, 78, 42),
                 island("far_east_bank", 2110, 210, 46, 1.02, 82, 44),
-                island("north_watch_bank", 278, 2235, 46, 1.02, 44, 82)
+                island("north_watch_bank", 278, 2235, 46, 1.02, 44, 82),
+                island("south_watch_bank", 920, -2700, 46, 1.02, 44, 82)
         ));
-        return new WorldMap(10, landmasses);
+        return new WorldMap(11, landmasses);
     }
 
     private Landmass westernContinent() {
