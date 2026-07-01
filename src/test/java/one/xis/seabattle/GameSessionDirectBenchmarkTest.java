@@ -169,7 +169,7 @@ class GameSessionDirectBenchmarkTest {
 
     private void assignPlayers(GameSession session, List<BenchmarkClient> clients) {
         for (BenchmarkClient client : clients) {
-            session.updatePlayerState(playerUpdate(client, 0, false), navigationService, session.worldMap());
+            session.updatePlayerState(playerUpdate(client, 0), navigationService, session.worldMap());
         }
     }
 

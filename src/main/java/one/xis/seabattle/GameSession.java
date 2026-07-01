@@ -31,6 +31,7 @@ public final class GameSession {
     private static final double BOT_TORPEDO_LOOKOUT_ARC = 0.38;
     private static final double BOT_TORPEDO_INCOMING_ARC = 0.34;
     private static final double BOT_TORPEDO_THREAT_CORRIDOR = 8.0;
+    private static final double BOT_RADAR_INTERCEPT_RANGE = 360;
     private static final double BOT_RETURN_TO_LAND_DISTANCE = 720;
     private static final double BOT_PATROL_LAND_DISTANCE = 470;
     private static final double BOT_ESCORT_JOIN_RANGE = 680;
@@ -490,7 +491,7 @@ public final class GameSession {
         double aimError = Math.sin(nowSeconds * 0.31 + stablePhase(ship.id())) * BOT_AIM_ERROR;
         double steerError = MathSupport.normalizeAngle(targetBearing + aimError);
         int rudder = (int) Math.round(MathSupport.clamp(steerError / 0.58, -1, 1) * 35);
-        int engineOrder = distance < BOT_RAM_RANGE ? ENGINE_SLOW : distance < 130 ? ENGINE_SLOW : ENGINE_HALF;
+        int engineOrder = botAttackEngineOrder(distance);
         applyBotCommand(ship, engineOrder, rudder, navigationService, worldMap);
 
         boolean closeInFront = distance <= BOT_CLOSE_FIRE_RANGE && Math.abs(targetBearing) <= BOT_CLOSE_FIRE_ARC;
@@ -498,6 +499,22 @@ public final class GameSession {
         if (closeInFront || aimedShot) {
             fireTorpedo(ship, 10.5 + Math.abs(Math.sin(stablePhase(ship.id()))) * 3.0, aimError * 0.65);
         }
+    }
+
+    private int botAttackEngineOrder(double distance) {
+        if (distance < BOT_RAM_RANGE) {
+            return ENGINE_SLOW;
+        }
+        if (distance < 130) {
+            return ENGINE_SLOW;
+        }
+        if (distance > BOT_RADAR_INTERCEPT_RANGE) {
+            return ENGINE_FULL;
+        }
+        if (distance > 230) {
+            return ENGINE_TWO_THIRDS;
+        }
+        return ENGINE_HALF;
     }
 
     private void updateRamCollisions() {

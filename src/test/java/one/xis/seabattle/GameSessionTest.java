@@ -148,6 +148,29 @@ class GameSessionTest {
     }
 
     @Test
+    void botInterceptsHumanPlayerDetectedByRadarOutsideCloseView() {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-human-radar-intercept-test",
+                new WorldMap(9020, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-1", "red", 0, 0, 0, "bot", 2, 0)
+                        )),
+                        new FleetSetup("blue", List.of(
+                                ship("blue-human", "blue", 650, 0, 0, "player-BP-test", 5, 0)
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(650, 0))
+        ));
+
+        session.update(0.05, radarService, navigationService, session.worldMap());
+
+        ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
+        assertEquals(7, attacker.engineOrder());
+        assertTrue(attacker.rudderDegrees() > 0);
+    }
+
+    @Test
     void sideRamSinksTargetAndStopsAttacker() {
         GameSession session = new GameSession(new GameSetup(
                 "ram-test",
