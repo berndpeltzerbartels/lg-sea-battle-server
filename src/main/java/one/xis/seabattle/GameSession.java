@@ -491,7 +491,7 @@ public final class GameSession {
         double aimError = Math.sin(nowSeconds * 0.31 + stablePhase(ship.id())) * BOT_AIM_ERROR;
         double steerError = MathSupport.normalizeAngle(targetBearing + aimError);
         int rudder = (int) Math.round(MathSupport.clamp(steerError / 0.58, -1, 1) * 35);
-        int engineOrder = botAttackEngineOrder(distance);
+        int engineOrder = botAttackEngineOrder(distance, targetBearing);
         applyBotCommand(ship, engineOrder, rudder, navigationService, worldMap);
 
         boolean closeInFront = distance <= BOT_CLOSE_FIRE_RANGE && Math.abs(targetBearing) <= BOT_CLOSE_FIRE_ARC;
@@ -501,11 +501,11 @@ public final class GameSession {
         }
     }
 
-    private int botAttackEngineOrder(double distance) {
+    private int botAttackEngineOrder(double distance, double targetBearing) {
         if (distance < BOT_RAM_RANGE) {
             return ENGINE_SLOW;
         }
-        if (distance < 130) {
+        if (distance < 130 && Math.abs(targetBearing) <= BOT_CLOSE_FIRE_ARC) {
             return ENGINE_SLOW;
         }
         if (distance > BOT_RADAR_INTERCEPT_RANGE) {
