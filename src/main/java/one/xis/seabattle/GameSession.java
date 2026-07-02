@@ -45,6 +45,7 @@ public final class GameSession {
     private static final int ENGINE_ASTERN = 1;
     private static final int ENGINE_STOP = 2;
     private static final int ENGINE_SLOW = 3;
+    private static final int ENGINE_ONE_THIRD = 4;
     private static final int ENGINE_HALF = 5;
     private static final int ENGINE_TWO_THIRDS = 6;
     private static final int ENGINE_FULL = 7;
@@ -356,7 +357,6 @@ public final class GameSession {
     private Optional<Torpedo> visibleIncomingTorpedo(Ship ship) {
         return torpedoes.stream()
                 .filter(torpedo -> "running".equals(torpedo.state()))
-                .filter(torpedo -> !torpedo.teamId().equals(ship.teamId()))
                 .filter(torpedo -> botCanSeeIncomingTorpedo(ship, torpedo))
                 .min((left, right) -> Double.compare(
                         ship.position().distanceTo(left.position()),
@@ -502,11 +502,18 @@ public final class GameSession {
     }
 
     private int botAttackEngineOrder(double distance, double targetBearing) {
+        double absoluteBearing = Math.abs(targetBearing);
         if (distance < BOT_RAM_RANGE) {
-            return ENGINE_SLOW;
+            return absoluteBearing <= Math.toRadians(30) ? ENGINE_ONE_THIRD : ENGINE_FULL;
         }
-        if (distance < 130 && Math.abs(targetBearing) <= BOT_CLOSE_FIRE_ARC) {
-            return ENGINE_SLOW;
+        if (distance < 130) {
+            if (absoluteBearing <= Math.toRadians(30)) {
+                return ENGINE_ONE_THIRD;
+            }
+            if (absoluteBearing <= BOT_CLOSE_FIRE_ARC) {
+                return ENGINE_HALF;
+            }
+            return ENGINE_FULL;
         }
         if (distance > BOT_RADAR_INTERCEPT_RANGE) {
             return ENGINE_FULL;

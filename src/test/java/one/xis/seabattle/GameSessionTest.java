@@ -12,6 +12,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class GameSessionTest {
 
     private static final int ENGINE_FULL_ASTERN = 0;
+    private static final int ENGINE_ONE_THIRD = 4;
+    private static final int ENGINE_HALF = 5;
+    private static final int ENGINE_FULL = 7;
     private static final int ENGINE_FLANK = 8;
 
     private final RadarService radarService = new RadarService();
@@ -97,7 +100,7 @@ class GameSessionTest {
         session.update(0.05, radarService, navigationService, session.worldMap());
 
         ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
-        assertEquals(5, attacker.engineOrder());
+        assertEquals(ENGINE_FULL, attacker.engineOrder());
         assertTrue(attacker.rudderDegrees() < 0);
     }
 
@@ -120,7 +123,7 @@ class GameSessionTest {
         session.update(0.05, radarService, navigationService, session.worldMap());
 
         ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
-        assertEquals(5, attacker.engineOrder());
+        assertEquals(ENGINE_FULL, attacker.engineOrder());
         assertTrue(attacker.rudderDegrees() < 0);
     }
 
@@ -143,8 +146,32 @@ class GameSessionTest {
         session.update(0.05, radarService, navigationService, session.worldMap());
 
         ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
-        assertEquals(5, attacker.engineOrder());
+        assertEquals(ENGINE_FULL, attacker.engineOrder());
         assertTrue(attacker.rudderDegrees() > 0);
+    }
+
+    @Test
+    void botEvadesFriendlyTorpedoOnCollisionCourse() {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-friendly-torpedo-evade-test",
+                new WorldMap(9021, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-shooter", "red", 0, 0, 0, "bot", 5, 0, 0),
+                                ship("red-friendly", "red", 0, 50, Math.PI, "bot", 5, 0)
+                        )),
+                        new FleetSetup("blue", List.of(
+                                ship("blue-target", "blue", 0, 100, Math.PI, "bot", 2, 0)
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(0, 50), new Vector2(0, 100))
+        ));
+
+        session.update(0.05, radarService, navigationService, session.worldMap());
+
+        ShipSnapshot friendly = findShip(session.snapshot(), "red-friendly");
+        assertEquals(ENGINE_FULL, friendly.engineOrder());
+        assertTrue(Math.abs(friendly.rudderDegrees()) > 0);
     }
 
     @Test
@@ -899,6 +926,11 @@ class GameSessionTest {
 
     private ShipSetup ship(String id, String teamId, double x, double z, double heading, String controlledBy,
                            int engineOrder, int rudderDegrees) {
+        return ship(id, teamId, x, z, heading, controlledBy, engineOrder, rudderDegrees, 99);
+    }
+
+    private ShipSetup ship(String id, String teamId, double x, double z, double heading, String controlledBy,
+                           int engineOrder, int rudderDegrees, double nextFireDelaySeconds) {
         return new ShipSetup(
                 id,
                 teamId,
@@ -907,7 +939,7 @@ class GameSessionTest {
                 controlledBy,
                 engineOrder,
                 rudderDegrees,
-                99
+                nextFireDelaySeconds
         );
     }
 }
