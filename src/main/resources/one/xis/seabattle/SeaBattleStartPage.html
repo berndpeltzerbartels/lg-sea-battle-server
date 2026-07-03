@@ -289,8 +289,9 @@
     </section>
 
     <section class="start-card">
-        <form xis:binding="start">
+        <form xis:binding="account">
             <xis:global-messages/>
+            <input type="hidden" xis:binding="id">
 
             <div class="field">
                 <label for="nickname" xis:binding="nickname" xis:error-class="error">Name</label>

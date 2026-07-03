@@ -13,8 +13,11 @@ public class SeaBattlePlayerRegistry {
 
     private final Map<String, PlayerRegistration> registrationByAlias = new ConcurrentHashMap<>();
 
-    public void register(String initials, String nickname, String teamId) {
-        registrationByAlias.put(normalizeAlias(initials), new PlayerRegistration(null, nickname, teamId));
+    public void register(String playerId, String initials, String nickname, String teamId, String accountId) {
+        String alias = normalizeAlias(initials);
+        registrationByAlias.entrySet().removeIf(entry ->
+                accountId != null && accountId.equals(entry.getValue().accountId()) && !entry.getKey().equals(alias));
+        registrationByAlias.put(alias, new PlayerRegistration(playerId, nickname, teamId, accountId));
     }
 
     public String registerPlayer(String playerId, String nickname, String teamId) {
@@ -22,18 +25,17 @@ public class SeaBattlePlayerRegistry {
         if (initials.isBlank()) {
             return null;
         }
-        PlayerRegistration previous = registrationByAlias.put(
-                initials,
-                new PlayerRegistration(
-                        playerId,
-                        nickname == null || nickname.isBlank() ? playerName(initials) : nickname,
-                        teamId == null || teamId.isBlank() ? playerTeam(initials) : teamId
-                )
-        );
-        if (previous == null || previous.playerId() == null || previous.playerId().equals(playerId)) {
+        PlayerRegistration previous = registrationByAlias.get(initials);
+        if (previous == null || previous.playerId() == null || !previous.playerId().equals(playerId)) {
             return null;
         }
-        return previous.playerId();
+        registrationByAlias.put(initials, new PlayerRegistration(
+                playerId,
+                nickname == null || nickname.isBlank() ? previous.nickname() : nickname,
+                previous.teamId(),
+                previous.accountId()
+        ));
+        return null;
     }
 
     public void unregisterPlayer(String playerId) {
@@ -49,6 +51,26 @@ public class SeaBattlePlayerRegistry {
         return registrationByAlias.containsKey(normalizeAlias(initials));
     }
 
+    public boolean isRegisteredPlayer(String playerId) {
+        PlayerRegistration registration = registrationByAlias.get(initialsFromPlayerId(playerId));
+        return registration != null
+                && registration.playerId() != null
+                && registration.playerId().equals(playerId);
+    }
+
+    public boolean isAliasRegisteredForOtherAccount(String initials, String accountId) {
+        PlayerRegistration registration = registrationByAlias.get(normalizeAlias(initials));
+        return registration != null && (accountId == null || !accountId.equals(registration.accountId()));
+    }
+
+    public String activePlayerIdForAccountAlias(String accountId, String initials) {
+        PlayerRegistration registration = registrationByAlias.get(normalizeAlias(initials));
+        if (registration == null || accountId == null || !accountId.equals(registration.accountId())) {
+            return null;
+        }
+        return registration.playerId();
+    }
+
     public String playerName(String initials) {
         PlayerRegistration registration = registrationByAlias.get(normalizeAlias(initials));
         return registration == null || registration.nickname() == null || registration.nickname().isBlank()
@@ -61,6 +83,14 @@ public class SeaBattlePlayerRegistry {
         return registration == null || registration.teamId() == null || registration.teamId().isBlank()
                 ? ""
                 : registration.teamId();
+    }
+
+    public String accountIdForPlayer(String playerId) {
+        return accountId(initialsFromPlayerId(playerId));
+    }
+
+    public String teamIdForPlayer(String playerId) {
+        return playerTeam(initialsFromPlayerId(playerId));
     }
 
     public List<RegisteredPlayer> players() {
@@ -90,7 +120,12 @@ public class SeaBattlePlayerRegistry {
         return initials == null ? "" : initials.toUpperCase(Locale.ROOT);
     }
 
-    private record PlayerRegistration(String playerId, String nickname, String teamId) {
+    private String accountId(String initials) {
+        PlayerRegistration registration = registrationByAlias.get(normalizeAlias(initials));
+        return registration == null ? null : registration.accountId();
+    }
+
+    private record PlayerRegistration(String playerId, String nickname, String teamId, String accountId) {
     }
 
     public record RegisteredPlayer(String initials, String nickname, String teamId, String playerId) {

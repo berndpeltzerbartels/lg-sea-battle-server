@@ -14,7 +14,9 @@ import one.xis.http.SseEndpoint;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Properties;
+import java.util.UUID;
 import java.util.logging.Logger;
 
 @Controller
@@ -27,12 +29,18 @@ public class SeaBattleClientController {
     private final GameStateService gameStateService;
     private final SseEndpoint sseEndpoint;
     private final SeaBattleEventService eventService;
+    private final SeaBattlePlayerRegistry playerRegistry;
+    private final AccountService accountService;
 
     public SeaBattleClientController(GameStateService gameStateService,
-                                     SseEndpoint sseEndpoint, SeaBattleEventService eventService) {
+                                     SseEndpoint sseEndpoint, SeaBattleEventService eventService,
+                                     SeaBattlePlayerRegistry playerRegistry,
+                                     AccountService accountService) {
         this.gameStateService = gameStateService;
         this.sseEndpoint = sseEndpoint;
         this.eventService = eventService;
+        this.playerRegistry = playerRegistry;
+        this.accountService = accountService;
     }
 
     @Get("/")
@@ -57,16 +65,51 @@ public class SeaBattleClientController {
         return gameStateService.snapshot();
     }
 
+    @Get("/game/session/{playerId}")
+    public ResponseEntity<?> getPlayerSession(@PathVariable("playerId") String playerId) {
+        return isRegistered(playerId)
+                ? ResponseEntity.noContent()
+                : ResponseEntity.status(403, "Player is not registered");
+    }
+
+    @Get("/game/session/account/{accountId}")
+    @Produces(ContentType.JSON_UTF8)
+    public ResponseEntity<?> getPlayerSessionByAccount(@PathVariable("accountId") String accountId) {
+        return accountService.findAccountById(accountId)
+                .<ResponseEntity<?>>map(this::startOrFindSession)
+                .orElseGet(() -> ResponseEntity.status(403, "Account is not registered"));
+    }
+
     @Post("/game/player-state")
     @Produces(ContentType.JSON_UTF8)
-    public GameSnapshot updatePlayerState(@RequestBody PlayerStateUpdate update) {
-        return gameStateService.updatePlayerState(update);
+    public ResponseEntity<?> updatePlayerState(@RequestBody PlayerStateUpdate update) {
+        String teamId = teamIdFor(update.playerId());
+        if (teamId == null) {
+            return ResponseEntity.status(403, "Player is not registered");
+        }
+        return ResponseEntity.ok(gameStateService.updatePlayerState(new PlayerStateUpdate(
+                update.playerId(),
+                teamId,
+                update.x(),
+                update.z(),
+                update.heading(),
+                update.speed(),
+                update.turnVelocity(),
+                update.engineOrder(),
+                update.rudderDegrees(),
+                update.clientTime(),
+                update.debugTeleport()
+        )));
     }
 
     @Post("/game/fire-torpedo")
     @Produces(ContentType.JSON_UTF8)
-    public GameSnapshot fireTorpedo(@RequestBody FireTorpedoRequest request) {
-        return gameStateService.fireTorpedo(request);
+    public ResponseEntity<?> fireTorpedo(@RequestBody FireTorpedoRequest request) {
+        String teamId = teamIdFor(request.playerId());
+        if (teamId == null) {
+            return ResponseEntity.status(403, "Player is not registered");
+        }
+        return ResponseEntity.ok(gameStateService.fireTorpedo(new FireTorpedoRequest(request.playerId(), teamId)));
     }
 
     @Post("/game/reset")
@@ -77,8 +120,12 @@ public class SeaBattleClientController {
 
     @Post("/game/radar")
     @Produces(ContentType.JSON_UTF8)
-    public RadarSnapshot getRadar(@RequestBody RadarRequest request) {
-        return gameStateService.radar(request);
+    public ResponseEntity<?> getRadar(@RequestBody RadarRequest request) {
+        String teamId = teamIdFor(request.playerId());
+        if (teamId == null) {
+            return ResponseEntity.status(403, "Player is not registered");
+        }
+        return ResponseEntity.ok(gameStateService.radar(new RadarRequest(request.playerId(), teamId)));
     }
 
     @Get("/game/version")
@@ -121,25 +168,72 @@ public class SeaBattleClientController {
         }
     }
 
-    @Get("/game/events/{playerId}/{teamId}")
+    @Get("/game/events/{playerId}")
     public void subscribeToGameEvents(@PathVariable("playerId") String playerId,
-                                      @PathVariable("teamId") String teamId,
                                       HttpRequest request,
                                       HttpResponse response) {
-        if (playerId == null || playerId.isBlank() || teamId == null || teamId.isBlank()) {
+        if (playerId == null || playerId.isBlank()) {
             response.setStatusCode(400);
-            response.setBody("Missing playerId or teamId");
+            response.setBody("Missing playerId");
+            return;
+        }
+        if (!isRegistered(playerId)) {
+            response.setStatusCode(403);
+            response.setBody("Player is not registered");
             return;
         }
 
         sseEndpoint.open(request, response, emitter -> {
-            eventService.register(playerId, teamId, emitter);
+            eventService.register(playerId, emitter);
             emitter.send(": connected\n\n").whenComplete((ignored, throwable) -> {
                 if (throwable != null) {
                     eventService.unregister(playerId, emitter);
                 }
             });
         }, emitter -> eventService.unregister(playerId, emitter));
+    }
+
+    private boolean isRegistered(String playerId) {
+        return playerRegistry.isRegisteredPlayer(playerId);
+    }
+
+    private ResponseEntity<?> startOrFindSession(Account account) {
+        String initials = account.alias() == null ? "" : account.alias().trim().toUpperCase(Locale.ROOT);
+        String teamId = account.team() == null ? "" : account.team().trim().toLowerCase(Locale.ROOT);
+        if (initials.isBlank() || teamId.isBlank()) {
+            return ResponseEntity.status(403, "Account is incomplete");
+        }
+        if (playerRegistry.isAliasRegisteredForOtherAccount(initials, account.id())) {
+            return ResponseEntity.status(409, "Alias is already active");
+        }
+
+        String playerId = playerRegistry.activePlayerIdForAccountAlias(account.id(), initials);
+        if (playerId == null || playerId.isBlank()) {
+            playerId = createPlayerId(initials);
+        }
+        boolean gameIsEmpty = playerRegistry.players().isEmpty();
+        playerRegistry.register(playerId, initials, normalizeName(account.nickname()), teamId, account.id());
+        if (gameIsEmpty) {
+            gameStateService.resetToSetup("dense-land");
+        }
+        gameStateService.activateTeam(teamId);
+        return ResponseEntity.ok(new PlayerLogin(playerId, initials, teamId));
+    }
+
+    private String teamIdFor(String playerId) {
+        if (!isRegistered(playerId)) {
+            return null;
+        }
+        String teamId = playerRegistry.teamIdForPlayer(playerId);
+        return teamId == null || teamId.isBlank() ? null : teamId;
+    }
+
+    private String createPlayerId(String initials) {
+        return "player-" + initials + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+    }
+
+    private String normalizeName(String value) {
+        return value == null ? "" : value.trim().replaceAll("\\s+", " ");
     }
 
     private static String safe(String value) {
@@ -172,5 +266,8 @@ public class SeaBattleClientController {
                 properties.getProperty("commit", "unknown"),
                 properties.getProperty("buildTime", "unknown")
         );
+    }
+
+    public record PlayerLogin(String playerId, String initials, String teamId) {
     }
 }

@@ -12,11 +12,12 @@ class SeaBattlePlayerRegistryTest {
     void unregisterPlayerReleasesAliasReservation() {
         SeaBattlePlayerRegistry registry = new SeaBattlePlayerRegistry();
 
-        registry.register("BP", "Bernd", "light");
+        registry.register("player-BP-mandatory-random-part", "BP", "Bernd", "light", "account-1");
 
         assertTrue(registry.isAliasRegistered("bp"));
         assertEquals("Bernd", registry.playerName("BP"));
         assertEquals("light", registry.playerTeam("BP"));
+        assertTrue(registry.isRegisteredPlayer("player-BP-mandatory-random-part"));
         assertEquals(1, registry.players().size());
         assertEquals("BP", registry.players().get(0).initials());
         assertEquals("light", registry.players().get(0).teamId());
@@ -28,21 +29,36 @@ class SeaBattlePlayerRegistryTest {
     }
 
     @Test
-    void replacingAliasOwnerKeepsReservationForNewPlayer() {
+    void unknownPlayerDoesNotClaimAliasReservation() {
         SeaBattlePlayerRegistry registry = new SeaBattlePlayerRegistry();
 
-        registry.register("BP", "Bernd", "light");
+        registry.register("player-BP-first", "BP", "Bernd", "light", "account-1");
         assertEquals(null, registry.registerPlayer("player-BP-first", "Bernd", "light"));
-        assertEquals("player-BP-first", registry.registerPlayer("player-BP-second", "Bernd", "dark"));
+        assertEquals(null, registry.registerPlayer("player-BP-second", "Bernd", "dark"));
+
+        assertTrue(registry.isRegisteredPlayer("player-BP-first"));
+        assertFalse(registry.isRegisteredPlayer("player-BP-second"));
+        assertEquals("Bernd", registry.playerName("BP"));
+        assertEquals("light", registry.playerTeam("BP"));
 
         registry.unregisterPlayer("player-BP-first");
 
-        assertTrue(registry.isAliasRegistered("BP"));
-        assertEquals("Bernd", registry.playerName("BP"));
-        assertEquals("dark", registry.playerTeam("BP"));
+        assertFalse(registry.isAliasRegistered("BP"));
+    }
 
-        registry.unregisterPlayer("player-BP-second");
+    @Test
+    void accountMayChangeAliasButOtherAccountsCannotClaimActiveAlias() {
+        SeaBattlePlayerRegistry registry = new SeaBattlePlayerRegistry();
+
+        registry.register("player-BP-first", "BP", "Bernd", "light", "account-1");
+
+        assertFalse(registry.isAliasRegisteredForOtherAccount("BP", "account-1"));
+        assertTrue(registry.isAliasRegisteredForOtherAccount("BP", "account-2"));
+
+        registry.register("player-BPB-second", "BPB", "Bernd", "dark", "account-1");
 
         assertFalse(registry.isAliasRegistered("BP"));
+        assertTrue(registry.isAliasRegistered("BPB"));
+        assertEquals("player-BPB-second", registry.activePlayerIdForAccountAlias("account-1", "BPB"));
     }
 }

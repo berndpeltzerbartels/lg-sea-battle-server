@@ -2,19 +2,20 @@ package one.xis.seabattle;
 
 import one.xis.Action;
 import one.xis.FormData;
+import one.xis.LocalStorage;
 import one.xis.ModelData;
+import one.xis.NullAllowed;
 import one.xis.Page;
 import one.xis.PageUrlResponse;
 import one.xis.WelcomePage;
 import one.xis.validation.ValidationFailedException;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @WelcomePage
@@ -35,15 +36,18 @@ public class SeaBattleStartPage {
 
     private final GameStateService gameStateService;
     private final SeaBattlePlayerRegistry playerRegistry;
+    private final AccountService accountService;
 
-    public SeaBattleStartPage(GameStateService gameStateService, SeaBattlePlayerRegistry playerRegistry) {
+    public SeaBattleStartPage(GameStateService gameStateService, SeaBattlePlayerRegistry playerRegistry,
+                              AccountService accountService) {
         this.gameStateService = gameStateService;
         this.playerRegistry = playerRegistry;
+        this.accountService = accountService;
     }
 
-    @FormData("start")
-    SeaBattleStartForm start() {
-        return new SeaBattleStartForm("", "", "");
+    @FormData("account")
+    Account account(@NullAllowed @LocalStorage("accountId") String accountId) {
+        return accountService.findAccountById(accountId).orElseGet(this::newAccount);
     }
 
     @ModelData("teams")
@@ -88,31 +92,40 @@ public class SeaBattleStartPage {
     }
 
     @Action
-    PageUrlResponse startGame(@FormData("start") SeaBattleStartForm form) {
-        String initials = form.alias().toUpperCase(Locale.ROOT);
-        if (isAliasActive(initials)) {
-            throw new ValidationFailedException("/start/alias", "seaBattle.aliasTaken");
+    PageUrlResponse startGame(@FormData("account") Account form) {
+        Account account = normalizeAccount(form);
+        String initials = account.alias();
+        if (isAliasActive(initials, account.id())) {
+            throw new ValidationFailedException("/account/alias", "seaBattle.aliasTaken");
         }
-        String nickname = normalizeName(form.nickname());
-        boolean gameIsEmpty = players().isEmpty();
-        playerRegistry.register(initials, nickname, form.team());
-        if (gameIsEmpty) {
-            gameStateService.resetToSetup("dense-land");
-        }
-        gameStateService.activateTeam(form.team());
-        String url = "/sea-battle/app?team=" + encode(form.team())
-                + "&initials=" + encode(initials)
-                + "&playerName=" + encode(nickname)
-                + (gameIsEmpty ? "&setup=dense-land" : "");
-        return new PageUrlResponse(url);
+        Account savedAccount = accountService.saveAccount(account);
+        return new PageUrlResponse("/sea-battle/app")
+                .localStorage("accountId", savedAccount.id());
     }
 
-    private boolean isAliasActive(String initials) {
-        return playerRegistry.isAliasRegistered(initials);
+    private Account newAccount() {
+        return new Account(UUID.randomUUID().toString(), "", "", "", "");
+    }
+
+    private Account normalizeAccount(Account account) {
+        return new Account(
+                account.id(),
+                normalizeName(account.nickname()),
+                account.alias() == null ? "" : account.alias().trim().toUpperCase(Locale.ROOT),
+                account.team(),
+                normalizeEmail(account.email()));
+    }
+
+    private boolean isAliasActive(String initials, String accountId) {
+        return playerRegistry.isAliasRegisteredForOtherAccount(initials, accountId);
     }
 
     private String normalizeName(String value) {
         return value == null ? "" : value.trim().replaceAll("\\s+", " ");
+    }
+
+    private String normalizeEmail(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private String displayName(String value) {
@@ -133,10 +146,6 @@ public class SeaBattleStartPage {
         int column = Math.max(0, Math.min(25, (int) Math.floor((x + origin) / sectorSize)));
         int row = Math.max(0, Math.min(99, (int) Math.floor((z + origin) / sectorSize)));
         return String.valueOf((char) ('A' + column)) + row;
-    }
-
-    private String encode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     public record TeamOption(String id, String label, List<PlayerEntry> players) {
