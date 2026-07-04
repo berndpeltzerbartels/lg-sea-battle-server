@@ -38,21 +38,21 @@ public class GameSessionDirectBenchmarkMain {
         for (int round = 1; round <= options.warmupRounds() + options.rounds(); round += 1) {
             boolean warmup = round <= options.warmupRounds();
             BenchmarkMetrics roundMetrics = new BenchmarkMetrics();
-            runRound(options.clients(), options.updateClients(), ticks, options.hz(), roundMetrics);
+            runRound(options.clients(), options.updateClients(), options.shipsPerTeam(), ticks, options.hz(), roundMetrics);
 
             if (warmup) {
                 System.out.printf(Locale.ROOT, "%nWarmup round %d ignored.%n", round);
             } else {
                 int measuredRound = round - options.warmupRounds();
                 totalMetrics.addAll(roundMetrics);
-                System.out.printf(Locale.ROOT, "%nMeasured round %d/%d: clients=%d, updateClients=%d, ticks=%d, hz=%d%n",
-                        measuredRound, options.rounds(), options.clients(), options.updateClients(), ticks, options.hz());
+                System.out.printf(Locale.ROOT, "%nMeasured round %d/%d: clients=%d, updateClients=%d, shipsPerTeam=%d, ticks=%d, hz=%d%n",
+                        measuredRound, options.rounds(), options.clients(), options.updateClients(), options.shipsPerTeam(), ticks, options.hz());
                 roundMetrics.print();
             }
         }
 
-        System.out.printf(Locale.ROOT, "%nCombined direct GameSession benchmark: clients=%d, updateClients=%d, measuredRounds=%d, ticksPerRound=%d, hz=%d%n",
-                options.clients(), options.updateClients(), options.rounds(), ticks, options.hz());
+        System.out.printf(Locale.ROOT, "%nCombined direct GameSession benchmark: clients=%d, updateClients=%d, shipsPerTeam=%d, measuredRounds=%d, ticksPerRound=%d, hz=%d%n",
+                options.clients(), options.updateClients(), options.shipsPerTeam(), options.rounds(), ticks, options.hz());
         totalMetrics.print();
     }
 
@@ -63,21 +63,21 @@ public class GameSessionDirectBenchmarkMain {
         for (int round = 1; round <= options.warmupRounds() + options.rounds(); round += 1) {
             boolean warmup = round <= options.warmupRounds();
             BenchmarkMetrics roundMetrics = new BenchmarkMetrics();
-            runShadowRound(options.clients(), options.updateClients(), ticks, options.hz(), roundMetrics);
+            runShadowRound(options.clients(), options.updateClients(), options.shipsPerTeam(), ticks, options.hz(), roundMetrics);
 
             if (warmup) {
                 System.out.printf(Locale.ROOT, "%nShadow warmup round %d ignored.%n", round);
             } else {
                 int measuredRound = round - options.warmupRounds();
                 totalMetrics.addAll(roundMetrics);
-                System.out.printf(Locale.ROOT, "%nShadow measured round %d/%d: clients=%d, updateClients=%d, ticks=%d, hz=%d%n",
-                        measuredRound, options.rounds(), options.clients(), options.updateClients(), ticks, options.hz());
+                System.out.printf(Locale.ROOT, "%nShadow measured round %d/%d: clients=%d, updateClients=%d, shipsPerTeam=%d, ticks=%d, hz=%d%n",
+                        measuredRound, options.rounds(), options.clients(), options.updateClients(), options.shipsPerTeam(), ticks, options.hz());
                 roundMetrics.print();
             }
         }
 
-        System.out.printf(Locale.ROOT, "%nCombined shadow model benchmark: clients=%d, updateClients=%d, measuredRounds=%d, ticksPerRound=%d, hz=%d%n",
-                options.clients(), options.updateClients(), options.rounds(), ticks, options.hz());
+        System.out.printf(Locale.ROOT, "%nCombined shadow model benchmark: clients=%d, updateClients=%d, shipsPerTeam=%d, measuredRounds=%d, ticksPerRound=%d, hz=%d%n",
+                options.clients(), options.updateClients(), options.shipsPerTeam(), options.rounds(), ticks, options.hz());
         totalMetrics.print();
     }
 
@@ -88,7 +88,7 @@ public class GameSessionDirectBenchmarkMain {
         for (int round = 1; round <= options.warmupRounds() + options.rounds(); round += 1) {
             boolean warmup = round <= options.warmupRounds();
             BenchmarkMetrics roundMetrics = new BenchmarkMetrics();
-            PublisherStats stats = runPublisherRound(options.clients(), options.updateClients(), ticks, options.hz(), roundMetrics);
+            PublisherStats stats = runPublisherRound(options.clients(), options.updateClients(), options.shipsPerTeam(), ticks, options.hz(), roundMetrics);
 
             if (warmup) {
                 System.out.printf(Locale.ROOT, "%nPublisher warmup round %d ignored. missedDeadlines=%d%n",
@@ -97,21 +97,21 @@ public class GameSessionDirectBenchmarkMain {
                 int measuredRound = round - options.warmupRounds();
                 totalMetrics.addAll(roundMetrics);
                 System.out.printf(Locale.ROOT,
-                        "%nPublisher measured round %d/%d: clients=%d, updateClients=%d, ticks=%d, hz=%d, published=%d, missedDeadlines=%d%n",
-                        measuredRound, options.rounds(), options.clients(), options.updateClients(), ticks, options.hz(),
+                        "%nPublisher measured round %d/%d: clients=%d, updateClients=%d, shipsPerTeam=%d, ticks=%d, hz=%d, published=%d, missedDeadlines=%d%n",
+                        measuredRound, options.rounds(), options.clients(), options.updateClients(), options.shipsPerTeam(), ticks, options.hz(),
                         stats.publishedModels(), stats.missedDeadlines());
                 roundMetrics.print();
             }
         }
 
         System.out.printf(Locale.ROOT,
-                "%nCombined publisher freshness benchmark: clients=%d, updateClients=%d, measuredRounds=%d, ticksPerRound=%d, hz=%d%n",
-                options.clients(), options.updateClients(), options.rounds(), ticks, options.hz());
+                "%nCombined publisher freshness benchmark: clients=%d, updateClients=%d, shipsPerTeam=%d, measuredRounds=%d, ticksPerRound=%d, hz=%d%n",
+                options.clients(), options.updateClients(), options.shipsPerTeam(), options.rounds(), ticks, options.hz());
         totalMetrics.print();
     }
 
-    private void runRound(int clients, int updateClients, int ticks, int hz, BenchmarkMetrics metrics) throws Exception {
-        GameSession session = new GameSession(new DefaultGameSetupFactory(new WorldMapService()).defaultSetup());
+    private void runRound(int clients, int updateClients, int shipsPerTeam, int ticks, int hz, BenchmarkMetrics metrics) throws Exception {
+        GameSession session = new GameSession(benchmarkSetup(shipsPerTeam));
         List<BenchmarkClient> benchmarkClients = createClients(clients, session.snapshot());
         List<BenchmarkClient> activeClients = benchmarkClients.stream().limit(updateClients).toList();
         assignPlayers(session, activeClients);
@@ -124,11 +124,6 @@ public class GameSessionDirectBenchmarkMain {
 
                 for (BenchmarkClient client : benchmarkClients) {
                     operations.add(() -> metrics.measure("snapshot", session::snapshot));
-                    operations.add(() -> metrics.measure("radar", () -> session.radar(
-                            new RadarRequest(client.playerId(), client.teamId()),
-                            radarService,
-                            session.worldMap()
-                    )));
                 }
 
                 for (BenchmarkClient client : activeClients) {
@@ -150,8 +145,8 @@ public class GameSessionDirectBenchmarkMain {
         }
     }
 
-    private void runShadowRound(int clients, int updateClients, int ticks, int hz, BenchmarkMetrics metrics) {
-        GameSession session = new GameSession(new DefaultGameSetupFactory(new WorldMapService()).defaultSetup());
+    private void runShadowRound(int clients, int updateClients, int shipsPerTeam, int ticks, int hz, BenchmarkMetrics metrics) {
+        GameSession session = new GameSession(benchmarkSetup(shipsPerTeam));
         List<BenchmarkClient> benchmarkClients = createClients(clients, session.snapshot());
         List<BenchmarkClient> activeClients = benchmarkClients.stream().limit(updateClients).toList();
         assignPlayers(session, activeClients);
@@ -169,26 +164,13 @@ public class GameSessionDirectBenchmarkMain {
 
             metrics.measure("shadow-state", session::snapshot);
 
-            metrics.measure("shadow-radars", () -> benchmarkClients.forEach(client -> session.radar(
-                    new RadarRequest(client.playerId(), client.teamId()),
-                    radarService,
-                    session.worldMap()
-            )));
-
-            metrics.measure("shadow-model-total", () -> {
-                session.snapshot();
-                benchmarkClients.forEach(client -> session.radar(
-                        new RadarRequest(client.playerId(), client.teamId()),
-                        radarService,
-                        session.worldMap()
-                ));
-            });
+            metrics.measure("shadow-model-total", session::snapshot);
         }
     }
 
-    private PublisherStats runPublisherRound(int clients, int updateClients, int ticks, int hz, BenchmarkMetrics metrics)
+    private PublisherStats runPublisherRound(int clients, int updateClients, int shipsPerTeam, int ticks, int hz, BenchmarkMetrics metrics)
             throws Exception {
-        GameSession session = new GameSession(new DefaultGameSetupFactory(new WorldMapService()).defaultSetup());
+        GameSession session = new GameSession(benchmarkSetup(shipsPerTeam));
         List<BenchmarkClient> benchmarkClients = createClients(clients, session.snapshot());
         List<BenchmarkClient> activeClients = benchmarkClients.stream().limit(updateClients).toList();
         assignPlayers(session, activeClients);
@@ -219,11 +201,22 @@ public class GameSessionDirectBenchmarkMain {
                         navigationService,
                         session.worldMap()
                 ));
-                session.update(tickSeconds, radarService, navigationService, session.worldMap());
+                RadarService.VisibilityMetrics visibilityMetrics = new RadarService.VisibilityMetrics();
+                RadarService.collectVisibilityMetrics(visibilityMetrics);
+                try {
+                    session.update(tickSeconds, radarService, navigationService, session.worldMap());
+                } finally {
+                    RadarService.clearVisibilityMetrics();
+                }
                 session.snapshot();
 
                 long completed = System.nanoTime();
                 metrics.add("publisher-build", (completed - started) / 1_000_000.0);
+                metrics.add("visibility-total", visibilityMetrics.millis());
+                metrics.add("visibility-calls", visibilityMetrics.calls());
+                metrics.add("visibility-range-rejects", visibilityMetrics.range());
+                metrics.add("visibility-land-rejects", visibilityMetrics.land());
+                metrics.add("visibility-visible", visibilityMetrics.visible());
                 metrics.add("publisher-deadline-lag", Math.max(0, (completed - (scheduledStart + periodNanos)) / 1_000_000.0));
                 latest.set(new PublishedModel(tick, scheduledStart, completed));
                 nextStart = scheduledStart + periodNanos;
@@ -293,6 +286,47 @@ public class GameSessionDirectBenchmarkMain {
         }
     }
 
+    private GameSetup benchmarkSetup(int shipsPerTeam) {
+        GameSetup base = new DefaultGameSetupFactory(new WorldMapService()).defaultSetup();
+        List<FleetSetup> fleets = new ArrayList<>();
+        for (int fleetIndex = 0; fleetIndex < base.fleets().size(); fleetIndex += 1) {
+            FleetSetup fleet = base.fleets().get(fleetIndex);
+            List<ShipSetup> ships = new ArrayList<>(fleet.ships());
+            for (int index = ships.size(); index < shipsPerTeam; index += 1) {
+                double heading = MathSupport.normalizeAngle((fleetIndex == 0 ? 1 : -1) * Math.PI / 2 + index * 0.11);
+                Vector2 position = benchmarkShipPosition(base, ships, fleetIndex, index, heading);
+                ships.add(new ShipSetup(
+                        fleet.teamId() + "-" + (index + 1),
+                        fleet.teamId(),
+                        position,
+                        heading,
+                        "bot",
+                        5,
+                        0,
+                        3 + index * 1.5
+                ));
+            }
+            fleets.add(new FleetSetup(fleet.teamId(), ships.size() <= shipsPerTeam ? ships : ships.subList(0, shipsPerTeam)));
+        }
+        return new GameSetup(base.id() + "-benchmark-" + shipsPerTeam, base.worldMap(), fleets, base.respawnCandidates());
+    }
+
+    private Vector2 benchmarkShipPosition(GameSetup setup, List<ShipSetup> existingShips, int fleetIndex, int shipIndex, double heading) {
+        for (int attempt = 0; attempt < setup.respawnCandidates().size() * 8; attempt += 1) {
+            Vector2 base = setup.respawnCandidates().get(Math.floorMod(shipIndex * 5 + fleetIndex * 3 + attempt,
+                    setup.respawnCandidates().size()));
+            double angle = attempt * 1.27 + fleetIndex * 0.8;
+            double radius = 80 + (attempt % 6) * 38;
+            Vector2 candidate = base.add(new Vector2(Math.sin(angle) * radius, Math.cos(angle) * radius));
+            boolean blocked = navigationService.isShipBlocked(candidate, heading, setup.worldMap());
+            boolean crowded = existingShips.stream().anyMatch(ship -> ship.position().distanceTo(candidate) < 95);
+            if (!blocked && !crowded) {
+                return candidate;
+            }
+        }
+        return setup.respawnCandidates().get(Math.floorMod(shipIndex + fleetIndex, setup.respawnCandidates().size()));
+    }
+
     private List<BenchmarkClient> createClients(int count, GameSnapshot snapshot) {
         Map<String, List<ShipSnapshot>> shipsByTeam = snapshot.ships().stream()
                 .collect(java.util.stream.Collectors.groupingBy(ShipSnapshot::teamId));
@@ -343,14 +377,16 @@ public class GameSessionDirectBenchmarkMain {
     }
 
     private record BenchmarkOptions(int clients, int updateClients, int durationSeconds, int hz, int rounds,
+                                    int shipsPerTeam,
                                     int warmupRounds, boolean shadow, boolean publisher) {
 
         static BenchmarkOptions from(String[] args) {
             int clients = integer("seaBattle.benchmark.clients", 30);
-            int updateClients = integer("seaBattle.benchmark.updateClients", clients);
+            int updateClients = integer("seaBattle.benchmark.updateClients", 1);
             int durationSeconds = integer("seaBattle.benchmark.durationSeconds", 20);
             int hz = integer("seaBattle.benchmark.hz", 4);
             int rounds = integer("seaBattle.benchmark.rounds", 3);
+            int shipsPerTeam = integer("seaBattle.benchmark.shipsPerTeam", 15);
             int warmupRounds = integer("seaBattle.benchmark.warmupRounds", 1);
             boolean shadow = Boolean.getBoolean("seaBattle.shadowBenchmark");
             boolean publisher = Boolean.getBoolean("seaBattle.publisherBenchmark");
@@ -364,6 +400,7 @@ public class GameSessionDirectBenchmarkMain {
                     case "--duration" -> durationSeconds = parseInt(arg, next);
                     case "--hz" -> hz = parseInt(arg, next);
                     case "--rounds" -> rounds = parseInt(arg, next);
+                    case "--ships-per-team" -> shipsPerTeam = parseInt(arg, next);
                     case "--warmup-rounds" -> warmupRounds = parseInt(arg, next);
                     case "--shadow" -> {
                         shadow = true;
@@ -384,6 +421,7 @@ public class GameSessionDirectBenchmarkMain {
                     durationSeconds,
                     hz,
                     rounds,
+                    shipsPerTeam,
                     warmupRounds,
                     shadow,
                     publisher

@@ -131,14 +131,18 @@ tasks.register('runDirectBenchmark', JavaExec) {
     mainClass = 'one.xis.seabattle.GameSessionDirectBenchmarkMain'
     args = [
             '--clients', project.findProperty('clients') ?: '30',
-            '--update-clients', project.findProperty('updateClients') ?: '30',
+            '--update-clients', project.findProperty('updateClients') ?: '1',
             '--duration', project.findProperty('duration') ?: '20',
             '--hz', project.findProperty('hz') ?: '4',
             '--rounds', project.findProperty('rounds') ?: '3',
-            '--warmup-rounds', project.findProperty('warmupRounds') ?: '1'
+            '--warmup-rounds', project.findProperty('warmupRounds') ?: '1',
+            '--ships-per-team', project.findProperty('shipsPerTeam') ?: '15'
     ]
     if (project.hasProperty('shadow')) {
         args += ['--shadow']
+    }
+    if (project.hasProperty('publisher')) {
+        args += ['--publisher']
     }
     dependsOn classes
 }
