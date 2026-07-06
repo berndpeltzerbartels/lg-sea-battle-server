@@ -9,7 +9,7 @@ import java.util.Map;
 @Service
 final class RadarService {
 
-    static final double RADAR_RANGE = 945.0;
+    static final double RADAR_RANGE = 1300.0;
     private static final ThreadLocal<VisibilityMetrics> VISIBILITY_METRICS = new ThreadLocal<>();
 
     boolean isVisible(Ship observer, Ship contact, WorldMap worldMap) {

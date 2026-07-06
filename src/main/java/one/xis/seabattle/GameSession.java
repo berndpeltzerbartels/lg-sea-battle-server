@@ -74,6 +74,7 @@ public final class GameSession {
         this.fleets = createFleets(setup.fleets());
         this.respawnCandidates = List.copyOf(setup.respawnCandidates());
         this.fleets.keySet().forEach(teamId -> destroyedShipsByTeam.put(teamId, 0));
+        LandGeometry.prepareRadarBlockingGrid(worldMap);
     }
 
     WorldMap worldMap() {
