@@ -31,16 +31,22 @@ public class SeaBattleClientController {
     private final SeaBattleEventService eventService;
     private final SeaBattlePlayerRegistry playerRegistry;
     private final AccountService accountService;
+    private final GameService gameService;
+    private final PlaySessionService playSessionService;
 
     public SeaBattleClientController(GameStateService gameStateService,
                                      SseEndpoint sseEndpoint, SeaBattleEventService eventService,
                                      SeaBattlePlayerRegistry playerRegistry,
-                                     AccountService accountService) {
+                                     AccountService accountService,
+                                     GameService gameService,
+                                     PlaySessionService playSessionService) {
         this.gameStateService = gameStateService;
         this.sseEndpoint = sseEndpoint;
         this.eventService = eventService;
         this.playerRegistry = playerRegistry;
         this.accountService = accountService;
+        this.gameService = gameService;
+        this.playSessionService = playSessionService;
     }
 
     @Get("/")
@@ -200,6 +206,9 @@ public class SeaBattleClientController {
             return ResponseEntity.status(403, "Account is incomplete");
         }
         if (playerRegistry.isAliasRegisteredForOtherAccount(initials, account.id())) {
+            return ResponseEntity.status(409, "Alias is already active");
+        }
+        if (playSessionService.isAliasActiveForOtherAccount(gameService.activeGameId(), initials, account.id())) {
             return ResponseEntity.status(409, "Alias is already active");
         }
 

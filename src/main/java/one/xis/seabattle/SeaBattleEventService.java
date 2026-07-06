@@ -24,6 +24,7 @@ public final class SeaBattleEventService {
     private final GameStateService gameStateService;
     private final SeaBattlePlayerRegistry playerRegistry;
     private final PlaySessionService playSessionService;
+    private final GameService gameService;
     private final Gson gson = new Gson();
     private final Set<String> players = ConcurrentHashMap.newKeySet();
     private final ConcurrentHashMap<String, ScheduledFuture<?>> pendingUnregisters = new ConcurrentHashMap<>();
@@ -35,11 +36,13 @@ public final class SeaBattleEventService {
 
     public SeaBattleEventService(SseConnectionHub connections, GameStateService gameStateService,
                                  SeaBattlePlayerRegistry playerRegistry,
-                                 PlaySessionService playSessionService) {
+                                 PlaySessionService playSessionService,
+                                 GameService gameService) {
         this.connections = connections;
         this.gameStateService = gameStateService;
         this.playerRegistry = playerRegistry;
         this.playSessionService = playSessionService;
+        this.gameService = gameService;
         executor.scheduleAtFixedRate(this::broadcastTick, TICK_MILLIS, TICK_MILLIS, TimeUnit.MILLISECONDS);
     }
 
@@ -56,7 +59,12 @@ public final class SeaBattleEventService {
         if (replacedPlayerId != null) {
             unregisterPlayer(replacedPlayerId);
         }
-        playSessionService.beginSession(playerId, playerRegistry.accountIdForPlayer(playerId));
+        playSessionService.beginSession(
+                playerId,
+                playerRegistry.accountIdForPlayer(playerId),
+                gameService.activeGameId(),
+                playerRegistry.aliasForPlayer(playerId),
+                playerRegistry.teamIdForPlayer(playerId));
         players.add(playerId);
         connections.register(PLAYER_SCOPE, playerId, emitter);
         send(playerId, createMessage(gameStateService.snapshot()));

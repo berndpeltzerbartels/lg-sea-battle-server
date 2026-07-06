@@ -30,4 +30,28 @@ class SeaBattleSchema {
         sessions.addColumn("end_time").timestamp();
         sessions.addColumn("score").integer().notNull();
     }
+
+    @Change("003-create-games")
+    void createGames(DDL ddl) {
+        var games = ddl.createTableIfNotExists("games");
+        games.addColumn("id").varchar(50).notNull().primaryKey();
+        games.addColumn("status").varchar(20).notNull();
+        games.addColumn("begin_time").timestamp().notNull();
+        games.addColumn("end_time").timestamp();
+    }
+
+    @Change("004-remove-global-account-alias-unique")
+    void removeGlobalAccountAliasUnique(DDL ddl) {
+        ddl.alterTable("accounts").dropUniqueConstraint("alias");
+    }
+
+    @Change("005-add-game-data-to-sessions")
+    void addGameDataToSessions(DDL ddl) {
+        var sessions = ddl.alterTable("sessions");
+        sessions.addColumn("game_id").varchar(50);
+        sessions.addColumn("alias").varchar(5);
+        sessions.addColumn("team").varchar(20);
+        ddl.sql("alter table sessions add constraint fk_sessions_games_game_id foreign key (game_id) references games (id)");
+        ddl.sql("create unique index uq_sessions_game_id_alias on sessions (game_id, alias)");
+    }
 }

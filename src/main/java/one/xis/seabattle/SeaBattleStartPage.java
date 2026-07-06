@@ -37,12 +37,18 @@ public class SeaBattleStartPage {
     private final GameStateService gameStateService;
     private final SeaBattlePlayerRegistry playerRegistry;
     private final AccountService accountService;
+    private final GameService gameService;
+    private final PlaySessionService playSessionService;
 
     public SeaBattleStartPage(GameStateService gameStateService, SeaBattlePlayerRegistry playerRegistry,
-                              AccountService accountService) {
+                              AccountService accountService,
+                              GameService gameService,
+                              PlaySessionService playSessionService) {
         this.gameStateService = gameStateService;
         this.playerRegistry = playerRegistry;
         this.accountService = accountService;
+        this.gameService = gameService;
+        this.playSessionService = playSessionService;
     }
 
     @FormData("account")
@@ -117,7 +123,8 @@ public class SeaBattleStartPage {
     }
 
     private boolean isAliasActive(String initials, String accountId) {
-        return playerRegistry.isAliasRegisteredForOtherAccount(initials, accountId);
+        return playerRegistry.isAliasRegisteredForOtherAccount(initials, accountId)
+                || playSessionService.isAliasActiveForOtherAccount(gameService.activeGameId(), initials, accountId);
     }
 
     private String normalizeName(String value) {

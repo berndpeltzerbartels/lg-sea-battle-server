@@ -89,6 +89,10 @@ public class SeaBattlePlayerRegistry {
         return accountId(initialsFromPlayerId(playerId));
     }
 
+    public String aliasForPlayer(String playerId) {
+        return initialsFromPlayerId(playerId);
+    }
+
     public String teamIdForPlayer(String playerId) {
         return playerTeam(initialsFromPlayerId(playerId));
     }

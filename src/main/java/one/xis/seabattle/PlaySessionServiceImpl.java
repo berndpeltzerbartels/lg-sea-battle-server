@@ -18,8 +18,11 @@ class PlaySessionServiceImpl implements PlaySessionService {
     }
 
     @Override
-    public void beginSession(String playerId, String accountId) {
-        if (playerId == null || playerId.isBlank() || accountId == null || accountId.isBlank()) {
+    public void beginSession(String playerId, String accountId, String gameId, String alias, String teamId) {
+        if (playerId == null || playerId.isBlank()
+                || accountId == null || accountId.isBlank()
+                || gameId == null || gameId.isBlank()
+                || alias == null || alias.isBlank()) {
             return;
         }
         if (sessionIdByPlayerId.containsKey(playerId)) {
@@ -28,8 +31,11 @@ class PlaySessionServiceImpl implements PlaySessionService {
         String sessionId = UUID.randomUUID().toString();
         PlaySessionEntity session = new PlaySessionEntity(
                 sessionId,
+                gameId,
                 accountId,
                 playerId,
+                alias,
+                teamId,
                 LocalDateTime.now(),
                 null,
                 0
@@ -47,12 +53,25 @@ class PlaySessionServiceImpl implements PlaySessionService {
         sessionRepository.findById(sessionId)
                 .map(session -> new PlaySessionEntity(
                         session.getId(),
+                        session.getGameId(),
                         session.getAccountId(),
                         session.getPlayerId(),
+                        session.getAlias(),
+                        session.getTeam(),
                         session.getBeginTime(),
                         LocalDateTime.now(),
                         score
                 ))
                 .ifPresent(sessionRepository::save);
+    }
+
+    @Override
+    public boolean isAliasActiveForOtherAccount(String gameId, String alias, String accountId) {
+        if (gameId == null || gameId.isBlank() || alias == null || alias.isBlank()) {
+            return false;
+        }
+        return sessionRepository.findActiveByGameAndAlias(gameId, alias)
+                .filter(session -> accountId == null || !accountId.equals(session.getAccountId()))
+                .isPresent();
     }
 }
