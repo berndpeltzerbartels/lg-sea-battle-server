@@ -105,6 +105,54 @@ class GameSessionTest {
     }
 
     @Test
+    void botPrefersHumanTargetUnlessEnemyBotIsVeryClose() {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-human-wide-radar-priority-test",
+                new WorldMap(9022, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-1", "red", 0, 0, 0, "bot", 2, 0)
+                        )),
+                        new FleetSetup("blue", List.of(
+                                ship("blue-human", "blue", -900, 0, 0, "player-BP-test", 5, 0),
+                                ship("blue-bot", "blue", 600, 0, 0, "bot", 5, 0)
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(-900, 0), new Vector2(600, 0))
+        ));
+
+        session.update(0.05, radarService, navigationService, session.worldMap());
+
+        ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
+        assertEquals(ENGINE_FULL, attacker.engineOrder());
+        assertTrue(attacker.rudderDegrees() < 0);
+    }
+
+    @Test
+    void botAttacksNearbyEnemyBotBeforeDistantHumanTarget() {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-near-enemy-priority-test",
+                new WorldMap(9023, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-1", "red", 0, 0, 0, "bot", 2, 0)
+                        )),
+                        new FleetSetup("blue", List.of(
+                                ship("blue-human", "blue", -900, 0, 0, "player-BP-test", 5, 0),
+                                ship("blue-bot", "blue", 400, 0, 0, "bot", 5, 0)
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(-900, 0), new Vector2(400, 0))
+        ));
+
+        session.update(0.05, radarService, navigationService, session.worldMap());
+
+        ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
+        assertEquals(ENGINE_FULL, attacker.engineOrder());
+        assertTrue(attacker.rudderDegrees() > 0);
+    }
+
+    @Test
     void botTargetsHumanPlayerApproachingFromBehind() {
         GameSession session = new GameSession(new GameSetup(
                 "bot-human-behind-test",

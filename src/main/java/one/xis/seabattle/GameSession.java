@@ -32,6 +32,8 @@ public final class GameSession {
     private static final double BOT_TORPEDO_INCOMING_ARC = 0.34;
     private static final double BOT_TORPEDO_THREAT_CORRIDOR = 8.0;
     private static final double BOT_RADAR_INTERCEPT_RANGE = 360;
+    private static final double HUMAN_RADAR_RANGE = 945;
+    private static final double BOT_HUMAN_TARGET_PRIORITY_CLEARANCE = HUMAN_RADAR_RANGE * 0.5;
     private static final double BOT_RETURN_TO_LAND_DISTANCE = 720;
     private static final double BOT_PATROL_LAND_DISTANCE = 470;
     private static final double BOT_ESCORT_JOIN_RANGE = 680;
@@ -194,11 +196,7 @@ public final class GameSession {
             return;
         }
 
-        Optional<Ship> target = visibleTargets(ship, visibilityCache).stream()
-                .min((left, right) -> Double.compare(
-                        ship.position().distanceTo(left.position()),
-                        ship.position().distanceTo(right.position())
-                ));
+        Optional<Ship> target = chooseBotTarget(ship, visibleTargets(ship, visibilityCache));
         if (target.isEmpty()) {
             moveWithoutTarget(ship, navigationService, worldMap);
             return;
@@ -332,6 +330,37 @@ public final class GameSession {
                 .filter(target -> !target.teamId().equals(ship.teamId()))
                 .filter(target -> visibilityCache.isVisible(ship, target))
                 .toList();
+    }
+
+    private Optional<Ship> chooseBotTarget(Ship ship, List<Ship> targets) {
+        if (targets.isEmpty()) {
+            return Optional.empty();
+        }
+
+        ShipDistance nearestHumanTarget = null;
+        ShipDistance nearestBotTarget = null;
+        ShipDistance nearestTarget = null;
+        for (Ship target : targets) {
+            ShipDistance candidate = new ShipDistance(target, ship.position().distanceTo(target.position()));
+            if (nearestTarget == null || candidate.distance() < nearestTarget.distance()) {
+                nearestTarget = candidate;
+            }
+            if ("bot".equals(target.controlledBy())) {
+                if (nearestBotTarget == null || candidate.distance() < nearestBotTarget.distance()) {
+                    nearestBotTarget = candidate;
+                }
+            } else if (nearestHumanTarget == null || candidate.distance() < nearestHumanTarget.distance()) {
+                nearestHumanTarget = candidate;
+            }
+        }
+
+        if (nearestHumanTarget != null
+                && (nearestBotTarget == null
+                || nearestBotTarget.distance() > BOT_HUMAN_TARGET_PRIORITY_CLEARANCE)) {
+            return Optional.of(nearestHumanTarget.ship());
+        }
+
+        return nearestTarget == null ? Optional.empty() : Optional.of(nearestTarget.ship());
     }
 
     private Optional<Torpedo> visibleIncomingTorpedo(Ship ship) {
@@ -878,6 +907,9 @@ public final class GameSession {
     }
 
     private record RespawnChoice(int index, Vector2 position) {
+    }
+
+    private record ShipDistance(Ship ship, double distance) {
     }
 
     private boolean fireTorpedo(Ship ship, double cooldownSeconds, double headingOffsetRadians) {
