@@ -9,10 +9,17 @@ import java.util.Map;
 @Service
 final class RadarService {
 
-    static final double RADAR_RANGE = 1300.0;
+    static final double RADAR_RANGE = 945.0;
+    static final double HUMAN_TARGET_RANGE = 1800.0;
+    static final double TORPEDO_RANGE = 1300.0;
+    private static final double MAX_CANDIDATE_RANGE = Math.max(RADAR_RANGE, HUMAN_TARGET_RANGE);
     private static final ThreadLocal<VisibilityMetrics> VISIBILITY_METRICS = new ThreadLocal<>();
 
     boolean isVisible(Ship observer, Ship contact, WorldMap worldMap) {
+        return isVisible(observer, contact, worldMap, RADAR_RANGE);
+    }
+
+    boolean isVisible(Ship observer, Ship contact, WorldMap worldMap, double range) {
         VisibilityMetrics metrics = VISIBILITY_METRICS.get();
         long started = metrics == null ? 0 : System.nanoTime();
         String result = "visible";
@@ -25,7 +32,7 @@ final class RadarService {
                 result = "inactive";
                 return false;
             }
-            if (observer.position().distanceTo(contact.position()) > RADAR_RANGE) {
+            if (observer.position().distanceTo(contact.position()) > range) {
                 result = "range";
                 return false;
             }
@@ -152,16 +159,24 @@ final class RadarService {
         private VisibilityCache(RadarService radarService, WorldMap worldMap, List<Ship> activeShips) {
             this.radarService = radarService;
             this.worldMap = worldMap;
-            this.shipsByRadarCell = SpatialIndex.from(activeShips, Ship::position, RADAR_RANGE);
+            this.shipsByRadarCell = SpatialIndex.from(activeShips, Ship::position, MAX_CANDIDATE_RANGE);
         }
 
         List<Ship> candidates(Ship observer) {
-            return shipsByRadarCell.near(observer.position(), RADAR_RANGE);
+            return candidates(observer, RADAR_RANGE);
+        }
+
+        List<Ship> candidates(Ship observer, double range) {
+            return shipsByRadarCell.near(observer.position(), range);
         }
 
         boolean isVisible(Ship observer, Ship contact) {
+            return isVisible(observer, contact, RADAR_RANGE);
+        }
+
+        boolean isVisible(Ship observer, Ship contact, double range) {
             long started = System.nanoTime();
-            VisibilityKey key = VisibilityKey.of(observer.id(), contact.id());
+            VisibilityKey key = VisibilityKey.of(observer.id(), contact.id(), range);
             Boolean cached = visibleByPair.get(key);
             if (cached != null) {
                 VisibilityMetrics metrics = VISIBILITY_METRICS.get();
@@ -174,18 +189,18 @@ final class RadarService {
             if (metrics != null) {
                 metrics.recordCacheMiss();
             }
-            boolean visible = radarService.isVisible(observer, contact, worldMap);
+            boolean visible = radarService.isVisible(observer, contact, worldMap, range);
             visibleByPair.put(key, visible);
             return visible;
         }
     }
 
-    private record VisibilityKey(String left, String right) {
+    private record VisibilityKey(String left, String right, double range) {
 
-        static VisibilityKey of(String first, String second) {
+        static VisibilityKey of(String first, String second, double range) {
             return first.compareTo(second) <= 0
-                    ? new VisibilityKey(first, second)
-                    : new VisibilityKey(second, first);
+                    ? new VisibilityKey(first, second, range)
+                    : new VisibilityKey(second, first, range);
         }
     }
 }

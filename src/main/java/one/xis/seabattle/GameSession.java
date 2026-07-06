@@ -326,10 +326,16 @@ public final class GameSession {
     }
 
     private List<Ship> visibleTargets(Ship ship, RadarService.VisibilityCache visibilityCache) {
-        return visibilityCache.candidates(ship).stream()
+        return visibilityCache.candidates(ship, RadarService.HUMAN_TARGET_RANGE).stream()
                 .filter(target -> !target.teamId().equals(ship.teamId()))
-                .filter(target -> visibilityCache.isVisible(ship, target))
+                .filter(target -> visibilityCache.isVisible(ship, target, targetRangeForBot(target)))
                 .toList();
+    }
+
+    private double targetRangeForBot(Ship target) {
+        return "bot".equals(target.controlledBy())
+                ? RadarService.RADAR_RANGE
+                : RadarService.HUMAN_TARGET_RANGE;
     }
 
     private Optional<Ship> chooseBotTarget(Ship ship, List<Ship> targets) {
@@ -928,7 +934,7 @@ public final class GameSession {
                 heading,
                 24 + Math.max(0, ship.speed()) * 0.35,
                 nowSeconds,
-                RadarService.RADAR_RANGE
+                RadarService.TORPEDO_RANGE
         ));
         return true;
     }
