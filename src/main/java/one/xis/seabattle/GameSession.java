@@ -80,6 +80,10 @@ public final class GameSession {
         return worldMap;
     }
 
+    List<Vector2> respawnCandidates() {
+        return respawnCandidates;
+    }
+
     public synchronized GameSnapshot snapshot() {
         return new GameSnapshot(
                 "state",
@@ -140,34 +144,6 @@ public final class GameSession {
         fleets.values().forEach(fleet -> fleet.releasePlayer(playerId));
     }
 
-    public synchronized RadarSnapshot radar(RadarRequest request, RadarService radarService, WorldMap worldMap) {
-        Fleet fleet = fleets.get(request.teamId());
-        if (fleet == null) {
-            throw new IllegalArgumentException("Unknown team: " + request.teamId());
-        }
-
-        Ship observer = fleet.assignedShip(request.playerId())
-                .or(() -> fleet.activeShips().stream().findFirst())
-                .orElseThrow(() -> new IllegalStateException("No active ship available for team: " + request.teamId()));
-        List<RadarContact> contacts = allShips().stream()
-                .filter(contact -> radarService.isVisible(observer, contact, worldMap))
-                .map(contact -> radarContact(observer, contact))
-                .toList();
-
-        return new RadarSnapshot(
-                "radar",
-                id,
-                MathSupport.round(nowSeconds),
-                observer.id(),
-                observer.teamId(),
-                MathSupport.round(observer.position().x()),
-                MathSupport.round(observer.position().z()),
-                MathSupport.round(observer.heading()),
-                MathSupport.round(radarService.range()),
-                contacts
-        );
-    }
-
     public synchronized void update(double deltaSeconds, RadarService radarService, NavigationService navigationService, WorldMap worldMap) {
         if (!"running".equals(state)) {
             return;
@@ -194,13 +170,16 @@ public final class GameSession {
             return;
         }
 
-        allShips().stream()
+        List<Ship> activeShips = allShips().stream()
                 .filter(ship -> "active".equals(ship.state()))
+                .toList();
+        RadarService.VisibilityCache visibilityCache = radarService.visibilityCache(worldMap, activeShips);
+        activeShips.stream()
                 .filter(ship -> "bot".equals(ship.controlledBy()))
-                .forEach(ship -> commandBot(ship, radarService, navigationService, worldMap));
+                .forEach(ship -> commandBot(ship, visibilityCache, navigationService, worldMap));
     }
 
-    private void commandBot(Ship ship, RadarService radarService, NavigationService navigationService, WorldMap worldMap) {
+    private void commandBot(Ship ship, RadarService.VisibilityCache visibilityCache, NavigationService navigationService, WorldMap worldMap) {
         if (escapeBlockedWater(ship, navigationService, worldMap)) {
             return;
         }
@@ -214,7 +193,7 @@ public final class GameSession {
             return;
         }
 
-        Optional<Ship> target = visibleTargets(ship, radarService, worldMap).stream()
+        Optional<Ship> target = visibleTargets(ship, visibilityCache).stream()
                 .min((left, right) -> Double.compare(
                         ship.position().distanceTo(left.position()),
                         ship.position().distanceTo(right.position())
@@ -347,10 +326,10 @@ public final class GameSession {
         return true;
     }
 
-    private List<Ship> visibleTargets(Ship ship, RadarService radarService, WorldMap worldMap) {
-        return allShips().stream()
+    private List<Ship> visibleTargets(Ship ship, RadarService.VisibilityCache visibilityCache) {
+        return visibilityCache.candidates(ship).stream()
                 .filter(target -> !target.teamId().equals(ship.teamId()))
-                .filter(target -> radarService.isVisible(ship, target, worldMap))
+                .filter(target -> visibilityCache.isVisible(ship, target))
                 .toList();
     }
 
@@ -929,21 +908,6 @@ public final class GameSession {
         return fleets.values().stream()
                 .flatMap(fleet -> fleet.ships().stream())
                 .toList();
-    }
-
-    private RadarContact radarContact(Ship observer, Ship contact) {
-        double dx = contact.position().x() - observer.position().x();
-        double dz = contact.position().z() - observer.position().z();
-        double bearing = MathSupport.normalizeAngle(Math.atan2(dx, dz) - observer.heading());
-        return new RadarContact(
-                contact.id(),
-                contact.teamId(),
-                MathSupport.round(contact.position().x()),
-                MathSupport.round(contact.position().z()),
-                MathSupport.round(contact.heading()),
-                MathSupport.round(observer.position().distanceTo(contact.position())),
-                MathSupport.round(bearing)
-        );
     }
 
     private static Map<String, Fleet> createFleets(List<FleetSetup> fleetSetups) {

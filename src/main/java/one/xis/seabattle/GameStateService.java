@@ -4,16 +4,21 @@ import one.xis.context.Service;
 
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 @Service
 public class GameStateService {
 
+    private static final Logger LOGGER = Logger.getLogger(GameStateService.class.getName());
     private static final long TICK_MILLIS = 100;
     private static final double TICK_SECONDS = TICK_MILLIS / 1000.0;
+    private static final double SLOW_TICK_LOG_THRESHOLD_MS = 80.0;
+    private static final long TICK_METRICS_LOG_INTERVAL_NANOS = TimeUnit.MINUTES.toNanos(1);
 
     private volatile GameSession session;
     private final DefaultGameSetupFactory setupFactory;
@@ -27,6 +32,11 @@ public class GameStateService {
     });
     private volatile PublishedGameModel publishedModel;
     private String setupId = "default";
+    private long tickMetricsStartedAtNanos = System.nanoTime();
+    private long measuredTicks;
+    private double measuredTickMillisTotal;
+    private double measuredTickMillisMax;
+    private long measuredSlowTicks;
 
     public GameStateService(DefaultGameSetupFactory setupFactory, RadarService radarService, NavigationService navigationService) {
         this.setupFactory = setupFactory;
@@ -39,6 +49,10 @@ public class GameStateService {
 
     public WorldMap worldMap() {
         return session.worldMap();
+    }
+
+    public List<Vector2> respawnCandidates() {
+        return session.respawnCandidates();
     }
 
     public GameSnapshot snapshot() {
@@ -99,10 +113,8 @@ public class GameStateService {
         return view.state();
     }
 
-    public RadarSnapshot radar(RadarRequest request) {
-        activateTeam(request.teamId());
-        PublishedGameModel model = publishedModel;
-        return radarFromSnapshot(request, model.state(), session.worldMap());
+    public GameSnapshot resetCurrentSetup() {
+        return resetToSetup(setupId);
     }
 
     public void activateTeam(String teamId) {
@@ -139,62 +151,6 @@ public class GameStateService {
         return new PublishedGameModel(state);
     }
 
-    private RadarSnapshot radarFromSnapshot(RadarRequest request, GameSnapshot state, WorldMap worldMap) {
-        SpatialIndex<ShipSnapshot> shipIndex = SpatialIndex.from(
-                state.ships(),
-                ship -> new Vector2(ship.x(), ship.z()),
-                radarService.range() / 3.0
-        );
-        ShipSnapshot observer = observerFor(request, state);
-        if (observer == null) {
-            return new RadarSnapshot("radar", state.sessionId(), state.t(), "", request.teamId(), 0, 0, 0, radarService.range(), List.of());
-        }
-        Vector2 observerPosition = new Vector2(observer.x(), observer.z());
-        List<RadarContact> contacts = shipIndex.near(observerPosition, radarService.range()).stream()
-                .filter(contact -> radarService.isVisible(observer, contact, worldMap))
-                .map(contact -> radarContact(observer, contact))
-                .toList();
-        return new RadarSnapshot(
-                "radar",
-                state.sessionId(),
-                state.t(),
-                observer.id(),
-                observer.teamId(),
-                MathSupport.round(observer.x()),
-                MathSupport.round(observer.z()),
-                MathSupport.round(observer.heading()),
-                MathSupport.round(radarService.range()),
-                contacts
-        );
-    }
-
-    private ShipSnapshot observerFor(RadarRequest request, GameSnapshot state) {
-        return state.ships().stream()
-                .filter(ship -> request.teamId().equals(ship.teamId()))
-                .filter(ship -> request.playerId().equals(ship.controlledBy()))
-                .findFirst()
-                .or(() -> state.ships().stream()
-                        .filter(ship -> request.teamId().equals(ship.teamId()))
-                        .filter(ship -> "active".equals(ship.state()))
-                        .findFirst())
-                .orElse(null);
-    }
-
-    private RadarContact radarContact(ShipSnapshot observer, ShipSnapshot contact) {
-        double dx = contact.x() - observer.x();
-        double dz = contact.z() - observer.z();
-        double bearing = MathSupport.normalizeAngle(Math.atan2(dx, dz) - observer.heading());
-        return new RadarContact(
-                contact.id(),
-                contact.teamId(),
-                MathSupport.round(contact.x()),
-                MathSupport.round(contact.z()),
-                MathSupport.round(contact.heading()),
-                MathSupport.round(new Vector2(observer.x(), observer.z()).distanceTo(new Vector2(contact.x(), contact.z()))),
-                MathSupport.round(bearing)
-        );
-    }
-
     private record SessionView(GameSnapshot state, WorldMap worldMap) {
     }
 
@@ -214,6 +170,7 @@ public class GameStateService {
             safeTick(deltaSeconds);
 
             long completed = System.nanoTime();
+            recordTickDuration(started, completed);
             nextStart += periodNanos;
             while (nextStart < completed) {
                 nextStart += periodNanos;
@@ -239,5 +196,48 @@ public class GameStateService {
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    private void recordTickDuration(long startedNanos, long completedNanos) {
+        double elapsedMillis = (completedNanos - startedNanos) / 1_000_000.0;
+        measuredTicks += 1;
+        measuredTickMillisTotal += elapsedMillis;
+        measuredTickMillisMax = Math.max(measuredTickMillisMax, elapsedMillis);
+        if (elapsedMillis > SLOW_TICK_LOG_THRESHOLD_MS) {
+            measuredSlowTicks += 1;
+        }
+        if (completedNanos - tickMetricsStartedAtNanos >= TICK_METRICS_LOG_INTERVAL_NANOS) {
+            logAndResetTickMetrics(completedNanos);
+        }
+    }
+
+    private void logAndResetTickMetrics(long nowNanos) {
+        if (measuredTicks == 0) {
+            tickMetricsStartedAtNanos = nowNanos;
+            return;
+        }
+        double seconds = (nowNanos - tickMetricsStartedAtNanos) / 1_000_000_000.0;
+        double averageMillis = measuredTickMillisTotal / measuredTicks;
+        String message = String.format(
+                Locale.ROOT,
+                "Sea Battle game tick metrics: ticks=%d, seconds=%.1f, avg=%.2f ms, max=%.2f ms, slowTicks=%d, threshold=%.0f ms, setup=%s",
+                measuredTicks,
+                seconds,
+                averageMillis,
+                measuredTickMillisMax,
+                measuredSlowTicks,
+                SLOW_TICK_LOG_THRESHOLD_MS,
+                setupId
+        );
+        if (measuredSlowTicks > 0) {
+            LOGGER.warning(message);
+        } else {
+            LOGGER.info(message);
+        }
+        tickMetricsStartedAtNanos = nowNanos;
+        measuredTicks = 0;
+        measuredTickMillisTotal = 0;
+        measuredTickMillisMax = 0;
+        measuredSlowTicks = 0;
     }
 }

@@ -105,11 +105,6 @@ class GameSessionDirectBenchmarkTest {
 
                 for (BenchmarkClient client : benchmarkClients) {
                     operations.add(() -> metrics.measure("snapshot", session::snapshot));
-                    operations.add(() -> metrics.measure("radar", () -> session.radar(
-                            new RadarRequest(client.playerId(), client.teamId()),
-                            radarService,
-                            session.worldMap()
-                    )));
                 }
 
                 for (BenchmarkClient client : activeClients) {
@@ -150,20 +145,7 @@ class GameSessionDirectBenchmarkTest {
 
             metrics.measure("shadow-state", session::snapshot);
 
-            metrics.measure("shadow-radars", () -> benchmarkClients.forEach(client -> session.radar(
-                    new RadarRequest(client.playerId(), client.teamId()),
-                    radarService,
-                    session.worldMap()
-            )));
-
-            metrics.measure("shadow-model-total", () -> {
-                session.snapshot();
-                benchmarkClients.forEach(client -> session.radar(
-                        new RadarRequest(client.playerId(), client.teamId()),
-                        radarService,
-                        session.worldMap()
-                ));
-            });
+            metrics.measure("shadow-model-total", session::snapshot);
         }
     }
 

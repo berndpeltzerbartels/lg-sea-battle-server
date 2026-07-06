@@ -59,6 +59,12 @@ public class SeaBattleClientController {
         return gameStateService.worldMap();
     }
 
+    @Get("/game/debug/respawn-candidates")
+    @Produces(ContentType.JSON_UTF8)
+    public List<Vector2> getRespawnCandidates() {
+        return gameStateService.respawnCandidates();
+    }
+
     @Get("/game/state")
     @Produces(ContentType.JSON_UTF8)
     public GameSnapshot getGameState() {
@@ -116,16 +122,6 @@ public class SeaBattleClientController {
     @Produces(ContentType.JSON_UTF8)
     public GameSnapshot resetGame(@RequestBody ResetGameRequest request) {
         return gameStateService.reset(request);
-    }
-
-    @Post("/game/radar")
-    @Produces(ContentType.JSON_UTF8)
-    public ResponseEntity<?> getRadar(@RequestBody RadarRequest request) {
-        String teamId = teamIdFor(request.playerId());
-        if (teamId == null) {
-            return ResponseEntity.status(403, "Player is not registered");
-        }
-        return ResponseEntity.ok(gameStateService.radar(new RadarRequest(request.playerId(), teamId)));
     }
 
     @Get("/game/version")
@@ -214,7 +210,7 @@ public class SeaBattleClientController {
         boolean gameIsEmpty = playerRegistry.players().isEmpty();
         playerRegistry.register(playerId, initials, normalizeName(account.nickname()), teamId, account.id());
         if (gameIsEmpty) {
-            gameStateService.resetToSetup("dense-land");
+            gameStateService.resetCurrentSetup();
         }
         gameStateService.activateTeam(teamId);
         return ResponseEntity.ok(new PlayerLogin(playerId, initials, teamId));

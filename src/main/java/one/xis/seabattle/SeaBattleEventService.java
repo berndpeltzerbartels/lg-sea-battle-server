@@ -105,7 +105,7 @@ public final class SeaBattleEventService {
     }
 
     private GameStreamMessage createMessage(GameSnapshot state) {
-        return new GameStreamMessage("game-stream", state, null);
+        return new GameStreamMessage("game-stream", state);
     }
 
     private void send(String playerId, GameStreamMessage message) {

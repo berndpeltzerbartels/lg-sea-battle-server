@@ -38,21 +38,21 @@ public class GameSessionDirectBenchmarkMain {
         for (int round = 1; round <= options.warmupRounds() + options.rounds(); round += 1) {
             boolean warmup = round <= options.warmupRounds();
             BenchmarkMetrics roundMetrics = new BenchmarkMetrics();
-            runRound(options.clients(), options.updateClients(), options.shipsPerTeam(), ticks, options.hz(), roundMetrics);
+            runRound(options.clients(), options.updateClients(), options.shipsPerTeam(), options.distribution(), ticks, options.hz(), roundMetrics);
 
             if (warmup) {
                 System.out.printf(Locale.ROOT, "%nWarmup round %d ignored.%n", round);
             } else {
                 int measuredRound = round - options.warmupRounds();
                 totalMetrics.addAll(roundMetrics);
-                System.out.printf(Locale.ROOT, "%nMeasured round %d/%d: clients=%d, updateClients=%d, shipsPerTeam=%d, ticks=%d, hz=%d%n",
-                        measuredRound, options.rounds(), options.clients(), options.updateClients(), options.shipsPerTeam(), ticks, options.hz());
+                System.out.printf(Locale.ROOT, "%nMeasured round %d/%d: clients=%d, updateClients=%d, shipsPerTeam=%d, distribution=%s, ticks=%d, hz=%d%n",
+                        measuredRound, options.rounds(), options.clients(), options.updateClients(), options.shipsPerTeam(), options.distribution(), ticks, options.hz());
                 roundMetrics.print();
             }
         }
 
-        System.out.printf(Locale.ROOT, "%nCombined direct GameSession benchmark: clients=%d, updateClients=%d, shipsPerTeam=%d, measuredRounds=%d, ticksPerRound=%d, hz=%d%n",
-                options.clients(), options.updateClients(), options.shipsPerTeam(), options.rounds(), ticks, options.hz());
+        System.out.printf(Locale.ROOT, "%nCombined direct GameSession benchmark: clients=%d, updateClients=%d, shipsPerTeam=%d, distribution=%s, measuredRounds=%d, ticksPerRound=%d, hz=%d%n",
+                options.clients(), options.updateClients(), options.shipsPerTeam(), options.distribution(), options.rounds(), ticks, options.hz());
         totalMetrics.print();
     }
 
@@ -63,21 +63,21 @@ public class GameSessionDirectBenchmarkMain {
         for (int round = 1; round <= options.warmupRounds() + options.rounds(); round += 1) {
             boolean warmup = round <= options.warmupRounds();
             BenchmarkMetrics roundMetrics = new BenchmarkMetrics();
-            runShadowRound(options.clients(), options.updateClients(), options.shipsPerTeam(), ticks, options.hz(), roundMetrics);
+            runShadowRound(options.clients(), options.updateClients(), options.shipsPerTeam(), options.distribution(), ticks, options.hz(), roundMetrics);
 
             if (warmup) {
                 System.out.printf(Locale.ROOT, "%nShadow warmup round %d ignored.%n", round);
             } else {
                 int measuredRound = round - options.warmupRounds();
                 totalMetrics.addAll(roundMetrics);
-                System.out.printf(Locale.ROOT, "%nShadow measured round %d/%d: clients=%d, updateClients=%d, shipsPerTeam=%d, ticks=%d, hz=%d%n",
-                        measuredRound, options.rounds(), options.clients(), options.updateClients(), options.shipsPerTeam(), ticks, options.hz());
+                System.out.printf(Locale.ROOT, "%nShadow measured round %d/%d: clients=%d, updateClients=%d, shipsPerTeam=%d, distribution=%s, ticks=%d, hz=%d%n",
+                        measuredRound, options.rounds(), options.clients(), options.updateClients(), options.shipsPerTeam(), options.distribution(), ticks, options.hz());
                 roundMetrics.print();
             }
         }
 
-        System.out.printf(Locale.ROOT, "%nCombined shadow model benchmark: clients=%d, updateClients=%d, shipsPerTeam=%d, measuredRounds=%d, ticksPerRound=%d, hz=%d%n",
-                options.clients(), options.updateClients(), options.shipsPerTeam(), options.rounds(), ticks, options.hz());
+        System.out.printf(Locale.ROOT, "%nCombined shadow model benchmark: clients=%d, updateClients=%d, shipsPerTeam=%d, distribution=%s, measuredRounds=%d, ticksPerRound=%d, hz=%d%n",
+                options.clients(), options.updateClients(), options.shipsPerTeam(), options.distribution(), options.rounds(), ticks, options.hz());
         totalMetrics.print();
     }
 
@@ -88,7 +88,7 @@ public class GameSessionDirectBenchmarkMain {
         for (int round = 1; round <= options.warmupRounds() + options.rounds(); round += 1) {
             boolean warmup = round <= options.warmupRounds();
             BenchmarkMetrics roundMetrics = new BenchmarkMetrics();
-            PublisherStats stats = runPublisherRound(options.clients(), options.updateClients(), options.shipsPerTeam(), ticks, options.hz(), roundMetrics);
+            PublisherStats stats = runPublisherRound(options.clients(), options.updateClients(), options.shipsPerTeam(), options.distribution(), ticks, options.hz(), roundMetrics);
 
             if (warmup) {
                 System.out.printf(Locale.ROOT, "%nPublisher warmup round %d ignored. missedDeadlines=%d%n",
@@ -97,21 +97,23 @@ public class GameSessionDirectBenchmarkMain {
                 int measuredRound = round - options.warmupRounds();
                 totalMetrics.addAll(roundMetrics);
                 System.out.printf(Locale.ROOT,
-                        "%nPublisher measured round %d/%d: clients=%d, updateClients=%d, shipsPerTeam=%d, ticks=%d, hz=%d, published=%d, missedDeadlines=%d%n",
-                        measuredRound, options.rounds(), options.clients(), options.updateClients(), options.shipsPerTeam(), ticks, options.hz(),
+                        "%nPublisher measured round %d/%d: clients=%d, updateClients=%d, shipsPerTeam=%d, distribution=%s, ticks=%d, hz=%d, published=%d, missedDeadlines=%d%n",
+                        measuredRound, options.rounds(), options.clients(), options.updateClients(), options.shipsPerTeam(), options.distribution(), ticks, options.hz(),
                         stats.publishedModels(), stats.missedDeadlines());
                 roundMetrics.print();
             }
         }
 
         System.out.printf(Locale.ROOT,
-                "%nCombined publisher freshness benchmark: clients=%d, updateClients=%d, shipsPerTeam=%d, measuredRounds=%d, ticksPerRound=%d, hz=%d%n",
-                options.clients(), options.updateClients(), options.shipsPerTeam(), options.rounds(), ticks, options.hz());
+                "%nCombined publisher freshness benchmark: clients=%d, updateClients=%d, shipsPerTeam=%d, distribution=%s, measuredRounds=%d, ticksPerRound=%d, hz=%d%n",
+                options.clients(), options.updateClients(), options.shipsPerTeam(), options.distribution(), options.rounds(), ticks, options.hz());
         totalMetrics.print();
     }
 
-    private void runRound(int clients, int updateClients, int shipsPerTeam, int ticks, int hz, BenchmarkMetrics metrics) throws Exception {
-        GameSession session = new GameSession(benchmarkSetup(shipsPerTeam));
+    private void runRound(int clients, int updateClients, int shipsPerTeam, String distribution, int ticks, int hz, BenchmarkMetrics metrics) throws Exception {
+        GameSetup setup = benchmarkSetup(shipsPerTeam, distribution);
+        printShipDistribution(setup, shipsPerTeam, distribution);
+        GameSession session = new GameSession(setup);
         List<BenchmarkClient> benchmarkClients = createClients(clients, session.snapshot());
         List<BenchmarkClient> activeClients = benchmarkClients.stream().limit(updateClients).toList();
         assignPlayers(session, activeClients);
@@ -145,8 +147,10 @@ public class GameSessionDirectBenchmarkMain {
         }
     }
 
-    private void runShadowRound(int clients, int updateClients, int shipsPerTeam, int ticks, int hz, BenchmarkMetrics metrics) {
-        GameSession session = new GameSession(benchmarkSetup(shipsPerTeam));
+    private void runShadowRound(int clients, int updateClients, int shipsPerTeam, String distribution, int ticks, int hz, BenchmarkMetrics metrics) {
+        GameSetup setup = benchmarkSetup(shipsPerTeam, distribution);
+        printShipDistribution(setup, shipsPerTeam, distribution);
+        GameSession session = new GameSession(setup);
         List<BenchmarkClient> benchmarkClients = createClients(clients, session.snapshot());
         List<BenchmarkClient> activeClients = benchmarkClients.stream().limit(updateClients).toList();
         assignPlayers(session, activeClients);
@@ -168,9 +172,11 @@ public class GameSessionDirectBenchmarkMain {
         }
     }
 
-    private PublisherStats runPublisherRound(int clients, int updateClients, int shipsPerTeam, int ticks, int hz, BenchmarkMetrics metrics)
+    private PublisherStats runPublisherRound(int clients, int updateClients, int shipsPerTeam, String distribution, int ticks, int hz, BenchmarkMetrics metrics)
             throws Exception {
-        GameSession session = new GameSession(benchmarkSetup(shipsPerTeam));
+        GameSetup setup = benchmarkSetup(shipsPerTeam, distribution);
+        printShipDistribution(setup, shipsPerTeam, distribution);
+        GameSession session = new GameSession(setup);
         List<BenchmarkClient> benchmarkClients = createClients(clients, session.snapshot());
         List<BenchmarkClient> activeClients = benchmarkClients.stream().limit(updateClients).toList();
         assignPlayers(session, activeClients);
@@ -214,6 +220,8 @@ public class GameSessionDirectBenchmarkMain {
                 metrics.add("publisher-build", (completed - started) / 1_000_000.0);
                 metrics.add("visibility-total", visibilityMetrics.millis());
                 metrics.add("visibility-calls", visibilityMetrics.calls());
+                metrics.add("visibility-cache-hits", visibilityMetrics.cacheHits());
+                metrics.add("visibility-cache-misses", visibilityMetrics.cacheMisses());
                 metrics.add("visibility-range-rejects", visibilityMetrics.range());
                 metrics.add("visibility-land-rejects", visibilityMetrics.land());
                 metrics.add("visibility-visible", visibilityMetrics.visible());
@@ -286,7 +294,7 @@ public class GameSessionDirectBenchmarkMain {
         }
     }
 
-    private GameSetup benchmarkSetup(int shipsPerTeam) {
+    private GameSetup benchmarkSetup(int shipsPerTeam, String distribution) {
         GameSetup base = new DefaultGameSetupFactory(new WorldMapService()).defaultSetup();
         List<FleetSetup> fleets = new ArrayList<>();
         for (int fleetIndex = 0; fleetIndex < base.fleets().size(); fleetIndex += 1) {
@@ -294,7 +302,9 @@ public class GameSessionDirectBenchmarkMain {
             List<ShipSetup> ships = new ArrayList<>(fleet.ships());
             for (int index = ships.size(); index < shipsPerTeam; index += 1) {
                 double heading = MathSupport.normalizeAngle((fleetIndex == 0 ? 1 : -1) * Math.PI / 2 + index * 0.11);
-                Vector2 position = benchmarkShipPosition(base, ships, fleetIndex, index, heading);
+                Vector2 position = "spread".equals(distribution)
+                        ? spreadBenchmarkShipPosition(fleetIndex, index)
+                        : benchmarkShipPosition(base, ships, fleetIndex, index, heading);
                 ships.add(new ShipSetup(
                         fleet.teamId() + "-" + (index + 1),
                         fleet.teamId(),
@@ -308,7 +318,7 @@ public class GameSessionDirectBenchmarkMain {
             }
             fleets.add(new FleetSetup(fleet.teamId(), ships.size() <= shipsPerTeam ? ships : ships.subList(0, shipsPerTeam)));
         }
-        return new GameSetup(base.id() + "-benchmark-" + shipsPerTeam, base.worldMap(), fleets, base.respawnCandidates());
+        return new GameSetup(base.id() + "-benchmark-" + distribution + "-" + shipsPerTeam, base.worldMap(), fleets, base.respawnCandidates());
     }
 
     private Vector2 benchmarkShipPosition(GameSetup setup, List<ShipSetup> existingShips, int fleetIndex, int shipIndex, double heading) {
@@ -325,6 +335,47 @@ public class GameSessionDirectBenchmarkMain {
             }
         }
         return setup.respawnCandidates().get(Math.floorMod(shipIndex + fleetIndex, setup.respawnCandidates().size()));
+    }
+
+    private Vector2 spreadBenchmarkShipPosition(int fleetIndex, int shipIndex) {
+        String[] squares = {
+                "F6", "H6", "J6", "L6", "N6",
+                "G7", "I7", "K7", "M7",
+                "F8", "H8", "J8", "L8", "N8",
+                "G9", "I9", "K9", "M9",
+                "F10", "H10", "J10", "L10", "N10",
+                "G11", "I11", "K11", "M11",
+                "F12", "H12", "J12", "L12", "N12"
+        };
+        int squareIndex = Math.floorMod(shipIndex * 2 + fleetIndex * 7, squares.length);
+        Vector2 center = mapSquareCenter(squares[squareIndex]);
+        double angle = shipIndex * 1.618 + fleetIndex * 0.9;
+        double radius = 80 + (shipIndex % 4) * 45;
+        return center.add(new Vector2(Math.sin(angle) * radius, Math.cos(angle) * radius));
+    }
+
+    private void printShipDistribution(GameSetup setup, int shipsPerTeam, String distribution) {
+        Map<String, Integer> counts = new java.util.TreeMap<>();
+        setup.fleets().stream()
+                .flatMap(fleet -> fleet.ships().stream())
+                .forEach(ship -> counts.merge(mapSquare(ship.position()), 1, Integer::sum));
+        System.out.printf(Locale.ROOT, "%nShip distribution: shipsPerTeam=%d, distribution=%s%n", shipsPerTeam, distribution);
+        counts.forEach((square, count) -> System.out.printf(Locale.ROOT, "%s %d%n", square, count));
+    }
+
+    private Vector2 mapSquareCenter(String square) {
+        int col = square.charAt(0) - 'A';
+        int row = Integer.parseInt(square.substring(1)) - 1;
+        return new Vector2(
+                col * 600.0 - 5400.0 + 300.0,
+                5400.0 - row * 600.0 - 300.0
+        );
+    }
+
+    private String mapSquare(Vector2 position) {
+        int col = Math.max(0, (int) Math.floor((position.x() + 5400.0) / 600.0));
+        int row = Math.max(0, (int) Math.floor((5400.0 - position.z()) / 600.0));
+        return String.valueOf((char) ('A' + col)) + (row + 1);
     }
 
     private List<BenchmarkClient> createClients(int count, GameSnapshot snapshot) {
@@ -378,6 +429,7 @@ public class GameSessionDirectBenchmarkMain {
 
     private record BenchmarkOptions(int clients, int updateClients, int durationSeconds, int hz, int rounds,
                                     int shipsPerTeam,
+                                    String distribution,
                                     int warmupRounds, boolean shadow, boolean publisher) {
 
         static BenchmarkOptions from(String[] args) {
@@ -387,6 +439,7 @@ public class GameSessionDirectBenchmarkMain {
             int hz = integer("seaBattle.benchmark.hz", 4);
             int rounds = integer("seaBattle.benchmark.rounds", 3);
             int shipsPerTeam = integer("seaBattle.benchmark.shipsPerTeam", 15);
+            String distribution = System.getProperty("seaBattle.benchmark.distribution", "compact");
             int warmupRounds = integer("seaBattle.benchmark.warmupRounds", 1);
             boolean shadow = Boolean.getBoolean("seaBattle.shadowBenchmark");
             boolean publisher = Boolean.getBoolean("seaBattle.publisherBenchmark");
@@ -401,6 +454,7 @@ public class GameSessionDirectBenchmarkMain {
                     case "--hz" -> hz = parseInt(arg, next);
                     case "--rounds" -> rounds = parseInt(arg, next);
                     case "--ships-per-team" -> shipsPerTeam = parseInt(arg, next);
+                    case "--distribution" -> distribution = parseDistribution(arg, next);
                     case "--warmup-rounds" -> warmupRounds = parseInt(arg, next);
                     case "--shadow" -> {
                         shadow = true;
@@ -422,6 +476,7 @@ public class GameSessionDirectBenchmarkMain {
                     hz,
                     rounds,
                     shipsPerTeam,
+                    parseDistribution("seaBattle.benchmark.distribution", distribution),
                     warmupRounds,
                     shadow,
                     publisher
@@ -441,6 +496,16 @@ public class GameSessionDirectBenchmarkMain {
                 throw new IllegalArgumentException(name + " must be positive");
             }
             return parsed;
+        }
+
+        private static String parseDistribution(String name, String value) {
+            if (value == null || value.isBlank()) {
+                throw new IllegalArgumentException(name + " needs a value");
+            }
+            if (!"compact".equals(value) && !"spread".equals(value)) {
+                throw new IllegalArgumentException(name + " must be compact or spread");
+            }
+            return value;
         }
     }
 

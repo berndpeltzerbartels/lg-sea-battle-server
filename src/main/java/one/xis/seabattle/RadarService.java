@@ -2,6 +2,10 @@ package one.xis.seabattle;
 
 import one.xis.context.Service;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 @Service
 final class RadarService {
 
@@ -52,6 +56,10 @@ final class RadarService {
         return !LandGeometry.lineIntersectsRadarBlockingLand(observerPosition, contactPosition, worldMap);
     }
 
+    VisibilityCache visibilityCache(WorldMap worldMap, List<Ship> activeShips) {
+        return new VisibilityCache(this, worldMap, activeShips);
+    }
+
     double range() {
         return RADAR_RANGE;
     }
@@ -67,6 +75,8 @@ final class RadarService {
     static final class VisibilityMetrics {
         private long calls;
         private long nanos;
+        private long cacheHits;
+        private long cacheMisses;
         private long self;
         private long inactive;
         private long range;
@@ -86,6 +96,16 @@ final class RadarService {
             }
         }
 
+        void recordCacheHit(long elapsedNanos) {
+            calls += 1;
+            nanos += elapsedNanos;
+            cacheHits += 1;
+        }
+
+        void recordCacheMiss() {
+            cacheMisses += 1;
+        }
+
         long calls() {
             return calls;
         }
@@ -102,6 +122,14 @@ final class RadarService {
             return inactive;
         }
 
+        long cacheHits() {
+            return cacheHits;
+        }
+
+        long cacheMisses() {
+            return cacheMisses;
+        }
+
         long range() {
             return range;
         }
@@ -112,6 +140,52 @@ final class RadarService {
 
         long visible() {
             return visible;
+        }
+    }
+
+    static final class VisibilityCache {
+        private final RadarService radarService;
+        private final WorldMap worldMap;
+        private final SpatialIndex<Ship> shipsByRadarCell;
+        private final Map<VisibilityKey, Boolean> visibleByPair = new HashMap<>();
+
+        private VisibilityCache(RadarService radarService, WorldMap worldMap, List<Ship> activeShips) {
+            this.radarService = radarService;
+            this.worldMap = worldMap;
+            this.shipsByRadarCell = SpatialIndex.from(activeShips, Ship::position, RADAR_RANGE);
+        }
+
+        List<Ship> candidates(Ship observer) {
+            return shipsByRadarCell.near(observer.position(), RADAR_RANGE);
+        }
+
+        boolean isVisible(Ship observer, Ship contact) {
+            long started = System.nanoTime();
+            VisibilityKey key = VisibilityKey.of(observer.id(), contact.id());
+            Boolean cached = visibleByPair.get(key);
+            if (cached != null) {
+                VisibilityMetrics metrics = VISIBILITY_METRICS.get();
+                if (metrics != null) {
+                    metrics.recordCacheHit(System.nanoTime() - started);
+                }
+                return cached;
+            }
+            VisibilityMetrics metrics = VISIBILITY_METRICS.get();
+            if (metrics != null) {
+                metrics.recordCacheMiss();
+            }
+            boolean visible = radarService.isVisible(observer, contact, worldMap);
+            visibleByPair.put(key, visible);
+            return visible;
+        }
+    }
+
+    private record VisibilityKey(String left, String right) {
+
+        static VisibilityKey of(String first, String second) {
+            return first.compareTo(second) <= 0
+                    ? new VisibilityKey(first, second)
+                    : new VisibilityKey(second, first);
         }
     }
 }

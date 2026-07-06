@@ -30,6 +30,7 @@ dependencies {
     annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.3'
     runtimeOnly 'com.h2database:h2:2.2.224'
     runtimeOnly 'org.mariadb.jdbc:mariadb-java-client:3.5.3'
+    runtimeOnly 'org.postgresql:postgresql:42.7.7'
 
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.2'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.2'
@@ -136,7 +137,8 @@ tasks.register('runDirectBenchmark', JavaExec) {
             '--hz', project.findProperty('hz') ?: '4',
             '--rounds', project.findProperty('rounds') ?: '3',
             '--warmup-rounds', project.findProperty('warmupRounds') ?: '1',
-            '--ships-per-team', project.findProperty('shipsPerTeam') ?: '15'
+            '--ships-per-team', project.findProperty('shipsPerTeam') ?: '15',
+            '--distribution', project.findProperty('distribution') ?: 'compact'
     ]
     if (project.hasProperty('shadow')) {
         args += ['--shadow']

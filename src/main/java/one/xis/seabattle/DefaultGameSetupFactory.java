@@ -42,6 +42,9 @@ final class DefaultGameSetupFactory {
             case "explosion-demo" -> explosionDemoSetup();
             case "escort-debug" -> escortDebugSetup();
             case "landmark-tour" -> landmarkTourSetup();
+            case "fleet-clash" -> fleetClashSetup();
+            case "dense-land-crowded" -> fleetClashSetup();
+            case "dense-land-crowded-reverse" -> fleetClashReverseSetup();
             case "dense-land" -> denseLandSetup(activeTeamIds(requestedTeamIds));
             default -> throw new IllegalArgumentException("Unknown game setup: " + setupId);
         };
@@ -203,6 +206,34 @@ final class DefaultGameSetupFactory {
         );
     }
 
+    private GameSetup fleetClashSetup() {
+        List<Vector2> westboundPositions = fleetClashWestboundPositions();
+        List<Vector2> eastboundPositions = fleetClashEastboundPositions();
+        return new GameSetup(
+                "dense-land-crowded",
+                worldMapService.denseWorld(),
+                List.of(
+                        new FleetSetup(TEAM_DARK, createScenarioShips(TEAM_DARK, westboundPositions, -Math.PI / 2)),
+                        new FleetSetup(TEAM_LIGHT, createScenarioShips(TEAM_LIGHT, eastboundPositions, Math.PI / 2))
+                ),
+                denseRespawnCandidates()
+        );
+    }
+
+    private GameSetup fleetClashReverseSetup() {
+        List<Vector2> westboundPositions = fleetClashWestboundPositions();
+        List<Vector2> eastboundPositions = fleetClashEastboundPositions();
+        return new GameSetup(
+                "dense-land-crowded-reverse",
+                worldMapService.denseWorld(),
+                List.of(
+                        new FleetSetup(TEAM_LIGHT, createScenarioShips(TEAM_LIGHT, westboundPositions, -Math.PI / 2)),
+                        new FleetSetup(TEAM_DARK, createScenarioShips(TEAM_DARK, eastboundPositions, Math.PI / 2))
+                ),
+                denseRespawnCandidates()
+        );
+    }
+
     boolean isKnownTeam(String teamId) {
         return TEAM_ORDER.contains(teamId);
     }
@@ -257,6 +288,24 @@ final class DefaultGameSetupFactory {
         return ships;
     }
 
+    private static List<ShipSetup> createScenarioShips(String teamId, List<Vector2> positions, double heading) {
+        List<ShipSetup> ships = new ArrayList<>();
+        for (int index = 0; index < positions.size(); index += 1) {
+            Vector2 position = positions.get(index);
+            ships.add(ship(
+                    teamId + "-" + (index + 1),
+                    teamId,
+                    position.x(),
+                    position.z(),
+                    heading,
+                    ENGINE_STOP,
+                    0,
+                    2 + index * 0.35
+            ));
+        }
+        return ships;
+    }
+
     private static List<FleetSetup> createDenseFleets(List<String> activeTeamIds) {
         List<List<double[]>> slotsByTeam = new ArrayList<>();
         activeTeamIds.forEach(ignored -> slotsByTeam.add(new ArrayList<>()));
@@ -290,6 +339,45 @@ final class DefaultGameSetupFactory {
             slots.add(slot);
         }
         return slots;
+    }
+
+    private static List<Vector2> fleetClashWestboundPositions() {
+        return List.of(
+                new Vector2(731, -664),
+                new Vector2(724, -544),
+                new Vector2(626, -394),
+                new Vector2(570, -270),
+                new Vector2(645, -150),
+                new Vector2(754, -64),
+                new Vector2(645, -19),
+                new Vector2(855, -799),
+                new Vector2(544, -735),
+                new Vector2(390, -637),
+                new Vector2(514, -877),
+                new Vector2(379, -780),
+                new Vector2(728, -259),
+                new Vector2(968, -247)
+        );
+    }
+
+    private static List<Vector2> fleetClashEastboundPositions() {
+        return List.of(
+                new Vector2(-450, -634),
+                new Vector2(-334, -547),
+                new Vector2(-232, -420),
+                new Vector2(-154, -300),
+                new Vector2(-202, -195),
+                new Vector2(-390, -187),
+                new Vector2(-195, -79),
+                new Vector2(-7, -19),
+                new Vector2(105, 86),
+                new Vector2(229, 139),
+                new Vector2(218, 236),
+                new Vector2(195, 311),
+                new Vector2(-326, -656),
+                new Vector2(-97, -679),
+                new Vector2(-206, -746)
+        );
     }
 
     private static double[][] redFormation() {
@@ -333,6 +421,40 @@ final class DefaultGameSetupFactory {
     }
 
     private static List<Vector2> respawnCandidates() {
+        return List.of(
+                new Vector2(83, 1448),
+                new Vector2(420, 1043),
+                new Vector2(218, 660),
+                new Vector2(945, 1118),
+                new Vector2(728, 683),
+                new Vector2(-502, 398),
+                new Vector2(-45, 248),
+                new Vector2(630, 203),
+                new Vector2(540, 308),
+                new Vector2(1485, 53),
+                new Vector2(1065, -172),
+                new Vector2(953, -1050),
+                new Vector2(135, -570),
+                new Vector2(90, -292),
+                new Vector2(-840, -247),
+                new Vector2(-1485, -135),
+                new Vector2(-1260, -892),
+                new Vector2(-1492, -1072),
+                new Vector2(-555, -1267),
+                new Vector2(-547, -1252),
+                new Vector2(-240, 1020),
+                new Vector2(-285, 1088),
+                new Vector2(-255, 1060),
+                new Vector2(548, -975),
+                new Vector2(1598, -937),
+                new Vector2(-885, 1328),
+                new Vector2(-1434, 1048),
+                new Vector2(-1192, 548),
+                new Vector2(-30, -15)
+        );
+    }
+
+    private static List<Vector2> previousRespawnCandidates() {
         return List.of(
                 new Vector2(96, -340),
                 new Vector2(300, -70),
@@ -396,6 +518,37 @@ final class DefaultGameSetupFactory {
     }
 
     private static List<Vector2> denseRespawnCandidates() {
+        return List.of(
+                new Vector2(83, 1448),
+                new Vector2(420, 1043),
+                new Vector2(218, 660),
+                new Vector2(945, 1118),
+                new Vector2(728, 683),
+                new Vector2(-502, 398),
+                new Vector2(-45, 248),
+                new Vector2(630, 203),
+                new Vector2(540, 308),
+                new Vector2(1485, 53),
+                new Vector2(1065, -172),
+                new Vector2(953, -1050),
+                new Vector2(135, -570),
+                new Vector2(90, -292),
+                new Vector2(-840, -247),
+                new Vector2(-1485, -135),
+                new Vector2(-1260, -892),
+                new Vector2(-1492, -1072),
+                new Vector2(-555, -1267),
+                new Vector2(-547, -1252),
+                new Vector2(-240, 1020),
+                new Vector2(-285, 1088),
+                new Vector2(-255, 1060),
+                new Vector2(548, -975),
+                new Vector2(1598, -937),
+                new Vector2(-885, 1328)
+        );
+    }
+
+    private static List<Vector2> previousDenseRespawnCandidates() {
         return List.of(
                 new Vector2(-180, -520),
                 new Vector2(370, -335),
