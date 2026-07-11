@@ -149,6 +149,7 @@ final class Ship {
 
     void markFired(double nowSeconds, double cooldownSeconds) {
         nextFireTime = nowSeconds + cooldownSeconds;
+        torpedoesRemaining = Math.max(0, torpedoesRemaining - 1);
     }
 
     void stopAfterRamImpact() {
