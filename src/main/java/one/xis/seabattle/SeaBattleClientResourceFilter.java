@@ -55,11 +55,14 @@ public class SeaBattleClientResourceFilter implements HttpFilter {
         if (path == null || path.isBlank()) {
             return null;
         }
-        if ("/sea-battle/app".equals(path)) {
+        if ("/app".equals(path) || "/sea-battle/app".equals(path)) {
             return INDEX_RESOURCE;
         }
         if (path.contains("..") || path.contains("\\") || path.contains(":")) {
             return null;
+        }
+        if (path.startsWith("/assets/") || "/webgpu.html".equals(path)) {
+            return CLIENT_RESOURCE_ROOT + path;
         }
         if (path.startsWith("/sea-battle/assets/") || "/sea-battle/webgpu.html".equals(path)) {
             return CLIENT_RESOURCE_ROOT + path.substring("/sea-battle".length());

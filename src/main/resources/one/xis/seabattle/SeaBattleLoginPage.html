@@ -20,7 +20,7 @@
             min-height: 100vh;
             margin: 0;
             background:
-                linear-gradient(180deg, rgb(94 137 166 / 86%) 0 42%, rgb(11 41 54 / 94%) 42% 100%),
+                linear-gradient(180deg, rgb(94 137 166 / 86%) 0 44%, rgb(11 41 54 / 94%) 44% 100%),
                 radial-gradient(circle at 78% 28%, rgb(230 172 93 / 22%), transparent 28%),
                 #092433;
         }
@@ -36,16 +36,14 @@
             padding: clamp(26px, 5vw, 68px) 0;
         }
 
-        .intro,
-        .portal-card,
-        .status-card {
+        .intro {
             display: grid;
             gap: 18px;
         }
 
         .kicker,
-        .panel-title,
-        .meta-label {
+        label,
+        .panel-title {
             color: #a8eeed;
             font-size: 12px;
             font-weight: 900;
@@ -58,17 +56,6 @@
             font-size: clamp(42px, 7vw, 86px);
             line-height: 0.92;
             letter-spacing: 0;
-        }
-
-        .intro p,
-        .account-line,
-        .guide-card p,
-        .guide-card li {
-            max-width: 48ch;
-            margin: 0;
-            color: #d8e9ef;
-            font-size: clamp(15px, 1.8vw, 17px);
-            line-height: 1.48;
         }
 
         .scene-line {
@@ -101,7 +88,7 @@
             opacity: 0.48;
         }
 
-        .portal-card,
+        .start-card,
         .status-card {
             border: 1px solid rgb(191 231 238 / 26%);
             border-radius: 8px;
@@ -110,90 +97,80 @@
             backdrop-filter: blur(12px);
         }
 
-        .portal-card {
-            padding: clamp(18px, 3vw, 28px);
-            align-content: start;
-        }
-
-        .app-link {
-            display: inline-grid;
-            place-items: center;
-            min-height: 50px;
-            width: fit-content;
-            border-radius: 7px;
-            background: #d9f4f5;
-            color: #082330;
-            font: 950 14px/1 Inter, ui-sans-serif, system-ui, sans-serif;
-            text-decoration: none;
-            text-transform: uppercase;
-            padding: 0 18px;
-        }
-
-        .app-link:focus-visible {
-            outline: 3px solid rgb(168 238 237 / 34%);
-            outline-offset: 3px;
-        }
-
-        .account {
+        .start-card {
             display: grid;
-            gap: 5px;
-            padding-top: 4px;
+            gap: 18px;
+            padding: clamp(18px, 3vw, 28px);
         }
 
-        .guide {
+        form,
+        .field {
             display: grid;
             gap: 16px;
         }
 
-        .guide-card {
-            display: grid;
-            gap: 8px;
-            padding-top: 14px;
-            border-top: 1px solid rgb(201 232 234 / 18%);
+        .field {
+            gap: 7px;
         }
 
-        .guide-card h2 {
-            margin: 0;
+        input,
+        select {
+            width: 100%;
+            min-height: 48px;
+            border: 1px solid rgb(196 232 238 / 36%);
+            border-radius: 7px;
+            background: rgb(2 18 27 / 82%);
             color: #f7fbff;
-            font-size: 20px;
-            line-height: 1.2;
+            font: 900 18px/1 Inter, ui-sans-serif, system-ui, sans-serif;
             letter-spacing: 0;
+            outline: none;
         }
 
-        .guide-card ul {
-            display: grid;
-            gap: 6px;
-            margin: 0;
-            padding-left: 18px;
+        input {
+            padding: 10px 14px;
+            text-transform: uppercase;
         }
 
-        .key-list {
-            display: grid;
-            gap: 8px;
-            margin: 0;
+        #nickname {
+            text-transform: none;
         }
 
-        .key-list div {
-            display: grid;
-            grid-template-columns: minmax(110px, 0.4fr) minmax(0, 1fr);
-            gap: 10px;
-            align-items: baseline;
+        select {
+            padding: 10px 12px;
         }
 
-        .key-list dt {
-            color: #f7fbff;
-            font-size: 14px;
-            font-weight: 950;
+        input:focus,
+        select:focus {
+            border-color: #a8eeed;
+            box-shadow: 0 0 0 3px rgb(168 238 237 / 18%);
         }
 
-        .key-list dd {
-            margin: 0;
-            color: #d8e9ef;
-            font-size: 15px;
-            line-height: 1.4;
+        .error {
+            border-color: #ff7d65;
+            box-shadow: 0 0 0 3px rgb(255 125 101 / 16%);
+        }
+
+        .message {
+            min-height: 16px;
+            color: #ffb39f;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        button {
+            min-height: 50px;
+            border: 0;
+            border-radius: 7px;
+            background: #d9f4f5;
+            color: #082330;
+            font: 950 14px/1 Inter, ui-sans-serif, system-ui, sans-serif;
+            text-transform: uppercase;
+            cursor: pointer;
         }
 
         .status-card {
+            display: grid;
+            gap: 16px;
             padding: 18px;
             grid-column: 1 / -1;
         }
@@ -298,70 +275,59 @@
 <body>
 <main>
     <section class="intro" aria-label="Sea Battle">
-        <span class="kicker">Portal</span>
+        <span class="kicker">Multiplayer prototype</span>
         <h1>Sea Battle</h1>
         <div class="scene-line" aria-hidden="true"></div>
     </section>
 
-    <section class="portal-card" aria-label="Anwendungen">
-        <div class="panel-title">Anwendungen</div>
-        <a class="app-link" href="start.html">Sea Battle starten</a>
-        <div class="account">
-            <span class="meta-label">Angemeldet als</span>
-            <p class="account-line">${accountStatus.label}</p>
-        </div>
-        <div class="guide" aria-label="Sea Battle Spielanleitung">
-            <section class="guide-card">
-                <h2>Worum es geht</h2>
-                <p>Sea Battle ist ein laufendes Flottenspiel. Du uebernimmst ein Schiff, suchst Gegner auf dem Radar und versenkst sie mit Torpedos oder durch Rammen.</p>
-                <p>Die Flotten bleiben gleich gross. Freie Schiffe werden von Bots gefahren, deshalb kannst du auch allein spielen.</p>
-            </section>
+    <section class="start-card">
+        <form xis:binding="account">
+            <xis:global-messages/>
+            <input type="hidden" xis:binding="id">
 
-            <section class="guide-card">
-                <h2>Steuerung</h2>
-                <dl class="key-list">
-                    <div>
-                        <dt>Pfeil hoch/runter</dt>
-                        <dd>Maschine schneller oder langsamer. Das Mausrad kann dasselbe.</dd>
-                    </div>
-                    <div>
-                        <dt>Pfeil links/rechts</dt>
-                        <dd>Ruder nach Backbord oder Steuerbord legen.</dd>
-                    </div>
-                    <div>
-                        <dt>Rechte Maustaste</dt>
-                        <dd>Gedrueckt halten und ziehen, um das Ruder direkter zu steuern.</dd>
-                    </div>
-                    <div>
-                        <dt>Space, F, Enter</dt>
-                        <dd>Torpedo abfeuern. Auf Touch-Geraeten gibt es dafuer den Fire-Knopf.</dd>
-                    </div>
-                </dl>
-            </section>
+            <div class="field">
+                <label for="nickname" xis:binding="nickname" xis:error-class="error">Name</label>
+                <input id="nickname"
+                       xis:binding="nickname"
+                       xis:error-class="error"
+                       maxlength="40"
+                       pattern="[\p{L}0-9 .'-]{2,40}"
+                       autocomplete="off"
+                       autofocus>
+                <div class="message" xis:message-for="nickname"></div>
+            </div>
 
-            <section class="guide-card">
-                <h2>Taktik</h2>
-                <ul>
-                    <li>Inseln werfen Radar-Schatten. Was hinter Land liegt, sieht man nicht.</li>
-                    <li>Diese Schatten kann man nutzen, um sich an Bots heranzuschleichen.</li>
-                    <li>Rammen funktioniert ebenfalls, wenn du mit dem Bug hart genug triffst.</li>
-                    <li>Nach dem Sinken wirst du nach kurzer Zeit an einer freien Stelle neu geboren.</li>
-                </ul>
-            </section>
+            <div class="field">
+                <label for="alias" xis:binding="alias" xis:error-class="error">Kennung</label>
+                <input id="alias"
+                       xis:binding="alias"
+                       xis:error-class="error"
+                       maxlength="5"
+                       pattern="[A-Za-z0-9]{1,5}"
+                       autocomplete="off"
+                       autocorrect="off"
+                       autocapitalize="characters"
+                       spellcheck="false">
+                <div class="message" xis:message-for="alias"></div>
+            </div>
 
-            <section class="guide-card">
-                <h2>Punkte</h2>
-                <ul>
-                    <li>Gegner versenkt: +1</li>
-                    <li>Eigenes Team versenkt: -2</li>
-                    <li>Selbst versenkt worden: -3</li>
-                </ul>
-            </section>
-        </div>
+            <div class="field">
+                <label for="team" xis:binding="team" xis:error-class="error">Flotte</label>
+                <select id="team" xis:binding="team" xis:error-class="error">
+                    <option value="">Flotte waehlen</option>
+                    <xis:foreach var="team" array="teamOptions">
+                        <option value="${team.id}">${team.label}</option>
+                    </xis:foreach>
+                </select>
+                <div class="message" xis:message-for="team"></div>
+            </div>
+
+            <button type="submit" xis:action="startGame">Einsteigen</button>
+        </form>
     </section>
 
     <section class="status-card" aria-label="Aktueller Spielstand">
-        <div class="panel-title">Sea Battle Spieler</div>
+        <div class="panel-title">Spieler</div>
         <div class="teams">
             <xis:foreach var="team" array="teams">
                 <div class="team">

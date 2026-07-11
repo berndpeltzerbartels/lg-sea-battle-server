@@ -56,7 +56,7 @@ public class SeaBattleClientController {
 
     @Get("/sea-battle")
     public ResponseEntity<?> redirectToClientApp() {
-        return ResponseEntity.redirect("/sea-battle/app");
+        return ResponseEntity.redirect("/app");
     }
 
     @Get("/game/world")
@@ -90,6 +90,31 @@ public class SeaBattleClientController {
         return accountService.findAccountById(accountId)
                 .<ResponseEntity<?>>map(this::startOrFindSession)
                 .orElseGet(() -> ResponseEntity.status(403, "Account is not registered"));
+    }
+
+    @Post("/game/start")
+    @Produces(ContentType.JSON_UTF8)
+    public ResponseEntity<?> startGame(@RequestBody StartGameRequest request) {
+        String accountId = request.accountId() == null || request.accountId().isBlank()
+                ? UUID.randomUUID().toString()
+                : request.accountId();
+        Account account = new Account(
+                accountId,
+                normalizeName(request.nickname()),
+                request.alias() == null ? "" : request.alias().trim().toUpperCase(Locale.ROOT),
+                request.team() == null ? "" : request.team().trim().toLowerCase(Locale.ROOT),
+                request.email() == null || request.email().isBlank() ? null : request.email().trim()
+        );
+        if (account.nickname().length() < 2 || account.alias().isBlank() || account.alias().length() > 5
+                || (!"light".equals(account.team()) && !"dark".equals(account.team()))) {
+            return ResponseEntity.status(400, "Invalid player registration");
+        }
+        accountService.saveAccount(account);
+        ResponseEntity<?> response = startOrFindSession(account);
+        if (response.getStatusCode() >= 400) {
+            return response;
+        }
+        return ResponseEntity.ok(new StartGameResponse(accountId, (PlayerLogin) response.getBody()));
     }
 
     @Post("/game/player-state")
@@ -274,5 +299,11 @@ public class SeaBattleClientController {
     }
 
     public record PlayerLogin(String playerId, String initials, String teamId) {
+    }
+
+    public record StartGameRequest(String accountId, String nickname, String alias, String team, String email) {
+    }
+
+    public record StartGameResponse(String accountId, PlayerLogin player) {
     }
 }

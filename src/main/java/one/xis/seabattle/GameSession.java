@@ -139,7 +139,8 @@ public final class GameSession {
         }
 
         Ship ship = fleet.assignedShip(request.playerId())
-                .orElseThrow(() -> new IllegalStateException("No active ship assigned to player: " + request.playerId()));
+                .or(() -> fleet.assignNextShipToPlayer(request.playerId()))
+                .orElseThrow(() -> new IllegalStateException("No active ship available for team: " + request.teamId()));
         fireTorpedo(ship, 2.4, 0);
     }
 

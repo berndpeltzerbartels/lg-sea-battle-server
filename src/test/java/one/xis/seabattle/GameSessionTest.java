@@ -43,6 +43,25 @@ class GameSessionTest {
     }
 
     @Test
+    void firstPlayerCommandMayFireBeforePositionSyncAssignedShip() {
+        GameSession session = new GameSession(new GameSetup(
+                "first-fire-test",
+                new WorldMap(9025, List.of()),
+                List.of(new FleetSetup("light", List.of(
+                        ship("light-1", "light", 0, 0, 0, "bot", 5, 0, 0)
+                ))),
+                List.of(new Vector2(0, 0))
+        ));
+
+        GameSnapshot snapshot = session.fireTorpedo(new FireTorpedoRequest("player-BP-test", "light"));
+
+        ShipSnapshot ship = findShip(snapshot, "light-1");
+        assertNotNull(ship);
+        assertEquals("player-BP-test", ship.controlledBy());
+        assertEquals(1, snapshot.torpedoes().size());
+    }
+
+    @Test
     void escortBotUsesFlankWhenFallingBehindHumanLeader() {
         GameSession session = new GameSession(new GameSetup(
                 "escort-speed-test",

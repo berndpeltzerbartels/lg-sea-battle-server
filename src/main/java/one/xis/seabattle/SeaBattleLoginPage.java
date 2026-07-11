@@ -1,21 +1,24 @@
 package one.xis.seabattle;
 
+import one.xis.Action;
+import one.xis.FormData;
 import one.xis.LocalStorage;
 import one.xis.ModelData;
 import one.xis.NullAllowed;
 import one.xis.Page;
-import one.xis.WelcomePage;
+import one.xis.PageUrlResponse;
+import one.xis.validation.ValidationFailedException;
 
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
-@WelcomePage
-@Page("/index.html")
-public class SeaBattleStartPage {
+@Page("/start.html")
+public class SeaBattleLoginPage {
 
     private static final List<TeamOption> PUBLIC_TEAMS = List.of(
             new TeamOption("light", "Light"),
@@ -32,19 +35,23 @@ public class SeaBattleStartPage {
     private final GameStateService gameStateService;
     private final SeaBattlePlayerRegistry playerRegistry;
     private final AccountService accountService;
+    private final GameService gameService;
+    private final PlaySessionService playSessionService;
 
-    public SeaBattleStartPage(GameStateService gameStateService, SeaBattlePlayerRegistry playerRegistry,
-                              AccountService accountService) {
+    public SeaBattleLoginPage(GameStateService gameStateService, SeaBattlePlayerRegistry playerRegistry,
+                              AccountService accountService,
+                              GameService gameService,
+                              PlaySessionService playSessionService) {
         this.gameStateService = gameStateService;
         this.playerRegistry = playerRegistry;
         this.accountService = accountService;
+        this.gameService = gameService;
+        this.playSessionService = playSessionService;
     }
 
-    @ModelData("accountStatus")
-    AccountStatus accountStatus(@NullAllowed @LocalStorage("accountId") String accountId) {
-        return accountService.findAccountById(accountId)
-                .map(account -> new AccountStatus(account.nickname() + " (" + account.alias() + ")"))
-                .orElseGet(() -> new AccountStatus("Noch nicht angemeldet"));
+    @FormData("account")
+    Account account(@NullAllowed @LocalStorage("accountId") String accountId) {
+        return accountService.findAccountById(accountId).orElseGet(this::newAccount);
     }
 
     @ModelData("teams")
@@ -88,6 +95,44 @@ public class SeaBattleStartPage {
                 .toList();
     }
 
+    @Action
+    PageUrlResponse startGame(@FormData("account") Account form) {
+        Account account = normalizeAccount(form);
+        String initials = account.alias();
+        if (isAliasActive(initials, account.id())) {
+            throw new ValidationFailedException("/account/alias", "seaBattle.aliasTaken");
+        }
+        Account savedAccount = accountService.saveAccount(account);
+        return new PageUrlResponse("/app")
+                .localStorage("accountId", savedAccount.id());
+    }
+
+    private Account newAccount() {
+        return new Account(UUID.randomUUID().toString(), "", "", "", "");
+    }
+
+    private Account normalizeAccount(Account account) {
+        return new Account(
+                account.id(),
+                normalizeName(account.nickname()),
+                account.alias() == null ? "" : account.alias().trim().toUpperCase(Locale.ROOT),
+                account.team(),
+                normalizeEmail(account.email()));
+    }
+
+    private boolean isAliasActive(String initials, String accountId) {
+        return playerRegistry.isAliasRegisteredForOtherAccount(initials, accountId)
+                || playSessionService.isAliasActiveForOtherAccount(gameService.activeGameId(), initials, accountId);
+    }
+
+    private String normalizeName(String value) {
+        return value == null ? "" : value.trim().replaceAll("\\s+", " ");
+    }
+
+    private String normalizeEmail(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
     private String displayName(String value) {
         return value == null || value.isBlank() ? "-" : value;
     }
@@ -116,9 +161,6 @@ public class SeaBattleStartPage {
         TeamOption withPlayers(List<PlayerEntry> players) {
             return new TeamOption(id, label, List.copyOf(players));
         }
-    }
-
-    public record AccountStatus(String label) {
     }
 
     public record PlayerEntry(String name, String initials, String teamId, String team, String ship, int kills, String sector) {
