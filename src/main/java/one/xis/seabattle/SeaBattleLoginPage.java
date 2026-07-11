@@ -113,7 +113,7 @@ public class SeaBattleLoginPage {
 
     private Account normalizeAccount(Account account) {
         return new Account(
-                account.id(),
+                account.id() == null || account.id().isBlank() ? UUID.randomUUID().toString() : account.id(),
                 normalizeName(account.nickname()),
                 account.alias() == null ? "" : account.alias().trim().toUpperCase(Locale.ROOT),
                 account.team(),
