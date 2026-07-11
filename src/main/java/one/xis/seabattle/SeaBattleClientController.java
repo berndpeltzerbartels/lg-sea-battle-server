@@ -33,13 +33,15 @@ public class SeaBattleClientController {
     private final AccountService accountService;
     private final GameService gameService;
     private final PlaySessionService playSessionService;
+    private final SeaBattleDiagnosticsService diagnosticsService;
 
     public SeaBattleClientController(GameStateService gameStateService,
                                      SseEndpoint sseEndpoint, SeaBattleEventService eventService,
                                      SeaBattlePlayerRegistry playerRegistry,
                                      AccountService accountService,
                                      GameService gameService,
-                                     PlaySessionService playSessionService) {
+                                     PlaySessionService playSessionService,
+                                     SeaBattleDiagnosticsService diagnosticsService) {
         this.gameStateService = gameStateService;
         this.sseEndpoint = sseEndpoint;
         this.eventService = eventService;
@@ -47,6 +49,7 @@ public class SeaBattleClientController {
         this.accountService = accountService;
         this.gameService = gameService;
         this.playSessionService = playSessionService;
+        this.diagnosticsService = diagnosticsService;
     }
 
     @Get("/")
@@ -122,6 +125,7 @@ public class SeaBattleClientController {
     public ResponseEntity<?> updatePlayerState(@RequestBody PlayerStateUpdate update) {
         String teamId = teamIdFor(update.playerId());
         if (teamId == null) {
+            diagnosticsService.logRejectedRequest("player-state", update.playerId(), "not-registered");
             return ResponseEntity.status(403, "Player is not registered");
         }
         return ResponseEntity.ok(gameStateService.updatePlayerState(new PlayerStateUpdate(
@@ -144,9 +148,13 @@ public class SeaBattleClientController {
     public ResponseEntity<?> fireTorpedo(@RequestBody FireTorpedoRequest request) {
         String teamId = teamIdFor(request.playerId());
         if (teamId == null) {
+            diagnosticsService.logRejectedRequest("fire", request.playerId(), "not-registered");
             return ResponseEntity.status(403, "Player is not registered");
         }
-        return ResponseEntity.ok(gameStateService.fireTorpedo(new FireTorpedoRequest(request.playerId(), teamId)));
+        GameSnapshot before = gameStateService.snapshot();
+        GameSnapshot after = gameStateService.fireTorpedo(new FireTorpedoRequest(request.playerId(), teamId));
+        diagnosticsService.logFireRequest(request.playerId(), teamId, before, after, "ok");
+        return ResponseEntity.ok(after);
     }
 
     @Post("/game/reset")
@@ -183,7 +191,8 @@ public class SeaBattleClientController {
     }
 
     @Post("/game/client-performance")
-    public ResponseEntity<?> reportClientPerformance() {
+    public ResponseEntity<?> reportClientPerformance(@RequestBody ClientDiagnosticsReport report) {
+        diagnosticsService.logClientDiagnostics(report);
         return ResponseEntity.noContent();
     }
 

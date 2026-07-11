@@ -1,0 +1,37 @@
+package one.xis.seabattle;
+
+public record ClientDiagnosticsReport(
+        String playerId,
+        String teamId,
+        String shipId,
+        String startedAt,
+        String endedAt,
+        double seconds,
+        double x,
+        double z,
+        double heading,
+        double speed,
+        double turnVelocity,
+        int engineOrder,
+        double rudderDegrees,
+        String playerDamageState,
+        int playerTorpedoesRemaining,
+        int localTorpedoCount,
+        int serverTorpedoes,
+        int serverTorpedoVisuals,
+        String fireTorpedoSync,
+        String fireTorpedoSyncError,
+        String playerStateSync,
+        String playerStateSyncError,
+        String gameEventSource,
+        boolean gameEventSourceReady,
+        double gameStreamAgeSeconds,
+        String lastKey,
+        String ownServerTorpedoLaunch,
+        int httpRequests,
+        int playerStateHttpRequests,
+        int fireTorpedoHttpRequests,
+        double maxHttpMs,
+        String sessionExpired
+) {
+}

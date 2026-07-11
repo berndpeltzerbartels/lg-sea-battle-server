@@ -18,6 +18,7 @@ class SeaBattleClientControllerTest {
                 registry,
                 new FixedAccountService(new Account("account-1", "Bernd", "BPB", "light", null)),
                 null,
+                null,
                 null
         );
 
