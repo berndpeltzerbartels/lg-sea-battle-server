@@ -103,8 +103,28 @@ public class SeaBattleLoginPage {
             throw new ValidationFailedException("/account/alias", "seaBattle.aliasTaken");
         }
         Account savedAccount = accountService.saveAccount(account);
+        startOrFindSession(savedAccount);
         return new PageUrlResponse("/app")
                 .localStorage("accountId", savedAccount.id());
+    }
+
+    private void startOrFindSession(Account account) {
+        String initials = account.alias() == null ? "" : account.alias().trim().toUpperCase(Locale.ROOT);
+        String teamId = account.team() == null ? "" : account.team().trim().toLowerCase(Locale.ROOT);
+        String playerId = playerRegistry.activePlayerIdForAccountAlias(account.id(), initials);
+        if (playerId == null || playerId.isBlank()) {
+            playerId = createPlayerId(initials);
+        }
+        boolean gameIsEmpty = playerRegistry.players().isEmpty();
+        playerRegistry.register(playerId, initials, normalizeName(account.nickname()), teamId, account.id());
+        if (gameIsEmpty) {
+            gameStateService.resetCurrentSetup();
+        }
+        gameStateService.activateTeam(teamId);
+    }
+
+    private String createPlayerId(String initials) {
+        return "player-" + initials + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
     }
 
     private Account newAccount() {
