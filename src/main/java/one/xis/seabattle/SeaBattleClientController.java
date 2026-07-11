@@ -62,6 +62,11 @@ public class SeaBattleClientController {
         return ResponseEntity.redirect("/app");
     }
 
+    @Get("/start.htm")
+    public ResponseEntity<?> redirectLegacyStartPage() {
+        return ResponseEntity.redirect("/start.html");
+    }
+
     @Get("/game/world")
     @Produces(ContentType.JSON_UTF8)
     public WorldMap getWorld() {
