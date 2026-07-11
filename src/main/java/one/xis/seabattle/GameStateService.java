@@ -78,11 +78,14 @@ public class GameStateService {
     }
 
     public GameSnapshot fireTorpedo(FireTorpedoRequest request) {
+        SessionView view;
         activateTeam(request.teamId());
         synchronized (this) {
             session.applyFireTorpedo(request);
-            return publishedModel.state();
+            view = captureSessionView();
         }
+        publishModel(view);
+        return view.state();
     }
 
     public void releasePlayer(String playerId) {
