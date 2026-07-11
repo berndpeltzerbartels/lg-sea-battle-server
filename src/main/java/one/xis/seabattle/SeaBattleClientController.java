@@ -88,7 +88,7 @@ public class SeaBattleClientController {
     @Produces(ContentType.JSON_UTF8)
     public ResponseEntity<?> getPlayerSessionByAccount(@PathVariable("accountId") String accountId) {
         return accountService.findAccountById(accountId)
-                .<ResponseEntity<?>>map(this::startOrFindSession)
+                .<ResponseEntity<?>>map(this::activeSession)
                 .orElseGet(() -> ResponseEntity.status(403, "Account is not registered"));
     }
 
@@ -247,6 +247,20 @@ public class SeaBattleClientController {
             gameStateService.resetCurrentSetup();
         }
         gameStateService.activateTeam(teamId);
+        return ResponseEntity.ok(new PlayerLogin(playerId, initials, teamId));
+    }
+
+    private ResponseEntity<?> activeSession(Account account) {
+        String initials = account.alias() == null ? "" : account.alias().trim().toUpperCase(Locale.ROOT);
+        String teamId = account.team() == null ? "" : account.team().trim().toLowerCase(Locale.ROOT);
+        if (initials.isBlank() || teamId.isBlank()) {
+            return ResponseEntity.status(403, "Account is incomplete");
+        }
+
+        String playerId = playerRegistry.activePlayerIdForAccountAlias(account.id(), initials);
+        if (playerId == null || playerId.isBlank() || !playerRegistry.isRegisteredPlayer(playerId)) {
+            return ResponseEntity.status(403, "Player is not active");
+        }
         return ResponseEntity.ok(new PlayerLogin(playerId, initials, teamId));
     }
 
