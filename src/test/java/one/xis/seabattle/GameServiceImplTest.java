@@ -18,7 +18,8 @@ class GameServiceImplTest {
     void closesPersistedActiveGamesBeforeStartingCurrentProcessGame() {
         InMemoryGameRepository repository = new InMemoryGameRepository();
         repository.save(new GameEntity("old-game", "ACTIVE", LocalDateTime.now().minusHours(1), null));
-        GameServiceImpl service = new GameServiceImpl(repository);
+        RecordingPlaySessionService playSessionService = new RecordingPlaySessionService();
+        GameServiceImpl service = new GameServiceImpl(repository, playSessionService);
 
         GameEntity current = service.activeGame();
 
@@ -26,6 +27,7 @@ class GameServiceImplTest {
         assertEquals("ACTIVE", current.getStatus());
         assertEquals("ENDED", repository.findById("old-game").orElseThrow().getStatus());
         assertEquals(1, repository.findByStatus("ACTIVE").size());
+        assertEquals(List.of("old-game"), playSessionService.closedGameIds);
     }
 
     private static class InMemoryGameRepository implements GameRepository {
@@ -67,6 +69,28 @@ class GameServiceImplTest {
         @Override
         public long count() {
             return games.size();
+        }
+    }
+
+    private static class RecordingPlaySessionService implements PlaySessionService {
+        private final List<String> closedGameIds = new ArrayList<>();
+
+        @Override
+        public void beginSession(String playerId, String accountId, String gameId, String alias, String teamId) {
+        }
+
+        @Override
+        public void endSession(String playerId, int score) {
+        }
+
+        @Override
+        public void endActiveSessionsForGame(String gameId, LocalDateTime endTime) {
+            closedGameIds.add(gameId);
+        }
+
+        @Override
+        public boolean isAliasActiveForOtherAccount(String gameId, String alias, String accountId) {
+            return false;
         }
     }
 }

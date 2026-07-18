@@ -61,4 +61,16 @@ class SeaBattleSchema {
                 .dropIndexIfExists("uq_sessions_game_id_alias")
                 .addUniqueIndexWhereNull("uq_sessions_game_id_alias", "end_time", "game_id", "alias");
     }
+
+    @Change("007-close-sessions-for-ended-games")
+    void closeSessionsForEndedGames(DDL ddl) {
+        ddl.sql("""
+                update sessions
+                set end_time = games.end_time
+                from games
+                where sessions.game_id = games.id
+                  and sessions.end_time is null
+                  and games.end_time is not null
+                """);
+    }
 }

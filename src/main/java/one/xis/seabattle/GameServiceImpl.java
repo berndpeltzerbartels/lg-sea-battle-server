@@ -12,10 +12,12 @@ class GameServiceImpl implements GameService {
     private static final String ENDED = "ENDED";
 
     private final GameRepository gameRepository;
+    private final PlaySessionService playSessionService;
     private volatile GameEntity activeGame;
 
-    GameServiceImpl(GameRepository gameRepository) {
+    GameServiceImpl(GameRepository gameRepository, PlaySessionService playSessionService) {
         this.gameRepository = gameRepository;
+        this.playSessionService = playSessionService;
     }
 
     @Override
@@ -35,6 +37,7 @@ class GameServiceImpl implements GameService {
     private GameEntity startNewGame() {
         LocalDateTime now = LocalDateTime.now();
         gameRepository.findByStatus(ACTIVE).stream()
+                .peek(game -> playSessionService.endActiveSessionsForGame(game.getId(), now))
                 .map(game -> new GameEntity(game.getId(), ENDED, game.getBeginTime(), now))
                 .forEach(gameRepository::save);
         return createGame(now);

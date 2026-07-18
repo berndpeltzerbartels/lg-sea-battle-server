@@ -89,6 +89,14 @@ class PlaySessionServiceImpl implements PlaySessionService {
     }
 
     @Override
+    public void endActiveSessionsForGame(String gameId, LocalDateTime endTime) {
+        if (gameId == null || gameId.isBlank() || endTime == null) {
+            return;
+        }
+        sessionRepository.endActiveByGame(gameId, endTime);
+    }
+
+    @Override
     public boolean isAliasActiveForOtherAccount(String gameId, String alias, String accountId) {
         if (gameId == null || gameId.isBlank() || alias == null || alias.isBlank()) {
             return false;
