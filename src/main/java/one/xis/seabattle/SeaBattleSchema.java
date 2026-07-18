@@ -54,4 +54,11 @@ class SeaBattleSchema {
         ddl.sql("alter table sessions add constraint fk_sessions_games_game_id foreign key (game_id) references games (id)");
         ddl.sql("create unique index uq_sessions_game_id_alias on sessions (game_id, alias)");
     }
+
+    @Change("006-limit-session-alias-unique-to-active-sessions")
+    void limitSessionAliasUniqueToActiveSessions(DDL ddl) {
+        ddl.alterTable("sessions")
+                .dropIndexIfExists("uq_sessions_game_id_alias")
+                .addUniqueIndexWhereNull("uq_sessions_game_id_alias", "end_time", "game_id", "alias");
+    }
 }
