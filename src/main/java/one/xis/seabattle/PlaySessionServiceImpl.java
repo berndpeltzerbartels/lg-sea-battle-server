@@ -4,6 +4,7 @@ import one.xis.context.Component;
 
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -26,6 +27,14 @@ class PlaySessionServiceImpl implements PlaySessionService {
             return;
         }
         if (sessionIdByPlayerId.containsKey(playerId)) {
+            return;
+        }
+        Optional<PlaySessionEntity> activeSession = sessionRepository.findActiveByGameAndAlias(gameId, alias);
+        if (activeSession.isPresent()) {
+            PlaySessionEntity session = activeSession.get();
+            if (accountId.equals(session.getAccountId()) && playerId.equals(session.getPlayerId())) {
+                sessionIdByPlayerId.put(playerId, session.getId());
+            }
             return;
         }
         String sessionId = UUID.randomUUID().toString();

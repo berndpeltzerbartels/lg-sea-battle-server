@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -27,6 +28,22 @@ class PlaySessionServiceImplTest {
         service.endSession("player-BPB-123", 4);
 
         assertFalse(service.isAliasActiveForOtherAccount("game-1", "BPB", "account-2"));
+    }
+
+    @Test
+    void reconnectingSamePlayerReusesActiveSession() {
+        InMemoryPlaySessionRepository repository = new InMemoryPlaySessionRepository();
+        PlaySessionServiceImpl firstServiceInstance = new PlaySessionServiceImpl(repository);
+        PlaySessionServiceImpl reconnectServiceInstance = new PlaySessionServiceImpl(repository);
+
+        firstServiceInstance.beginSession("player-BPB2-123", "account-1", "game-1", "BPB2", "light");
+        reconnectServiceInstance.beginSession("player-BPB2-123", "account-1", "game-1", "BPB2", "light");
+
+        assertEquals(1, repository.count());
+
+        reconnectServiceInstance.endSession("player-BPB2-123", 7);
+
+        assertFalse(reconnectServiceInstance.isAliasActiveForOtherAccount("game-1", "BPB2", "account-2"));
     }
 
     private static class InMemoryPlaySessionRepository implements PlaySessionRepository {
