@@ -66,11 +66,14 @@ class SeaBattleSchema {
     void closeSessionsForEndedGames(DDL ddl) {
         ddl.sql("""
                 update sessions
-                set end_time = games.end_time
-                from games
-                where sessions.game_id = games.id
-                  and sessions.end_time is null
-                  and games.end_time is not null
+                set end_time = (select games.end_time from games where games.id = sessions.game_id)
+                where sessions.end_time is null
+                  and exists (
+                      select 1
+                      from games
+                      where games.id = sessions.game_id
+                        and games.end_time is not null
+                  )
                 """);
     }
 }
