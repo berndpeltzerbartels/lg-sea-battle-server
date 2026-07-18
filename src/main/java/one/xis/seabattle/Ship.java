@@ -6,6 +6,7 @@ final class Ship {
     private static final double MAX_ACCEPTED_PLAYER_SPEED = 16;
     private static final double MAX_ACCEPTED_PLAYER_TURN_VELOCITY = 1.2;
     private static final int ENGINE_FULL_ASTERN = 0;
+    private static final int TORPEDO_STOCK = 12;
 
     private final String id;
     private final String teamId;
@@ -17,7 +18,7 @@ final class Ship {
     private int rudderDegrees;
     private String controlledBy;
     private String state = "active";
-    private int torpedoesRemaining = 12;
+    private int torpedoesRemaining = TORPEDO_STOCK;
     private double nextFireTime;
     private double respawnAtSeconds = Double.POSITIVE_INFINITY;
     private double glancingRamBackoffUntilSeconds = Double.NEGATIVE_INFINITY;
@@ -144,12 +145,12 @@ final class Ship {
     }
 
     boolean canFire(double nowSeconds) {
-        return "active".equals(state) && torpedoesRemaining > 0 && nowSeconds >= nextFireTime;
+        return "active".equals(state) && nowSeconds >= nextFireTime;
     }
 
     void markFired(double nowSeconds, double cooldownSeconds) {
         nextFireTime = nowSeconds + cooldownSeconds;
-        torpedoesRemaining = Math.max(0, torpedoesRemaining - 1);
+        torpedoesRemaining = TORPEDO_STOCK;
     }
 
     void stopAfterRamImpact() {
@@ -232,7 +233,7 @@ final class Ship {
         rudderDegrees = 0;
         controlledBy = "bot";
         state = "active";
-        torpedoesRemaining = 12;
+        torpedoesRemaining = TORPEDO_STOCK;
         nextFireTime = nowSeconds + 3;
         respawnAtSeconds = Double.POSITIVE_INFINITY;
         glancingRamBackoffUntilSeconds = Double.NEGATIVE_INFINITY;

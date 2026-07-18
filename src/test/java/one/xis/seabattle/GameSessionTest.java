@@ -58,7 +58,7 @@ class GameSessionTest {
         ShipSnapshot ship = findShip(snapshot, "light-1");
         assertNotNull(ship);
         assertEquals("player-BP-test", ship.controlledBy());
-        assertEquals(11, ship.torpedoesRemaining());
+        assertEquals(12, ship.torpedoesRemaining());
         assertEquals(1, snapshot.torpedoes().size());
     }
 
