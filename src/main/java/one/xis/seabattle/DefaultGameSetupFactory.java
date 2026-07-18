@@ -45,6 +45,7 @@ final class DefaultGameSetupFactory {
             case "fleet-clash" -> fleetClashSetup();
             case "dense-land-crowded" -> fleetClashSetup();
             case "dense-land-crowded-reverse" -> fleetClashReverseSetup();
+            case "scout-plane" -> scoutPlaneSetup(activeTeamIds(requestedTeamIds));
             case "dense-land" -> denseLandSetup(activeTeamIds(requestedTeamIds));
             default -> throw new IllegalArgumentException("Unknown game setup: " + setupId);
         };
@@ -189,6 +190,15 @@ final class DefaultGameSetupFactory {
     private GameSetup denseLandSetup(List<String> activeTeamIds) {
         return new GameSetup(
                 "dense-land",
+                worldMapService.denseWorld(),
+                createDenseFleets(activeTeamIds),
+                denseRespawnCandidates()
+        );
+    }
+
+    private GameSetup scoutPlaneSetup(List<String> activeTeamIds) {
+        return new GameSetup(
+                "scout-plane",
                 worldMapService.denseWorld(),
                 createDenseFleets(activeTeamIds),
                 denseRespawnCandidates()
