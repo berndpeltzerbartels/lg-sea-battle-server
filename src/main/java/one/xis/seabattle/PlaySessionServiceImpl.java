@@ -32,7 +32,21 @@ class PlaySessionServiceImpl implements PlaySessionService {
         Optional<PlaySessionEntity> activeSession = sessionRepository.findActiveByGameAndAlias(gameId, alias);
         if (activeSession.isPresent()) {
             PlaySessionEntity session = activeSession.get();
-            if (accountId.equals(session.getAccountId()) && playerId.equals(session.getPlayerId())) {
+            if (accountId.equals(session.getAccountId())) {
+                if (!playerId.equals(session.getPlayerId()) || !teamId.equals(session.getTeam())) {
+                    session = new PlaySessionEntity(
+                            session.getId(),
+                            session.getGameId(),
+                            session.getAccountId(),
+                            playerId,
+                            session.getAlias(),
+                            teamId,
+                            session.getBeginTime(),
+                            session.getEndTime(),
+                            session.getScore()
+                    );
+                    sessionRepository.save(session);
+                }
                 sessionIdByPlayerId.put(playerId, session.getId());
             }
             return;

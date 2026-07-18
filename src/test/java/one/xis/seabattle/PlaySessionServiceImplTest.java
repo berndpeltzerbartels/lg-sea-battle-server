@@ -46,6 +46,22 @@ class PlaySessionServiceImplTest {
         assertFalse(reconnectServiceInstance.isAliasActiveForOtherAccount("game-1", "BPB2", "account-2"));
     }
 
+    @Test
+    void formReentryWithStoredAccountMovesActiveSessionToNewPlayerId() {
+        InMemoryPlaySessionRepository repository = new InMemoryPlaySessionRepository();
+        PlaySessionServiceImpl firstServiceInstance = new PlaySessionServiceImpl(repository);
+        PlaySessionServiceImpl reentryServiceInstance = new PlaySessionServiceImpl(repository);
+
+        firstServiceInstance.beginSession("player-BPB2-old", "account-1", "game-1", "BPB2", "light");
+        reentryServiceInstance.beginSession("player-BPB2-new", "account-1", "game-1", "BPB2", "light");
+
+        assertEquals(1, repository.count());
+
+        reentryServiceInstance.endSession("player-BPB2-new", 9);
+
+        assertFalse(reentryServiceInstance.isAliasActiveForOtherAccount("game-1", "BPB2", "account-2"));
+    }
+
     private static class InMemoryPlaySessionRepository implements PlaySessionRepository {
         private final Map<String, PlaySessionEntity> sessions = new LinkedHashMap<>();
 
