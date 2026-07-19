@@ -6,6 +6,8 @@ import one.xis.LocalStorage;
 import one.xis.ModelData;
 import one.xis.NullAllowed;
 import one.xis.Page;
+import one.xis.ToastLevel;
+import one.xis.ToastMessages;
 
 import java.util.List;
 
@@ -56,8 +58,15 @@ class SeaBattleContactPage {
     @Action("save")
     @FormData("preferences")
     ContactPreferencesForm save(@NullAllowed @LocalStorage("accountId") String accountId,
-                                @FormData("preferences") ContactPreferencesForm form) {
-        return contactPreferenceService.save(accountId, form);
+                                @FormData("preferences") ContactPreferencesForm form,
+                                ToastMessages toastMessages) {
+        ContactPreferencesForm saved = contactPreferenceService.save(accountId, form);
+        if (contactPreferenceService.canSave(accountId)) {
+            toastMessages.show("Gespeichert.", ToastLevel.SUCCESS);
+        } else {
+            toastMessages.show("Zum dauerhaften Speichern bitte erst in Sea Battle einsteigen.", ToastLevel.WARNING);
+        }
+        return saved;
     }
 
     record WeekdayOption(String id, String label) {

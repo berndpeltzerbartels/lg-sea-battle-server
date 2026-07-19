@@ -49,6 +49,10 @@ class ContactPreferenceService {
         return normalized;
     }
 
+    boolean canSave(String accountId) {
+        return accountId != null && !accountId.isBlank() && accountService.findAccountById(accountId).isPresent();
+    }
+
     boolean inviteToPlay(String accountId, Boolean localInviteToPlay) {
         return formForAccount(accountId, localInviteToPlay).inviteToPlay();
     }
