@@ -160,6 +160,10 @@ final class Ship {
         return "active".equals(state) && !isScoutPlane() && nowSeconds >= nextFireTime;
     }
 
+    boolean canDropBomb(double nowSeconds) {
+        return "active".equals(state) && isScoutPlane() && nowSeconds >= nextFireTime;
+    }
+
     void markFired(double nowSeconds, double cooldownSeconds) {
         nextFireTime = nowSeconds + cooldownSeconds;
         torpedoesRemaining = TORPEDO_STOCK;

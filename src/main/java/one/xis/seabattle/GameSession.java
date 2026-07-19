@@ -11,6 +11,9 @@ public final class GameSession {
     private static final double TORPEDO_BROAD_PHASE_RADIUS = 6.2;
     private static final double TORPEDO_HULL_MARGIN = 0.28;
     private static final double TORPEDO_SWEEP_STEP = 1.15;
+    private static final double BOMB_HIT_RADIUS = 7.2;
+    private static final double BOMB_HULL_MARGIN = 2.8;
+    private static final double BOMB_DROP_COOLDOWN_SECONDS = 2.8;
     private static final double RAM_HIT_RADIUS = 4.8;
     private static final double RAM_BOW_OFFSET = 4.45;
     private static final double RAM_STERN_LENGTH = -4.05;
@@ -64,7 +67,10 @@ public final class GameSession {
     private final Map<String, Integer> killsByPlayer = new LinkedHashMap<>();
     private final List<Torpedo> torpedoes = new ArrayList<>();
     private final List<TorpedoImpactSnapshot> torpedoImpacts = new ArrayList<>();
+    private final List<Bomb> bombs = new ArrayList<>();
+    private final List<BombImpactSnapshot> bombImpacts = new ArrayList<>();
     private int nextTorpedoId = 1;
+    private int nextBombId = 1;
     private int nextRespawnCandidateIndex;
     private int lastRespawnCandidateIndex = -1;
     private double nowSeconds;
@@ -102,6 +108,13 @@ public final class GameSession {
                         .map(Torpedo::snapshot)
                         .toList(),
                 torpedoImpacts.stream()
+                        .filter(impact -> nowSeconds - impact.t() <= TORPEDO_IMPACT_VISIBILITY_SECONDS)
+                        .toList(),
+                bombs.stream()
+                        .filter(bomb -> "falling".equals(bomb.state()))
+                        .map(Bomb::snapshot)
+                        .toList(),
+                bombImpacts.stream()
                         .filter(impact -> nowSeconds - impact.t() <= TORPEDO_IMPACT_VISIBILITY_SECONDS)
                         .toList(),
                 Map.copyOf(destroyedShipsByTeam),
@@ -147,6 +160,43 @@ public final class GameSession {
         fireTorpedo(ship, 2.4, 0);
     }
 
+    public synchronized GameSnapshot dropBomb(BombDropRequest request) {
+        applyDropBomb(request);
+        return snapshot();
+    }
+
+    public synchronized void applyDropBomb(BombDropRequest request) {
+        Fleet fleet = fleets.get(request.teamId());
+        if (fleet == null) {
+            throw new IllegalArgumentException("Unknown team: " + request.teamId());
+        }
+
+        Ship ship = fleet.assignedShip(request.playerId())
+                .or(() -> fleet.assignNextShipToPlayer(request.playerId()))
+                .orElseThrow(() -> new IllegalStateException("No active ship available for team: " + request.teamId()));
+        if (!ship.isScoutPlane() && !"scout-plane".equals(request.vehicleType())) {
+            return;
+        }
+        if (!ship.canDropBomb(nowSeconds)) {
+            return;
+        }
+
+        ship.markFired(nowSeconds, BOMB_DROP_COOLDOWN_SECONDS);
+        double heading = MathSupport.normalizeAngle(request.heading());
+        double horizontalSpeed = Math.min(22, Math.max(4, request.speed() * 0.92));
+        Vector2 dropPosition = new Vector2(request.x(), request.z()).add(Vector2.fromHeading(heading).scale(2.6));
+        bombs.add(new Bomb(
+                "bomb-" + nextBombId++,
+                ship.teamId(),
+                ship.id(),
+                dropPosition,
+                Math.min(120, Math.max(1, request.y())),
+                heading,
+                horizontalSpeed,
+                nowSeconds
+        ));
+    }
+
     public synchronized void releasePlayer(String playerId) {
         fleets.values().forEach(fleet -> fleet.releasePlayer(playerId));
     }
@@ -161,10 +211,13 @@ public final class GameSession {
                 .filter(Ship::isServerSimulated)
                 .forEach(ship -> ship.update(deltaSeconds, navigationService, worldMap));
         updateTorpedoes(deltaSeconds, navigationService, worldMap);
+        updateBombs(deltaSeconds);
         updateRamCollisions();
         respawnSunkShips(navigationService, worldMap, radarService);
         torpedoes.removeIf(torpedo -> !"running".equals(torpedo.state()));
         torpedoImpacts.removeIf(impact -> nowSeconds - impact.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
+        bombs.removeIf(bomb -> !"falling".equals(bomb.state()));
+        bombImpacts.removeIf(impact -> nowSeconds - impact.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
         checkGameOver();
     }
 
@@ -740,6 +793,46 @@ public final class GameSession {
                 MathSupport.round(torpedo.position().x()),
                 MathSupport.round(torpedo.position().z()),
                 MathSupport.round(torpedo.heading()),
+                MathSupport.round(nowSeconds)
+        ));
+    }
+
+    private void updateBombs(double deltaSeconds) {
+        for (Bomb bomb : bombs) {
+            bomb.update(deltaSeconds);
+            if (!"detonated".equals(bomb.state())) {
+                continue;
+            }
+
+            allShips().stream()
+                    .filter(ship -> "active".equals(ship.state()))
+                    .filter(ship -> !ship.isScoutPlane())
+                    .filter(ship -> !ship.id().equals(bomb.shipId()))
+                    .filter(ship -> bombHitsShip(bomb, ship))
+                    .findFirst()
+                    .ifPresentOrElse(ship -> {
+                        sinkShip(ship, shooterController(bomb.shipId()));
+                        recordBombImpact(bomb, "ship-hit", ship.id());
+                    }, () -> recordBombImpact(bomb, "sea-hit", null));
+        }
+    }
+
+    private boolean bombHitsShip(Bomb bomb, Ship ship) {
+        if (ship.position().distanceTo(bomb.position()) > BOMB_HIT_RADIUS) {
+            return false;
+        }
+        return pointHitsShipHull(bomb.position(), ship, BOMB_HULL_MARGIN);
+    }
+
+    private void recordBombImpact(Bomb bomb, String reason, String targetShipId) {
+        bombImpacts.add(new BombImpactSnapshot(
+                bomb.id(),
+                bomb.teamId(),
+                bomb.shipId(),
+                targetShipId,
+                reason,
+                MathSupport.round(bomb.position().x()),
+                MathSupport.round(bomb.position().z()),
                 MathSupport.round(nowSeconds)
         ));
     }

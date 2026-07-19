@@ -88,6 +88,17 @@ public class GameStateService {
         return view.state();
     }
 
+    public GameSnapshot dropBomb(BombDropRequest request) {
+        SessionView view;
+        activateTeam(request.teamId());
+        synchronized (this) {
+            session.applyDropBomb(request);
+            view = captureSessionView();
+        }
+        publishModel(view);
+        return view.state();
+    }
+
     public void releasePlayer(String playerId) {
         SessionView view;
         synchronized (this) {

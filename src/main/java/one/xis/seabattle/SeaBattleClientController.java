@@ -163,6 +163,26 @@ public class SeaBattleClientController {
         return ResponseEntity.ok(after);
     }
 
+    @Post("/game/drop-bomb")
+    @Produces(ContentType.JSON_UTF8)
+    public ResponseEntity<?> dropBomb(@RequestBody BombDropRequest request) {
+        String teamId = teamIdFor(request.playerId());
+        if (teamId == null) {
+            diagnosticsService.logRejectedRequest("drop-bomb", request.playerId(), "not-registered");
+            return ResponseEntity.status(403, "Player is not registered");
+        }
+        return ResponseEntity.ok(gameStateService.dropBomb(new BombDropRequest(
+                request.playerId(),
+                teamId,
+                request.x(),
+                request.y(),
+                request.z(),
+                request.heading(),
+                request.speed(),
+                request.vehicleType()
+        )));
+    }
+
     @Post("/game/reset")
     @Produces(ContentType.JSON_UTF8)
     public GameSnapshot resetGame(@RequestBody ResetGameRequest request) {

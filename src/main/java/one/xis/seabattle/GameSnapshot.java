@@ -11,6 +11,8 @@ public record GameSnapshot(
         List<ShipSnapshot> ships,
         List<TorpedoSnapshot> torpedoes,
         List<TorpedoImpactSnapshot> torpedoImpacts,
+        List<BombSnapshot> bombs,
+        List<BombImpactSnapshot> bombImpacts,
         Map<String, Integer> destroyedShipsByTeam,
         Map<String, Integer> killsByPlayer
 ) {
