@@ -7,6 +7,8 @@ final class Ship {
     private static final double MAX_ACCEPTED_PLAYER_TURN_VELOCITY = 1.2;
     private static final int ENGINE_FULL_ASTERN = 0;
     private static final int TORPEDO_STOCK = 12;
+    private static final String VEHICLE_TORPEDO_BOAT = "torpedo-boat";
+    private static final String VEHICLE_SCOUT_PLANE = "scout-plane";
 
     private final String id;
     private final String teamId;
@@ -17,6 +19,7 @@ final class Ship {
     private int engineOrder = 2;
     private int rudderDegrees;
     private String controlledBy;
+    private String vehicleType = VEHICLE_TORPEDO_BOAT;
     private String state = "active";
     private int torpedoesRemaining = TORPEDO_STOCK;
     private double nextFireTime;
@@ -46,6 +49,14 @@ final class Ship {
 
     String controlledBy() {
         return controlledBy;
+    }
+
+    String vehicleType() {
+        return vehicleType;
+    }
+
+    boolean isScoutPlane() {
+        return VEHICLE_SCOUT_PLANE.equals(vehicleType);
     }
 
     boolean isBotControlled() {
@@ -98,8 +109,9 @@ final class Ship {
             return;
         }
         Vector2 requestedPosition = new Vector2(update.x(), update.z());
+        vehicleType = normalizeVehicleType(update.vehicleType());
         boolean implausiblePosition = position.distanceTo(requestedPosition) > MAX_ACCEPTED_PLAYER_POSITION_DELTA;
-        boolean blockedPosition = navigationService.isShipBlocked(requestedPosition, update.heading(), worldMap);
+        boolean blockedPosition = !isScoutPlane() && navigationService.isShipBlocked(requestedPosition, update.heading(), worldMap);
         if ((!update.debugTeleport() && implausiblePosition) || blockedPosition) {
             applyCommand(update.engineOrder(), update.rudderDegrees());
             return;
@@ -145,7 +157,7 @@ final class Ship {
     }
 
     boolean canFire(double nowSeconds) {
-        return "active".equals(state) && nowSeconds >= nextFireTime;
+        return "active".equals(state) && !isScoutPlane() && nowSeconds >= nextFireTime;
     }
 
     void markFired(double nowSeconds, double cooldownSeconds) {
@@ -211,6 +223,7 @@ final class Ship {
         rudderDegrees = 0;
         engineOrder = 2;
         controlledBy = "bot";
+        vehicleType = VEHICLE_TORPEDO_BOAT;
         this.respawnAtSeconds = respawnAtSeconds;
         glancingRamBackoffUntilSeconds = Double.NEGATIVE_INFINITY;
         return true;
@@ -232,6 +245,7 @@ final class Ship {
         engineOrder = 2;
         rudderDegrees = 0;
         controlledBy = "bot";
+        vehicleType = VEHICLE_TORPEDO_BOAT;
         state = "active";
         torpedoesRemaining = TORPEDO_STOCK;
         nextFireTime = nowSeconds + 3;
@@ -253,7 +267,15 @@ final class Ship {
                 engineOrder,
                 state,
                 controlledBy,
-                torpedoesRemaining
+                torpedoesRemaining,
+                vehicleType
         );
+    }
+
+    private static String normalizeVehicleType(String vehicleType) {
+        if (VEHICLE_SCOUT_PLANE.equals(vehicleType)) {
+            return VEHICLE_SCOUT_PLANE;
+        }
+        return VEHICLE_TORPEDO_BOAT;
     }
 }

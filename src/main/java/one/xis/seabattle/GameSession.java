@@ -141,6 +141,9 @@ public final class GameSession {
         Ship ship = fleet.assignedShip(request.playerId())
                 .or(() -> fleet.assignNextShipToPlayer(request.playerId()))
                 .orElseThrow(() -> new IllegalStateException("No active ship available for team: " + request.teamId()));
+        if (ship.isScoutPlane() || "scout-plane".equals(request.vehicleType())) {
+            return;
+        }
         fireTorpedo(ship, 2.4, 0);
     }
 
@@ -176,6 +179,7 @@ public final class GameSession {
 
         List<Ship> activeShips = allShips().stream()
                 .filter(ship -> "active".equals(ship.state()))
+                .filter(ship -> !ship.isScoutPlane())
                 .toList();
         RadarService.VisibilityCache visibilityCache = radarService.visibilityCache(worldMap, activeShips);
         activeShips.stream()
@@ -329,6 +333,7 @@ public final class GameSession {
     private List<Ship> visibleTargets(Ship ship, RadarService.VisibilityCache visibilityCache) {
         return visibilityCache.candidates(ship, RadarService.HUMAN_TARGET_RANGE).stream()
                 .filter(target -> !target.teamId().equals(ship.teamId()))
+                .filter(target -> !target.isScoutPlane())
                 .filter(target -> visibilityCache.isVisible(ship, target, targetRangeForBot(target)))
                 .toList();
     }
@@ -713,6 +718,7 @@ public final class GameSession {
 
             allShips().stream()
                     .filter(ship -> "active".equals(ship.state()))
+                    .filter(ship -> !ship.isScoutPlane())
                     .filter(ship -> !ship.id().equals(torpedo.shipId()))
                     .filter(ship -> torpedoHitsShip(torpedo, ship))
                     .findFirst()

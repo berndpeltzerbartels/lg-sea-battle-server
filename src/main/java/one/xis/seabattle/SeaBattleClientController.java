@@ -144,7 +144,8 @@ public class SeaBattleClientController {
                 update.engineOrder(),
                 update.rudderDegrees(),
                 update.clientTime(),
-                update.debugTeleport()
+                update.debugTeleport(),
+                update.vehicleType()
         )));
     }
 
@@ -157,7 +158,7 @@ public class SeaBattleClientController {
             return ResponseEntity.status(403, "Player is not registered");
         }
         GameSnapshot before = gameStateService.snapshot();
-        GameSnapshot after = gameStateService.fireTorpedo(new FireTorpedoRequest(request.playerId(), teamId));
+        GameSnapshot after = gameStateService.fireTorpedo(new FireTorpedoRequest(request.playerId(), teamId, request.vehicleType()));
         diagnosticsService.logFireRequest(request.playerId(), teamId, before, after, "ok");
         return ResponseEntity.ok(after);
     }

@@ -63,6 +63,58 @@ class GameSessionTest {
     }
 
     @Test
+    void scoutPlanePlayerCannotFireTorpedoes() {
+        GameSession session = new GameSession(new GameSetup(
+                "scout-plane-fire-test",
+                new WorldMap(9026, List.of()),
+                List.of(new FleetSetup("light", List.of(
+                        ship("light-1", "light", 0, 0, 0, "bot", 5, 0, 0)
+                ))),
+                List.of(new Vector2(0, 0))
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-BP-test", "light", 0, 0, 0, 8, 0, 7, 0, 0, false, "scout-plane"),
+                navigationService,
+                session.worldMap()
+        );
+        GameSnapshot snapshot = session.fireTorpedo(new FireTorpedoRequest("player-BP-test", "light", "scout-plane"));
+
+        ShipSnapshot ship = findShip(snapshot, "light-1");
+        assertNotNull(ship);
+        assertEquals("scout-plane", ship.vehicleType());
+        assertEquals(0, snapshot.torpedoes().size());
+    }
+
+    @Test
+    void torpedoesDoNotHitScoutPlanes() {
+        GameSession session = new GameSession(new GameSetup(
+                "scout-plane-torpedo-ignore-test",
+                new WorldMap(9027, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, 0, "bot", 5, 0, 0))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 0, 90, Math.PI, "bot", 2, 0)))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(0, 90))
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-BP-test", "blue", 0, 90, Math.PI, 8, 0, 7, 0, 0, false, "scout-plane"),
+                navigationService,
+                session.worldMap()
+        );
+        GameSnapshot snapshot = session.fireTorpedo(new FireTorpedoRequest("player-red-test", "red"));
+        for (int index = 0; index < 90; index += 1) {
+            session.update(0.05, radarService, navigationService, session.worldMap());
+            snapshot = session.snapshot();
+        }
+
+        assertEquals("active", findShip(snapshot, "blue-1").state());
+        assertEquals("scout-plane", findShip(snapshot, "blue-1").vehicleType());
+        assertEquals(0, snapshot.destroyedShipsByTeam().get("blue"));
+    }
+
+    @Test
     void escortBotUsesFlankWhenFallingBehindHumanLeader() {
         GameSession session = new GameSession(new GameSetup(
                 "escort-speed-test",
@@ -288,6 +340,31 @@ class GameSessionTest {
         assertEquals(2, attacker.engineOrder());
         assertEquals("sunk", target.state());
         assertEquals(1, snapshot.destroyedShipsByTeam().get("blue"));
+    }
+
+    @Test
+    void ramCollisionsIgnoreScoutPlanes() {
+        GameSession session = new GameSession(new GameSetup(
+                "scout-plane-ram-ignore-test",
+                new WorldMap(9028, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, Math.PI / 2, 5, 0))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 56, 0, 0, "bot", 2, 0)))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(56, 0))
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-BP-test", "blue", 56, 0, 0, 8, 0, 7, 0, 0, false, "scout-plane"),
+                navigationService,
+                session.worldMap()
+        );
+        GameSnapshot snapshot = tickUntilShipsTouch(session, 24);
+
+        assertEquals("active", findShip(snapshot, "red-1").state());
+        assertEquals("active", findShip(snapshot, "blue-1").state());
+        assertEquals("scout-plane", findShip(snapshot, "blue-1").vehicleType());
+        assertEquals(0, snapshot.destroyedShipsByTeam().get("blue"));
     }
 
     @Test
