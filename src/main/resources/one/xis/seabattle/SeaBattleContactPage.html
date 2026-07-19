@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html xmlns:xis="https://xis.one/xsd" lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sea Battle Kontakt</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #092433;
+            color: #f7fbff;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            margin: 0;
+            background:
+                linear-gradient(180deg, rgb(94 137 166 / 86%) 0 42%, rgb(11 41 54 / 94%) 42% 100%),
+                #092433;
+        }
+
+        main {
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: minmax(280px, 420px) minmax(520px, 760px);
+            gap: clamp(22px, 4vw, 56px);
+            align-items: center;
+            width: min(1240px, calc(100vw - 44px));
+            margin: 0 auto;
+            padding: clamp(26px, 5vw, 68px) 0;
+        }
+
+        .intro,
+        form,
+        .field,
+        .option-list,
+        .weekday-list {
+            display: grid;
+        }
+
+        .intro {
+            gap: 18px;
+        }
+
+        .kicker,
+        label,
+        .panel-title {
+            color: #a8eeed;
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: 0;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(42px, 7vw, 82px);
+            line-height: 0.94;
+            letter-spacing: 0;
+        }
+
+        .scene-line {
+            height: 132px;
+            position: relative;
+            overflow: hidden;
+            border-bottom: 2px solid rgb(163 226 232 / 54%);
+        }
+
+        .scene-line::before,
+        .scene-line::after {
+            content: "";
+            position: absolute;
+            bottom: -2px;
+            background: #587a58;
+            clip-path: polygon(0 100%, 12% 62%, 18% 70%, 32% 30%, 46% 74%, 60% 48%, 78% 68%, 100% 36%, 100% 100%);
+        }
+
+        .scene-line::before {
+            left: -6%;
+            width: 68%;
+            height: 108px;
+            opacity: 0.72;
+        }
+
+        .scene-line::after {
+            right: -8%;
+            width: 74%;
+            height: 142px;
+            opacity: 0.48;
+        }
+
+        .card {
+            border: 1px solid rgb(191 231 238 / 26%);
+            border-radius: 8px;
+            background: rgb(3 23 33 / 74%);
+            box-shadow: 0 26px 90px rgb(0 0 0 / 30%);
+            backdrop-filter: blur(12px);
+            padding: clamp(18px, 3vw, 28px);
+        }
+
+        form {
+            gap: 20px;
+        }
+
+        .field {
+            gap: 7px;
+        }
+
+        input[type="email"] {
+            width: 100%;
+            min-height: 48px;
+            border: 1px solid rgb(196 232 238 / 36%);
+            border-radius: 7px;
+            background: rgb(2 18 27 / 82%);
+            color: #f7fbff;
+            font: 850 17px/1 Inter, ui-sans-serif, system-ui, sans-serif;
+            letter-spacing: 0;
+            outline: none;
+            padding: 10px 14px;
+        }
+
+        input[type="email"]:focus {
+            border-color: #a8eeed;
+            box-shadow: 0 0 0 3px rgb(168 238 237 / 18%);
+        }
+
+        .option-list,
+        .weekday-list {
+            gap: 10px;
+        }
+
+        .choice {
+            display: grid;
+            grid-template-columns: 22px minmax(0, 1fr);
+            gap: 10px;
+            align-items: start;
+            min-height: 42px;
+            padding: 10px 12px;
+            border: 1px solid rgb(201 232 234 / 18%);
+            border-radius: 7px;
+            background: rgb(8 35 45 / 62%);
+        }
+
+        .choice input {
+            width: 18px;
+            height: 18px;
+            margin: 1px 0 0;
+            accent-color: #a8eeed;
+        }
+
+        .choice label {
+            color: #eef9fb;
+            font-size: 14px;
+            line-height: 1.35;
+            text-transform: none;
+        }
+
+        .hint {
+            margin: 0;
+            color: #bfd3da;
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1.45;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button,
+        .back-link {
+            min-height: 48px;
+            border: 0;
+            border-radius: 7px;
+            background: #d9f4f5;
+            color: #082330;
+            font: 950 14px/1 Inter, ui-sans-serif, system-ui, sans-serif;
+            text-transform: uppercase;
+            cursor: pointer;
+            padding: 0 18px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+        }
+
+        .back-link {
+            background: rgb(217 244 245 / 12%);
+            color: #d9f4f5;
+            border: 1px solid rgb(191 231 238 / 26%);
+        }
+
+        @media (max-width: 920px) {
+            main {
+                grid-template-columns: 1fr;
+                align-items: start;
+            }
+        }
+    </style>
+</head>
+<body>
+<main>
+    <section class="intro" aria-label="Sea Battle">
+        <span class="kicker">Kontakt</span>
+        <h1>Sea Battle</h1>
+        <div class="scene-line" aria-hidden="true"></div>
+    </section>
+
+    <section class="card" aria-label="Kontakt und Einladungen">
+        <div class="panel-title">Kontakt und Einladungen</div>
+        <xis:form binding="preferences" xis:onchange-action="refresh">
+            <div class="field">
+                <label for="email" xis:binding="email" xis:error-class="error">E-Mail</label>
+                <input id="email" type="email" xis:binding="email" autocomplete="email">
+                <p class="hint">Wir nutzen die Adresse nur fuer diese Sea-Battle-Hinweise.</p>
+            </div>
+
+            <div class="option-list">
+                <div class="choice">
+                    <input id="weekly-updates" type="checkbox" xis:binding="weeklyUpdates" value="true">
+                    <label for="weekly-updates">Ueber Erweiterungen und Veraenderungen informieren, maximal einmal pro Woche.</label>
+                </div>
+
+                <div class="choice">
+                    <input id="invite-to-play" type="checkbox" xis:binding="inviteToPlay" value="true">
+                    <label for="invite-to-play">Zu Spielrunden mit anderen Spielern eingeladen werden. Spielabende finden um 20:00 statt.</label>
+                </div>
+            </div>
+
+            <div xis:if="${inviteToPlay}">
+                <p class="hint">Welche Wochentage passen am besten?</p>
+                <div class="weekday-list">
+                    <xis:foreach var="weekday" array="weekdays">
+                        <div class="choice">
+                            <input id="weekday-${weekday.id}" type="checkbox" xis:binding="inviteWeekdays" value="${weekday.id}">
+                            <label for="weekday-${weekday.id}">${weekday.label}</label>
+                        </div>
+                    </xis:foreach>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button type="submit" xis:action="save">Speichern</button>
+                <a class="back-link" xis:page="/index.html">Zurueck</a>
+            </div>
+        </xis:form>
+    </section>
+</main>
+</body>
+</html>

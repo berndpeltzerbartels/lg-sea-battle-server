@@ -127,6 +127,14 @@
             text-decoration: none;
             text-transform: uppercase;
             padding: 0 18px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        .app-link.secondary {
+            background: rgb(217 244 245 / 12%);
+            color: #d9f4f5;
+            border: 1px solid rgb(191 231 238 / 26%);
         }
 
         .app-link:focus-visible {
@@ -306,6 +314,7 @@
     <section class="portal-card" aria-label="Anwendungen">
         <div class="panel-title">Anwendungen</div>
         <a class="app-link" xis:page="/start.html">Sea Battle starten</a>
+        <a class="app-link secondary" xis:page="/contact.html">E-Mail und Einladungen</a>
         <div class="account">
             <span class="meta-label">Angemeldet als</span>
             <p class="account-line">${accountStatus.label}</p>

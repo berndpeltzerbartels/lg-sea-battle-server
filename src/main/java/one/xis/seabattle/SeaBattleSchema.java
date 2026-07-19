@@ -76,4 +76,17 @@ class SeaBattleSchema {
                   )
                 """);
     }
+
+    @Change("008-create-contact-preferences")
+    void createContactPreferences(DDL ddl) {
+        var accounts = ddl.createTableIfNotExists("accounts");
+        accounts.addColumn("id").varchar(50).notNull().primaryKey();
+
+        var preferences = ddl.createTableIfNotExists("contact_preferences");
+        preferences.addColumn("account_id").varchar(50).notNull().primaryKey().foreignKey(accounts.getColumn("id"));
+        preferences.addColumn("email").varchar(255);
+        preferences.addColumn("weekly_updates").bool().notNull();
+        preferences.addColumn("invite_to_play").bool().notNull();
+        preferences.addColumn("invite_weekdays").varchar(120);
+    }
 }
