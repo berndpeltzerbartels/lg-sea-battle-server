@@ -43,6 +43,7 @@ public final class GameSession {
     private static final double BOT_ESCORT_MIN_DISTANCE = 95;
     private static final double BOT_ESCORT_TARGET_DISTANCE = 150;
     private static final double BOT_GLANCING_RAM_BACKOFF_SECONDS = 2.85;
+    private static final boolean SCOUT_PLANE_EXPERIMENT_PEACEFUL_BOTS = true;
     private static final double RESPAWN_DELAY_SECONDS = 8;
     private static final double RESPAWN_HUMAN_RADAR_MARGIN = 120;
     private static final double RESPAWN_MIN_SHIP_DISTANCE = 170;
@@ -570,7 +571,7 @@ public final class GameSession {
 
         boolean closeInFront = distance <= BOT_CLOSE_FIRE_RANGE && Math.abs(targetBearing) <= BOT_CLOSE_FIRE_ARC;
         boolean aimedShot = distance >= 65 && distance <= 230 && Math.abs(steerError) <= BOT_FIRE_ARC;
-        if (closeInFront || aimedShot) {
+        if (!SCOUT_PLANE_EXPERIMENT_PEACEFUL_BOTS && (closeInFront || aimedShot)) {
             fireTorpedo(ship, 10.5 + Math.abs(Math.sin(stablePhase(ship.id()))) * 3.0, aimError * 0.65);
         }
     }
