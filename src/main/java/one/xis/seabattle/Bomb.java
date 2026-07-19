@@ -2,7 +2,7 @@ package one.xis.seabattle;
 
 final class Bomb {
 
-    private static final double GRAVITY = 24.0;
+    private static final double GRAVITY = 14.0;
     private static final double SEA_LEVEL = 0.0;
 
     private final String id;
