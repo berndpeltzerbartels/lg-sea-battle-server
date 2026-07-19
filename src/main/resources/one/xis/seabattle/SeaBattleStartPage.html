@@ -142,6 +142,22 @@
             outline-offset: 3px;
         }
 
+        .contact-entry {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            gap: 12px;
+            align-items: center;
+        }
+
+        .contact-entry p {
+            max-width: 45ch;
+            margin: 0;
+            color: #bfd3da;
+            font-size: 13px;
+            font-weight: 750;
+            line-height: 1.4;
+        }
+
         .account {
             display: grid;
             gap: 5px;
@@ -293,6 +309,10 @@
                 align-items: start;
             }
 
+            .contact-entry {
+                grid-template-columns: 1fr;
+            }
+
             .scene-line {
                 height: 92px;
             }
@@ -314,7 +334,10 @@
     <section class="portal-card" aria-label="Anwendungen">
         <div class="panel-title">Anwendungen</div>
         <a class="app-link" xis:page="/start.html">Sea Battle starten</a>
-        <a class="app-link secondary" xis:page="/contact.html">E-Mail und Einladungen</a>
+        <div class="contact-entry">
+            <a class="app-link secondary" xis:page="/contact.html">E-Mail und Einladungen</a>
+            <p>Möchtest du über Spieleabende informiert werden oder Informationen über Änderungen haben?</p>
+        </div>
         <div class="account">
             <span class="meta-label">Angemeldet als</span>
             <p class="account-line">${accountStatus.label}</p>
@@ -322,8 +345,8 @@
         <div class="guide" aria-label="Sea Battle Spielanleitung">
             <section class="guide-card">
                 <h2>Worum es geht</h2>
-                <p>Sea Battle ist ein laufendes Flottenspiel. Du uebernimmst ein Schiff, suchst Gegner auf dem Radar und versenkst sie mit Torpedos oder durch Rammen.</p>
-                <p>Die Flotten bleiben gleich gross. Freie Schiffe werden von Bots gefahren, deshalb kannst du auch allein spielen.</p>
+                <p>Sea Battle ist ein laufendes Flottenspiel. Du übernimmst ein Schiff, suchst Gegner auf dem Radar und versenkst sie mit Torpedos oder durch Rammen.</p>
+                <p>Die Flotten bleiben gleich groß. Freie Schiffe werden von Bots gefahren, deshalb kannst du auch allein spielen.</p>
             </section>
 
             <section class="guide-card">
@@ -339,11 +362,11 @@
                     </div>
                     <div>
                         <dt>Rechte Maustaste</dt>
-                        <dd>Gedrueckt halten und ziehen, um das Ruder direkter zu steuern.</dd>
+                        <dd>Gedrückt halten und ziehen, um das Ruder direkter zu steuern.</dd>
                     </div>
                     <div>
                         <dt>Space, F, Enter</dt>
-                        <dd>Torpedo abfeuern. Auf Touch-Geraeten gibt es dafuer den Fire-Knopf.</dd>
+                        <dd>Torpedo abfeuern. Auf Touch-Geräten gibt es dafür den Fire-Knopf.</dd>
                     </div>
                 </dl>
             </section>
