@@ -66,7 +66,7 @@ class SeaBattleContactPage {
         } else {
             toastMessages.show("Zum dauerhaften Speichern bitte erst in Sea Battle einsteigen.", ToastLevel.WARNING);
         }
-        return new PageUrlResponse("/start.html");
+        return new PageUrlResponse("/");
     }
 
     record WeekdayOption(String id, String label) {
