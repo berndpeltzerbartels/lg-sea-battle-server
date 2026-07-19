@@ -7,6 +7,9 @@ import one.xis.ModelData;
 import one.xis.NullAllowed;
 import one.xis.Page;
 import one.xis.PageUrlResponse;
+import one.xis.validation.LabelKey;
+import one.xis.validation.Mandatory;
+import one.xis.validation.RegExpr;
 import one.xis.validation.ValidationFailedException;
 
 import java.util.Comparator;
@@ -23,6 +26,11 @@ public class SeaBattleLoginPage {
     private static final List<TeamOption> PUBLIC_TEAMS = List.of(
             new TeamOption("light", "Light"),
             new TeamOption("dark", "Dark")
+    );
+
+    private static final List<VehicleOption> VEHICLE_OPTIONS = List.of(
+            new VehicleOption("torpedo-boat", "Torpedoboot"),
+            new VehicleOption("scout-plane", "Aufklärungsflugzeug")
     );
 
     private static final List<TeamOption> ALL_TEAMS = List.of(
@@ -49,9 +57,18 @@ public class SeaBattleLoginPage {
         this.playSessionService = playSessionService;
     }
 
-    @FormData("account")
-    Account account(@NullAllowed @LocalStorage("accountId") String accountId) {
-        return accountService.findAccountById(accountId).orElseGet(this::newAccount);
+    @FormData("login")
+    LoginForm login(@NullAllowed @LocalStorage("accountId") String accountId,
+                    @NullAllowed @LocalStorage("vehicleType") String vehicleType) {
+        Account account = accountService.findAccountById(accountId).orElseGet(this::newAccount);
+        return new LoginForm(
+                account.id(),
+                account.nickname(),
+                account.alias(),
+                account.team(),
+                account.email(),
+                normalizeVehicleType(vehicleType)
+        );
     }
 
     @ModelData("teams")
@@ -67,6 +84,11 @@ public class SeaBattleLoginPage {
     @ModelData("teamOptions")
     List<TeamOption> teamOptions() {
         return PUBLIC_TEAMS;
+    }
+
+    @ModelData("vehicleOptions")
+    List<VehicleOption> vehicleOptions() {
+        return VEHICLE_OPTIONS;
     }
 
     @ModelData("players")
@@ -96,16 +118,19 @@ public class SeaBattleLoginPage {
     }
 
     @Action
-    PageUrlResponse startGame(@FormData("account") Account form) {
+    PageUrlResponse startGame(@FormData("login") LoginForm form) {
         Account account = normalizeAccount(form);
         String initials = account.alias();
         if (isAliasActive(initials, account.id())) {
-            throw new ValidationFailedException("/account/alias", "seaBattle.aliasTaken");
+            throw new ValidationFailedException("/login/alias", "seaBattle.aliasTaken");
         }
         Account savedAccount = accountService.saveAccount(account);
         startOrFindSession(savedAccount);
-        return new PageUrlResponse("/app")
-                .localStorage("accountId", savedAccount.id());
+        String vehicleType = normalizeVehicleType(form.vehicleType());
+        String target = "scout-plane".equals(vehicleType) ? "/app?vehicle=scout-plane" : "/app";
+        return new PageUrlResponse(target)
+                .localStorage("accountId", savedAccount.id())
+                .localStorage("vehicleType", vehicleType);
     }
 
     private void startOrFindSession(Account account) {
@@ -131,13 +156,17 @@ public class SeaBattleLoginPage {
         return new Account(UUID.randomUUID().toString(), "", "", "", "");
     }
 
-    private Account normalizeAccount(Account account) {
+    private Account normalizeAccount(LoginForm form) {
         return new Account(
-                account.id() == null || account.id().isBlank() ? UUID.randomUUID().toString() : account.id(),
-                normalizeName(account.nickname()),
-                account.alias() == null ? "" : account.alias().trim().toUpperCase(Locale.ROOT),
-                account.team(),
-                normalizeEmail(account.email()));
+                form.id() == null || form.id().isBlank() ? UUID.randomUUID().toString() : form.id(),
+                normalizeName(form.nickname()),
+                form.alias() == null ? "" : form.alias().trim().toUpperCase(Locale.ROOT),
+                form.team(),
+                normalizeEmail(form.email()));
+    }
+
+    private String normalizeVehicleType(String vehicleType) {
+        return "scout-plane".equals(vehicleType) ? "scout-plane" : "torpedo-boat";
     }
 
     private boolean isAliasActive(String initials, String accountId) {
@@ -181,6 +210,36 @@ public class SeaBattleLoginPage {
         TeamOption withPlayers(List<PlayerEntry> players) {
             return new TeamOption(id, label, List.copyOf(players));
         }
+    }
+
+    public record VehicleOption(String id, String label) {
+    }
+
+    public record LoginForm(
+            String id,
+
+            @Mandatory
+            @RegExpr("[\\p{L}0-9 .'-]{2,40}")
+            @LabelKey("seaBattle.nickname")
+            String nickname,
+
+            @Mandatory
+            @RegExpr("[A-Za-z0-9]{1,5}")
+            @LabelKey("seaBattle.alias")
+            String alias,
+
+            @Mandatory
+            @RegExpr("light|dark")
+            @LabelKey("seaBattle.team")
+            String team,
+
+            @LabelKey("seaBattle.email")
+            String email,
+
+            @Mandatory
+            @RegExpr("torpedo-boat|scout-plane")
+            String vehicleType
+    ) {
     }
 
     public record PlayerEntry(String name, String initials, String teamId, String team, String ship, int kills, String sector) {

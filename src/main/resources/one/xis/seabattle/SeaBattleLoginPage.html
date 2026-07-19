@@ -281,7 +281,7 @@
     </section>
 
     <section class="start-card">
-        <form xis:binding="account">
+        <form xis:binding="login">
             <xis:global-messages/>
             <input type="hidden" xis:binding="id">
 
@@ -314,12 +314,22 @@
             <div class="field">
                 <label for="team" xis:binding="team" xis:error-class="error">Flotte</label>
                 <select id="team" xis:binding="team" xis:error-class="error">
-                    <option value="">Flotte waehlen</option>
+                    <option value="">Flotte wählen</option>
                     <xis:foreach var="team" array="teamOptions">
                         <option value="${team.id}">${team.label}</option>
                     </xis:foreach>
                 </select>
                 <div class="message" xis:message-for="team"></div>
+            </div>
+
+            <div class="field">
+                <label for="vehicleType" xis:binding="vehicleType" xis:error-class="error">Fahrzeug</label>
+                <select id="vehicleType" xis:binding="vehicleType" xis:error-class="error">
+                    <xis:foreach var="vehicle" array="vehicleOptions">
+                        <option value="${vehicle.id}">${vehicle.label}</option>
+                    </xis:foreach>
+                </select>
+                <div class="message" xis:message-for="vehicleType"></div>
             </div>
 
             <button type="submit" xis:action="startGame">Einsteigen</button>
