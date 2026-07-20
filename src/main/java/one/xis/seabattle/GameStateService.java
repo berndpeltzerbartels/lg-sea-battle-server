@@ -18,6 +18,7 @@ public class GameStateService {
     private static final Logger LOGGER = Logger.getLogger(GameStateService.class.getName());
     private static final long TICK_MILLIS = 100;
     private static final double TICK_SECONDS = TICK_MILLIS / 1000.0;
+    private static final boolean TICK_METRICS_ENABLED = Boolean.getBoolean("seaBattle.tickMetrics.enabled");
     private static final double SLOW_TICK_LOG_THRESHOLD_MS = 80.0;
     private static final long TICK_METRICS_LOG_INTERVAL_NANOS = TimeUnit.MINUTES.toNanos(1);
 
@@ -225,6 +226,9 @@ public class GameStateService {
     }
 
     private void recordTickDuration(long startedNanos, long completedNanos) {
+        if (!TICK_METRICS_ENABLED) {
+            return;
+        }
         double elapsedMillis = (completedNanos - startedNanos) / 1_000_000.0;
         measuredTicks += 1;
         measuredTickMillisTotal += elapsedMillis;
