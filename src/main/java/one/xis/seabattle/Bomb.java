@@ -12,12 +12,13 @@ final class Bomb {
     private final double heading;
     private final double horizontalSpeed;
     private final double droppedAtSeconds;
+    private double releaseDelaySeconds;
     private double altitude;
     private double verticalSpeed;
     private String state = "falling";
 
     Bomb(String id, String teamId, String shipId, Vector2 position, double altitude, double heading,
-         double horizontalSpeed, double droppedAtSeconds) {
+         double horizontalSpeed, double droppedAtSeconds, double releaseDelaySeconds) {
         this.id = id;
         this.teamId = teamId;
         this.shipId = shipId;
@@ -26,6 +27,8 @@ final class Bomb {
         this.heading = heading;
         this.horizontalSpeed = Math.max(0, horizontalSpeed);
         this.droppedAtSeconds = droppedAtSeconds;
+        this.releaseDelaySeconds = Math.max(0, releaseDelaySeconds);
+        this.state = this.releaseDelaySeconds > 0 ? "pending" : "falling";
     }
 
     String id() {
@@ -53,6 +56,15 @@ final class Bomb {
     }
 
     void update(double deltaSeconds) {
+        if ("pending".equals(state)) {
+            releaseDelaySeconds -= deltaSeconds;
+            if (releaseDelaySeconds > 0) {
+                return;
+            }
+            deltaSeconds = Math.max(0, -releaseDelaySeconds);
+            releaseDelaySeconds = 0;
+            state = "falling";
+        }
         if (!"falling".equals(state)) {
             return;
         }

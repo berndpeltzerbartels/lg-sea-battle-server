@@ -13,6 +13,8 @@ public final class GameSession {
     private static final double TORPEDO_SWEEP_STEP = 1.15;
     private static final double BOMB_HIT_RADIUS = 5.0;
     private static final double BOMB_HULL_MARGIN = 0.18;
+    private static final int BOMBS_PER_DROP = 5;
+    private static final double BOMB_RELEASE_INTERVAL_SECONDS = 0.5;
     private static final double BOMB_DROP_COOLDOWN_SECONDS = 2.8;
     private static final double RAM_HIT_RADIUS = 4.8;
     private static final double RAM_BOW_OFFSET = 4.45;
@@ -185,17 +187,22 @@ public final class GameSession {
         ship.markFired(nowSeconds, BOMB_DROP_COOLDOWN_SECONDS);
         double heading = MathSupport.normalizeAngle(request.heading());
         double horizontalSpeed = Math.min(22, Math.max(4, request.speed() * 0.92));
-        Vector2 dropPosition = new Vector2(request.x(), request.z()).add(Vector2.fromHeading(heading).scale(2.6));
-        bombs.add(new Bomb(
-                "bomb-" + nextBombId++,
-                ship.teamId(),
-                ship.id(),
-                dropPosition,
-                Math.min(120, Math.max(1, request.y())),
-                heading,
-                horizontalSpeed,
-                nowSeconds
-        ));
+        Vector2 forward = Vector2.fromHeading(heading);
+        Vector2 baseDropPosition = new Vector2(request.x(), request.z()).add(forward.scale(2.6));
+        for (int index = 0; index < BOMBS_PER_DROP; index += 1) {
+            double releaseDelay = index * BOMB_RELEASE_INTERVAL_SECONDS;
+            bombs.add(new Bomb(
+                    "bomb-" + nextBombId++,
+                    ship.teamId(),
+                    ship.id(),
+                    baseDropPosition.add(forward.scale(horizontalSpeed * releaseDelay)),
+                    Math.min(120, Math.max(1, request.y())),
+                    heading,
+                    horizontalSpeed,
+                    nowSeconds + releaseDelay,
+                    releaseDelay
+            ));
+        }
     }
 
     public synchronized void releasePlayer(String playerId) {
@@ -217,7 +224,7 @@ public final class GameSession {
         respawnSunkShips(navigationService, worldMap, radarService);
         torpedoes.removeIf(torpedo -> !"running".equals(torpedo.state()));
         torpedoImpacts.removeIf(impact -> nowSeconds - impact.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
-        bombs.removeIf(bomb -> !"falling".equals(bomb.state()));
+        bombs.removeIf(bomb -> !"falling".equals(bomb.state()) && !"pending".equals(bomb.state()));
         bombImpacts.removeIf(impact -> nowSeconds - impact.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
         checkGameOver();
     }

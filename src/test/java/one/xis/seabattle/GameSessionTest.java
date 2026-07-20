@@ -103,13 +103,16 @@ class GameSessionTest {
                 session.worldMap()
         );
         GameSnapshot snapshot = session.dropBomb(new BombDropRequest(
-                "player-BP-test", "light", 0, 22, 0, 0, 14.5, "scout-plane"
+                "player-BP-test", "light", 0, 80, 0, 0, 14.5, "scout-plane"
         ));
 
         ShipSnapshot ship = findShip(snapshot, "light-1");
         assertNotNull(ship);
         assertEquals("scout-plane", ship.vehicleType());
         assertEquals(1, snapshot.bombs().size());
+
+        session.update(2.1, radarService, navigationService, session.worldMap());
+        assertEquals(5, session.snapshot().bombs().size());
     }
 
     @Test
@@ -167,7 +170,7 @@ class GameSessionTest {
                 new WorldMap(9034, List.of()),
                 List.of(
                         new FleetSetup("light", List.of(ship("light-1", "light", 0, 0, 0, "bot", 5, 0, 0))),
-                        new FleetSetup("dark", List.of(ship("dark-1", "dark", 1.1, 2.6, 0, "bot", 2, 0)))
+                        new FleetSetup("dark", List.of(ship("dark-1", "dark", 2.0, 2.6, 0, "bot", 2, 0)))
                 ),
                 List.of(new Vector2(0, 0), new Vector2(20, 0))
         ));
