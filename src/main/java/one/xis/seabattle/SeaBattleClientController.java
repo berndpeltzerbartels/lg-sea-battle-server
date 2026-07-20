@@ -62,27 +62,6 @@ public class SeaBattleClientController {
         return ResponseEntity.redirect("/app");
     }
 
-    @Get("/app")
-    @Produces(ContentType.TEXT_HTML_UTF8)
-    public ResponseEntity<byte[]> clientApp() {
-        return clientResource("/sea-battle-client/index.html", ContentType.TEXT_HTML_UTF8);
-    }
-
-    @Get("/assets/{resource}")
-    @Produces(ContentType.APPLICATION_OCTET_STREAM)
-    public ResponseEntity<byte[]> clientAsset(@PathVariable("resource") String resource) {
-        if (unsafeClientResourceName(resource)) {
-            return ResponseEntity.notFound();
-        }
-        return clientResource("/sea-battle-client/assets/" + resource, clientResourceContentType(resource));
-    }
-
-    @Get("/webgpu.html")
-    @Produces(ContentType.TEXT_HTML_UTF8)
-    public ResponseEntity<byte[]> webGpuClientApp() {
-        return clientResource("/sea-battle-client/webgpu.html", ContentType.TEXT_HTML_UTF8);
-    }
-
     @Get("/start.htm")
     public ResponseEntity<?> redirectLegacyStartPage() {
         return ResponseEntity.redirect("/start.html");
@@ -367,46 +346,6 @@ public class SeaBattleClientController {
                 properties.getProperty("commit", "unknown"),
                 properties.getProperty("buildTime", "unknown")
         );
-    }
-
-    private ResponseEntity<byte[]> clientResource(String resourcePath, ContentType contentType) {
-        try (var input = SeaBattleClientController.class.getResourceAsStream(resourcePath)) {
-            if (input == null) {
-                return ResponseEntity.notFound();
-            }
-            return ResponseEntity.ok(input.readAllBytes())
-                    .addHeader("Content-Type", contentType.getValue())
-                    .addHeader("Cache-Control", "no-store");
-        } catch (Exception e) {
-            return ResponseEntity.status(500, "Could not load Sea Battle client resource.".getBytes());
-        }
-    }
-
-    private boolean unsafeClientResourceName(String resource) {
-        return resource == null || resource.isBlank()
-                || resource.contains("..")
-                || resource.contains("/")
-                || resource.contains("\\")
-                || resource.contains(":");
-    }
-
-    private ContentType clientResourceContentType(String resource) {
-        if (resource.endsWith(".js")) {
-            return ContentType.JAVASCRIPT;
-        }
-        if (resource.endsWith(".css")) {
-            return ContentType.CSS;
-        }
-        if (resource.endsWith(".svg")) {
-            return ContentType.SVG;
-        }
-        if (resource.endsWith(".png")) {
-            return ContentType.PNG;
-        }
-        if (resource.endsWith(".jpg") || resource.endsWith(".jpeg")) {
-            return ContentType.JPEG;
-        }
-        return ContentType.APPLICATION_OCTET_STREAM;
     }
 
     public record PlayerLogin(String playerId, String initials, String teamId) {
