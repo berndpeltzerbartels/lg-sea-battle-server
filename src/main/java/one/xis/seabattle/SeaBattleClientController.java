@@ -62,6 +62,27 @@ public class SeaBattleClientController {
         return ResponseEntity.redirect("/app");
     }
 
+    @Get("/app")
+    public void clientApp(HttpResponse response) {
+        serveClientResource(response, "/sea-battle-client/index.html", ContentType.TEXT_HTML_UTF8);
+    }
+
+    @Get("/assets/{resource}")
+    public void clientAsset(@PathVariable("resource") String resource, HttpResponse response) {
+        if (unsafeClientResourceName(resource)) {
+            response.setStatusCode(404);
+            response.setContentType(ContentType.TEXT_PLAIN);
+            response.setBody("Not found");
+            return;
+        }
+        serveClientResource(response, "/sea-battle-client/assets/" + resource, clientResourceContentType(resource));
+    }
+
+    @Get("/webgpu.html")
+    public void webGpuClientApp(HttpResponse response) {
+        serveClientResource(response, "/sea-battle-client/webgpu.html", ContentType.TEXT_HTML_UTF8);
+    }
+
     @Get("/start.htm")
     public ResponseEntity<?> redirectLegacyStartPage() {
         return ResponseEntity.redirect("/start.html");
@@ -346,6 +367,52 @@ public class SeaBattleClientController {
                 properties.getProperty("commit", "unknown"),
                 properties.getProperty("buildTime", "unknown")
         );
+    }
+
+    private void serveClientResource(HttpResponse response, String resourcePath, ContentType contentType) {
+        try (var input = SeaBattleClientController.class.getResourceAsStream(resourcePath)) {
+            if (input == null) {
+                response.setStatusCode(404);
+                response.setContentType(ContentType.TEXT_PLAIN);
+                response.setBody("Not found");
+                return;
+            }
+            response.setStatusCode(200);
+            response.setContentType(contentType);
+            response.addHeader("Cache-Control", "no-store");
+            response.setBody(input.readAllBytes());
+        } catch (Exception e) {
+            response.setStatusCode(500);
+            response.setContentType(ContentType.TEXT_PLAIN);
+            response.setBody("Could not load Sea Battle client resource.");
+        }
+    }
+
+    private boolean unsafeClientResourceName(String resource) {
+        return resource == null || resource.isBlank()
+                || resource.contains("..")
+                || resource.contains("/")
+                || resource.contains("\\")
+                || resource.contains(":");
+    }
+
+    private ContentType clientResourceContentType(String resource) {
+        if (resource.endsWith(".js")) {
+            return ContentType.JAVASCRIPT;
+        }
+        if (resource.endsWith(".css")) {
+            return ContentType.CSS;
+        }
+        if (resource.endsWith(".svg")) {
+            return ContentType.SVG;
+        }
+        if (resource.endsWith(".png")) {
+            return ContentType.PNG;
+        }
+        if (resource.endsWith(".jpg") || resource.endsWith(".jpeg")) {
+            return ContentType.JPEG;
+        }
+        return ContentType.APPLICATION_OCTET_STREAM;
     }
 
     public record PlayerLogin(String playerId, String initials, String teamId) {
