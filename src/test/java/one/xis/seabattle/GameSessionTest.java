@@ -161,6 +161,36 @@ class GameSessionTest {
     }
 
     @Test
+    void bombNearMissDoesNotSinkShip() {
+        GameSession session = new GameSession(new GameSetup(
+                "bomb-near-miss-test",
+                new WorldMap(9034, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(ship("light-1", "light", 0, 0, 0, "bot", 5, 0, 0))),
+                        new FleetSetup("dark", List.of(ship("dark-1", "dark", 1.1, 2.6, 0, "bot", 2, 0)))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(20, 0))
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-BP-test", "light", 0, 0, 0, 8, 0, 7, 0, 0, false, "scout-plane"),
+                navigationService,
+                session.worldMap()
+        );
+        session.dropBomb(new BombDropRequest(
+                "player-BP-test", "light", 0, 1, 0, 0, 0, "scout-plane"
+        ));
+        GameSnapshot snapshot = session.snapshot();
+        for (int index = 0; index < 12 && snapshot.bombImpacts().isEmpty(); index += 1) {
+            session.update(0.1, radarService, navigationService, session.worldMap());
+            snapshot = session.snapshot();
+        }
+
+        assertEquals("active", findShip(snapshot, "dark-1").state());
+        assertEquals("sea-hit", snapshot.bombImpacts().get(0).reason());
+    }
+
+    @Test
     void torpedoesDoNotHitScoutPlanes() {
         GameSession session = new GameSession(new GameSetup(
                 "scout-plane-torpedo-ignore-test",
