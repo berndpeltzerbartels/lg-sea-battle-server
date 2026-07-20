@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -25,6 +26,7 @@ public class GameStateService {
     private final RadarService radarService;
     private final NavigationService navigationService;
     private final Set<String> requestedTeamIds = new LinkedHashSet<>();
+    private final Set<String> connectedPlayerIds = ConcurrentHashMap.newKeySet();
     private final ExecutorService executor = Executors.newSingleThreadExecutor(task -> {
         Thread thread = new Thread(task, "sea-battle-game-state");
         thread.setDaemon(true);
@@ -62,7 +64,7 @@ public class GameStateService {
     public GameSnapshot tick(double deltaSeconds) {
         SessionView view;
         synchronized (this) {
-            if (!session.hasHumanControlledShip()) {
+            if (!session.hasHumanControlledShip(connectedPlayerIds)) {
                 return publishedModel.state();
             }
             session.update(deltaSeconds, radarService, navigationService, session.worldMap());
@@ -105,10 +107,17 @@ public class GameStateService {
     public void releasePlayer(String playerId) {
         SessionView view;
         synchronized (this) {
+            connectedPlayerIds.remove(playerId);
             session.releasePlayer(playerId);
             view = captureSessionView();
         }
         publishModel(view);
+    }
+
+    public void connectPlayer(String playerId) {
+        if (playerId != null && !playerId.isBlank()) {
+            connectedPlayerIds.add(playerId);
+        }
     }
 
     public GameSnapshot reset(ResetGameRequest request) {

@@ -66,6 +66,7 @@ public final class SeaBattleEventService {
                 playerRegistry.aliasForPlayer(playerId),
                 playerRegistry.teamIdForPlayer(playerId));
         players.add(playerId);
+        gameStateService.connectPlayer(playerId);
         connections.register(PLAYER_SCOPE, playerId, emitter);
         send(playerId, createMessage(gameStateService.snapshot()));
     }

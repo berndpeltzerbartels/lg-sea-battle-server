@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 public final class GameSession {
 
@@ -96,11 +97,14 @@ public final class GameSession {
         return respawnCandidates;
     }
 
-    boolean hasHumanControlledShip() {
+    boolean hasHumanControlledShip(Set<String> activePlayerIds) {
+        if (activePlayerIds == null || activePlayerIds.isEmpty()) {
+            return false;
+        }
         return allShips().stream()
                 .anyMatch(ship -> "active".equals(ship.state())
                         && ship.controlledBy() != null
-                        && ship.controlledBy().startsWith("player-"));
+                        && activePlayerIds.contains(ship.controlledBy()));
     }
 
     public synchronized GameSnapshot snapshot() {
