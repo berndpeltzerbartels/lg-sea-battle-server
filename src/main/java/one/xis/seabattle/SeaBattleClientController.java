@@ -63,11 +63,13 @@ public class SeaBattleClientController {
     }
 
     @Get("/app")
+    @Produces(ContentType.TEXT_HTML_UTF8)
     public ResponseEntity<byte[]> clientApp() {
         return clientResource("/sea-battle-client/index.html", ContentType.TEXT_HTML_UTF8);
     }
 
     @Get("/assets/{resource}")
+    @Produces(ContentType.APPLICATION_OCTET_STREAM)
     public ResponseEntity<byte[]> clientAsset(@PathVariable("resource") String resource) {
         if (unsafeClientResourceName(resource)) {
             return ResponseEntity.notFound();
@@ -76,6 +78,7 @@ public class SeaBattleClientController {
     }
 
     @Get("/webgpu.html")
+    @Produces(ContentType.TEXT_HTML_UTF8)
     public ResponseEntity<byte[]> webGpuClientApp() {
         return clientResource("/sea-battle-client/webgpu.html", ContentType.TEXT_HTML_UTF8);
     }
