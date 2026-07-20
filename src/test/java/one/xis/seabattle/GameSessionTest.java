@@ -771,6 +771,28 @@ class GameSessionTest {
     }
 
     @Test
+    void scoutPlaneSnapshotIncludesClientAltitude() {
+        GameSession session = new GameSession(new GameSetup(
+                "scout-plane-altitude-test",
+                new WorldMap(9035, List.of()),
+                List.of(new FleetSetup("light", List.of(
+                        ship("light-1", "light", 0, 0, 0, "bot", 5, 0, 0)
+                ))),
+                List.of(new Vector2(0, 0))
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-BP-test", "light", 0, 0, 0, 8, 0, 7, 0, 0, false, "scout-plane", 64),
+                navigationService,
+                session.worldMap()
+        );
+
+        ShipSnapshot ship = findShip(session.snapshot(), "light-1");
+        assertEquals("scout-plane", ship.vehicleType());
+        assertEquals(64, ship.y(), 0.001);
+    }
+
+    @Test
     void defaultFactoryCanSelectSmallTestSetups() {
         DefaultGameSetupFactory factory = new DefaultGameSetupFactory(new WorldMapService());
 

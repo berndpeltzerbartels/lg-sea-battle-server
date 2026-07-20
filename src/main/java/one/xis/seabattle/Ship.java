@@ -13,6 +13,7 @@ final class Ship {
     private final String id;
     private final String teamId;
     private Vector2 position;
+    private double y;
     private double heading;
     private double speed;
     private double turnVelocity;
@@ -118,6 +119,7 @@ final class Ship {
         }
 
         position = requestedPosition;
+        y = isScoutPlane() ? MathSupport.clamp(update.y(), 1, 120) : 0;
         heading = MathSupport.normalizeAngle(update.heading());
         speed = MathSupport.clamp(update.speed(), -MAX_ACCEPTED_PLAYER_SPEED, MAX_ACCEPTED_PLAYER_SPEED);
         turnVelocity = MathSupport.clamp(
@@ -250,6 +252,7 @@ final class Ship {
         rudderDegrees = 0;
         controlledBy = "bot";
         vehicleType = VEHICLE_TORPEDO_BOAT;
+        y = 0;
         state = "active";
         torpedoesRemaining = TORPEDO_STOCK;
         nextFireTime = nowSeconds + 3;
@@ -272,7 +275,8 @@ final class Ship {
                 state,
                 controlledBy,
                 torpedoesRemaining,
-                vehicleType
+                vehicleType,
+                MathSupport.round(isScoutPlane() ? y : 0)
         );
     }
 

@@ -13,6 +13,7 @@ public record ShipSnapshot(
         String state,
         String controlledBy,
         int torpedoesRemaining,
-        String vehicleType
+        String vehicleType,
+        double y
 ) {
 }

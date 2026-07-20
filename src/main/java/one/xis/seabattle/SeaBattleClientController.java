@@ -145,7 +145,8 @@ public class SeaBattleClientController {
                 update.rudderDegrees(),
                 update.clientTime(),
                 update.debugTeleport(),
-                update.vehicleType()
+                update.vehicleType(),
+                update.y()
         )));
     }
 
