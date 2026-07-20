@@ -28,11 +28,6 @@ public class SeaBattleLoginPage {
             new TeamOption("dark", "Dark")
     );
 
-    private static final List<VehicleOption> VEHICLE_OPTIONS = List.of(
-            new VehicleOption("torpedo-boat", "Torpedoboot"),
-            new VehicleOption("scout-plane", "Aufklärungsflugzeug")
-    );
-
     private static final List<TeamOption> ALL_TEAMS = List.of(
             new TeamOption("light", "Light"),
             new TeamOption("dark", "Dark"),
@@ -67,7 +62,7 @@ public class SeaBattleLoginPage {
                 account.alias(),
                 account.team(),
                 account.email(),
-                normalizeVehicleType(vehicleType)
+                "torpedo-boat"
         );
     }
 
@@ -84,11 +79,6 @@ public class SeaBattleLoginPage {
     @ModelData("teamOptions")
     List<TeamOption> teamOptions() {
         return PUBLIC_TEAMS;
-    }
-
-    @ModelData("vehicleOptions")
-    List<VehicleOption> vehicleOptions() {
-        return VEHICLE_OPTIONS;
     }
 
     @ModelData("players")
@@ -210,9 +200,6 @@ public class SeaBattleLoginPage {
         TeamOption withPlayers(List<PlayerEntry> players) {
             return new TeamOption(id, label, List.copyOf(players));
         }
-    }
-
-    public record VehicleOption(String id, String label) {
     }
 
     public record LoginForm(

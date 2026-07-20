@@ -322,15 +322,7 @@
                 <div class="message" xis:message-for="team"></div>
             </div>
 
-            <div class="field">
-                <label for="vehicleType" xis:binding="vehicleType" xis:error-class="error">Fahrzeug</label>
-                <select id="vehicleType" xis:binding="vehicleType" xis:error-class="error">
-                    <xis:foreach var="vehicle" array="vehicleOptions">
-                        <option value="${vehicle.id}">${vehicle.label}</option>
-                    </xis:foreach>
-                </select>
-                <div class="message" xis:message-for="vehicleType"></div>
-            </div>
+            <input type="hidden" xis:binding="vehicleType" value="torpedo-boat">
 
             <button type="submit" xis:action="startGame">Einsteigen</button>
         </form>
