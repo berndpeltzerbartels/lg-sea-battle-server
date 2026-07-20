@@ -45,7 +45,7 @@ public final class GameSession {
     private static final double BOT_ESCORT_MIN_DISTANCE = 95;
     private static final double BOT_ESCORT_TARGET_DISTANCE = 150;
     private static final double BOT_GLANCING_RAM_BACKOFF_SECONDS = 2.85;
-    private static final boolean SCOUT_PLANE_EXPERIMENT_PEACEFUL_BOTS = true;
+    private static final boolean SCOUT_PLANE_EXPERIMENT_PEACEFUL_BOTS = false;
     private static final double RESPAWN_DELAY_SECONDS = 8;
     private static final double RESPAWN_HUMAN_RADAR_MARGIN = 120;
     private static final double RESPAWN_MIN_SHIP_DISTANCE = 170;
