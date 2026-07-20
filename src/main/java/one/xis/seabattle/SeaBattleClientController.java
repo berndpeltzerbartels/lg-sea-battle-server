@@ -63,24 +63,21 @@ public class SeaBattleClientController {
     }
 
     @Get("/app")
-    public void clientApp(HttpResponse response) {
-        serveClientResource(response, "/sea-battle-client/index.html", ContentType.TEXT_HTML_UTF8);
+    public ResponseEntity<byte[]> clientApp() {
+        return clientResource("/sea-battle-client/index.html", ContentType.TEXT_HTML_UTF8);
     }
 
     @Get("/assets/{resource}")
-    public void clientAsset(@PathVariable("resource") String resource, HttpResponse response) {
+    public ResponseEntity<byte[]> clientAsset(@PathVariable("resource") String resource) {
         if (unsafeClientResourceName(resource)) {
-            response.setStatusCode(404);
-            response.setContentType(ContentType.TEXT_PLAIN);
-            response.setBody("Not found");
-            return;
+            return ResponseEntity.notFound();
         }
-        serveClientResource(response, "/sea-battle-client/assets/" + resource, clientResourceContentType(resource));
+        return clientResource("/sea-battle-client/assets/" + resource, clientResourceContentType(resource));
     }
 
     @Get("/webgpu.html")
-    public void webGpuClientApp(HttpResponse response) {
-        serveClientResource(response, "/sea-battle-client/webgpu.html", ContentType.TEXT_HTML_UTF8);
+    public ResponseEntity<byte[]> webGpuClientApp() {
+        return clientResource("/sea-battle-client/webgpu.html", ContentType.TEXT_HTML_UTF8);
     }
 
     @Get("/start.htm")
@@ -369,22 +366,16 @@ public class SeaBattleClientController {
         );
     }
 
-    private void serveClientResource(HttpResponse response, String resourcePath, ContentType contentType) {
+    private ResponseEntity<byte[]> clientResource(String resourcePath, ContentType contentType) {
         try (var input = SeaBattleClientController.class.getResourceAsStream(resourcePath)) {
             if (input == null) {
-                response.setStatusCode(404);
-                response.setContentType(ContentType.TEXT_PLAIN);
-                response.setBody("Not found");
-                return;
+                return ResponseEntity.notFound();
             }
-            response.setStatusCode(200);
-            response.setContentType(contentType);
-            response.addHeader("Cache-Control", "no-store");
-            response.setBody(input.readAllBytes());
+            return ResponseEntity.ok(input.readAllBytes())
+                    .addHeader("Content-Type", contentType.getValue())
+                    .addHeader("Cache-Control", "no-store");
         } catch (Exception e) {
-            response.setStatusCode(500);
-            response.setContentType(ContentType.TEXT_PLAIN);
-            response.setBody("Could not load Sea Battle client resource.");
+            return ResponseEntity.status(500, "Could not load Sea Battle client resource.".getBytes());
         }
     }
 
