@@ -96,6 +96,13 @@ public final class GameSession {
         return respawnCandidates;
     }
 
+    boolean hasHumanControlledShip() {
+        return allShips().stream()
+                .anyMatch(ship -> "active".equals(ship.state())
+                        && ship.controlledBy() != null
+                        && ship.controlledBy().startsWith("player-"));
+    }
+
     public synchronized GameSnapshot snapshot() {
         return new GameSnapshot(
                 "state",
