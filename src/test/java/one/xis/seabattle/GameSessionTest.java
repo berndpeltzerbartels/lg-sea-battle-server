@@ -475,6 +475,33 @@ class GameSessionTest {
     }
 
     @Test
+    void scoutPlaneCannotRamBoatFromAbove() {
+        GameSession session = new GameSession(new GameSetup(
+                "scout-plane-over-boat-ram-ignore-test",
+                new WorldMap(9033, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, Math.PI / 2, "bot", 2, 0))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 0, 0, 0, "bot", 2, 0)))
+                ),
+                List.of(new Vector2(0, 0))
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-BP-test", "red", 0, 0, Math.PI / 2, 8, 0, 7, 0, 0, false, "scout-plane", 40),
+                navigationService,
+                session.worldMap()
+        );
+        session.update(0.05, radarService, navigationService, session.worldMap());
+        GameSnapshot snapshot = session.snapshot();
+
+        assertEquals("active", findShip(snapshot, "red-1").state());
+        assertEquals("active", findShip(snapshot, "blue-1").state());
+        assertEquals("scout-plane", findShip(snapshot, "red-1").vehicleType());
+        assertEquals(0, snapshot.destroyedShipsByTeam().get("red"));
+        assertEquals(0, snapshot.destroyedShipsByTeam().get("blue"));
+    }
+
+    @Test
     void diagonalSideRamSinksTargetOnly() {
         GameSession session = new GameSession(new GameSetup(
                 "diagonal-ram-test",

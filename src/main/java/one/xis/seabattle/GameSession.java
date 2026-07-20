@@ -609,6 +609,7 @@ public final class GameSession {
     private void updateRamCollisions() {
         List<Ship> activeShips = allShips().stream()
                 .filter(ship -> "active".equals(ship.state()))
+                .filter(ship -> !ship.isScoutPlane())
                 .toList();
         for (int i = 0; i < activeShips.size(); i += 1) {
             Ship left = activeShips.get(i);
