@@ -15,7 +15,8 @@ import java.util.stream.Collectors;
 public class SeaBattleDiagnosticsService {
 
     private static final Logger LOGGER = Logger.getLogger(SeaBattleDiagnosticsService.class.getName());
-    private static final long SERVER_SNAPSHOT_SECONDS = 2;
+    private static final boolean DIAGNOSTICS_ENABLED = Boolean.getBoolean("seaBattle.diagnostics.enabled");
+    private static final long SERVER_SNAPSHOT_SECONDS = Long.getLong("seaBattle.diagnostics.serverSnapshotSeconds", 30);
 
     private final GameStateService gameStateService;
     private final SeaBattlePlayerRegistry playerRegistry;
@@ -28,10 +29,15 @@ public class SeaBattleDiagnosticsService {
     public SeaBattleDiagnosticsService(GameStateService gameStateService, SeaBattlePlayerRegistry playerRegistry) {
         this.gameStateService = gameStateService;
         this.playerRegistry = playerRegistry;
-        executor.scheduleAtFixedRate(this::logServerSnapshotSafely, SERVER_SNAPSHOT_SECONDS, SERVER_SNAPSHOT_SECONDS, TimeUnit.SECONDS);
+        if (DIAGNOSTICS_ENABLED) {
+            executor.scheduleAtFixedRate(this::logServerSnapshotSafely, SERVER_SNAPSHOT_SECONDS, SERVER_SNAPSHOT_SECONDS, TimeUnit.SECONDS);
+        }
     }
 
     public void logClientDiagnostics(ClientDiagnosticsReport report) {
+        if (!DIAGNOSTICS_ENABLED) {
+            return;
+        }
         if (report == null) {
             return;
         }
