@@ -17,7 +17,7 @@ public final class GameSession {
     private static final int BOMBS_PER_DROP = 8;
     private static final double BOMB_RELEASE_INTERVAL_SECONDS = 0.28;
     private static final double BOMB_DROP_COOLDOWN_SECONDS = 2.8;
-    private static final double FLAK_FIRE_COOLDOWN_SECONDS = 0.18;
+    private static final double FLAK_FIRE_COOLDOWN_SECONDS = 0.22;
     private static final double RAM_HIT_RADIUS = 4.8;
     private static final double RAM_BOW_OFFSET = 4.45;
     private static final double RAM_STERN_LENGTH = -4.05;
