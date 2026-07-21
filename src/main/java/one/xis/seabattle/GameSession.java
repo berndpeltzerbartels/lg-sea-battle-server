@@ -17,6 +17,7 @@ public final class GameSession {
     private static final int BOMBS_PER_DROP = 8;
     private static final double BOMB_RELEASE_INTERVAL_SECONDS = 0.28;
     private static final double BOMB_DROP_COOLDOWN_SECONDS = 2.8;
+    private static final double FLAK_FIRE_COOLDOWN_SECONDS = 0.18;
     private static final double RAM_HIT_RADIUS = 4.8;
     private static final double RAM_BOW_OFFSET = 4.45;
     private static final double RAM_STERN_LENGTH = -4.05;
@@ -69,12 +70,15 @@ public final class GameSession {
     private final List<Vector2> respawnCandidates;
     private final Map<String, Integer> destroyedShipsByTeam = new LinkedHashMap<>();
     private final Map<String, Integer> killsByPlayer = new LinkedHashMap<>();
+    private final Map<String, Double> nextFlakFireTimeByShipId = new LinkedHashMap<>();
     private final List<Torpedo> torpedoes = new ArrayList<>();
     private final List<TorpedoImpactSnapshot> torpedoImpacts = new ArrayList<>();
     private final List<Bomb> bombs = new ArrayList<>();
     private final List<BombImpactSnapshot> bombImpacts = new ArrayList<>();
+    private final List<FlakProjectile> flakProjectiles = new ArrayList<>();
     private int nextTorpedoId = 1;
     private int nextBombId = 1;
+    private int nextFlakProjectileId = 1;
     private int nextRespawnCandidateIndex;
     private int lastRespawnCandidateIndex = -1;
     private double nowSeconds;
@@ -130,6 +134,10 @@ public final class GameSession {
                         .toList(),
                 bombImpacts.stream()
                         .filter(impact -> nowSeconds - impact.t() <= TORPEDO_IMPACT_VISIBILITY_SECONDS)
+                        .toList(),
+                flakProjectiles.stream()
+                        .filter(projectile -> "flying".equals(projectile.state()))
+                        .map(FlakProjectile::snapshot)
                         .toList(),
                 Map.copyOf(destroyedShipsByTeam),
                 Map.copyOf(killsByPlayer)
@@ -216,6 +224,42 @@ public final class GameSession {
         }
     }
 
+    public synchronized GameSnapshot fireFlak(FlakFireRequest request) {
+        applyFireFlak(request);
+        return snapshot();
+    }
+
+    public synchronized void applyFireFlak(FlakFireRequest request) {
+        Fleet fleet = fleets.get(request.teamId());
+        if (fleet == null) {
+            throw new IllegalArgumentException("Unknown team: " + request.teamId());
+        }
+
+        Ship ship = fleet.assignedShip(request.playerId())
+                .orElseThrow(() -> new IllegalStateException("No active ship available for team: " + request.teamId()));
+        if (ship.isScoutPlane() || !ship.id().equals(request.shipId()) || !canFireFlak(ship)) {
+            return;
+        }
+
+        nextFlakFireTimeByShipId.put(ship.id(), nowSeconds + FLAK_FIRE_COOLDOWN_SECONDS);
+        flakProjectiles.add(new FlakProjectile(
+                "flak-" + nextFlakProjectileId++,
+                ship.teamId(),
+                ship.id(),
+                request.x(),
+                Math.max(0, request.y()),
+                request.z(),
+                request.vx(),
+                request.vy(),
+                request.vz(),
+                nowSeconds
+        ));
+    }
+
+    private boolean canFireFlak(Ship ship) {
+        return nowSeconds >= nextFlakFireTimeByShipId.getOrDefault(ship.id(), 0.0);
+    }
+
     public synchronized void releasePlayer(String playerId) {
         fleets.values().forEach(fleet -> fleet.releasePlayer(playerId));
     }
@@ -231,12 +275,14 @@ public final class GameSession {
                 .forEach(ship -> ship.update(deltaSeconds, navigationService, worldMap));
         updateTorpedoes(deltaSeconds, navigationService, worldMap);
         updateBombs(deltaSeconds);
+        updateFlakProjectiles(deltaSeconds);
         updateRamCollisions();
         respawnSunkShips(navigationService, worldMap, radarService);
         torpedoes.removeIf(torpedo -> !"running".equals(torpedo.state()));
         torpedoImpacts.removeIf(impact -> nowSeconds - impact.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
         bombs.removeIf(bomb -> !"falling".equals(bomb.state()) && !"pending".equals(bomb.state()));
         bombImpacts.removeIf(impact -> nowSeconds - impact.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
+        flakProjectiles.removeIf(projectile -> !"flying".equals(projectile.state()));
         checkGameOver();
     }
 
@@ -835,6 +881,10 @@ public final class GameSession {
                         recordBombImpact(bomb, "ship-hit", ship.id());
                     }, () -> recordBombImpact(bomb, "sea-hit", null));
         }
+    }
+
+    private void updateFlakProjectiles(double deltaSeconds) {
+        flakProjectiles.forEach(projectile -> projectile.update(deltaSeconds));
     }
 
     private boolean bombHitsShip(Bomb bomb, Ship ship) {

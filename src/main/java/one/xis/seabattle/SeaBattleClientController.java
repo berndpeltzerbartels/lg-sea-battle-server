@@ -184,6 +184,27 @@ public class SeaBattleClientController {
         )));
     }
 
+    @Post("/game/fire-flak")
+    @Produces(ContentType.JSON_UTF8)
+    public ResponseEntity<?> fireFlak(@RequestBody FlakFireRequest request) {
+        String teamId = teamIdFor(request.playerId());
+        if (teamId == null) {
+            diagnosticsService.logRejectedRequest("fire-flak", request.playerId(), "not-registered");
+            return ResponseEntity.status(403, "Player is not registered");
+        }
+        return ResponseEntity.ok(gameStateService.fireFlak(new FlakFireRequest(
+                request.playerId(),
+                teamId,
+                request.shipId(),
+                request.x(),
+                request.y(),
+                request.z(),
+                request.vx(),
+                request.vy(),
+                request.vz()
+        )));
+    }
+
     @Post("/game/reset")
     @Produces(ContentType.JSON_UTF8)
     public GameSnapshot resetGame(@RequestBody ResetGameRequest request) {

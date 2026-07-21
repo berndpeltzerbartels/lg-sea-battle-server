@@ -87,6 +87,32 @@ class GameSessionTest {
     }
 
     @Test
+    void torpedoBoatPlayerCanFireVisibleFlakProjectile() {
+        GameSession session = new GameSession(new GameSetup(
+                "flak-fire-test",
+                new WorldMap(9027, List.of()),
+                List.of(new FleetSetup("light", List.of(
+                        ship("light-1", "light", 0, 0, 0, "bot", 5, 0, 0)
+                ))),
+                List.of(new Vector2(0, 0))
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-BP-test", "light", 0, 0, 0, 4, 0, 5, 0, 0, false, "torpedo-boat"),
+                navigationService,
+                session.worldMap()
+        );
+        GameSnapshot snapshot = session.fireFlak(new FlakFireRequest(
+                "player-BP-test", "light", "light-1", 0, 1.5, -3, 0, 60, 95
+        ));
+
+        assertEquals(1, snapshot.flakProjectiles().size());
+        FlakProjectileSnapshot projectile = snapshot.flakProjectiles().get(0);
+        assertEquals("light-1", projectile.shipId());
+        assertEquals(1.5, projectile.y(), 0.01);
+    }
+
+    @Test
     void scoutPlanePlayerCanDropBomb() {
         GameSession session = new GameSession(new GameSetup(
                 "scout-plane-bomb-test",
