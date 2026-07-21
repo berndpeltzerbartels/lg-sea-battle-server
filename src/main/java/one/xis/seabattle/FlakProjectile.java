@@ -3,7 +3,7 @@ package one.xis.seabattle;
 final class FlakProjectile {
 
     private static final double GRAVITY = 9.0;
-    private static final double LIFETIME_SECONDS = 4.2;
+    private static final double LIFETIME_SECONDS = 8.0;
 
     private final String id;
     private final String teamId;
