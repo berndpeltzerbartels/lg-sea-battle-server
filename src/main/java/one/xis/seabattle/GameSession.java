@@ -16,7 +16,7 @@ public final class GameSession {
     private static final double BOMB_HULL_MARGIN = 0.18;
     private static final int BOMBS_PER_DROP = 8;
     private static final double BOMB_RELEASE_INTERVAL_SECONDS = 0.28;
-    private static final double BOMB_ROW_OFFSET = 0.1;
+    private static final double BOMB_DROP_FORWARD_OFFSET = 0.6;
     private static final double BOMB_DROP_COOLDOWN_SECONDS = 2.8;
     private static final double FLAK_FIRE_COOLDOWN_SECONDS = 0.22;
     private static final double RAM_HIT_RADIUS = 4.8;
@@ -868,11 +868,8 @@ public final class GameSession {
                 double heading = MathSupport.normalizeAngle(ship.heading());
                 double horizontalSpeed = Math.min(22, Math.max(4, ship.speed() * 0.92));
                 Vector2 forward = Vector2.fromHeading(heading);
-                Vector2 right = new Vector2(Math.cos(heading), -Math.sin(heading));
-                double rowOffset = (release.index() % 2 == 0 ? -0.5 : 0.5) * BOMB_ROW_OFFSET;
                 Vector2 position = ship.position()
-                        .add(forward.scale(2.6))
-                        .add(right.scale(rowOffset));
+                        .add(forward.scale(BOMB_DROP_FORWARD_OFFSET));
                 bombs.add(new Bomb(
                         "bomb-" + nextBombId++,
                         ship.teamId(),
