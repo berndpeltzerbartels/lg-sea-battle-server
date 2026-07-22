@@ -84,6 +84,10 @@ final class Ship {
         return speed;
     }
 
+    double y() {
+        return y;
+    }
+
     void nextFireTime(double nextFireTime) {
         this.nextFireTime = nextFireTime;
     }

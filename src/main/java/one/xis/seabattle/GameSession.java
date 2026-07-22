@@ -14,8 +14,8 @@ public final class GameSession {
     private static final double TORPEDO_SWEEP_STEP = 1.15;
     private static final double BOMB_HIT_RADIUS = 5.0;
     private static final double BOMB_HULL_MARGIN = 0.18;
-    private static final int BOMBS_PER_DROP = 16;
-    private static final double BOMB_RELEASE_INTERVAL_SECONDS = 0.14;
+    private static final int BOMBS_PER_DROP = 8;
+    private static final double BOMB_RELEASE_INTERVAL_SECONDS = 0.28;
     private static final double BOMB_ROW_OFFSET = 0.1;
     private static final double BOMB_DROP_COOLDOWN_SECONDS = 2.8;
     private static final double FLAK_FIRE_COOLDOWN_SECONDS = 0.22;
@@ -75,6 +75,7 @@ public final class GameSession {
     private final List<Torpedo> torpedoes = new ArrayList<>();
     private final List<TorpedoImpactSnapshot> torpedoImpacts = new ArrayList<>();
     private final List<Bomb> bombs = new ArrayList<>();
+    private final List<PendingBombRelease> pendingBombReleases = new ArrayList<>();
     private final List<BombImpactSnapshot> bombImpacts = new ArrayList<>();
     private final List<FlakProjectile> flakProjectiles = new ArrayList<>();
     private int nextTorpedoId = 1;
@@ -205,26 +206,10 @@ public final class GameSession {
         }
 
         ship.markFired(nowSeconds, BOMB_DROP_COOLDOWN_SECONDS);
-        double heading = MathSupport.normalizeAngle(request.heading());
-        double horizontalSpeed = Math.min(22, Math.max(4, request.speed() * 0.92));
-        Vector2 forward = Vector2.fromHeading(heading);
-        Vector2 right = new Vector2(Math.cos(heading), -Math.sin(heading));
-        Vector2 baseDropPosition = new Vector2(request.x(), request.z()).add(forward.scale(2.6));
         for (int index = 0; index < BOMBS_PER_DROP; index += 1) {
-            double releaseDelay = index * BOMB_RELEASE_INTERVAL_SECONDS;
-            double rowOffset = (index % 2 == 0 ? -0.5 : 0.5) * BOMB_ROW_OFFSET;
-            bombs.add(new Bomb(
-                    "bomb-" + nextBombId++,
-                    ship.teamId(),
-                    ship.id(),
-                    baseDropPosition.add(forward.scale(horizontalSpeed * releaseDelay)).add(right.scale(rowOffset)),
-                    Math.min(120, Math.max(1, request.y())),
-                    heading,
-                    horizontalSpeed,
-                    nowSeconds + releaseDelay,
-                    releaseDelay
-            ));
+            pendingBombReleases.add(new PendingBombRelease(ship.id(), nowSeconds + index * BOMB_RELEASE_INTERVAL_SECONDS, index));
         }
+        releasePendingBombs();
     }
 
     public synchronized GameSnapshot fireFlak(FlakFireRequest request) {
@@ -277,13 +262,14 @@ public final class GameSession {
                 .filter(Ship::isServerSimulated)
                 .forEach(ship -> ship.update(deltaSeconds, navigationService, worldMap));
         updateTorpedoes(deltaSeconds, navigationService, worldMap);
+        releasePendingBombs();
         updateBombs(deltaSeconds);
         updateFlakProjectiles(deltaSeconds);
         updateRamCollisions();
         respawnSunkShips(navigationService, worldMap, radarService);
         torpedoes.removeIf(torpedo -> !"running".equals(torpedo.state()));
         torpedoImpacts.removeIf(impact -> nowSeconds - impact.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
-        bombs.removeIf(bomb -> !"falling".equals(bomb.state()) && !"pending".equals(bomb.state()));
+        bombs.removeIf(bomb -> !"falling".equals(bomb.state()));
         bombImpacts.removeIf(impact -> nowSeconds - impact.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
         flakProjectiles.removeIf(projectile -> !"flying".equals(projectile.state()));
         checkGameOver();
@@ -866,6 +852,42 @@ public final class GameSession {
         ));
     }
 
+    private void releasePendingBombs() {
+        List<PendingBombRelease> dueReleases = pendingBombReleases.stream()
+                .filter(release -> release.releaseAtSeconds() <= nowSeconds)
+                .toList();
+        if (dueReleases.isEmpty()) {
+            return;
+        }
+        pendingBombReleases.removeAll(dueReleases);
+        dueReleases.forEach(release ->
+            findShipById(release.shipId()).ifPresent(ship -> {
+                if (!"active".equals(ship.state()) || !ship.isScoutPlane()) {
+                    return;
+                }
+                double heading = MathSupport.normalizeAngle(ship.heading());
+                double horizontalSpeed = Math.min(22, Math.max(4, ship.speed() * 0.92));
+                Vector2 forward = Vector2.fromHeading(heading);
+                Vector2 right = new Vector2(Math.cos(heading), -Math.sin(heading));
+                double rowOffset = (release.index() % 2 == 0 ? -0.5 : 0.5) * BOMB_ROW_OFFSET;
+                Vector2 position = ship.position()
+                        .add(forward.scale(2.6))
+                        .add(right.scale(rowOffset));
+                bombs.add(new Bomb(
+                        "bomb-" + nextBombId++,
+                        ship.teamId(),
+                        ship.id(),
+                        position,
+                        Math.min(120, Math.max(1, ship.y())),
+                        heading,
+                        horizontalSpeed,
+                        nowSeconds,
+                        0
+                ));
+            })
+        );
+    }
+
     private void updateBombs(double deltaSeconds) {
         for (Bomb bomb : bombs) {
             bomb.update(deltaSeconds);
@@ -1122,6 +1144,12 @@ public final class GameSession {
                 .toList();
     }
 
+    private Optional<Ship> findShipById(String shipId) {
+        return allShips().stream()
+                .filter(ship -> ship.id().equals(shipId))
+                .findFirst();
+    }
+
     private static Map<String, Fleet> createFleets(List<FleetSetup> fleetSetups) {
         Map<String, Fleet> fleets = new LinkedHashMap<>();
         fleetSetups.forEach(setup -> fleets.put(setup.teamId(), new Fleet(setup.teamId(), createShips(setup.ships()))));
@@ -1162,5 +1190,8 @@ public final class GameSession {
     private double stablePhase(String value) {
         int hash = Math.abs(value.hashCode());
         return (hash % 6283) / 1000.0;
+    }
+
+    private record PendingBombRelease(String shipId, double releaseAtSeconds, int index) {
     }
 }

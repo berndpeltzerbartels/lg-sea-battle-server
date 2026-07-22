@@ -124,7 +124,7 @@ class GameSessionTest {
         ));
 
         session.updatePlayerState(
-                new PlayerStateUpdate("player-BP-test", "light", 0, 0, 0, 8, 0, 7, 0, 0, false, "scout-plane"),
+                new PlayerStateUpdate("player-BP-test", "light", 0, 0, 0, 8, 0, 7, 0, 0, false, "scout-plane", 80),
                 navigationService,
                 session.worldMap()
         );
@@ -137,9 +137,11 @@ class GameSessionTest {
         assertEquals("scout-plane", ship.vehicleType());
         assertEquals(1, snapshot.bombs().size());
 
-        session.update(2.1, radarService, navigationService, session.worldMap());
+        for (int i = 0; i < 21; i += 1) {
+            session.update(0.1, radarService, navigationService, session.worldMap());
+        }
         List<BombSnapshot> bombs = session.snapshot().bombs();
-        assertEquals(16, bombs.size());
+        assertEquals(8, bombs.size());
         assertTrue(bombs.stream().allMatch(bomb -> "falling".equals(bomb.state())));
     }
 
