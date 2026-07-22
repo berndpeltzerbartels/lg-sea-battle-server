@@ -8,6 +8,9 @@ final class FlakProjectile {
     private final String id;
     private final String teamId;
     private final String shipId;
+    private double previousX;
+    private double previousY;
+    private double previousZ;
     private double x;
     private double y;
     private double z;
@@ -22,6 +25,9 @@ final class FlakProjectile {
         this.id = id;
         this.teamId = teamId;
         this.shipId = shipId;
+        this.previousX = x;
+        this.previousY = y;
+        this.previousZ = z;
         this.x = x;
         this.y = y;
         this.z = z;
@@ -35,11 +41,54 @@ final class FlakProjectile {
         return ageSeconds >= LIFETIME_SECONDS || y < 0 ? "expired" : "flying";
     }
 
+    String id() {
+        return id;
+    }
+
+    String teamId() {
+        return teamId;
+    }
+
+    String shipId() {
+        return shipId;
+    }
+
+    double previousX() {
+        return previousX;
+    }
+
+    double previousY() {
+        return previousY;
+    }
+
+    double previousZ() {
+        return previousZ;
+    }
+
+    double x() {
+        return x;
+    }
+
+    double y() {
+        return y;
+    }
+
+    double z() {
+        return z;
+    }
+
+    void hit() {
+        ageSeconds = LIFETIME_SECONDS;
+    }
+
     void update(double deltaSeconds) {
         if (!"flying".equals(state())) {
             return;
         }
         ageSeconds += deltaSeconds;
+        previousX = x;
+        previousY = y;
+        previousZ = z;
         vy -= GRAVITY * deltaSeconds;
         x += vx * deltaSeconds;
         y += vy * deltaSeconds;

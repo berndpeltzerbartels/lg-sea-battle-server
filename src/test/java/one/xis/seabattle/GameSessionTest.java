@@ -113,6 +113,50 @@ class GameSessionTest {
     }
 
     @Test
+    void flakHitScoutPlaneIsReportedWithoutSinkingIt() {
+        GameSession session = new GameSession(new GameSetup(
+                "flak-hit-plane-test",
+                new WorldMap(9028, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-1", "light", 0, 0, 0, "bot", 5, 0, 0)
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-1", "dark", 0, 47, 0, "bot", 5, 0, 0)
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(0, 47))
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-gunner", "light", 0, 0, 0, 4, 0, 5, 0, 0, false, "torpedo-boat"),
+                navigationService,
+                session.worldMap()
+        );
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-plane", "dark", 0, 47, 0, 14, 0, 7, 0, 0, false, "scout-plane", 30),
+                navigationService,
+                session.worldMap()
+        );
+        session.fireFlak(new FlakFireRequest(
+                "player-gunner", "light", "light-1", 0, 1.5, 0, 0, 60, 95
+        ));
+
+        GameSnapshot snapshot = session.snapshot();
+        for (int i = 0; i < 20 && snapshot.flakHits().isEmpty(); i += 1) {
+            session.update(0.05, radarService, navigationService, session.worldMap());
+            snapshot = session.snapshot();
+        }
+
+        assertEquals(1, snapshot.flakHits().size());
+        assertEquals("dark-1", snapshot.flakHits().get(0).targetShipId());
+        ShipSnapshot plane = findShip(snapshot, "dark-1");
+        assertNotNull(plane);
+        assertEquals("active", plane.state());
+        assertEquals("scout-plane", plane.vehicleType());
+    }
+
+    @Test
     void scoutPlanePlayerCanDropBomb() {
         GameSession session = new GameSession(new GameSetup(
                 "scout-plane-bomb-test",

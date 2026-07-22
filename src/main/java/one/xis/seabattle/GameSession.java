@@ -19,6 +19,18 @@ public final class GameSession {
     private static final double BOMB_DROP_FORWARD_OFFSET = 0.6;
     private static final double BOMB_DROP_COOLDOWN_SECONDS = 2.8;
     private static final double FLAK_FIRE_COOLDOWN_SECONDS = 0.22;
+    private static final double FLAK_HIT_VISIBILITY_SECONDS = 2.4;
+    private static final double FLAK_SWEEP_STEP = 4.0;
+    private static final double SCOUT_PLANE_FUSELAGE_HALF_WIDTH = 0.55;
+    private static final double SCOUT_PLANE_HALF_LENGTH = 3.5;
+    private static final double SCOUT_PLANE_WING_HALF_WIDTH = 4.15;
+    private static final double SCOUT_PLANE_WING_FORWARD_MIN = -0.45;
+    private static final double SCOUT_PLANE_WING_FORWARD_MAX = 0.95;
+    private static final double SCOUT_PLANE_TAIL_HALF_WIDTH = 1.45;
+    private static final double SCOUT_PLANE_TAIL_FORWARD_MIN = -2.85;
+    private static final double SCOUT_PLANE_TAIL_FORWARD_MAX = -2.1;
+    private static final double SCOUT_PLANE_VERTICAL_HALF_HEIGHT = 1.15;
+    private static final double SCOUT_PLANE_HIT_MARGIN = 0.85;
     private static final double RAM_HIT_RADIUS = 4.8;
     private static final double RAM_BOW_OFFSET = 4.45;
     private static final double RAM_STERN_LENGTH = -4.05;
@@ -78,6 +90,7 @@ public final class GameSession {
     private final List<PendingBombRelease> pendingBombReleases = new ArrayList<>();
     private final List<BombImpactSnapshot> bombImpacts = new ArrayList<>();
     private final List<FlakProjectile> flakProjectiles = new ArrayList<>();
+    private final List<FlakHitSnapshot> flakHits = new ArrayList<>();
     private int nextTorpedoId = 1;
     private int nextBombId = 1;
     private int nextFlakProjectileId = 1;
@@ -140,6 +153,9 @@ public final class GameSession {
                 flakProjectiles.stream()
                         .filter(projectile -> "flying".equals(projectile.state()))
                         .map(FlakProjectile::snapshot)
+                        .toList(),
+                flakHits.stream()
+                        .filter(hit -> nowSeconds - hit.t() <= FLAK_HIT_VISIBILITY_SECONDS)
                         .toList(),
                 Map.copyOf(destroyedShipsByTeam),
                 Map.copyOf(killsByPlayer)
@@ -265,6 +281,7 @@ public final class GameSession {
         releasePendingBombs();
         updateBombs(deltaSeconds);
         updateFlakProjectiles(deltaSeconds);
+        updateFlakHits();
         updateRamCollisions();
         respawnSunkShips(navigationService, worldMap, radarService);
         torpedoes.removeIf(torpedo -> !"running".equals(torpedo.state()));
@@ -272,6 +289,7 @@ public final class GameSession {
         bombs.removeIf(bomb -> !"falling".equals(bomb.state()));
         bombImpacts.removeIf(impact -> nowSeconds - impact.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
         flakProjectiles.removeIf(projectile -> !"flying".equals(projectile.state()));
+        flakHits.removeIf(hit -> nowSeconds - hit.t() > FLAK_HIT_VISIBILITY_SECONDS);
         checkGameOver();
     }
 
@@ -907,6 +925,84 @@ public final class GameSession {
 
     private void updateFlakProjectiles(double deltaSeconds) {
         flakProjectiles.forEach(projectile -> projectile.update(deltaSeconds));
+    }
+
+    private void updateFlakHits() {
+        List<Ship> activePlanes = allShips().stream()
+                .filter(ship -> "active".equals(ship.state()))
+                .filter(Ship::isScoutPlane)
+                .toList();
+        if (activePlanes.isEmpty()) {
+            return;
+        }
+
+        flakProjectiles.stream()
+                .filter(projectile -> "flying".equals(projectile.state()))
+                .forEach(projectile -> activePlanes.stream()
+                        .filter(ship -> !ship.teamId().equals(projectile.teamId()))
+                        .filter(ship -> flakProjectileHitsScoutPlane(projectile, ship))
+                        .findFirst()
+                        .ifPresent(ship -> {
+                            projectile.hit();
+                            recordFlakHit(projectile, ship);
+                        }));
+    }
+
+    private boolean flakProjectileHitsScoutPlane(FlakProjectile projectile, Ship plane) {
+        double dx = projectile.x() - projectile.previousX();
+        double dy = projectile.y() - projectile.previousY();
+        double dz = projectile.z() - projectile.previousZ();
+        double segmentLength = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        int samples = Math.max(1, (int) Math.ceil(segmentLength / FLAK_SWEEP_STEP));
+        for (int index = 0; index <= samples; index += 1) {
+            double t = samples == 0 ? 1 : (double) index / samples;
+            double x = projectile.previousX() + dx * t;
+            double y = projectile.previousY() + dy * t;
+            double z = projectile.previousZ() + dz * t;
+            if (pointHitsScoutPlane(x, y, z, plane)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean pointHitsScoutPlane(double x, double y, double z, Ship plane) {
+        double vertical = Math.abs(y - plane.y());
+        if (vertical > SCOUT_PLANE_VERTICAL_HALF_HEIGHT + SCOUT_PLANE_HIT_MARGIN) {
+            return false;
+        }
+
+        double dx = x - plane.position().x();
+        double dz = z - plane.position().z();
+        double right = dx * Math.cos(plane.heading()) - dz * Math.sin(plane.heading());
+        double forward = dx * Math.sin(plane.heading()) + dz * Math.cos(plane.heading());
+        double absRight = Math.abs(right);
+        if (forward >= -SCOUT_PLANE_HALF_LENGTH - SCOUT_PLANE_HIT_MARGIN
+                && forward <= SCOUT_PLANE_HALF_LENGTH + SCOUT_PLANE_HIT_MARGIN
+                && absRight <= SCOUT_PLANE_FUSELAGE_HALF_WIDTH + SCOUT_PLANE_HIT_MARGIN) {
+            return true;
+        }
+        if (forward >= SCOUT_PLANE_WING_FORWARD_MIN - SCOUT_PLANE_HIT_MARGIN
+                && forward <= SCOUT_PLANE_WING_FORWARD_MAX + SCOUT_PLANE_HIT_MARGIN
+                && absRight <= SCOUT_PLANE_WING_HALF_WIDTH + SCOUT_PLANE_HIT_MARGIN) {
+            return true;
+        }
+        return forward >= SCOUT_PLANE_TAIL_FORWARD_MIN - SCOUT_PLANE_HIT_MARGIN
+                && forward <= SCOUT_PLANE_TAIL_FORWARD_MAX + SCOUT_PLANE_HIT_MARGIN
+                && absRight <= SCOUT_PLANE_TAIL_HALF_WIDTH + SCOUT_PLANE_HIT_MARGIN;
+    }
+
+    private void recordFlakHit(FlakProjectile projectile, Ship target) {
+        flakHits.add(new FlakHitSnapshot(
+                projectile.id(),
+                projectile.teamId(),
+                projectile.shipId(),
+                target.id(),
+                MathSupport.round(projectile.x()),
+                MathSupport.round(projectile.y()),
+                MathSupport.round(projectile.z()),
+                MathSupport.round(nowSeconds)
+        ));
     }
 
     private boolean bombHitsShip(Bomb bomb, Ship ship) {
