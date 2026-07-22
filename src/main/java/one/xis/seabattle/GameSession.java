@@ -17,6 +17,7 @@ public final class GameSession {
     private static final int BOMBS_PER_DROP = 8;
     private static final double BOMB_RELEASE_INTERVAL_SECONDS = 0.16;
     private static final double BOMB_DROP_FORWARD_OFFSET = 0.6;
+    private static final double BOMB_DROP_VERTICAL_OFFSET = 0.65;
     private static final double BOMB_DROP_COOLDOWN_SECONDS = 2.8;
     private static final double SCOUT_PLANE_MIN_BOMB_ALTITUDE = 3;
     private static final double SCOUT_PLANE_MAX_BOMB_ALTITUDE = 150;
@@ -232,8 +233,27 @@ public final class GameSession {
                 -SCOUT_PLANE_MAX_BOMB_INITIAL_UP_SPEED,
                 SCOUT_PLANE_MAX_BOMB_INITIAL_DOWN_SPEED
         );
+        double dropHeading = MathSupport.normalizeAngle(request.heading());
+        double dropSpeed = Math.min(SCOUT_PLANE_MAX_BOMB_HORIZONTAL_SPEED, Math.max(4, request.speed() * 0.92));
+        Vector2 dropPosition = new Vector2(request.x(), request.z());
+        double dropAltitude = MathSupport.clamp(request.y(), SCOUT_PLANE_MIN_BOMB_ALTITUDE, SCOUT_PLANE_MAX_BOMB_ALTITUDE);
+        double planeVerticalSpeed = MathSupport.clamp(
+                request.verticalSpeed(),
+                -SCOUT_PLANE_MAX_BOMB_INITIAL_DOWN_SPEED,
+                SCOUT_PLANE_MAX_BOMB_INITIAL_UP_SPEED
+        );
         for (int index = 0; index < BOMBS_PER_DROP; index += 1) {
-            pendingBombReleases.add(new PendingBombRelease(ship.id(), nowSeconds + index * BOMB_RELEASE_INTERVAL_SECONDS, index, initialBombVerticalSpeed));
+            pendingBombReleases.add(new PendingBombRelease(
+                    ship.id(),
+                    nowSeconds + index * BOMB_RELEASE_INTERVAL_SECONDS,
+                    index,
+                    dropPosition,
+                    dropAltitude,
+                    dropHeading,
+                    dropSpeed,
+                    planeVerticalSpeed,
+                    initialBombVerticalSpeed
+            ));
         }
         releasePendingBombs();
     }
@@ -893,17 +913,19 @@ public final class GameSession {
                 if (!"active".equals(ship.state()) || !ship.isScoutPlane()) {
                     return;
                 }
-                double heading = MathSupport.normalizeAngle(ship.heading());
-                double horizontalSpeed = Math.min(SCOUT_PLANE_MAX_BOMB_HORIZONTAL_SPEED, Math.max(4, ship.speed() * 0.92));
+                double heading = release.heading();
+                double horizontalSpeed = release.horizontalSpeed();
                 Vector2 forward = Vector2.fromHeading(heading);
-                Vector2 position = ship.position()
-                        .add(forward.scale(BOMB_DROP_FORWARD_OFFSET));
+                double releaseDelay = release.index() * BOMB_RELEASE_INTERVAL_SECONDS;
+                Vector2 position = release.dropPosition()
+                        .add(forward.scale(BOMB_DROP_FORWARD_OFFSET + horizontalSpeed * releaseDelay));
+                double altitude = Math.max(0, release.dropAltitude() + release.planeVerticalSpeed() * releaseDelay - BOMB_DROP_VERTICAL_OFFSET);
                 bombs.add(new Bomb(
                         "bomb-" + nextBombId++,
                         ship.teamId(),
                         ship.id(),
                         position,
-                        Math.min(SCOUT_PLANE_MAX_BOMB_ALTITUDE, Math.max(SCOUT_PLANE_MIN_BOMB_ALTITUDE, ship.y())),
+                        altitude,
                         heading,
                         horizontalSpeed,
                         release.initialVerticalSpeed(),
@@ -1297,6 +1319,8 @@ public final class GameSession {
         return (hash % 6283) / 1000.0;
     }
 
-    private record PendingBombRelease(String shipId, double releaseAtSeconds, int index, double initialVerticalSpeed) {
+    private record PendingBombRelease(String shipId, double releaseAtSeconds, int index, Vector2 dropPosition,
+                                      double dropAltitude, double heading, double horizontalSpeed,
+                                      double planeVerticalSpeed, double initialVerticalSpeed) {
     }
 }
