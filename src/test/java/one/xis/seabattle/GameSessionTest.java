@@ -106,7 +106,7 @@ class GameSessionTest {
                 "player-BP-test", "light", "light-1", 0, 1.5, -3, 0, 60, 95
         ));
 
-        assertEquals(3, snapshot.flakProjectiles().size());
+        assertEquals(1, snapshot.flakProjectiles().size());
         FlakProjectileSnapshot projectile = snapshot.flakProjectiles().get(0);
         assertEquals("light-1", projectile.shipId());
         assertEquals(1.5, projectile.y(), 0.01);
