@@ -113,7 +113,7 @@ class GameSessionTest {
     }
 
     @Test
-    void flakHitScoutPlaneIsReportedWithoutSinkingIt() {
+    void flakHitScoutPlaneIsReportedAndSinksIt() {
         GameSession session = new GameSession(new GameSetup(
                 "flak-hit-plane-test",
                 new WorldMap(9028, List.of()),
@@ -152,7 +152,7 @@ class GameSessionTest {
         assertEquals("dark-1", snapshot.flakHits().get(0).targetShipId());
         ShipSnapshot plane = findShip(snapshot, "dark-1");
         assertNotNull(plane);
-        assertEquals("active", plane.state());
+        assertEquals("sunk", plane.state());
         assertEquals("scout-plane", plane.vehicleType());
     }
 

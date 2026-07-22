@@ -233,7 +233,6 @@ final class Ship {
         rudderDegrees = 0;
         engineOrder = 2;
         controlledBy = "bot";
-        vehicleType = VEHICLE_TORPEDO_BOAT;
         this.respawnAtSeconds = respawnAtSeconds;
         glancingRamBackoffUntilSeconds = Double.NEGATIVE_INFINITY;
         return true;

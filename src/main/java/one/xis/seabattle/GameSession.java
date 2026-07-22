@@ -943,6 +943,7 @@ public final class GameSession {
                         .filter(ship -> flakProjectileHitsScoutPlane(projectile, ship))
                         .findFirst()
                         .ifPresent(ship -> {
+                            sinkShip(ship, shooterController(projectile.shipId()));
                             projectile.hit();
                             recordFlakHit(projectile, ship);
                         }));
