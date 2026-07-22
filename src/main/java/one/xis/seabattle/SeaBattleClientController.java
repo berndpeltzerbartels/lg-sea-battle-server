@@ -180,6 +180,7 @@ public class SeaBattleClientController {
                 request.z(),
                 request.heading(),
                 request.speed(),
+                request.verticalSpeed(),
                 request.vehicleType()
         )));
     }

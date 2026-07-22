@@ -8,6 +8,7 @@ public record BombDropRequest(
         double z,
         double heading,
         double speed,
+        double verticalSpeed,
         String vehicleType
 ) {
 }

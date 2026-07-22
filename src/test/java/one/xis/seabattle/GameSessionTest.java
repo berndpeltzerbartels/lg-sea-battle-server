@@ -173,7 +173,7 @@ class GameSessionTest {
                 session.worldMap()
         );
         GameSnapshot snapshot = session.dropBomb(new BombDropRequest(
-                "player-BP-test", "light", 0, 80, 0, 0, 14.5, "scout-plane"
+                "player-BP-test", "light", 0, 80, 0, 0, 14.5, 0, "scout-plane"
         ));
 
         ShipSnapshot ship = findShip(snapshot, "light-1");
@@ -201,7 +201,7 @@ class GameSessionTest {
         ));
 
         GameSnapshot snapshot = session.dropBomb(new BombDropRequest(
-                "player-BP-test", "light", 0, 22, 0, 0, 14.5, "torpedo-boat"
+                "player-BP-test", "light", 0, 22, 0, 0, 14.5, 0, "torpedo-boat"
         ));
 
         assertEquals(0, snapshot.bombs().size());
@@ -225,7 +225,7 @@ class GameSessionTest {
                 session.worldMap()
         );
         session.dropBomb(new BombDropRequest(
-                "player-BP-test", "light", 0, 1, 0, 0, 0, "scout-plane"
+                "player-BP-test", "light", 0, 1, 0, 0, 0, 0, "scout-plane"
         ));
         GameSnapshot snapshot = session.snapshot();
         for (int index = 0; index < 12 && snapshot.bombImpacts().isEmpty(); index += 1) {
@@ -255,7 +255,7 @@ class GameSessionTest {
                 session.worldMap()
         );
         session.dropBomb(new BombDropRequest(
-                "player-BP-test", "light", 0, 1, 0, 0, 0, "scout-plane"
+                "player-BP-test", "light", 0, 1, 0, 0, 0, 0, "scout-plane"
         ));
         GameSnapshot snapshot = session.snapshot();
         for (int index = 0; index < 12 && snapshot.bombImpacts().isEmpty(); index += 1) {

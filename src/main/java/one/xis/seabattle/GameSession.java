@@ -21,6 +21,8 @@ public final class GameSession {
     private static final double SCOUT_PLANE_MIN_BOMB_ALTITUDE = 3;
     private static final double SCOUT_PLANE_MAX_BOMB_ALTITUDE = 150;
     private static final double SCOUT_PLANE_MAX_BOMB_HORIZONTAL_SPEED = 28;
+    private static final double SCOUT_PLANE_MAX_BOMB_INITIAL_UP_SPEED = 20;
+    private static final double SCOUT_PLANE_MAX_BOMB_INITIAL_DOWN_SPEED = 34;
     private static final double FLAK_FIRE_COOLDOWN_SECONDS = 0.14;
     private static final double FLAK_HIT_VISIBILITY_SECONDS = 2.4;
     private static final double FLAK_SWEEP_STEP = 1.5;
@@ -225,8 +227,13 @@ public final class GameSession {
         }
 
         ship.markFired(nowSeconds, BOMB_DROP_COOLDOWN_SECONDS);
+        double initialBombVerticalSpeed = MathSupport.clamp(
+                -request.verticalSpeed(),
+                -SCOUT_PLANE_MAX_BOMB_INITIAL_UP_SPEED,
+                SCOUT_PLANE_MAX_BOMB_INITIAL_DOWN_SPEED
+        );
         for (int index = 0; index < BOMBS_PER_DROP; index += 1) {
-            pendingBombReleases.add(new PendingBombRelease(ship.id(), nowSeconds + index * BOMB_RELEASE_INTERVAL_SECONDS, index));
+            pendingBombReleases.add(new PendingBombRelease(ship.id(), nowSeconds + index * BOMB_RELEASE_INTERVAL_SECONDS, index, initialBombVerticalSpeed));
         }
         releasePendingBombs();
     }
@@ -899,6 +906,7 @@ public final class GameSession {
                         Math.min(SCOUT_PLANE_MAX_BOMB_ALTITUDE, Math.max(SCOUT_PLANE_MIN_BOMB_ALTITUDE, ship.y())),
                         heading,
                         horizontalSpeed,
+                        release.initialVerticalSpeed(),
                         nowSeconds,
                         0
                 ));
@@ -1289,6 +1297,6 @@ public final class GameSession {
         return (hash % 6283) / 1000.0;
     }
 
-    private record PendingBombRelease(String shipId, double releaseAtSeconds, int index) {
+    private record PendingBombRelease(String shipId, double releaseAtSeconds, int index, double initialVerticalSpeed) {
     }
 }
