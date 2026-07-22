@@ -106,7 +106,7 @@ class GameSessionTest {
                 "player-BP-test", "light", "light-1", 0, 1.5, -3, 0, 60, 95
         ));
 
-        assertEquals(1, snapshot.flakProjectiles().size());
+        assertEquals(3, snapshot.flakProjectiles().size());
         FlakProjectileSnapshot projectile = snapshot.flakProjectiles().get(0);
         assertEquals("light-1", projectile.shipId());
         assertEquals(1.5, projectile.y(), 0.01);
@@ -148,7 +148,7 @@ class GameSessionTest {
             snapshot = session.snapshot();
         }
 
-        assertEquals(1, snapshot.flakHits().size());
+        assertFalse(snapshot.flakHits().isEmpty());
         assertEquals("dark-1", snapshot.flakHits().get(0).targetShipId());
         ShipSnapshot plane = findShip(snapshot, "dark-1");
         assertNotNull(plane);

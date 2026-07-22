@@ -20,7 +20,12 @@ public final class GameSession {
     private static final double BOMB_DROP_COOLDOWN_SECONDS = 2.8;
     private static final double FLAK_FIRE_COOLDOWN_SECONDS = 0.22;
     private static final double FLAK_HIT_VISIBILITY_SECONDS = 2.4;
-    private static final double FLAK_SWEEP_STEP = 4.0;
+    private static final double FLAK_SWEEP_STEP = 1.5;
+    private static final double[][] FLAK_VOLLEY_SPREAD = {
+            {0, 0},
+            {0.012, 0.005},
+            {-0.012, -0.003}
+    };
     private static final double SCOUT_PLANE_FUSELAGE_HALF_WIDTH = 0.55;
     private static final double SCOUT_PLANE_HALF_LENGTH = 3.5;
     private static final double SCOUT_PLANE_WING_HALF_WIDTH = 4.15;
@@ -246,22 +251,56 @@ public final class GameSession {
         }
 
         nextFlakFireTimeByShipId.put(ship.id(), nowSeconds + FLAK_FIRE_COOLDOWN_SECONDS);
-        flakProjectiles.add(new FlakProjectile(
-                "flak-" + nextFlakProjectileId++,
-                ship.teamId(),
-                ship.id(),
-                request.x(),
-                Math.max(0, request.y()),
-                request.z(),
-                request.vx(),
-                request.vy(),
-                request.vz(),
-                nowSeconds
-        ));
+        for (double[] spread : FLAK_VOLLEY_SPREAD) {
+            double[] velocity = spreadFlakVelocity(request.vx(), request.vy(), request.vz(), spread[0], spread[1]);
+            flakProjectiles.add(new FlakProjectile(
+                    "flak-" + nextFlakProjectileId++,
+                    ship.teamId(),
+                    ship.id(),
+                    request.x(),
+                    Math.max(0, request.y()),
+                    request.z(),
+                    velocity[0],
+                    velocity[1],
+                    velocity[2],
+                    nowSeconds
+            ));
+        }
     }
 
     private boolean canFireFlak(Ship ship) {
         return nowSeconds >= nextFlakFireTimeByShipId.getOrDefault(ship.id(), 0.0);
+    }
+
+    private double[] spreadFlakVelocity(double vx, double vy, double vz, double sideSpread, double verticalSpread) {
+        double speed = Math.sqrt(vx * vx + vy * vy + vz * vz);
+        if (speed <= 0.001 || (sideSpread == 0 && verticalSpread == 0)) {
+            return new double[]{vx, vy, vz};
+        }
+
+        double directionX = vx / speed;
+        double directionY = vy / speed;
+        double directionZ = vz / speed;
+        double rightX = directionZ;
+        double rightZ = -directionX;
+        double rightLength = Math.sqrt(rightX * rightX + rightZ * rightZ);
+        if (rightLength <= 0.001) {
+            rightX = 1;
+            rightZ = 0;
+        } else {
+            rightX /= rightLength;
+            rightZ /= rightLength;
+        }
+
+        double spreadX = directionX + rightX * sideSpread;
+        double spreadY = directionY + verticalSpread;
+        double spreadZ = directionZ + rightZ * sideSpread;
+        double spreadLength = Math.sqrt(spreadX * spreadX + spreadY * spreadY + spreadZ * spreadZ);
+        return new double[]{
+                spreadX / spreadLength * speed,
+                spreadY / spreadLength * speed,
+                spreadZ / spreadLength * speed
+        };
     }
 
     public synchronized void releasePlayer(String playerId) {
