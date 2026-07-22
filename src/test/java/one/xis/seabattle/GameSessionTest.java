@@ -891,6 +891,20 @@ class GameSessionTest {
         ShipSnapshot ship = findShip(session.snapshot(), "light-1");
         assertEquals("scout-plane", ship.vehicleType());
         assertEquals(64, ship.y(), 0.001);
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-BP-test", "light", 0, 0, 0, 8, 0, 7, 0, 0, false, "scout-plane", 2),
+                navigationService,
+                session.worldMap()
+        );
+        assertEquals(3, findShip(session.snapshot(), "light-1").y(), 0.001);
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-BP-test", "light", 0, 0, 0, 8, 0, 7, 0, 0, false, "scout-plane", 101),
+                navigationService,
+                session.worldMap()
+        );
+        assertEquals(100, findShip(session.snapshot(), "light-1").y(), 0.001);
     }
 
     @Test

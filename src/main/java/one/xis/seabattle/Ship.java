@@ -123,7 +123,7 @@ final class Ship {
         }
 
         position = requestedPosition;
-        y = isScoutPlane() ? MathSupport.clamp(update.y(), 1, 120) : 0;
+        y = isScoutPlane() ? MathSupport.clamp(update.y(), 3, 100) : 0;
         heading = MathSupport.normalizeAngle(update.heading());
         speed = MathSupport.clamp(update.speed(), -MAX_ACCEPTED_PLAYER_SPEED, MAX_ACCEPTED_PLAYER_SPEED);
         turnVelocity = MathSupport.clamp(

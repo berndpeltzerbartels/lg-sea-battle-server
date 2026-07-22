@@ -30,7 +30,7 @@ public final class GameSession {
     private static final double SCOUT_PLANE_TAIL_FORWARD_MIN = -2.85;
     private static final double SCOUT_PLANE_TAIL_FORWARD_MAX = -2.1;
     private static final double SCOUT_PLANE_VERTICAL_HALF_HEIGHT = 1.15;
-    private static final double SCOUT_PLANE_HIT_MARGIN = 0.85;
+    private static final double SCOUT_PLANE_HIT_MARGIN = 1.1;
     private static final double RAM_HIT_RADIUS = 4.8;
     private static final double RAM_BOW_OFFSET = 4.45;
     private static final double RAM_STERN_LENGTH = -4.05;
@@ -893,7 +893,7 @@ public final class GameSession {
                         ship.teamId(),
                         ship.id(),
                         position,
-                        Math.min(120, Math.max(1, ship.y())),
+                        Math.min(100, Math.max(3, ship.y())),
                         heading,
                         horizontalSpeed,
                         nowSeconds,
