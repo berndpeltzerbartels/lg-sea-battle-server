@@ -12,10 +12,10 @@ public final class GameSession {
     private static final double TORPEDO_BROAD_PHASE_RADIUS = 6.2;
     private static final double TORPEDO_HULL_MARGIN = 0.28;
     private static final double TORPEDO_SWEEP_STEP = 1.15;
-    private static final double BOMB_HIT_RADIUS = 5.0;
-    private static final double BOMB_HULL_MARGIN = 0.18;
+    private static final double BOMB_HIT_RADIUS = 6.6;
+    private static final double BOMB_HULL_MARGIN = 1.35;
     private static final int BOMBS_PER_DROP = 8;
-    private static final double BOMB_RELEASE_INTERVAL_SECONDS = 0.22;
+    private static final double BOMB_RELEASE_INTERVAL_SECONDS = 0.16;
     private static final double BOMB_DROP_FORWARD_OFFSET = 0.6;
     private static final double BOMB_DROP_COOLDOWN_SECONDS = 2.8;
     private static final double FLAK_FIRE_COOLDOWN_SECONDS = 0.14;
