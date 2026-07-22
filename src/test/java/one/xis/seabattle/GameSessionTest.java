@@ -139,7 +139,7 @@ class GameSessionTest {
 
         session.update(2.1, radarService, navigationService, session.worldMap());
         List<BombSnapshot> bombs = session.snapshot().bombs();
-        assertEquals(8, bombs.size());
+        assertEquals(16, bombs.size());
         assertTrue(bombs.stream().allMatch(bomb -> "falling".equals(bomb.state())));
     }
 
