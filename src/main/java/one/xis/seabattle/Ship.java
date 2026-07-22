@@ -3,7 +3,9 @@ package one.xis.seabattle;
 final class Ship {
 
     private static final double MAX_ACCEPTED_PLAYER_POSITION_DELTA = 90;
-    private static final double MAX_ACCEPTED_PLAYER_SPEED = 16;
+    private static final double MAX_ACCEPTED_PLAYER_SPEED = 32;
+    private static final double SCOUT_PLANE_MIN_Y = 3;
+    private static final double SCOUT_PLANE_MAX_Y = 150;
     private static final double MAX_ACCEPTED_PLAYER_TURN_VELOCITY = 1.2;
     private static final int ENGINE_FULL_ASTERN = 0;
     private static final int TORPEDO_STOCK = 12;
@@ -123,7 +125,7 @@ final class Ship {
         }
 
         position = requestedPosition;
-        y = isScoutPlane() ? MathSupport.clamp(update.y(), 3, 100) : 0;
+        y = isScoutPlane() ? MathSupport.clamp(update.y(), SCOUT_PLANE_MIN_Y, SCOUT_PLANE_MAX_Y) : 0;
         heading = MathSupport.normalizeAngle(update.heading());
         speed = MathSupport.clamp(update.speed(), -MAX_ACCEPTED_PLAYER_SPEED, MAX_ACCEPTED_PLAYER_SPEED);
         turnVelocity = MathSupport.clamp(

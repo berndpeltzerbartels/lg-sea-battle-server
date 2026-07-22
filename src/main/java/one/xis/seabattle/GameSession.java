@@ -18,6 +18,9 @@ public final class GameSession {
     private static final double BOMB_RELEASE_INTERVAL_SECONDS = 0.16;
     private static final double BOMB_DROP_FORWARD_OFFSET = 0.6;
     private static final double BOMB_DROP_COOLDOWN_SECONDS = 2.8;
+    private static final double SCOUT_PLANE_MIN_BOMB_ALTITUDE = 3;
+    private static final double SCOUT_PLANE_MAX_BOMB_ALTITUDE = 150;
+    private static final double SCOUT_PLANE_MAX_BOMB_HORIZONTAL_SPEED = 28;
     private static final double FLAK_FIRE_COOLDOWN_SECONDS = 0.14;
     private static final double FLAK_HIT_VISIBILITY_SECONDS = 2.4;
     private static final double FLAK_SWEEP_STEP = 1.5;
@@ -884,7 +887,7 @@ public final class GameSession {
                     return;
                 }
                 double heading = MathSupport.normalizeAngle(ship.heading());
-                double horizontalSpeed = Math.min(22, Math.max(4, ship.speed() * 0.92));
+                double horizontalSpeed = Math.min(SCOUT_PLANE_MAX_BOMB_HORIZONTAL_SPEED, Math.max(4, ship.speed() * 0.92));
                 Vector2 forward = Vector2.fromHeading(heading);
                 Vector2 position = ship.position()
                         .add(forward.scale(BOMB_DROP_FORWARD_OFFSET));
@@ -893,7 +896,7 @@ public final class GameSession {
                         ship.teamId(),
                         ship.id(),
                         position,
-                        Math.min(100, Math.max(3, ship.y())),
+                        Math.min(SCOUT_PLANE_MAX_BOMB_ALTITUDE, Math.max(SCOUT_PLANE_MIN_BOMB_ALTITUDE, ship.y())),
                         heading,
                         horizontalSpeed,
                         nowSeconds,
