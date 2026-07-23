@@ -185,7 +185,7 @@ class GameSessionTest {
             session.update(0.1, radarService, navigationService, session.worldMap());
         }
         List<BombSnapshot> bombs = session.snapshot().bombs();
-        assertEquals(8, bombs.size());
+        assertEquals(10, bombs.size());
         assertTrue(bombs.stream().allMatch(bomb -> "falling".equals(bomb.state())));
     }
 
@@ -900,11 +900,11 @@ class GameSessionTest {
         assertEquals(3, findShip(session.snapshot(), "light-1").y(), 0.001);
 
         session.updatePlayerState(
-                new PlayerStateUpdate("player-BP-test", "light", 0, 0, 0, 8, 0, 7, 0, 0, false, "scout-plane", 151),
+                new PlayerStateUpdate("player-BP-test", "light", 0, 0, 0, 8, 0, 7, 0, 0, false, "scout-plane", 201),
                 navigationService,
                 session.worldMap()
         );
-        assertEquals(150, findShip(session.snapshot(), "light-1").y(), 0.001);
+        assertEquals(200, findShip(session.snapshot(), "light-1").y(), 0.001);
     }
 
     @Test
