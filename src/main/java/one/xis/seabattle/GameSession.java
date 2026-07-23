@@ -15,12 +15,12 @@ public final class GameSession {
     private static final double BOMB_HIT_RADIUS = 6.6;
     private static final double BOMB_HULL_MARGIN = 1.35;
     private static final int BOMBS_PER_DROP = 12;
-    private static final double BOMB_RELEASE_INTERVAL_SECONDS = 0.16;
+    private static final double BOMB_RELEASE_INTERVAL_SECONDS = 0.12;
     private static final double BOMB_DROP_FORWARD_OFFSET = 0.6;
     private static final double BOMB_DROP_VERTICAL_OFFSET = 0.65;
-    private static final double BOMB_PATTERN_LATERAL_SPACING = 1.35;
-    private static final double BOMB_PATTERN_HEADING_JITTER = 0.018;
-    private static final double BOMB_PATTERN_SPEED_JITTER = 2.1;
+    private static final double BOMB_PATTERN_LATERAL_SPACING = 1.9;
+    private static final double BOMB_PATTERN_HEADING_JITTER = 0.026;
+    private static final double BOMB_PATTERN_SPEED_JITTER = 2.7;
     private static final double BOMB_DROP_COOLDOWN_SECONDS = 2.8;
     private static final double SCOUT_PLANE_MIN_BOMB_ALTITUDE = 3;
     private static final double SCOUT_PLANE_MAX_BOMB_ALTITUDE = 200;
@@ -242,7 +242,13 @@ public final class GameSession {
             pendingBombReleases.add(new PendingBombRelease(
                     ship.id(),
                     nowSeconds + index * BOMB_RELEASE_INTERVAL_SECONDS,
-                    index
+                    index,
+                    ship.position(),
+                    ship.y(),
+                    ship.heading(),
+                    ship.speed(),
+                    ship.turnVelocity(),
+                    ship.verticalSpeed()
             ));
         }
         releasePendingBombs();
@@ -903,10 +909,12 @@ public final class GameSession {
                 if (!"active".equals(ship.state()) || !ship.isScoutPlane()) {
                     return;
                 }
-                double planeHeading = ship.heading();
-                double planeSpeed = Math.min(SCOUT_PLANE_MAX_BOMB_HORIZONTAL_SPEED, Math.max(4, ship.speed() * 0.92));
+                double releaseDelay = release.index() * BOMB_RELEASE_INTERVAL_SECONDS;
+                PredictedPlaneRelease planeRelease = predictPlaneRelease(release, releaseDelay);
+                double planeHeading = planeRelease.heading();
+                double planeSpeed = Math.min(SCOUT_PLANE_MAX_BOMB_HORIZONTAL_SPEED, Math.max(4, release.speed() * 0.92));
                 double initialBombVerticalSpeed = MathSupport.clamp(
-                        -ship.verticalSpeed(),
+                        -release.verticalSpeed(),
                         -SCOUT_PLANE_MAX_BOMB_INITIAL_UP_SPEED,
                         SCOUT_PLANE_MAX_BOMB_INITIAL_DOWN_SPEED
                 );
@@ -914,10 +922,10 @@ public final class GameSession {
                 double horizontalSpeed = Math.max(0, planeSpeed + bombPatternSpeedJitter(release.index()));
                 Vector2 forward = Vector2.fromHeading(planeHeading);
                 Vector2 right = rightFromHeading(planeHeading);
-                Vector2 position = ship.position()
+                Vector2 position = planeRelease.position()
                         .add(forward.scale(BOMB_DROP_FORWARD_OFFSET))
                         .add(right.scale(bombPatternOffset(release.index())));
-                double altitude = Math.max(0, ship.y() - BOMB_DROP_VERTICAL_OFFSET);
+                double altitude = Math.max(0, planeRelease.y() - BOMB_DROP_VERTICAL_OFFSET);
                 bombs.add(new Bomb(
                         "bomb-" + nextBombId++,
                         ship.teamId(),
@@ -1321,6 +1329,23 @@ public final class GameSession {
         return new Vector2(Math.cos(heading), -Math.sin(heading));
     }
 
+    private static PredictedPlaneRelease predictPlaneRelease(PendingBombRelease release, double delaySeconds) {
+        int steps = Math.max(1, (int) Math.ceil(delaySeconds / 0.08));
+        double deltaSeconds = delaySeconds / steps;
+        double heading = release.heading();
+        Vector2 position = release.position();
+        for (int step = 0; step < steps; step += 1) {
+            heading = MathSupport.normalizeAngle(heading + release.turnVelocity() * deltaSeconds);
+            position = position.add(Vector2.fromHeading(heading).scale(release.speed() * deltaSeconds));
+        }
+        double y = MathSupport.clamp(
+                release.y() + release.verticalSpeed() * delaySeconds,
+                SCOUT_PLANE_MIN_BOMB_ALTITUDE,
+                SCOUT_PLANE_MAX_BOMB_ALTITUDE
+        );
+        return new PredictedPlaneRelease(position, y, heading);
+    }
+
     private static double bombPatternOffset(int index) {
         double side = index % 2 == 0 ? -1.0 : 1.0;
         int lane = (index / 2) % 3;
@@ -1340,6 +1365,10 @@ public final class GameSession {
         return value - Math.floor(value);
     }
 
-    private record PendingBombRelease(String shipId, double releaseAtSeconds, int index) {
+    private record PendingBombRelease(String shipId, double releaseAtSeconds, int index, Vector2 position, double y,
+                                      double heading, double speed, double turnVelocity, double verticalSpeed) {
+    }
+
+    private record PredictedPlaneRelease(Vector2 position, double y, double heading) {
     }
 }

@@ -95,6 +95,10 @@ final class Ship {
         return verticalSpeed;
     }
 
+    double turnVelocity() {
+        return turnVelocity;
+    }
+
     void nextFireTime(double nextFireTime) {
         this.nextFireTime = nextFireTime;
     }

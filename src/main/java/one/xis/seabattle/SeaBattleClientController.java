@@ -181,6 +181,7 @@ public class SeaBattleClientController {
                 request.z(),
                 request.heading(),
                 request.speed(),
+                request.turnVelocity(),
                 request.verticalSpeed(),
                 request.vehicleType()
         )));
