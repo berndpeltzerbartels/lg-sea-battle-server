@@ -14,13 +14,13 @@ public final class GameSession {
     private static final double TORPEDO_SWEEP_STEP = 1.15;
     private static final double BOMB_HIT_RADIUS = 6.6;
     private static final double BOMB_HULL_MARGIN = 1.35;
-    private static final int BOMBS_PER_DROP = 10;
+    private static final int BOMBS_PER_DROP = 12;
     private static final double BOMB_RELEASE_INTERVAL_SECONDS = 0.16;
     private static final double BOMB_DROP_FORWARD_OFFSET = 0.6;
     private static final double BOMB_DROP_VERTICAL_OFFSET = 0.65;
-    private static final double BOMB_PATTERN_LATERAL_SPACING = 0.85;
-    private static final double BOMB_PATTERN_HEADING_JITTER = 0.038;
-    private static final double BOMB_PATTERN_SPEED_JITTER = 1.4;
+    private static final double BOMB_PATTERN_LATERAL_SPACING = 1.35;
+    private static final double BOMB_PATTERN_HEADING_JITTER = 0.018;
+    private static final double BOMB_PATTERN_SPEED_JITTER = 2.1;
     private static final double BOMB_DROP_COOLDOWN_SECONDS = 2.8;
     private static final double SCOUT_PLANE_MIN_BOMB_ALTITUDE = 3;
     private static final double SCOUT_PLANE_MAX_BOMB_ALTITUDE = 200;
@@ -230,32 +230,19 @@ public final class GameSession {
             return;
         }
 
+        ship.applyScoutPlaneWeaponState(
+                new Vector2(request.x(), request.z()),
+                request.y(),
+                request.heading(),
+                request.speed(),
+                request.verticalSpeed()
+        );
         ship.markFired(nowSeconds, BOMB_DROP_COOLDOWN_SECONDS);
-        double initialBombVerticalSpeed = MathSupport.clamp(
-                -request.verticalSpeed(),
-                -SCOUT_PLANE_MAX_BOMB_INITIAL_UP_SPEED,
-                SCOUT_PLANE_MAX_BOMB_INITIAL_DOWN_SPEED
-        );
-        double dropHeading = MathSupport.normalizeAngle(request.heading());
-        double dropSpeed = Math.min(SCOUT_PLANE_MAX_BOMB_HORIZONTAL_SPEED, Math.max(4, request.speed() * 0.92));
-        Vector2 dropPosition = new Vector2(request.x(), request.z());
-        double dropAltitude = MathSupport.clamp(request.y(), SCOUT_PLANE_MIN_BOMB_ALTITUDE, SCOUT_PLANE_MAX_BOMB_ALTITUDE);
-        double planeVerticalSpeed = MathSupport.clamp(
-                request.verticalSpeed(),
-                -SCOUT_PLANE_MAX_BOMB_INITIAL_DOWN_SPEED,
-                SCOUT_PLANE_MAX_BOMB_INITIAL_UP_SPEED
-        );
         for (int index = 0; index < BOMBS_PER_DROP; index += 1) {
             pendingBombReleases.add(new PendingBombRelease(
                     ship.id(),
                     nowSeconds + index * BOMB_RELEASE_INTERVAL_SECONDS,
-                    index,
-                    dropPosition,
-                    dropAltitude,
-                    dropHeading,
-                    dropSpeed,
-                    planeVerticalSpeed,
-                    initialBombVerticalSpeed
+                    index
             ));
         }
         releasePendingBombs();
@@ -916,15 +903,21 @@ public final class GameSession {
                 if (!"active".equals(ship.state()) || !ship.isScoutPlane()) {
                     return;
                 }
-                double heading = MathSupport.normalizeAngle(release.heading() + bombPatternHeadingJitter(release.index()));
-                double horizontalSpeed = Math.max(0, release.horizontalSpeed() + bombPatternSpeedJitter(release.index()));
-                Vector2 forward = Vector2.fromHeading(release.heading());
-                Vector2 right = rightFromHeading(release.heading());
-                double releaseDelay = release.index() * BOMB_RELEASE_INTERVAL_SECONDS;
-                Vector2 position = release.dropPosition()
-                        .add(forward.scale(BOMB_DROP_FORWARD_OFFSET + release.horizontalSpeed() * releaseDelay))
+                double planeHeading = ship.heading();
+                double planeSpeed = Math.min(SCOUT_PLANE_MAX_BOMB_HORIZONTAL_SPEED, Math.max(4, ship.speed() * 0.92));
+                double initialBombVerticalSpeed = MathSupport.clamp(
+                        -ship.verticalSpeed(),
+                        -SCOUT_PLANE_MAX_BOMB_INITIAL_UP_SPEED,
+                        SCOUT_PLANE_MAX_BOMB_INITIAL_DOWN_SPEED
+                );
+                double heading = MathSupport.normalizeAngle(planeHeading + bombPatternHeadingJitter(release.index()));
+                double horizontalSpeed = Math.max(0, planeSpeed + bombPatternSpeedJitter(release.index()));
+                Vector2 forward = Vector2.fromHeading(planeHeading);
+                Vector2 right = rightFromHeading(planeHeading);
+                Vector2 position = ship.position()
+                        .add(forward.scale(BOMB_DROP_FORWARD_OFFSET))
                         .add(right.scale(bombPatternOffset(release.index())));
-                double altitude = Math.max(0, release.dropAltitude() + release.planeVerticalSpeed() * releaseDelay - BOMB_DROP_VERTICAL_OFFSET);
+                double altitude = Math.max(0, ship.y() - BOMB_DROP_VERTICAL_OFFSET);
                 bombs.add(new Bomb(
                         "bomb-" + nextBombId++,
                         ship.teamId(),
@@ -933,7 +926,7 @@ public final class GameSession {
                         altitude,
                         heading,
                         horizontalSpeed,
-                        release.initialVerticalSpeed(),
+                        initialBombVerticalSpeed,
                         nowSeconds,
                         0
                 ));
@@ -1347,8 +1340,6 @@ public final class GameSession {
         return value - Math.floor(value);
     }
 
-    private record PendingBombRelease(String shipId, double releaseAtSeconds, int index, Vector2 dropPosition,
-                                      double dropAltitude, double heading, double horizontalSpeed,
-                                      double planeVerticalSpeed, double initialVerticalSpeed) {
+    private record PendingBombRelease(String shipId, double releaseAtSeconds, int index) {
     }
 }

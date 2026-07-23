@@ -16,6 +16,7 @@ final class Ship {
     private final String teamId;
     private Vector2 position;
     private double y;
+    private double verticalSpeed;
     private double heading;
     private double speed;
     private double turnVelocity;
@@ -90,6 +91,10 @@ final class Ship {
         return y;
     }
 
+    double verticalSpeed() {
+        return verticalSpeed;
+    }
+
     void nextFireTime(double nextFireTime) {
         this.nextFireTime = nextFireTime;
     }
@@ -126,6 +131,7 @@ final class Ship {
 
         position = requestedPosition;
         y = isScoutPlane() ? MathSupport.clamp(update.y(), SCOUT_PLANE_MIN_Y, SCOUT_PLANE_MAX_Y) : 0;
+        verticalSpeed = isScoutPlane() ? MathSupport.clamp(update.verticalSpeed(), -34, 20) : 0;
         heading = MathSupport.normalizeAngle(update.heading());
         speed = MathSupport.clamp(update.speed(), -MAX_ACCEPTED_PLAYER_SPEED, MAX_ACCEPTED_PLAYER_SPEED);
         turnVelocity = MathSupport.clamp(
@@ -135,6 +141,17 @@ final class Ship {
         );
         engineOrder = MathSupport.clamp(update.engineOrder(), 0, 8);
         rudderDegrees = MathSupport.clamp(update.rudderDegrees(), -35, 35);
+    }
+
+    void applyScoutPlaneWeaponState(Vector2 position, double y, double heading, double speed, double verticalSpeed) {
+        if (!"active".equals(state) || !isScoutPlane()) {
+            return;
+        }
+        this.position = position;
+        this.y = MathSupport.clamp(y, SCOUT_PLANE_MIN_Y, SCOUT_PLANE_MAX_Y);
+        this.heading = MathSupport.normalizeAngle(heading);
+        this.speed = MathSupport.clamp(speed, -MAX_ACCEPTED_PLAYER_SPEED, MAX_ACCEPTED_PLAYER_SPEED);
+        this.verticalSpeed = MathSupport.clamp(verticalSpeed, -34, 20);
     }
 
     void update(double deltaSeconds, NavigationService navigationService, WorldMap worldMap) {
