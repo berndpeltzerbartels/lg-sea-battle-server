@@ -40,6 +40,7 @@ public final class GameSession {
     private static final double SCOUT_PLANE_TAIL_FORWARD_MAX = -2.1;
     private static final double SCOUT_PLANE_VERTICAL_HALF_HEIGHT = 1.15;
     private static final double SCOUT_PLANE_HIT_MARGIN = 1.1;
+    private static final double FLAK_SHIP_HIT_MARGIN = 0.18;
     private static final double RAM_HIT_RADIUS = 4.8;
     private static final double RAM_BOW_OFFSET = 4.45;
     private static final double RAM_STERN_LENGTH = -4.05;
@@ -310,8 +311,9 @@ public final class GameSession {
         updateTorpedoes(deltaSeconds, navigationService, worldMap);
         releasePendingBombs();
         updateBombs(deltaSeconds);
-        updateFlakProjectiles(deltaSeconds, worldMap);
+        updateFlakProjectiles(deltaSeconds);
         updateFlakHits();
+        updateFlakTerrainImpacts(worldMap);
         updateRamCollisions();
         respawnSunkShips(navigationService, worldMap, radarService);
         torpedoes.removeIf(torpedo -> !"running".equals(torpedo.state()));
@@ -967,14 +969,18 @@ public final class GameSession {
         }
     }
 
-    private void updateFlakProjectiles(double deltaSeconds, WorldMap worldMap) {
-        double maxTerrainHeight = LandGeometry.maxTerrainHeight(worldMap) + 1.5;
+    private void updateFlakProjectiles(double deltaSeconds) {
         flakProjectiles.forEach(projectile -> {
             projectile.update(deltaSeconds);
-            if ("flying".equals(projectile.state()) || (projectile.previousY() > 0 && projectile.y() <= 0)) {
-                recordFlakTerrainImpact(projectile, worldMap, maxTerrainHeight).ifPresent(impact -> projectile.hit());
-            }
         });
+    }
+
+    private void updateFlakTerrainImpacts(WorldMap worldMap) {
+        double maxTerrainHeight = LandGeometry.maxTerrainHeight(worldMap) + 1.5;
+        flakProjectiles.stream()
+                .filter(projectile -> "flying".equals(projectile.state()) || (projectile.previousY() > 0 && projectile.y() <= 0))
+                .forEach(projectile -> recordFlakTerrainImpact(projectile, worldMap, maxTerrainHeight)
+                        .ifPresent(impact -> projectile.hit()));
     }
 
     private Optional<FlakImpactSnapshot> recordFlakTerrainImpact(FlakProjectile projectile, WorldMap worldMap, double maxTerrainHeight) {
@@ -1006,28 +1012,58 @@ public final class GameSession {
     }
 
     private void updateFlakHits() {
-        List<Ship> activePlanes = allShips().stream()
+        List<Ship> activeTargets = allShips().stream()
                 .filter(ship -> "active".equals(ship.state()))
-                .filter(Ship::isScoutPlane)
                 .toList();
-        if (activePlanes.isEmpty()) {
-            return;
-        }
 
         flakProjectiles.stream()
                 .filter(projectile -> "flying".equals(projectile.state()))
-                .forEach(projectile -> activePlanes.stream()
+                .forEach(projectile -> activeTargets.stream()
                         .filter(ship -> !ship.teamId().equals(projectile.teamId()))
-                        .filter(ship -> flakProjectileHitsScoutPlane(projectile, ship))
+                        .map(ship -> flakProjectileHitsTarget(projectile, ship))
+                        .filter(Optional::isPresent)
+                        .map(Optional::get)
                         .findFirst()
-                        .ifPresent(ship -> {
-                            sinkShip(ship, shooterController(projectile.shipId()));
+                        .ifPresent(hit -> {
+                            if (hit.sinks()) {
+                                sinkShip(hit.ship(), shooterController(projectile.shipId()));
+                                recordFlakHit(projectile, hit.ship());
+                            }
                             projectile.hit();
-                            recordFlakHit(projectile, ship);
+                            if (!hit.ship().isScoutPlane()) {
+                                recordFlakImpact(projectile, hit.reason(), hit.x(), hit.y(), hit.z());
+                            }
                         }));
     }
 
-    private boolean flakProjectileHitsScoutPlane(FlakProjectile projectile, Ship plane) {
+    private Optional<FlakTargetHit> flakProjectileHitsTarget(FlakProjectile projectile, Ship ship) {
+        if (distanceToFlakSegment2D(projectile, ship.position()) > (ship.isScoutPlane() ? 9.0 : 7.2)) {
+            return Optional.empty();
+        }
+        return ship.isScoutPlane()
+                ? flakProjectileHitsScoutPlane(projectile, ship)
+                : flakProjectileHitsShip(projectile, ship);
+    }
+
+    private double distanceToFlakSegment2D(FlakProjectile projectile, Vector2 point) {
+        double ax = projectile.previousX();
+        double az = projectile.previousZ();
+        double bx = projectile.x();
+        double bz = projectile.z();
+        double dx = bx - ax;
+        double dz = bz - az;
+        double lengthSquared = dx * dx + dz * dz;
+        double t = lengthSquared <= 0.0001
+                ? 0
+                : MathSupport.clamp(((point.x() - ax) * dx + (point.z() - az) * dz) / lengthSquared, 0, 1);
+        double nearestX = ax + dx * t;
+        double nearestZ = az + dz * t;
+        double ox = point.x() - nearestX;
+        double oz = point.z() - nearestZ;
+        return Math.sqrt(ox * ox + oz * oz);
+    }
+
+    private Optional<FlakTargetHit> flakProjectileHitsScoutPlane(FlakProjectile projectile, Ship plane) {
         double dx = projectile.x() - projectile.previousX();
         double dy = projectile.y() - projectile.previousY();
         double dz = projectile.z() - projectile.previousZ();
@@ -1039,10 +1075,46 @@ public final class GameSession {
             double y = projectile.previousY() + dy * t;
             double z = projectile.previousZ() + dz * t;
             if (pointHitsScoutPlane(x, y, z, plane)) {
-                return true;
+                return Optional.of(new FlakTargetHit(plane, "plane-hit", true, x, y, z));
             }
         }
-        return false;
+        return Optional.empty();
+    }
+
+    private Optional<FlakTargetHit> flakProjectileHitsShip(FlakProjectile projectile, Ship ship) {
+        double dx = projectile.x() - projectile.previousX();
+        double dy = projectile.y() - projectile.previousY();
+        double dz = projectile.z() - projectile.previousZ();
+        double segmentLength = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        int samples = Math.max(1, (int) Math.ceil(segmentLength / FLAK_SWEEP_STEP));
+        for (int index = 0; index <= samples; index += 1) {
+            double t = samples == 0 ? 1 : (double) index / samples;
+            double x = projectile.previousX() + dx * t;
+            double y = projectile.previousY() + dy * t;
+            double z = projectile.previousZ() + dz * t;
+            FlakShipHitArea area = shipFlakHitArea(x, y, z, ship);
+            if (area != FlakShipHitArea.MISS) {
+                return Optional.of(new FlakTargetHit(ship, area.reason(), area.sinks(), x, y, z));
+            }
+        }
+        return Optional.empty();
+    }
+
+    private FlakShipHitArea shipFlakHitArea(double x, double y, double z, Ship ship) {
+        LocalHullPoint hit = localHullPoint(new Vector2(x, z), ship);
+        double absRight = Math.abs(hit.right());
+        if (y >= 0.72 && y <= 1.72 && hit.forward() >= 0.32 && hit.forward() <= 1.24 && absRight <= 0.62) {
+            return FlakShipHitArea.CRITICAL;
+        }
+        if (y >= 0.78 && y <= 1.92 && hit.forward() >= -0.46 && hit.forward() <= 0.36 && absRight <= 0.38) {
+            return FlakShipHitArea.CRITICAL;
+        }
+        if (y >= 0.1 && y <= 0.98 && hit.forward() >= RAM_STERN_LENGTH - FLAK_SHIP_HIT_MARGIN
+                && hit.forward() <= RAM_BOW_LENGTH + FLAK_SHIP_HIT_MARGIN
+                && absRight <= enemyHullHalfWidthAt(hit.forward()) + FLAK_SHIP_HIT_MARGIN) {
+            return FlakShipHitArea.SURFACE;
+        }
+        return FlakShipHitArea.MISS;
     }
 
     private boolean pointHitsScoutPlane(double x, double y, double z, Ship plane) {
@@ -1097,6 +1169,31 @@ public final class GameSession {
         );
         flakImpacts.add(impact);
         return impact;
+    }
+
+    private record FlakTargetHit(Ship ship, String reason, boolean sinks, double x, double y, double z) {
+    }
+
+    private enum FlakShipHitArea {
+        MISS("miss", false),
+        SURFACE("ship-hit", false),
+        CRITICAL("ship-critical-hit", true);
+
+        private final String reason;
+        private final boolean sinks;
+
+        FlakShipHitArea(String reason, boolean sinks) {
+            this.reason = reason;
+            this.sinks = sinks;
+        }
+
+        String reason() {
+            return reason;
+        }
+
+        boolean sinks() {
+            return sinks;
+        }
     }
 
     private boolean bombHitsShip(Bomb bomb, Ship ship) {

@@ -216,6 +216,72 @@ class GameSessionTest {
     }
 
     @Test
+    void flakProjectileCreatesVisibleShipImpactWithoutSinkingHullHit() {
+        GameSession session = new GameSession(new GameSetup(
+                "flak-ship-surface-hit-test",
+                new WorldMap(9037, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-1", "light", 0, -40, 0, "bot", 5, 0, 0)
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-1", "dark", 0, 0, 0, "bot", 2, 0, 0)
+                        ))
+                ),
+                List.of(new Vector2(0, -40), new Vector2(0, 0))
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-gunner", "light", 0, -40, 0, 4, 0, 5, 0, 0, false, "torpedo-boat"),
+                navigationService,
+                session.worldMap()
+        );
+        session.fireFlak(new FlakFireRequest(
+                "player-gunner", "light", "light-1", 0, 0.5, -40, 0, 4.5, 95
+        ));
+
+        session.update(0.5, radarService, navigationService, session.worldMap());
+        GameSnapshot snapshot = session.snapshot();
+
+        assertEquals("active", findShip(snapshot, "dark-1").state());
+        assertEquals(1, snapshot.flakImpacts().size());
+        assertEquals("ship-hit", snapshot.flakImpacts().get(0).reason());
+    }
+
+    @Test
+    void flakProjectileSinksShipWhenItHitsBridgeOrFunnel() {
+        GameSession session = new GameSession(new GameSetup(
+                "flak-ship-critical-hit-test",
+                new WorldMap(9038, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-1", "light", 0, -40, 0, "bot", 5, 0, 0)
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-1", "dark", 0, 0, 0, "bot", 2, 0, 0)
+                        ))
+                ),
+                List.of(new Vector2(0, -40), new Vector2(0, 0))
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-gunner", "light", 0, -40, 0, 4, 0, 5, 0, 0, false, "torpedo-boat"),
+                navigationService,
+                session.worldMap()
+        );
+        session.fireFlak(new FlakFireRequest(
+                "player-gunner", "light", "light-1", 0, 1.14, -40, 0, 4.5, 95
+        ));
+
+        session.update(0.5, radarService, navigationService, session.worldMap());
+        GameSnapshot snapshot = session.snapshot();
+
+        assertEquals("sunk", findShip(snapshot, "dark-1").state());
+        assertEquals(1, snapshot.flakImpacts().size());
+        assertEquals("ship-critical-hit", snapshot.flakImpacts().get(0).reason());
+    }
+
+    @Test
     void scoutPlanePlayerCanDropBomb() {
         GameSession session = new GameSession(new GameSetup(
                 "scout-plane-bomb-test",
