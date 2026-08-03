@@ -37,6 +37,25 @@ final class LandGeometry {
         return lineIntersectsLand(from, to, worldMap, true);
     }
 
+    static double terrainHeightAt(Vector2 position, WorldMap worldMap) {
+        double height = 0;
+        for (Landmass landmass : worldMap.landmasses()) {
+            if (isInLandWater(position, landmass)) {
+                continue;
+            }
+            height = Math.max(height, terrainHeightAt(position, landmass));
+        }
+        return height;
+    }
+
+    static double maxTerrainHeight(WorldMap worldMap) {
+        double height = 0;
+        for (Landmass landmass : worldMap.landmasses()) {
+            height = Math.max(height, maxTerrainHeight(landmass));
+        }
+        return height;
+    }
+
     static void prepareRadarBlockingGrid(WorldMap worldMap) {
         gridFor(worldMap);
     }
@@ -120,6 +139,94 @@ final class LandGeometry {
         double localZ = position.z() - landmass.z();
         return isInWaterway(localX, localZ, landmass)
                 || isInLake(localX, localZ, landmass);
+    }
+
+    private static double terrainHeightAt(Vector2 position, Landmass landmass) {
+        double localX = position.x() - landmass.x();
+        double localZ = position.z() - landmass.z();
+        double distance = shapeDistance(position, landmass);
+        if (distance >= 1.02) {
+            return 0;
+        }
+        if (isSteepRock(landmass)) {
+            double radius = landmass.radius() == null ? Math.min(landmass.rx(), landmass.rz()) : landmass.radius();
+            return Math.max(0.6, radius * 0.42 * landmass.heightScale() * (1 - MathSupport.smoothstep(0.62, 1.02, distance)));
+        }
+        if ("coastline".equals(landmass.kind())) {
+            return coastlineTerrainHeight(localX, localZ, distance, landmass);
+        }
+        return islandTerrainHeight(localX, localZ, distance, landmass);
+    }
+
+    private static double maxTerrainHeight(Landmass landmass) {
+        if (isSteepRock(landmass)) {
+            double radius = landmass.radius() == null ? Math.min(landmass.rx(), landmass.rz()) : landmass.radius();
+            return Math.max(0.6, radius * 0.42 * landmass.heightScale());
+        }
+        if ("coastline".equals(landmass.kind())) {
+            double peakBoost = landmass.peakBoost() == null ? 0 : landmass.peakBoost();
+            return 0.48 + 5.5 + 24 * landmass.heightScale() + peakBoost + 3.2;
+        }
+        return 0.34 + Math.max(1.1, Math.min(4.2, Math.min(landmass.rx(), landmass.rz()) * 0.15 * landmass.heightScale()));
+    }
+
+    private static double coastlineTerrainHeight(double localX, double localZ, double ring, Landmass landmass) {
+        if (ring >= 0.98) {
+            return 0;
+        }
+        double nx = localX / landmass.rx();
+        double nz = localZ / landmass.rz();
+        double inland = MathSupport.clamp(1 - ring, 0, 1);
+        double ridgeA = Math.sin(localX * 0.065 + localZ * 0.035) * 0.5 + 0.5;
+        double ridgeB = Math.sin(localX * -0.028 + localZ * 0.082 + 2.4) * 0.5 + 0.5;
+        double roughness = terrainNoise(localX, localZ);
+        double cliffLift = MathSupport.smoothstep(0.68, 0.9, ring) * MathSupport.smoothstep(1.04, 0.86, ring) * 5.5;
+        double mountainLift = Math.pow(inland, 0.65) * (9 + ridgeA * 10 + ridgeB * 5) * landmass.heightScale();
+        double peakLift = peakLift(nx, nz, ring, landmass);
+        double shoreBlend = 1 - MathSupport.smoothstep(0.9, 0.98, ring);
+        return 0.28 + shoreBlend * (0.2 + cliffLift + mountainLift + peakLift + roughness * 3.2);
+    }
+
+    private static double islandTerrainHeight(double localX, double localZ, double ring, Landmass landmass) {
+        if (ring >= 1.0) {
+            return 0;
+        }
+        double radius = landmass.radius() == null ? Math.min(landmass.rx(), landmass.rz()) : landmass.radius();
+        double seed = stableNameSeed(landmass.name());
+        double hillRx = landmass.rx() * (0.72 + ((int) seed % 5) * 0.018);
+        double hillRz = landmass.rz() * (0.62 + ((int) seed % 7) * 0.014);
+        double height = Math.max(1.1, Math.min(4.2, Math.min(landmass.rx(), landmass.rz()) * 0.15 * landmass.heightScale()));
+        double peakAngle = seed * 0.017;
+        double peakX = Math.cos(peakAngle) * hillRx * 0.16;
+        double peakZ = Math.sin(peakAngle) * hillRz * 0.16;
+        double nx = (localX - peakX) / Math.max(1, hillRx);
+        double nz = (localZ - peakZ) / Math.max(1, hillRz);
+        double hillDistance = Math.sqrt(nx * nx + nz * nz);
+        double crown = Math.pow(MathSupport.clamp(1 - hillDistance, 0, 1), 0.72);
+        return 0.34 + height * crown * (1 - MathSupport.smoothstep(0.72, 1.0, ring) * 0.9);
+    }
+
+    private static double peakLift(double nx, double nz, double ring, Landmass landmass) {
+        double peakBoost = landmass.peakBoost() == null ? 0 : landmass.peakBoost();
+        if (landmass.caldera() == null) {
+            return peakBoost * Math.pow(MathSupport.clamp(1 - Math.sqrt((nx * 1.35) * (nx * 1.35) + (nz * 1.15) * (nz * 1.15)), 0, 1), 2.4);
+        }
+
+        Caldera caldera = landmass.caldera();
+        double radius = caldera.radius();
+        double rim = caldera.rim();
+        double depth = caldera.depth();
+        double craterDistance = Math.sqrt((nx * 1.18) * (nx * 1.18) + (nz * 1.05) * (nz * 1.05));
+        double outerCone = peakBoost * Math.pow(MathSupport.clamp(1 - ring * 0.72, 0, 1), 2.1);
+        double rimLift = peakBoost * 0.48 * Math.exp(-((craterDistance - radius) * (craterDistance - radius)) / (rim * rim));
+        double bowlDrop = depth * (1 - MathSupport.smoothstep(radius * 0.45, radius, craterDistance));
+        return Math.max(0, outerCone + rimLift - bowlDrop);
+    }
+
+    private static double terrainNoise(double x, double z) {
+        return Math.sin(x * 0.17 + z * 0.08) * 0.45
+                + Math.sin(x * 0.07 - z * 0.19 + 1.7) * 0.35
+                + Math.sin(x * -0.13 + z * 0.12 + 4.1) * 0.2;
     }
 
     private static boolean isInWaterway(double localX, double localZ, Landmass landmass) {

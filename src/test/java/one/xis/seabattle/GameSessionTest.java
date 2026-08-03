@@ -157,6 +157,65 @@ class GameSessionTest {
     }
 
     @Test
+    void flakProjectileCreatesWaterImpactWhenItHitsSeaLevel() {
+        GameSession session = new GameSession(new GameSetup(
+                "flak-water-impact-test",
+                new WorldMap(9035, List.of()),
+                List.of(new FleetSetup("light", List.of(
+                        ship("light-1", "light", 0, 0, 0, "bot", 5, 0, 0)
+                ))),
+                List.of(new Vector2(0, 0))
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-gunner", "light", 0, 0, 0, 4, 0, 5, 0, 0, false, "torpedo-boat"),
+                navigationService,
+                session.worldMap()
+        );
+        session.fireFlak(new FlakFireRequest(
+                "player-gunner", "light", "light-1", 0, 2.0, 0, 0, -40, 0
+        ));
+
+        session.update(0.1, radarService, navigationService, session.worldMap());
+        GameSnapshot snapshot = session.snapshot();
+
+        assertEquals(0, snapshot.flakProjectiles().size());
+        assertEquals(1, snapshot.flakImpacts().size());
+        assertEquals("water-hit", snapshot.flakImpacts().get(0).reason());
+        assertEquals(0, snapshot.flakImpacts().get(0).y(), 0.001);
+    }
+
+    @Test
+    void flakProjectileCreatesLandImpactWhenItHitsTerrainHeight() {
+        WorldMap worldMap = new WorldMap(9036, List.of(testIsland("impact-island", 0, 0, 60, 60)));
+        GameSession session = new GameSession(new GameSetup(
+                "flak-land-impact-test",
+                worldMap,
+                List.of(new FleetSetup("light", List.of(
+                        ship("light-1", "light", 0, -90, 0, "bot", 5, 0, 0)
+                ))),
+                List.of(new Vector2(0, -90))
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-gunner", "light", 0, -90, 0, 4, 0, 5, 0, 0, false, "torpedo-boat"),
+                navigationService,
+                session.worldMap()
+        );
+        session.fireFlak(new FlakFireRequest(
+                "player-gunner", "light", "light-1", 0, 6.0, 0, 0, -24, 0
+        ));
+
+        session.update(0.1, radarService, navigationService, session.worldMap());
+        GameSnapshot snapshot = session.snapshot();
+
+        assertEquals(0, snapshot.flakProjectiles().size());
+        assertEquals(1, snapshot.flakImpacts().size());
+        assertEquals("land-hit", snapshot.flakImpacts().get(0).reason());
+        assertTrue(snapshot.flakImpacts().get(0).y() > 0);
+    }
+
+    @Test
     void scoutPlanePlayerCanDropBomb() {
         GameSession session = new GameSession(new GameSetup(
                 "scout-plane-bomb-test",

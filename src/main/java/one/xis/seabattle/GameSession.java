@@ -100,6 +100,7 @@ public final class GameSession {
     private final List<BombImpactSnapshot> bombImpacts = new ArrayList<>();
     private final List<FlakProjectile> flakProjectiles = new ArrayList<>();
     private final List<FlakHitSnapshot> flakHits = new ArrayList<>();
+    private final List<FlakImpactSnapshot> flakImpacts = new ArrayList<>();
     private int nextTorpedoId = 1;
     private int nextBombId = 1;
     private int nextFlakProjectileId = 1;
@@ -165,6 +166,9 @@ public final class GameSession {
                         .toList(),
                 flakHits.stream()
                         .filter(hit -> nowSeconds - hit.t() <= FLAK_HIT_VISIBILITY_SECONDS)
+                        .toList(),
+                flakImpacts.stream()
+                        .filter(impact -> nowSeconds - impact.t() <= FLAK_HIT_VISIBILITY_SECONDS)
                         .toList(),
                 Map.copyOf(destroyedShipsByTeam),
                 Map.copyOf(killsByPlayer)
@@ -306,7 +310,7 @@ public final class GameSession {
         updateTorpedoes(deltaSeconds, navigationService, worldMap);
         releasePendingBombs();
         updateBombs(deltaSeconds);
-        updateFlakProjectiles(deltaSeconds);
+        updateFlakProjectiles(deltaSeconds, worldMap);
         updateFlakHits();
         updateRamCollisions();
         respawnSunkShips(navigationService, worldMap, radarService);
@@ -316,6 +320,7 @@ public final class GameSession {
         bombImpacts.removeIf(impact -> nowSeconds - impact.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
         flakProjectiles.removeIf(projectile -> !"flying".equals(projectile.state()));
         flakHits.removeIf(hit -> nowSeconds - hit.t() > FLAK_HIT_VISIBILITY_SECONDS);
+        flakImpacts.removeIf(impact -> nowSeconds - impact.t() > FLAK_HIT_VISIBILITY_SECONDS);
         checkGameOver();
     }
 
@@ -962,8 +967,42 @@ public final class GameSession {
         }
     }
 
-    private void updateFlakProjectiles(double deltaSeconds) {
-        flakProjectiles.forEach(projectile -> projectile.update(deltaSeconds));
+    private void updateFlakProjectiles(double deltaSeconds, WorldMap worldMap) {
+        double maxTerrainHeight = LandGeometry.maxTerrainHeight(worldMap) + 1.5;
+        flakProjectiles.forEach(projectile -> {
+            projectile.update(deltaSeconds);
+            if ("flying".equals(projectile.state()) || (projectile.previousY() > 0 && projectile.y() <= 0)) {
+                recordFlakTerrainImpact(projectile, worldMap, maxTerrainHeight).ifPresent(impact -> projectile.hit());
+            }
+        });
+    }
+
+    private Optional<FlakImpactSnapshot> recordFlakTerrainImpact(FlakProjectile projectile, WorldMap worldMap, double maxTerrainHeight) {
+        double dx = projectile.x() - projectile.previousX();
+        double dy = projectile.y() - projectile.previousY();
+        double dz = projectile.z() - projectile.previousZ();
+        if (Math.min(projectile.previousY(), projectile.y()) <= maxTerrainHeight) {
+            double segmentLength = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            int samples = Math.max(1, (int) Math.ceil(segmentLength / FLAK_SWEEP_STEP));
+            for (int index = 1; index <= samples; index += 1) {
+                double t = (double) index / samples;
+                double x = projectile.previousX() + dx * t;
+                double y = projectile.previousY() + dy * t;
+                double z = projectile.previousZ() + dz * t;
+                double terrainHeight = LandGeometry.terrainHeightAt(new Vector2(x, z), worldMap);
+                if (terrainHeight > 0.02 && y <= terrainHeight) {
+                    return Optional.of(recordFlakImpact(projectile, "land-hit", x, terrainHeight, z));
+                }
+            }
+        }
+
+        if (projectile.previousY() > 0 && projectile.y() <= 0) {
+            double t = projectile.previousY() / (projectile.previousY() - projectile.y());
+            double x = projectile.previousX() + dx * t;
+            double z = projectile.previousZ() + dz * t;
+            return Optional.of(recordFlakImpact(projectile, "water-hit", x, 0, z));
+        }
+        return Optional.empty();
     }
 
     private void updateFlakHits() {
@@ -1043,6 +1082,21 @@ public final class GameSession {
                 MathSupport.round(projectile.z()),
                 MathSupport.round(nowSeconds)
         ));
+    }
+
+    private FlakImpactSnapshot recordFlakImpact(FlakProjectile projectile, String reason, double x, double y, double z) {
+        FlakImpactSnapshot impact = new FlakImpactSnapshot(
+                projectile.id(),
+                projectile.teamId(),
+                projectile.shipId(),
+                reason,
+                MathSupport.round(x),
+                MathSupport.round(y),
+                MathSupport.round(z),
+                MathSupport.round(nowSeconds)
+        );
+        flakImpacts.add(impact);
+        return impact;
     }
 
     private boolean bombHitsShip(Bomb bomb, Ship ship) {
