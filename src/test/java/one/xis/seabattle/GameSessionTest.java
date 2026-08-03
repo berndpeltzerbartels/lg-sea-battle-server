@@ -282,6 +282,35 @@ class GameSessionTest {
     }
 
     @Test
+    void flakProjectileDoesNotHitOwnShip() {
+        GameSession session = new GameSession(new GameSetup(
+                "flak-own-ship-hit-test",
+                new WorldMap(9039, List.of()),
+                List.of(new FleetSetup("light", List.of(
+                        ship("light-1", "light", 0, 0, 0, "bot", 5, 0, 0)
+                ))),
+                List.of(new Vector2(0, 0))
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-gunner", "light", 0, 0, 0, 4, 0, 5, 0, 0, false, "torpedo-boat"),
+                navigationService,
+                session.worldMap()
+        );
+        session.fireFlak(new FlakFireRequest(
+                "player-gunner", "light", "light-1", 0, 1.14, -2, 0, 0, 95
+        ));
+
+        session.update(0.1, radarService, navigationService, session.worldMap());
+        GameSnapshot snapshot = session.snapshot();
+
+        assertEquals("active", findShip(snapshot, "light-1").state());
+        assertTrue(snapshot.flakImpacts().stream().noneMatch(impact ->
+                "ship-hit".equals(impact.reason()) || "ship-critical-hit".equals(impact.reason())
+        ));
+    }
+
+    @Test
     void scoutPlanePlayerCanDropBomb() {
         GameSession session = new GameSession(new GameSetup(
                 "scout-plane-bomb-test",

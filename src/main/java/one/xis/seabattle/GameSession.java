@@ -1019,6 +1019,7 @@ public final class GameSession {
         flakProjectiles.stream()
                 .filter(projectile -> "flying".equals(projectile.state()))
                 .forEach(projectile -> activeTargets.stream()
+                        .filter(ship -> !ship.id().equals(projectile.shipId()))
                         .filter(ship -> !ship.teamId().equals(projectile.teamId()))
                         .map(ship -> flakProjectileHitsTarget(projectile, ship))
                         .filter(Optional::isPresent)
