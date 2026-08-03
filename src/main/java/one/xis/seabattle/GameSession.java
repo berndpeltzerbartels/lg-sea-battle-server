@@ -275,6 +275,9 @@ public final class GameSession {
         if (ship.isScoutPlane() || !ship.id().equals(request.shipId()) || !canFireFlak(ship)) {
             return;
         }
+        if (flakShotWouldHitOwnShip(ship, request)) {
+            return;
+        }
 
         nextFlakFireTimeByShipId.put(ship.id(), nowSeconds + FLAK_FIRE_COOLDOWN_SECONDS);
         flakProjectiles.add(new FlakProjectile(
@@ -1020,7 +1023,6 @@ public final class GameSession {
                 .filter(projectile -> "flying".equals(projectile.state()))
                 .forEach(projectile -> activeTargets.stream()
                         .filter(ship -> !ship.id().equals(projectile.shipId()))
-                        .filter(ship -> !ship.teamId().equals(projectile.teamId()))
                         .map(ship -> flakProjectileHitsTarget(projectile, ship))
                         .filter(Optional::isPresent)
                         .map(Optional::get)
@@ -1035,6 +1037,25 @@ public final class GameSession {
                                 recordFlakImpact(projectile, hit.reason(), hit.x(), hit.y(), hit.z());
                             }
                         }));
+    }
+
+    private boolean flakShotWouldHitOwnShip(Ship ship, FlakFireRequest request) {
+        double length = Math.sqrt(request.vx() * request.vx() + request.vy() * request.vy() + request.vz() * request.vz());
+        if (length <= 0.001) {
+            return true;
+        }
+        double dx = request.vx() / length;
+        double dy = request.vy() / length;
+        double dz = request.vz() / length;
+        for (double distance = 0.35; distance <= 8.0; distance += FLAK_SWEEP_STEP) {
+            double x = request.x() + dx * distance;
+            double y = request.y() + dy * distance;
+            double z = request.z() + dz * distance;
+            if (shipFlakHitArea(x, y, z, ship) != FlakShipHitArea.MISS) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private Optional<FlakTargetHit> flakProjectileHitsTarget(FlakProjectile projectile, Ship ship) {
@@ -1107,7 +1128,7 @@ public final class GameSession {
         if (y >= 0.72 && y <= 1.72 && hit.forward() >= 0.32 && hit.forward() <= 1.24 && absRight <= 0.62) {
             return FlakShipHitArea.CRITICAL;
         }
-        if (y >= 0.78 && y <= 1.92 && hit.forward() >= -0.46 && hit.forward() <= 0.36 && absRight <= 0.38) {
+        if (y >= 0.78 && y <= 1.92 && hit.forward() >= -1.62 && hit.forward() <= 0.36 && absRight <= 0.38) {
             return FlakShipHitArea.CRITICAL;
         }
         if (y >= 0.1 && y <= 0.98 && hit.forward() >= RAM_STERN_LENGTH - FLAK_SHIP_HIT_MARGIN

@@ -122,10 +122,10 @@ class GameSessionTest {
                                 ship("light-1", "light", 0, 0, 0, "bot", 5, 0, 0)
                         )),
                         new FleetSetup("dark", List.of(
-                                ship("dark-1", "dark", 0, 47, 0, "bot", 5, 0, 0)
+                                ship("dark-1", "dark", 3, 47, 0, "bot", 5, 0, 0)
                         ))
                 ),
-                List.of(new Vector2(0, 0), new Vector2(0, 47))
+                List.of(new Vector2(0, 0), new Vector2(3, 47))
         ));
 
         session.updatePlayerState(
@@ -134,12 +134,12 @@ class GameSessionTest {
                 session.worldMap()
         );
         session.updatePlayerState(
-                new PlayerStateUpdate("player-plane", "dark", 0, 47, 0, 14, 0, 7, 0, 0, false, "scout-plane", 30),
+                new PlayerStateUpdate("player-plane", "dark", 3, 47, 0, 14, 0, 7, 0, 0, false, "scout-plane", 30),
                 navigationService,
                 session.worldMap()
         );
         session.fireFlak(new FlakFireRequest(
-                "player-gunner", "light", "light-1", 0, 1.5, 0, 0, 60, 95
+                "player-gunner", "light", "light-1", 3, 1.5, 0, 0, 60, 95
         ));
 
         GameSnapshot snapshot = session.snapshot();
@@ -173,7 +173,7 @@ class GameSessionTest {
                 session.worldMap()
         );
         session.fireFlak(new FlakFireRequest(
-                "player-gunner", "light", "light-1", 0, 2.0, 0, 0, -40, 0
+                "player-gunner", "light", "light-1", 3, 2.0, 0, 0, -40, 0
         ));
 
         session.update(0.1, radarService, navigationService, session.worldMap());
@@ -225,10 +225,10 @@ class GameSessionTest {
                                 ship("light-1", "light", 0, -40, 0, "bot", 5, 0, 0)
                         )),
                         new FleetSetup("dark", List.of(
-                                ship("dark-1", "dark", 0, 0, 0, "bot", 2, 0, 0)
+                                ship("dark-1", "dark", 3, 0, 0, "bot", 2, 0, 0)
                         ))
                 ),
-                List.of(new Vector2(0, -40), new Vector2(0, 0))
+                List.of(new Vector2(0, -40), new Vector2(3, 0))
         ));
 
         session.updatePlayerState(
@@ -237,7 +237,7 @@ class GameSessionTest {
                 session.worldMap()
         );
         session.fireFlak(new FlakFireRequest(
-                "player-gunner", "light", "light-1", 0, 0.5, -40, 0, 4.5, 95
+                "player-gunner", "light", "light-1", 3, 0.5, -40, 0, 4.5, 95
         ));
 
         session.update(0.5, radarService, navigationService, session.worldMap());
@@ -258,10 +258,10 @@ class GameSessionTest {
                                 ship("light-1", "light", 0, -40, 0, "bot", 5, 0, 0)
                         )),
                         new FleetSetup("dark", List.of(
-                                ship("dark-1", "dark", 0, 0, 0, "bot", 2, 0, 0)
+                                ship("dark-1", "dark", 3, 0, 0, "bot", 2, 0, 0)
                         ))
                 ),
-                List.of(new Vector2(0, -40), new Vector2(0, 0))
+                List.of(new Vector2(0, -40), new Vector2(3, 0))
         ));
 
         session.updatePlayerState(
@@ -270,7 +270,7 @@ class GameSessionTest {
                 session.worldMap()
         );
         session.fireFlak(new FlakFireRequest(
-                "player-gunner", "light", "light-1", 0, 1.14, -40, 0, 4.5, 95
+                "player-gunner", "light", "light-1", 3, 1.14, -40, 0, 4.5, 95
         ));
 
         session.update(0.5, radarService, navigationService, session.worldMap());
@@ -282,7 +282,7 @@ class GameSessionTest {
     }
 
     @Test
-    void flakProjectileDoesNotHitOwnShip() {
+    void flakShotIntoOwnShipIsBlockedCompletely() {
         GameSession session = new GameSession(new GameSetup(
                 "flak-own-ship-hit-test",
                 new WorldMap(9039, List.of()),
@@ -305,9 +305,38 @@ class GameSessionTest {
         GameSnapshot snapshot = session.snapshot();
 
         assertEquals("active", findShip(snapshot, "light-1").state());
-        assertTrue(snapshot.flakImpacts().stream().noneMatch(impact ->
-                "ship-hit".equals(impact.reason()) || "ship-critical-hit".equals(impact.reason())
+        assertEquals(0, snapshot.flakProjectiles().size());
+        assertEquals(0, snapshot.flakImpacts().size());
+    }
+
+    @Test
+    void flakProjectileCanSinkFriendlyShip() {
+        GameSession session = new GameSession(new GameSetup(
+                "flak-friendly-ship-hit-test",
+                new WorldMap(9040, List.of()),
+                List.of(new FleetSetup("light", List.of(
+                        ship("light-1", "light", 0, -40, 0, "bot", 5, 0, 0),
+                        ship("light-2", "light", 3, 0, 0, "friendly-target", 2, 0, 0)
+                ))),
+                List.of(new Vector2(0, -40), new Vector2(3, 0))
         ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-gunner", "light", 0, -40, 0, 4, 0, 5, 0, 0, false, "torpedo-boat"),
+                navigationService,
+                session.worldMap()
+        );
+        session.fireFlak(new FlakFireRequest(
+                "player-gunner", "light", "light-1", 3, 1.14, -40, 0, 4.5, 95
+        ));
+
+        session.update(0.5, radarService, navigationService, session.worldMap());
+        GameSnapshot snapshot = session.snapshot();
+
+        assertEquals("active", findShip(snapshot, "light-1").state());
+        assertEquals("sunk", findShip(snapshot, "light-2").state());
+        assertEquals(1, snapshot.flakImpacts().size());
+        assertEquals("ship-critical-hit", snapshot.flakImpacts().get(0).reason());
     }
 
     @Test
