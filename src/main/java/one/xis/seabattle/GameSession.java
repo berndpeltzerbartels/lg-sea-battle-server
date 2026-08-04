@@ -26,6 +26,8 @@ public final class GameSession {
     private static final double BOT_SCOUT_PLANE_ATTACK_ARC = Math.toRadians(24);
     private static final double BOT_SCOUT_PLANE_TORPEDO_ARC = Math.toRadians(11);
     private static final double BOT_SCOUT_PLANE_FLY_THROUGH_DISTANCE = 230.0;
+    private static final double BOT_SCOUT_PLANE_FLY_THROUGH_COMPLETE_DISTANCE = 30.0;
+    private static final double BOT_SCOUT_PLANE_FLY_THROUGH_SECONDS = 12.0;
     private static final double BOT_SCOUT_PLANE_CRUISE_Y = 150.0;
     private static final double BOT_SCOUT_PLANE_TORPEDO_ATTACK_Y = 55.0;
     private static final double BOT_SCOUT_PLANE_BOMB_ATTACK_Y = 105.0;
@@ -121,6 +123,8 @@ public final class GameSession {
     private final List<FlakHitSnapshot> flakHits = new ArrayList<>();
     private final List<FlakImpactSnapshot> flakImpacts = new ArrayList<>();
     private final Map<String, Integer> botScoutPlaneNonHumanAttackStreak = new LinkedHashMap<>();
+    private final Map<String, Vector2> botScoutPlaneFlyThroughTargets = new LinkedHashMap<>();
+    private final Map<String, Double> botScoutPlaneFlyThroughUntil = new LinkedHashMap<>();
     private int nextTorpedoId = 1;
     private int nextBombId = 1;
     private int nextFlakProjectileId = 1;
@@ -405,6 +409,7 @@ public final class GameSession {
     private void commandScoutPlaneBot(Ship plane, List<Ship> activeShips) {
         Optional<Ship> target = selectBotScoutPlaneTarget(plane, activeShips);
         if (target.isEmpty()) {
+            clearBotScoutPlaneFlyThrough(plane);
             patrolScoutPlane(plane);
             return;
         }
@@ -415,10 +420,19 @@ public final class GameSession {
         double distance = plane.position().distanceTo(ship.position());
         boolean inBombWindow = distance >= BOT_SCOUT_PLANE_BOMB_MIN_RANGE && distance <= BOT_SCOUT_PLANE_BOMB_RANGE;
         boolean inTorpedoWindow = distance >= BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE && distance <= BOT_SCOUT_PLANE_TORPEDO_RANGE;
-        Vector2 aimTarget = inBombWindow ? bombTarget : torpedoTarget;
-        if (distance < BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE && !inBombWindow) {
-            aimTarget = flyThroughTarget(plane, ship);
+        Optional<Vector2> flyThroughTarget = botScoutPlaneFlyThroughTarget(plane, distance);
+        if (flyThroughTarget.isPresent()) {
+            plane.botScoutPlaneTargetY(BOT_SCOUT_PLANE_CRUISE_Y);
+            plane.applyCommand(7, rudderTowardHeading(plane, angleTo(flyThroughTarget.get(), plane.position())));
+            return;
         }
+        if (distance < BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE && !inBombWindow) {
+            Vector2 flyThrough = startBotScoutPlaneFlyThrough(plane);
+            plane.botScoutPlaneTargetY(BOT_SCOUT_PLANE_CRUISE_Y);
+            plane.applyCommand(7, rudderTowardHeading(plane, angleTo(flyThrough, plane.position())));
+            return;
+        }
+        Vector2 aimTarget = inBombWindow ? bombTarget : torpedoTarget;
         double targetBearing = relativeBearing(plane, aimTarget);
         if (distance > BOT_SCOUT_PLANE_ATTACK_RANGE) {
             plane.botScoutPlaneTargetY(BOT_SCOUT_PLANE_CRUISE_Y);
@@ -450,9 +464,30 @@ public final class GameSession {
         return ship.position().add(Vector2.fromHeading(ship.heading()).scale(Math.max(0, ship.speed()) * leadSeconds));
     }
 
-    private Vector2 flyThroughTarget(Ship plane, Ship target) {
-        Vector2 awayFromPlane = target.position().subtract(plane.position()).normalized();
-        return target.position().add(awayFromPlane.scale(BOT_SCOUT_PLANE_FLY_THROUGH_DISTANCE));
+    private Optional<Vector2> botScoutPlaneFlyThroughTarget(Ship plane, double distanceToTarget) {
+        Vector2 target = botScoutPlaneFlyThroughTargets.get(plane.id());
+        if (target == null) {
+            return Optional.empty();
+        }
+        if (nowSeconds >= botScoutPlaneFlyThroughUntil.getOrDefault(plane.id(), 0.0)
+                || plane.position().distanceTo(target) <= BOT_SCOUT_PLANE_FLY_THROUGH_COMPLETE_DISTANCE
+                || distanceToTarget >= BOT_SCOUT_PLANE_TORPEDO_RANGE + 40.0) {
+            clearBotScoutPlaneFlyThrough(plane);
+            return Optional.empty();
+        }
+        return Optional.of(target);
+    }
+
+    private Vector2 startBotScoutPlaneFlyThrough(Ship plane) {
+        Vector2 target = plane.position().add(Vector2.fromHeading(plane.heading()).scale(BOT_SCOUT_PLANE_FLY_THROUGH_DISTANCE));
+        botScoutPlaneFlyThroughTargets.put(plane.id(), target);
+        botScoutPlaneFlyThroughUntil.put(plane.id(), nowSeconds + BOT_SCOUT_PLANE_FLY_THROUGH_SECONDS);
+        return target;
+    }
+
+    private void clearBotScoutPlaneFlyThrough(Ship plane) {
+        botScoutPlaneFlyThroughTargets.remove(plane.id());
+        botScoutPlaneFlyThroughUntil.remove(plane.id());
     }
 
     private Optional<Ship> selectBotScoutPlaneTarget(Ship plane, List<Ship> activeShips) {
