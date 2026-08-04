@@ -3,6 +3,7 @@ package one.xis.seabattle;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GameStateServiceTest {
 
@@ -46,5 +47,41 @@ class GameStateServiceTest {
         assertEquals(x + 5, torpedo.x(), 1.0);
         assertEquals(z, torpedo.z(), 1.0);
         assertEquals(heading, torpedo.heading(), 0.001);
+    }
+
+    @Test
+    void tickDoesNotAdvanceWithoutConnectedPlayer() {
+        GameStateService service = new GameStateService(
+                new DefaultGameSetupFactory(new WorldMapService()),
+                new RadarService(),
+                new NavigationService()
+        );
+
+        GameSnapshot before = service.snapshot();
+        GameSnapshot after = service.tick(1);
+
+        assertEquals(before.t(), after.t());
+    }
+
+    @Test
+    void tickAdvancesIdleTimeForConnectedPlayerWithoutMovingShips() {
+        GameStateService service = new GameStateService(
+                new DefaultGameSetupFactory(new WorldMapService()),
+                new RadarService(),
+                new NavigationService()
+        );
+        service.connectPlayer("player-BP-test");
+
+        GameSnapshot before = service.snapshot();
+        ShipSnapshot beforeShip = before.ships().get(0);
+        GameSnapshot after = service.tick(1);
+        ShipSnapshot afterShip = after.ships().stream()
+                .filter(ship -> ship.id().equals(beforeShip.id()))
+                .findFirst()
+                .orElseThrow();
+
+        assertTrue(after.t() > before.t());
+        assertEquals(beforeShip.x(), afterShip.x());
+        assertEquals(beforeShip.z(), afterShip.z());
     }
 }

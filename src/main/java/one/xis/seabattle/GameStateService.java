@@ -65,10 +65,14 @@ public class GameStateService {
     public GameSnapshot tick(double deltaSeconds) {
         SessionView view;
         synchronized (this) {
-            if (!session.hasHumanControlledShip(connectedPlayerIds)) {
+            if (connectedPlayerIds.isEmpty()) {
                 return publishedModel.state();
             }
-            session.update(deltaSeconds, radarService, navigationService, session.worldMap());
+            if (session.hasHumanControlledShip(connectedPlayerIds)) {
+                session.update(deltaSeconds, radarService, navigationService, session.worldMap());
+            } else {
+                session.updateIdle(deltaSeconds, radarService, navigationService, session.worldMap());
+            }
             view = captureSessionView();
         }
         publishModel(view);

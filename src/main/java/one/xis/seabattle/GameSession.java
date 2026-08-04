@@ -329,6 +329,28 @@ public final class GameSession {
         checkGameOver();
     }
 
+    public synchronized void updateIdle(double deltaSeconds, RadarService radarService, NavigationService navigationService, WorldMap worldMap) {
+        if (!"running".equals(state)) {
+            return;
+        }
+        nowSeconds += deltaSeconds;
+        updateTorpedoes(deltaSeconds, navigationService, worldMap);
+        releasePendingBombs();
+        updateBombs(deltaSeconds);
+        updateFlakProjectiles(deltaSeconds);
+        updateFlakHits();
+        updateFlakTerrainImpacts(worldMap);
+        respawnSunkShips(navigationService, worldMap, radarService);
+        torpedoes.removeIf(torpedo -> !"running".equals(torpedo.state()));
+        torpedoImpacts.removeIf(impact -> nowSeconds - impact.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
+        bombs.removeIf(bomb -> !"falling".equals(bomb.state()));
+        bombImpacts.removeIf(impact -> nowSeconds - impact.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
+        flakProjectiles.removeIf(projectile -> !"flying".equals(projectile.state()));
+        flakHits.removeIf(hit -> nowSeconds - hit.t() > FLAK_HIT_VISIBILITY_SECONDS);
+        flakImpacts.removeIf(impact -> nowSeconds - impact.t() > FLAK_HIT_VISIBILITY_SECONDS);
+        checkGameOver();
+    }
+
     public synchronized void update(double deltaSeconds) {
         throw new IllegalStateException("World navigation is required for server simulation");
     }
