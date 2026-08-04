@@ -87,6 +87,22 @@ public class GameStateService {
         SessionView view;
         activateTeam(request.teamId());
         synchronized (this) {
+            if (request.includesPlayerState()) {
+                session.applyPlayerState(new PlayerStateUpdate(
+                        request.playerId(),
+                        request.teamId(),
+                        request.x(),
+                        request.z(),
+                        request.heading(),
+                        request.speed(),
+                        request.turnVelocity(),
+                        request.engineOrder(),
+                        (int) Math.round(request.rudderDegrees()),
+                        request.clientTime(),
+                        false,
+                        request.vehicleType()
+                ), navigationService, session.worldMap());
+            }
             session.applyFireTorpedo(request);
             view = captureSessionView();
         }
