@@ -38,9 +38,9 @@ public final class GameSession {
     private static final double BOT_SCOUT_PLANE_HUMAN_TARGET_BONUS = 80.0;
     private static final double BOMB_DROP_FORWARD_OFFSET = 0.6;
     private static final double BOMB_DROP_VERTICAL_OFFSET = 0.65;
-    private static final double BOMB_PATTERN_LATERAL_SPACING = 1.9;
-    private static final double BOMB_PATTERN_HEADING_JITTER = 0.026;
-    private static final double BOMB_PATTERN_SPEED_JITTER = 2.7;
+    private static final double BOMB_PATTERN_LATERAL_SPACING = 0.18;
+    private static final double BOMB_PATTERN_HEADING_JITTER = 0.008;
+    private static final double BOMB_PATTERN_SPEED_JITTER = 1.1;
     private static final double BOMB_DROP_COOLDOWN_SECONDS = 2.8;
     private static final double SCOUT_PLANE_MIN_BOMB_ALTITUDE = 3;
     private static final double SCOUT_PLANE_MAX_BOMB_ALTITUDE = 200;
@@ -1738,8 +1738,7 @@ public final class GameSession {
 
     private static double bombPatternOffset(int index) {
         double side = index % 2 == 0 ? -1.0 : 1.0;
-        int lane = (index / 2) % 3;
-        return side * (0.45 + lane * 0.28) * BOMB_PATTERN_LATERAL_SPACING;
+        return side * BOMB_PATTERN_LATERAL_SPACING;
     }
 
     private static double bombPatternHeadingJitter(int index) {

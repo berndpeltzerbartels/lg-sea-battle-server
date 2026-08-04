@@ -412,6 +412,30 @@ class GameSessionTest {
         List<BombSnapshot> bombs = session.snapshot().bombs();
         assertEquals(12, bombs.size());
         assertTrue(bombs.stream().allMatch(bomb -> "falling".equals(bomb.state())));
+        double minX = bombs.stream().mapToDouble(BombSnapshot::x).min().orElseThrow();
+        double maxX = bombs.stream().mapToDouble(BombSnapshot::x).max().orElseThrow();
+        assertTrue(maxX - minX <= 1.0, "Bombs must be released from the fuselage, not a wide wing pattern");
+    }
+
+    @Test
+    void botScoutPlaneDropsBombsDuringStraightAttackRun() {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-scout-plane-bomb-test",
+                new WorldMap(9041, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-plane-1", "light", 0, -100, 0, "bot", ENGINE_FULL, 0, 0, "scout-plane")
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-human-1", "dark", 0, 0, Math.PI, "player-dark", ENGINE_HALF, 0, 99, "torpedo-boat")
+                        ))
+                ),
+                List.of(new Vector2(0, -140), new Vector2(0, 140))
+        ));
+
+        session.update(0.1, radarService, navigationService, session.worldMap());
+
+        assertFalse(session.snapshot().bombs().isEmpty(), "Bot scout plane should drop bombs in a straight attack window");
     }
 
     @Test
