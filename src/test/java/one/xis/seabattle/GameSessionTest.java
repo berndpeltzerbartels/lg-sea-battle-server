@@ -373,6 +373,28 @@ class GameSessionTest {
     }
 
     @Test
+    void botScoutPlanePrefersHumanTargetOverCloserBotTarget() {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-scout-plane-human-target-test",
+                new WorldMap(9037, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-plane", "light", 0, 0, 0, "bot", 7, 0, 99, "scout-plane")
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-player", "dark", 0, 80, Math.PI, "player-BPB", 5, 0, 99),
+                                ship("dark-bot", "dark", 30, 0, Math.PI, "bot", 5, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 0))
+        ));
+
+        session.update(0.05, radarService, navigationService, session.worldMap());
+
+        assertEquals(0, findShip(session.snapshot(), "light-plane").rudderDegrees());
+    }
+
+    @Test
     void torpedoBoatCannotDropBomb() {
         GameSession session = new GameSession(new GameSetup(
                 "boat-bomb-test",
@@ -1507,6 +1529,11 @@ class GameSessionTest {
 
     private ShipSetup ship(String id, String teamId, double x, double z, double heading, String controlledBy,
                            int engineOrder, int rudderDegrees, double nextFireDelaySeconds) {
+        return ship(id, teamId, x, z, heading, controlledBy, engineOrder, rudderDegrees, nextFireDelaySeconds, "torpedo-boat");
+    }
+
+    private ShipSetup ship(String id, String teamId, double x, double z, double heading, String controlledBy,
+                           int engineOrder, int rudderDegrees, double nextFireDelaySeconds, String vehicleType) {
         return new ShipSetup(
                 id,
                 teamId,
@@ -1516,7 +1543,7 @@ class GameSessionTest {
                 engineOrder,
                 rudderDegrees,
                 nextFireDelaySeconds,
-                "torpedo-boat"
+                vehicleType
         );
     }
 }

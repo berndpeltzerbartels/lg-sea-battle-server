@@ -33,7 +33,7 @@ public final class GameSession {
     private static final double SCOUT_PLANE_MAX_BOMB_HORIZONTAL_SPEED = 28;
     private static final double SCOUT_PLANE_MAX_BOMB_INITIAL_UP_SPEED = 20;
     private static final double SCOUT_PLANE_MAX_BOMB_INITIAL_DOWN_SPEED = 34;
-    private static final double FLAK_FIRE_COOLDOWN_SECONDS = 0.14;
+    private static final double FLAK_FIRE_COOLDOWN_SECONDS = 0.1167;
     private static final double FLAK_HIT_VISIBILITY_SECONDS = 2.4;
     private static final double FLAK_SWEEP_STEP = 1.5;
     private static final double SCOUT_PLANE_FUSELAGE_HALF_WIDTH = 0.55;
@@ -394,8 +394,8 @@ public final class GameSession {
                 .filter(ship -> !ship.teamId().equals(plane.teamId()))
                 .filter(ship -> !ship.isScoutPlane())
                 .min((left, right) -> Double.compare(
-                        plane.position().distanceTo(left.position()),
-                        plane.position().distanceTo(right.position())
+                        botScoutPlaneTargetScore(plane, left),
+                        botScoutPlaneTargetScore(plane, right)
                 ));
         if (target.isEmpty()) {
             patrolScoutPlane(plane);
@@ -428,6 +428,15 @@ public final class GameSession {
     private void patrolScoutPlane(Ship plane) {
         double patrolHeading = MathSupport.normalizeAngle(stablePhase(plane.id()) + Math.sin(nowSeconds * 0.08 + stablePhase(plane.id())) * 0.9);
         plane.applyCommand(7, rudderTowardHeading(plane, patrolHeading));
+    }
+
+    private double botScoutPlaneTargetScore(Ship plane, Ship target) {
+        double humanPriority = isHumanControlled(target) ? 0 : 10000;
+        return humanPriority + plane.position().distanceTo(target.position());
+    }
+
+    private boolean isHumanControlled(Ship ship) {
+        return ship.controlledBy() != null && !"bot".equals(ship.controlledBy());
     }
 
     private void commandBot(Ship ship, RadarService.VisibilityCache visibilityCache, NavigationService navigationService, WorldMap worldMap) {
