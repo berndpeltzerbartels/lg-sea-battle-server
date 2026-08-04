@@ -439,6 +439,31 @@ class GameSessionTest {
     }
 
     @Test
+    void botScoutPlaneThreatensMovingHumanTarget() {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-scout-plane-moving-target-test",
+                new WorldMap(9042, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-plane-1", "light", 0, -165, 0, "bot", ENGINE_FULL, 0, 0, "scout-plane")
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-human-1", "dark", 0, 0, Math.PI / 2, "player-dark", ENGINE_HALF, 0, 99, "torpedo-boat")
+                        ))
+                ),
+                List.of(new Vector2(0, -180), new Vector2(0, 180))
+        ));
+
+        GameSnapshot snapshot = session.snapshot();
+        for (int i = 0; i < 360 && "active".equals(findShip(snapshot, "dark-human-1").state()); i += 1) {
+            session.update(0.1, radarService, navigationService, session.worldMap());
+            snapshot = session.snapshot();
+        }
+
+        assertEquals("sunk", findShip(snapshot, "dark-human-1").state(), "Moving human target should be sinkable by bot scout-plane attacks");
+    }
+
+    @Test
     void botScoutPlanePrefersHumanTargetOverCloserBotTarget() {
         GameSession session = new GameSession(new GameSetup(
                 "bot-scout-plane-human-target-test",
