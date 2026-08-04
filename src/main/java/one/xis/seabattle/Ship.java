@@ -32,6 +32,7 @@ final class Ship {
     private double respawnAtSeconds = Double.POSITIVE_INFINITY;
     private double glancingRamBackoffUntilSeconds = Double.NEGATIVE_INFINITY;
     private Vector2 glancingRamBackoffTarget;
+    private double botScoutPlaneTargetY = BOT_SCOUT_PLANE_Y;
 
     Ship(String id, String teamId, Vector2 position, double heading, String controlledBy) {
         this.id = id;
@@ -81,6 +82,7 @@ final class Ship {
         this.vehicleType = normalizeVehicleType(vehicleType);
         if (isScoutPlane()) {
             y = BOT_SCOUT_PLANE_Y;
+            botScoutPlaneTargetY = BOT_SCOUT_PLANE_Y;
             speed = Math.max(speed, BOT_SCOUT_PLANE_SPEED);
             engineOrder = 7;
         }
@@ -112,6 +114,12 @@ final class Ship {
 
     void nextFireTime(double nextFireTime) {
         this.nextFireTime = nextFireTime;
+    }
+
+    void botScoutPlaneTargetY(double y) {
+        if (isScoutPlane()) {
+            botScoutPlaneTargetY = MathSupport.clamp(y, SCOUT_PLANE_MIN_Y, SCOUT_PLANE_MAX_Y);
+        }
     }
 
     void applyCommand(int engineOrder, int rudderDegrees) {
@@ -209,7 +217,7 @@ final class Ship {
         turnVelocity += (targetTurnVelocity - turnVelocity) * Math.min(1, deltaSeconds * 1.2);
         heading = MathSupport.normalizeAngle(heading + turnVelocity * deltaSeconds);
         position = position.add(Vector2.fromHeading(heading).scale(speed * deltaSeconds));
-        y = BOT_SCOUT_PLANE_Y;
+        y += (botScoutPlaneTargetY - y) * Math.min(1, deltaSeconds * 0.7);
         verticalSpeed = 0;
         engineOrder = 7;
     }
@@ -307,6 +315,7 @@ final class Ship {
         rudderDegrees = 0;
         controlledBy = "bot";
         y = isScoutPlane() ? BOT_SCOUT_PLANE_Y : 0;
+        botScoutPlaneTargetY = isScoutPlane() ? BOT_SCOUT_PLANE_Y : 0;
         verticalSpeed = 0;
         state = "active";
         torpedoesRemaining = TORPEDO_STOCK;
