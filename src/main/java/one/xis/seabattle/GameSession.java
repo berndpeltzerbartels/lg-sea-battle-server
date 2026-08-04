@@ -22,6 +22,8 @@ public final class GameSession {
     private static final double BOT_SCOUT_PLANE_BOMB_RANGE = 92.0;
     private static final double BOT_SCOUT_PLANE_TORPEDO_RANGE = 165.0;
     private static final double BOT_SCOUT_PLANE_ATTACK_ARC = Math.toRadians(18);
+    private static final int BOT_SCOUT_PLANE_FORCE_HUMAN_AFTER_NON_HUMAN_ATTACKS = 3;
+    private static final double BOT_SCOUT_PLANE_HUMAN_TARGET_BONUS = 80.0;
     private static final double BOMB_DROP_FORWARD_OFFSET = 0.6;
     private static final double BOMB_DROP_VERTICAL_OFFSET = 0.65;
     private static final double BOMB_PATTERN_LATERAL_SPACING = 1.9;
@@ -108,6 +110,7 @@ public final class GameSession {
     private final List<FlakProjectile> flakProjectiles = new ArrayList<>();
     private final List<FlakHitSnapshot> flakHits = new ArrayList<>();
     private final List<FlakImpactSnapshot> flakImpacts = new ArrayList<>();
+    private final Map<String, Integer> botScoutPlaneNonHumanAttackStreak = new LinkedHashMap<>();
     private int nextTorpedoId = 1;
     private int nextBombId = 1;
     private int nextFlakProjectileId = 1;
@@ -390,13 +393,7 @@ public final class GameSession {
     }
 
     private void commandScoutPlaneBot(Ship plane, List<Ship> activeShips) {
-        Optional<Ship> target = activeShips.stream()
-                .filter(ship -> !ship.teamId().equals(plane.teamId()))
-                .filter(ship -> !ship.isScoutPlane())
-                .min((left, right) -> Double.compare(
-                        botScoutPlaneTargetScore(plane, left),
-                        botScoutPlaneTargetScore(plane, right)
-                ));
+        Optional<Ship> target = selectBotScoutPlaneTarget(plane, activeShips);
         if (target.isEmpty()) {
             patrolScoutPlane(plane);
             return;
@@ -418,11 +415,42 @@ public final class GameSession {
 
         if (distance <= BOT_SCOUT_PLANE_BOMB_RANGE && plane.canDropBomb(nowSeconds)) {
             dropBombsFromScoutPlane(plane, BOT_SCOUT_PLANE_BOMB_COOLDOWN_SECONDS);
+            recordBotScoutPlaneAttack(plane, ship);
             return;
         }
         if (distance <= BOT_SCOUT_PLANE_TORPEDO_RANGE && nowSeconds >= nextBotScoutPlaneTorpedoTime && plane.canDropBomb(nowSeconds)) {
             fireAirTorpedo(plane, BOT_SCOUT_PLANE_TORPEDO_COOLDOWN_SECONDS);
+            recordBotScoutPlaneAttack(plane, ship);
         }
+    }
+
+    private Optional<Ship> selectBotScoutPlaneTarget(Ship plane, List<Ship> activeShips) {
+        List<Ship> candidates = activeShips.stream()
+                .filter(ship -> !ship.teamId().equals(plane.teamId()))
+                .filter(ship -> !ship.isScoutPlane())
+                .toList();
+        if (candidates.isEmpty()) {
+            return Optional.empty();
+        }
+
+        if (shouldForceHumanScoutPlaneTarget(plane)) {
+            Optional<Ship> reachableHuman = candidates.stream()
+                    .filter(this::isHumanControlled)
+                    .filter(ship -> plane.position().distanceTo(ship.position()) <= BOT_SCOUT_PLANE_ATTACK_RANGE)
+                    .min((left, right) -> Double.compare(
+                            plane.position().distanceTo(left.position()),
+                            plane.position().distanceTo(right.position())
+                    ));
+            if (reachableHuman.isPresent()) {
+                return reachableHuman;
+            }
+        }
+
+        return candidates.stream()
+                .min((left, right) -> Double.compare(
+                        botScoutPlaneTargetScore(plane, left),
+                        botScoutPlaneTargetScore(plane, right)
+                ));
     }
 
     private void patrolScoutPlane(Ship plane) {
@@ -431,12 +459,25 @@ public final class GameSession {
     }
 
     private double botScoutPlaneTargetScore(Ship plane, Ship target) {
-        double humanPriority = isHumanControlled(target) ? 0 : 10000;
+        double humanPriority = isHumanControlled(target) ? -BOT_SCOUT_PLANE_HUMAN_TARGET_BONUS : 0;
         return humanPriority + plane.position().distanceTo(target.position());
     }
 
     private boolean isHumanControlled(Ship ship) {
         return ship.controlledBy() != null && !"bot".equals(ship.controlledBy());
+    }
+
+    private boolean shouldForceHumanScoutPlaneTarget(Ship plane) {
+        return botScoutPlaneNonHumanAttackStreak.getOrDefault(plane.id(), 0)
+                >= BOT_SCOUT_PLANE_FORCE_HUMAN_AFTER_NON_HUMAN_ATTACKS;
+    }
+
+    private void recordBotScoutPlaneAttack(Ship plane, Ship target) {
+        if (isHumanControlled(target)) {
+            botScoutPlaneNonHumanAttackStreak.remove(plane.id());
+            return;
+        }
+        botScoutPlaneNonHumanAttackStreak.merge(plane.id(), 1, Integer::sum);
     }
 
     private void commandBot(Ship ship, RadarService.VisibilityCache visibilityCache, NavigationService navigationService, WorldMap worldMap) {
