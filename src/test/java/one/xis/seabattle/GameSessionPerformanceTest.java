@@ -102,7 +102,8 @@ class GameSessionPerformanceTest {
                 "bot",
                 index % 2 == 0 ? ENGINE_HALF : ENGINE_TWO_THIRDS,
                 0,
-                index * 0.35
+                index * 0.35,
+                "torpedo-boat"
         );
     }
 

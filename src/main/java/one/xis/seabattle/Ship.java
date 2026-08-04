@@ -6,6 +6,8 @@ final class Ship {
     private static final double MAX_ACCEPTED_PLAYER_SPEED = 32;
     private static final double SCOUT_PLANE_MIN_Y = 3;
     private static final double SCOUT_PLANE_MAX_Y = 200;
+    private static final double BOT_SCOUT_PLANE_Y = 150;
+    private static final double BOT_SCOUT_PLANE_SPEED = 19;
     private static final double MAX_ACCEPTED_PLAYER_TURN_VELOCITY = 1.2;
     private static final int ENGINE_FULL_ASTERN = 0;
     private static final int TORPEDO_STOCK = 12;
@@ -73,6 +75,15 @@ final class Ship {
 
     void controlledBy(String controlledBy) {
         this.controlledBy = controlledBy;
+    }
+
+    void vehicleType(String vehicleType) {
+        this.vehicleType = normalizeVehicleType(vehicleType);
+        if (isScoutPlane()) {
+            y = BOT_SCOUT_PLANE_Y;
+            speed = Math.max(speed, BOT_SCOUT_PLANE_SPEED);
+            engineOrder = 7;
+        }
     }
 
     Vector2 position() {
@@ -162,6 +173,10 @@ final class Ship {
         if (!"active".equals(state)) {
             return;
         }
+        if (isScoutPlane()) {
+            updateScoutPlane(deltaSeconds);
+            return;
+        }
 
         Vector2 previousPosition = position;
         double previousSpeed = speed;
@@ -183,6 +198,20 @@ final class Ship {
             speed = Math.min(0, previousSpeed * 0.15);
             turnVelocity *= 0.35;
         }
+    }
+
+    private void updateScoutPlane(double deltaSeconds) {
+        double targetSpeed = BOT_SCOUT_PLANE_SPEED;
+        speed += (targetSpeed - speed) * Math.min(1, deltaSeconds * 0.55);
+
+        double rudderRatio = rudderDegrees / 35.0;
+        double targetTurnVelocity = rudderRatio * 0.18;
+        turnVelocity += (targetTurnVelocity - turnVelocity) * Math.min(1, deltaSeconds * 1.2);
+        heading = MathSupport.normalizeAngle(heading + turnVelocity * deltaSeconds);
+        position = position.add(Vector2.fromHeading(heading).scale(speed * deltaSeconds));
+        y = BOT_SCOUT_PLANE_Y;
+        verticalSpeed = 0;
+        engineOrder = 7;
     }
 
     boolean canFire(double nowSeconds) {

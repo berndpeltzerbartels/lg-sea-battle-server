@@ -18,6 +18,8 @@ final class DefaultGameSetupFactory {
     private static final String TEAM_LIGHT = "light";
     private static final String TEAM_GREEN = "green";
     private static final String TEAM_SAND = "sand";
+    private static final String VEHICLE_TORPEDO_BOAT = "torpedo-boat";
+    private static final String VEHICLE_SCOUT_PLANE = "scout-plane";
     private static final List<String> BASE_TEAMS = List.of(TEAM_DARK, TEAM_LIGHT);
     private static final List<String> TEAM_ORDER = List.of(TEAM_DARK, TEAM_LIGHT, TEAM_GREEN, TEAM_SAND);
 
@@ -262,7 +264,8 @@ final class DefaultGameSetupFactory {
                 "bot",
                 engineOrder,
                 rudderDegrees,
-                nextFireDelaySeconds
+                nextFireDelaySeconds,
+                VEHICLE_TORPEDO_BOAT
         );
     }
 
@@ -276,7 +279,8 @@ final class DefaultGameSetupFactory {
                 controlledBy,
                 engineOrder,
                 rudderDegrees,
-                nextFireDelaySeconds
+                nextFireDelaySeconds,
+                VEHICLE_TORPEDO_BOAT
         );
     }
 
@@ -284,18 +288,24 @@ final class DefaultGameSetupFactory {
         List<ShipSetup> ships = new ArrayList<>();
         for (int index = 0; index < formation.length; index += 1) {
             double[] slot = formation[index];
+            String shipId = teamId + "-" + (index + 1);
             ships.add(new ShipSetup(
-                    teamId + "-" + (index + 1),
+                    shipId,
                     teamId,
                     new Vector2(slot[0], slot[1]),
                     MathSupport.normalizeAngle(slot[2]),
                     "bot",
                     (int) slot[3],
                     (int) slot[4],
-                    index == 0 ? 0 : 3 + index * 1.5
+                    index == 0 ? 0 : 3 + index * 1.5,
+                    isBotScoutPlaneSlot(teamId, index) ? VEHICLE_SCOUT_PLANE : VEHICLE_TORPEDO_BOAT
             ));
         }
         return ships;
+    }
+
+    private static boolean isBotScoutPlaneSlot(String teamId, int index) {
+        return (TEAM_LIGHT.equals(teamId) && index == 5) || (TEAM_DARK.equals(teamId) && index == 5);
     }
 
     private static List<ShipSetup> createScenarioShips(String teamId, List<Vector2> positions, double heading) {

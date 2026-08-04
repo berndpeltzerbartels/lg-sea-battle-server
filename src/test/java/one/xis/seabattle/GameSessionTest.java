@@ -1126,6 +1126,10 @@ class GameSessionTest {
         assertEquals(List.of("dark", "light"),
                 denseLand.fleets().stream().map(FleetSetup::teamId).toList());
         assertEquals(List.of(15, 15), denseLand.fleets().stream().map(fleet -> fleet.ships().size()).toList());
+        assertEquals(2, denseLand.fleets().stream()
+                .flatMap(fleet -> fleet.ships().stream())
+                .filter(ship -> "scout-plane".equals(ship.vehicleType()))
+                .count());
     }
 
     @Test
@@ -1511,7 +1515,8 @@ class GameSessionTest {
                 controlledBy,
                 engineOrder,
                 rudderDegrees,
-                nextFireDelaySeconds
+                nextFireDelaySeconds,
+                "torpedo-boat"
         );
     }
 }

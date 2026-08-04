@@ -16,6 +16,12 @@ public final class GameSession {
     private static final double BOMB_HULL_MARGIN = 1.35;
     private static final int BOMBS_PER_DROP = 12;
     private static final double BOMB_RELEASE_INTERVAL_SECONDS = 0.12;
+    private static final double BOT_SCOUT_PLANE_BOMB_COOLDOWN_SECONDS = 8.0;
+    private static final double BOT_SCOUT_PLANE_TORPEDO_COOLDOWN_SECONDS = 24.0;
+    private static final double BOT_SCOUT_PLANE_ATTACK_RANGE = 360.0;
+    private static final double BOT_SCOUT_PLANE_BOMB_RANGE = 92.0;
+    private static final double BOT_SCOUT_PLANE_TORPEDO_RANGE = 165.0;
+    private static final double BOT_SCOUT_PLANE_ATTACK_ARC = Math.toRadians(18);
     private static final double BOMB_DROP_FORWARD_OFFSET = 0.6;
     private static final double BOMB_DROP_VERTICAL_OFFSET = 0.65;
     private static final double BOMB_PATTERN_LATERAL_SPACING = 1.9;
@@ -108,6 +114,7 @@ public final class GameSession {
     private int nextRespawnCandidateIndex;
     private int lastRespawnCandidateIndex = -1;
     private double nowSeconds;
+    private double nextBotScoutPlaneTorpedoTime;
     private String state = "running";
 
     GameSession(GameSetup setup) {
@@ -242,7 +249,12 @@ public final class GameSession {
                 request.speed(),
                 request.verticalSpeed()
         );
-        ship.markFired(nowSeconds, BOMB_DROP_COOLDOWN_SECONDS);
+        dropBombsFromScoutPlane(ship, BOMB_DROP_COOLDOWN_SECONDS);
+        releasePendingBombs();
+    }
+
+    private void dropBombsFromScoutPlane(Ship ship, double cooldownSeconds) {
+        ship.markFired(nowSeconds, cooldownSeconds);
         for (int index = 0; index < BOMBS_PER_DROP; index += 1) {
             pendingBombReleases.add(new PendingBombRelease(
                     ship.id(),
@@ -256,7 +268,6 @@ public final class GameSession {
                     ship.verticalSpeed()
             ));
         }
-        releasePendingBombs();
     }
 
     public synchronized GameSnapshot fireFlak(FlakFireRequest request) {
@@ -362,12 +373,61 @@ public final class GameSession {
 
         List<Ship> activeShips = allShips().stream()
                 .filter(ship -> "active".equals(ship.state()))
+                .toList();
+        List<Ship> surfaceShips = activeShips.stream()
                 .filter(ship -> !ship.isScoutPlane())
                 .toList();
-        RadarService.VisibilityCache visibilityCache = radarService.visibilityCache(worldMap, activeShips);
+        RadarService.VisibilityCache visibilityCache = radarService.visibilityCache(worldMap, surfaceShips);
         activeShips.stream()
                 .filter(ship -> "bot".equals(ship.controlledBy()))
-                .forEach(ship -> commandBot(ship, visibilityCache, navigationService, worldMap));
+                .forEach(ship -> {
+                    if (ship.isScoutPlane()) {
+                        commandScoutPlaneBot(ship, activeShips);
+                    } else {
+                        commandBot(ship, visibilityCache, navigationService, worldMap);
+                    }
+                });
+    }
+
+    private void commandScoutPlaneBot(Ship plane, List<Ship> activeShips) {
+        Optional<Ship> target = activeShips.stream()
+                .filter(ship -> !ship.teamId().equals(plane.teamId()))
+                .filter(ship -> !ship.isScoutPlane())
+                .min((left, right) -> Double.compare(
+                        plane.position().distanceTo(left.position()),
+                        plane.position().distanceTo(right.position())
+                ));
+        if (target.isEmpty()) {
+            patrolScoutPlane(plane);
+            return;
+        }
+
+        Ship ship = target.get();
+        double distance = plane.position().distanceTo(ship.position());
+        double targetBearing = relativeBearing(plane, ship.position());
+        if (distance > BOT_SCOUT_PLANE_ATTACK_RANGE) {
+            plane.applyCommand(7, rudderTowardHeading(plane, angleTo(ship.position(), plane.position())));
+            return;
+        }
+
+        int rudder = (int) Math.round(MathSupport.clamp(targetBearing / 0.45, -1, 1) * 35);
+        plane.applyCommand(7, rudder);
+        if (Math.abs(targetBearing) > BOT_SCOUT_PLANE_ATTACK_ARC) {
+            return;
+        }
+
+        if (distance <= BOT_SCOUT_PLANE_BOMB_RANGE && plane.canDropBomb(nowSeconds)) {
+            dropBombsFromScoutPlane(plane, BOT_SCOUT_PLANE_BOMB_COOLDOWN_SECONDS);
+            return;
+        }
+        if (distance <= BOT_SCOUT_PLANE_TORPEDO_RANGE && nowSeconds >= nextBotScoutPlaneTorpedoTime && plane.canDropBomb(nowSeconds)) {
+            fireAirTorpedo(plane, BOT_SCOUT_PLANE_TORPEDO_COOLDOWN_SECONDS);
+        }
+    }
+
+    private void patrolScoutPlane(Ship plane) {
+        double patrolHeading = MathSupport.normalizeAngle(stablePhase(plane.id()) + Math.sin(nowSeconds * 0.08 + stablePhase(plane.id())) * 0.9);
+        plane.applyCommand(7, rudderTowardHeading(plane, patrolHeading));
     }
 
     private void commandBot(Ship ship, RadarService.VisibilityCache visibilityCache, NavigationService navigationService, WorldMap worldMap) {
@@ -1462,6 +1522,24 @@ public final class GameSession {
         return true;
     }
 
+    private boolean fireAirTorpedo(Ship plane, double cooldownSeconds) {
+        double heading = MathSupport.normalizeAngle(plane.heading());
+        Vector2 releasePosition = plane.position().add(Vector2.fromHeading(heading).scale(10.0));
+        torpedoes.add(new Torpedo(
+                "torpedo-" + nextTorpedoId++,
+                plane.teamId(),
+                plane.id(),
+                releasePosition,
+                heading,
+                25 + Math.max(0, plane.speed()) * 0.2,
+                nowSeconds,
+                RadarService.TORPEDO_RANGE
+        ));
+        plane.markFired(nowSeconds, cooldownSeconds);
+        nextBotScoutPlaneTorpedoTime = nowSeconds + cooldownSeconds;
+        return true;
+    }
+
     private void checkGameOver() {
         state = "running";
     }
@@ -1499,6 +1577,7 @@ public final class GameSession {
                     setup.controlledBy()
             );
             ship.applyCommand(setup.engineOrder(), setup.rudderDegrees());
+            ship.vehicleType(setup.vehicleType());
             ship.nextFireTime(setup.nextFireDelaySeconds());
             return ship;
     }
