@@ -65,7 +65,7 @@ public class GameStateService {
     public GameSnapshot tick(double deltaSeconds) {
         SessionView view;
         synchronized (this) {
-            if (!session.hasHumanControlledShip(connectedPlayerIds)) {
+            if (connectedPlayerIds.isEmpty()) {
                 return publishedModel.state();
             }
             session.update(deltaSeconds, radarService, navigationService, session.worldMap());
