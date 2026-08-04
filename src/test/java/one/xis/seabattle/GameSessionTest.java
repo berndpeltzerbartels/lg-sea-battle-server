@@ -464,6 +464,30 @@ class GameSessionTest {
     }
 
     @Test
+    void botScoutPlaneAvoidsLowAttackCourseAcrossLand() {
+        WorldMap worldMap = new WorldMap(9043, List.of(testIsland("blocking-island", 0, -80, 36, 36)));
+        GameSession session = new GameSession(new GameSetup(
+                "bot-scout-plane-land-avoidance-test",
+                worldMap,
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-plane-1", "light", 0, -170, 0, "bot", ENGINE_FULL, 0, 0, "scout-plane")
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-human-1", "dark", 0, 0, Math.PI, "player-dark", ENGINE_HALF, 0, 99, "torpedo-boat")
+                        ))
+                ),
+                List.of(new Vector2(0, -190), new Vector2(0, 190))
+        ));
+
+        session.update(0.1, radarService, navigationService, worldMap);
+
+        ShipSnapshot plane = findShip(session.snapshot(), "light-plane-1");
+        assertNotNull(plane);
+        assertTrue(Math.abs(plane.rudderDegrees()) > 0, "Bot scout plane should turn away from a land-blocked low attack course");
+    }
+
+    @Test
     void botScoutPlanePrefersHumanTargetOverCloserBotTarget() {
         GameSession session = new GameSession(new GameSetup(
                 "bot-scout-plane-human-target-test",

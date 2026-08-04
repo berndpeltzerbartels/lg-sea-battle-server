@@ -399,14 +399,14 @@ public final class GameSession {
                 .filter(ship -> "bot".equals(ship.controlledBy()))
                 .forEach(ship -> {
                     if (ship.isScoutPlane()) {
-                        commandScoutPlaneBot(ship, activeShips);
+                        commandScoutPlaneBot(ship, activeShips, worldMap);
                     } else {
                         commandBot(ship, visibilityCache, navigationService, worldMap);
                     }
                 });
     }
 
-    private void commandScoutPlaneBot(Ship plane, List<Ship> activeShips) {
+    private void commandScoutPlaneBot(Ship plane, List<Ship> activeShips, WorldMap worldMap) {
         Optional<Ship> target = selectBotScoutPlaneTarget(plane, activeShips);
         if (target.isEmpty()) {
             clearBotScoutPlaneFlyThrough(plane);
@@ -422,27 +422,30 @@ public final class GameSession {
         boolean inTorpedoWindow = distance >= BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE && distance <= BOT_SCOUT_PLANE_TORPEDO_RANGE;
         Optional<Vector2> flyThroughTarget = botScoutPlaneFlyThroughTarget(plane, distance);
         if (flyThroughTarget.isPresent()) {
-            plane.botScoutPlaneTargetY(BOT_SCOUT_PLANE_CRUISE_Y);
-            plane.applyCommand(7, rudderTowardHeading(plane, angleTo(flyThroughTarget.get(), plane.position())));
+            plane.botScoutPlaneTargetY(BOT_SCOUT_PLANE_BOMB_ATTACK_Y);
+            applyScoutPlaneBotCommand(plane, angleTo(flyThroughTarget.get(), plane.position()), worldMap);
+            if (plane.canDropBomb(nowSeconds)) {
+                dropBombsFromScoutPlane(plane, BOT_SCOUT_PLANE_BOMB_COOLDOWN_SECONDS);
+                recordBotScoutPlaneAttack(plane, ship);
+            }
             return;
         }
         if (distance < BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE && !inBombWindow) {
             Vector2 flyThrough = startBotScoutPlaneFlyThrough(plane);
-            plane.botScoutPlaneTargetY(BOT_SCOUT_PLANE_CRUISE_Y);
-            plane.applyCommand(7, rudderTowardHeading(plane, angleTo(flyThrough, plane.position())));
+            plane.botScoutPlaneTargetY(BOT_SCOUT_PLANE_BOMB_ATTACK_Y);
+            applyScoutPlaneBotCommand(plane, angleTo(flyThrough, plane.position()), worldMap);
             return;
         }
         Vector2 aimTarget = inBombWindow ? bombTarget : torpedoTarget;
         double targetBearing = relativeBearing(plane, aimTarget);
         if (distance > BOT_SCOUT_PLANE_ATTACK_RANGE) {
             plane.botScoutPlaneTargetY(BOT_SCOUT_PLANE_CRUISE_Y);
-            plane.applyCommand(7, rudderTowardHeading(plane, angleTo(torpedoTarget, plane.position())));
+            applyScoutPlaneBotCommand(plane, angleTo(torpedoTarget, plane.position()), worldMap);
             return;
         }
 
         plane.botScoutPlaneTargetY(inBombWindow ? BOT_SCOUT_PLANE_BOMB_ATTACK_Y : BOT_SCOUT_PLANE_TORPEDO_ATTACK_Y);
-        int rudder = (int) Math.round(MathSupport.clamp(targetBearing / 0.45, -1, 1) * 35);
-        plane.applyCommand(7, rudder);
+        applyScoutPlaneBotCommand(plane, MathSupport.normalizeAngle(plane.heading() + targetBearing), worldMap);
         if (Math.abs(targetBearing) > BOT_SCOUT_PLANE_ATTACK_ARC) {
             return;
         }
@@ -488,6 +491,57 @@ public final class GameSession {
     private void clearBotScoutPlaneFlyThrough(Ship plane) {
         botScoutPlaneFlyThroughTargets.remove(plane.id());
         botScoutPlaneFlyThroughUntil.remove(plane.id());
+    }
+
+    private void applyScoutPlaneBotCommand(Ship plane, double desiredHeading, WorldMap worldMap) {
+        double heading = scoutPlaneSeaSafeHeading(plane, desiredHeading, worldMap);
+        plane.applyCommand(7, rudderTowardHeading(plane, heading));
+    }
+
+    private double scoutPlaneSeaSafeHeading(Ship plane, double desiredHeading, WorldMap worldMap) {
+        if (isScoutPlaneCourseOverSea(plane, desiredHeading, worldMap)) {
+            return desiredHeading;
+        }
+
+        double bestHeading = MathSupport.normalizeAngle(plane.heading() + Math.PI);
+        double bestScore = Double.NEGATIVE_INFINITY;
+        for (int step = -8; step <= 8; step += 1) {
+            double heading = MathSupport.normalizeAngle(plane.heading() + step * (Math.PI / 10.0));
+            double score = scoutPlaneSeaCourseScore(plane, heading, desiredHeading, worldMap);
+            if (score > bestScore) {
+                bestScore = score;
+                bestHeading = heading;
+            }
+        }
+        return bestHeading;
+    }
+
+    private double scoutPlaneSeaCourseScore(Ship plane, double heading, double desiredHeading, WorldMap worldMap) {
+        double score = 0;
+        Vector2 forward = Vector2.fromHeading(heading);
+        double[] distances = {32, 64, 104, 150, 205};
+        for (int index = 0; index < distances.length; index += 1) {
+            Vector2 sample = plane.position().add(forward.scale(distances[index]));
+            if (LandGeometry.isBlocked(sample, worldMap)) {
+                score -= 4000 - index * 300;
+                continue;
+            }
+            score += distances[index] * (1.0 + index * 0.12);
+        }
+        score -= angularDistance(heading, desiredHeading) * 45;
+        score -= angularDistance(heading, plane.heading()) * 12;
+        return score;
+    }
+
+    private boolean isScoutPlaneCourseOverSea(Ship plane, double heading, WorldMap worldMap) {
+        Vector2 forward = Vector2.fromHeading(heading);
+        double[] distances = {34, 72, 118, 170};
+        for (double distance : distances) {
+            if (LandGeometry.isBlocked(plane.position().add(forward.scale(distance)), worldMap)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private Optional<Ship> selectBotScoutPlaneTarget(Ship plane, List<Ship> activeShips) {
