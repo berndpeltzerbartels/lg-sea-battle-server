@@ -79,6 +79,30 @@ public class SeaBattleDiagnosticsService {
         ));
     }
 
+    public void logClientGameEvent(ClientGameEventReport report) {
+        if (report == null) {
+            return;
+        }
+        LOGGER.info(() -> String.format(
+                Locale.ROOT,
+                "sea-battle-client-event event=%s player=%s team=%s ship=%s t=%.2f pos=(%.1f,%.1f) heading=%.3f speed=%.2f damage=%s localTorps=%d serverTorps=%d visuals=%d details=%s",
+                safe(report.event()),
+                safe(report.playerId()),
+                safe(report.teamId()),
+                safe(report.shipId()),
+                report.clientTime(),
+                report.x(),
+                report.z(),
+                report.heading(),
+                report.speed(),
+                safe(report.damageState()),
+                report.localTorpedoes(),
+                report.serverTorpedoes(),
+                report.serverTorpedoVisuals(),
+                safe(report.details())
+        ));
+    }
+
     public void logFireRequest(String playerId, String teamId, GameSnapshot before, GameSnapshot after, String result) {
         ShipSnapshot beforeShip = findPlayerShip(before, playerId);
         ShipSnapshot afterShip = findPlayerShip(after, playerId);
