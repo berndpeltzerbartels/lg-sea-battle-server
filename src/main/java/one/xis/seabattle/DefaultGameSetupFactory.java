@@ -305,7 +305,7 @@ final class DefaultGameSetupFactory {
     }
 
     private static boolean isBotScoutPlaneSlot(String teamId, int index) {
-        return (TEAM_LIGHT.equals(teamId) && index == 5) || (TEAM_DARK.equals(teamId) && index == 5);
+        return (TEAM_LIGHT.equals(teamId) || TEAM_DARK.equals(teamId)) && (index == 5 || index == 11);
     }
 
     private static List<ShipSetup> createScenarioShips(String teamId, List<Vector2> positions, double heading) {

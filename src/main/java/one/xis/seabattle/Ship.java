@@ -301,13 +301,13 @@ final class Ship {
     void respawn(Vector2 position, double heading, double nowSeconds) {
         this.position = position;
         this.heading = MathSupport.normalizeAngle(heading);
-        speed = 0;
+        speed = isScoutPlane() ? BOT_SCOUT_PLANE_SPEED : 0;
         turnVelocity = 0;
-        engineOrder = 2;
+        engineOrder = isScoutPlane() ? 7 : 2;
         rudderDegrees = 0;
         controlledBy = "bot";
-        vehicleType = VEHICLE_TORPEDO_BOAT;
-        y = 0;
+        y = isScoutPlane() ? BOT_SCOUT_PLANE_Y : 0;
+        verticalSpeed = 0;
         state = "active";
         torpedoesRemaining = TORPEDO_STOCK;
         nextFireTime = nowSeconds + 3;

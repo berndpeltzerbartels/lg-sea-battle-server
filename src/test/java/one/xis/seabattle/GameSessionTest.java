@@ -157,6 +157,48 @@ class GameSessionTest {
     }
 
     @Test
+    void scoutPlaneRespawnsAsPlaneAboveWater() {
+        GameSession session = new GameSession(new GameSetup(
+                "scout-plane-respawn-test",
+                new WorldMap(9038, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-1", "light", 0, 0, 0, "bot", 5, 0, 0)
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-1", "dark", 3, 47, 0, "bot", 5, 0, 0)
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(3, 47), new Vector2(80, 80))
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-gunner", "light", 0, 0, 0, 4, 0, 5, 0, 0, false, "torpedo-boat"),
+                navigationService,
+                session.worldMap()
+        );
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-plane", "dark", 3, 47, 0, 14, 0, 7, 0, 0, false, "scout-plane", 30),
+                navigationService,
+                session.worldMap()
+        );
+        session.fireFlak(new FlakFireRequest(
+                "player-gunner", "light", "light-1", 3, 1.5, 0, 0, 60, 95
+        ));
+
+        GameSnapshot snapshot = tickUntilShipState(session, "dark-1", "sunk", 2);
+        assertEquals("scout-plane", findShip(snapshot, "dark-1").vehicleType());
+
+        for (int i = 0; i < 180; i += 1) {
+            session.update(0.05, radarService, navigationService, session.worldMap());
+        }
+        ShipSnapshot respawned = findShip(session.snapshot(), "dark-1");
+        assertEquals("active", respawned.state());
+        assertEquals("scout-plane", respawned.vehicleType());
+        assertTrue(respawned.y() > 100);
+    }
+
+    @Test
     void flakProjectileCreatesWaterImpactWhenItHitsSeaLevel() {
         GameSession session = new GameSession(new GameSetup(
                 "flak-water-impact-test",
@@ -1148,7 +1190,7 @@ class GameSessionTest {
         assertEquals(List.of("dark", "light"),
                 denseLand.fleets().stream().map(FleetSetup::teamId).toList());
         assertEquals(List.of(15, 15), denseLand.fleets().stream().map(fleet -> fleet.ships().size()).toList());
-        assertEquals(2, denseLand.fleets().stream()
+        assertEquals(4, denseLand.fleets().stream()
                 .flatMap(fleet -> fleet.ships().stream())
                 .filter(ship -> "scout-plane".equals(ship.vehicleType()))
                 .count());
@@ -1370,6 +1412,7 @@ class GameSessionTest {
         List<String> blockedPositions = new java.util.ArrayList<>();
         snapshot.ships().stream()
                 .filter(ship -> "active".equals(ship.state()))
+                .filter(ship -> !"scout-plane".equals(ship.vehicleType()))
                 .filter(ship -> navigationService.isShipBlocked(new Vector2(ship.x(), ship.z()), ship.heading(), worldMap))
                 .map(ship -> label + " " + ship.id() + " is blocked at "
                         + new Vector2(ship.x(), ship.z()) + " nearest "
