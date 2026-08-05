@@ -1610,6 +1610,9 @@ public final class GameSession {
         if (!ship.sink(nowSeconds + RESPAWN_DELAY_SECONDS)) {
             return;
         }
+        if (ship.isScoutPlane()) {
+            clearBotScoutPlaneAttackState(ship);
+        }
         destroyedShipsByTeam.merge(ship.teamId(), 1, Integer::sum);
         if (scoreDelta != null) {
             killsByPlayer.merge(creditedPlayerId, scoreDelta, Integer::sum);
@@ -1618,6 +1621,11 @@ public final class GameSession {
             killsByPlayer.merge(sunkController, SCORE_PLAYER_SUNK, Integer::sum);
         }
         Optional.ofNullable(fleets.get(ship.teamId())).ifPresent(fleet -> fleet.releaseShip(ship.id()));
+    }
+
+    private void clearBotScoutPlaneAttackState(Ship ship) {
+        botScoutPlaneNonHumanAttackStreak.remove(ship.id());
+        clearBotScoutPlaneFlyThrough(ship);
     }
 
     private int scoreDeltaFor(String creditedPlayerId, String sunkTeamId) {

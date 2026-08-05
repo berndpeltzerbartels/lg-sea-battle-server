@@ -3,6 +3,7 @@ package one.xis.seabattle;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 
@@ -535,6 +536,30 @@ class GameSessionTest {
 
         assertTrue(findShip(session.snapshot(), "light-plane").rudderDegrees() > 0,
                 "Forced human targeting should turn toward a distant human instead of the closer bot");
+    }
+
+    @Test
+    void sinkingBotScoutPlaneClearsForcedHumanAttackState() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-scout-plane-sunk-clears-attack-state-test",
+                new WorldMap(9039, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-boat", "light", 0, 0, 0, "bot", ENGINE_HALF, 0, 99)
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-plane", "dark", 3, 47, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane")
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(3, 47))
+        ));
+        setBotScoutPlaneNonHumanAttackStreak(session, "dark-plane", 3);
+
+        sinkShip(session, "dark-plane");
+        GameSnapshot snapshot = session.snapshot();
+
+        assertEquals("sunk", findShip(snapshot, "dark-plane").state());
+        assertFalse(botScoutPlaneNonHumanAttackStreak(session).containsKey("dark-plane"));
     }
 
     @Test
@@ -1712,6 +1737,26 @@ class GameSessionTest {
         Field field = GameSession.class.getDeclaredField("botScoutPlaneNonHumanAttackStreak");
         field.setAccessible(true);
         ((Map<String, Integer>) field.get(session)).put(planeId, value);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Integer> botScoutPlaneNonHumanAttackStreak(GameSession session) throws Exception {
+        Field field = GameSession.class.getDeclaredField("botScoutPlaneNonHumanAttackStreak");
+        field.setAccessible(true);
+        return (Map<String, Integer>) field.get(session);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void sinkShip(GameSession session, String shipId) throws Exception {
+        Method allShips = GameSession.class.getDeclaredMethod("allShips");
+        allShips.setAccessible(true);
+        Ship ship = ((List<Ship>) allShips.invoke(session)).stream()
+                .filter(candidate -> shipId.equals(candidate.id()))
+                .findFirst()
+                .orElseThrow();
+        Method sinkShip = GameSession.class.getDeclaredMethod("sinkShip", Ship.class, String.class);
+        sinkShip.setAccessible(true);
+        sinkShip.invoke(session, ship, null);
     }
 
     private double distanceBetween(GameSnapshot snapshot, String leftShipId, String rightShipId) {
