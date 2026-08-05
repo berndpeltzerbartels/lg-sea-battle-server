@@ -288,7 +288,8 @@ final class DefaultGameSetupFactory {
         List<ShipSetup> ships = new ArrayList<>();
         for (int index = 0; index < formation.length; index += 1) {
             double[] slot = formation[index];
-            String shipId = teamId + "-" + (index + 1);
+            String vehicleType = isBotScoutPlaneSlot(teamId, index) ? VEHICLE_SCOUT_PLANE : VEHICLE_TORPEDO_BOAT;
+            String shipId = teamId + "-" + vehiclePrefix(vehicleType) + (index + 1);
             ships.add(new ShipSetup(
                     shipId,
                     teamId,
@@ -298,10 +299,14 @@ final class DefaultGameSetupFactory {
                     (int) slot[3],
                     (int) slot[4],
                     index == 0 ? 0 : 3 + index * 1.5,
-                    isBotScoutPlaneSlot(teamId, index) ? VEHICLE_SCOUT_PLANE : VEHICLE_TORPEDO_BOAT
+                    vehicleType
             ));
         }
         return ships;
+    }
+
+    private static String vehiclePrefix(String vehicleType) {
+        return VEHICLE_SCOUT_PLANE.equals(vehicleType) ? "F" : "S";
     }
 
     private static boolean isBotScoutPlaneSlot(String teamId, int index) {
