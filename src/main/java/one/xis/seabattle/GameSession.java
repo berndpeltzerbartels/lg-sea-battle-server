@@ -83,7 +83,6 @@ public final class GameSession {
     private static final double BOT_TORPEDO_INCOMING_ARC = 0.34;
     private static final double BOT_TORPEDO_THREAT_CORRIDOR = 8.0;
     private static final double BOT_RADAR_INTERCEPT_RANGE = 360;
-    private static final double HUMAN_RADAR_RANGE = 945;
     private static final double BOT_HUMAN_TARGET_PRIORITY_CLEARANCE = RadarService.RADAR_RANGE;
     private static final double BOT_RETURN_TO_LAND_DISTANCE = 720;
     private static final double BOT_PATROL_LAND_DISTANCE = 470;
@@ -779,14 +778,8 @@ public final class GameSession {
         return visibilityCache.candidates(ship, RadarService.HUMAN_TARGET_RANGE).stream()
                 .filter(target -> !target.teamId().equals(ship.teamId()))
                 .filter(target -> !target.isScoutPlane())
-                .filter(target -> visibilityCache.isVisible(ship, target, targetRangeForBot(target)))
+                .filter(target -> isHumanControlled(target) || visibilityCache.isVisible(ship, target, RadarService.RADAR_RANGE))
                 .toList();
-    }
-
-    private double targetRangeForBot(Ship target) {
-        return "bot".equals(target.controlledBy())
-                ? RadarService.RADAR_RANGE
-                : RadarService.HUMAN_TARGET_RANGE;
     }
 
     private Optional<Ship> chooseBotTarget(Ship ship, List<Ship> targets) {

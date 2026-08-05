@@ -10,7 +10,7 @@ import java.util.Map;
 final class RadarService {
 
     static final double RADAR_RANGE = 945.0;
-    static final double HUMAN_TARGET_RANGE = 1800.0;
+    static final double HUMAN_TARGET_RANGE = 12000.0;
     static final double TORPEDO_RANGE = 1300.0;
     private static final double MAX_CANDIDATE_RANGE = Math.max(RADAR_RANGE, HUMAN_TARGET_RANGE);
     private static final ThreadLocal<VisibilityMetrics> VISIBILITY_METRICS = new ThreadLocal<>();
