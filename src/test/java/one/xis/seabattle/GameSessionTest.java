@@ -2,7 +2,9 @@ package one.xis.seabattle;
 
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -509,6 +511,30 @@ class GameSessionTest {
         session.update(0.05, radarService, navigationService, session.worldMap());
 
         assertEquals(0, findShip(session.snapshot(), "light-plane").rudderDegrees());
+    }
+
+    @Test
+    void botScoutPlaneForcedHumanTargetIsNotLimitedToAttackRange() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-scout-plane-forced-human-target-test",
+                new WorldMap(9038, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-plane", "light", 0, 0, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane")
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-bot", "dark", 0, 90, Math.PI, "bot", ENGINE_HALF, 0, 99),
+                                ship("dark-player", "dark", 620, 0, Math.PI, "player-BPB", ENGINE_HALF, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 0))
+        ));
+        setBotScoutPlaneNonHumanAttackStreak(session, "light-plane", 3);
+
+        session.update(0.05, radarService, navigationService, session.worldMap());
+
+        assertTrue(findShip(session.snapshot(), "light-plane").rudderDegrees() > 0,
+                "Forced human targeting should turn toward a distant human instead of the closer bot");
     }
 
     @Test
@@ -1679,6 +1705,13 @@ class GameSessionTest {
                 .filter(ship -> shipId.equals(ship.id()))
                 .findFirst()
                 .orElse(null);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void setBotScoutPlaneNonHumanAttackStreak(GameSession session, String planeId, int value) throws Exception {
+        Field field = GameSession.class.getDeclaredField("botScoutPlaneNonHumanAttackStreak");
+        field.setAccessible(true);
+        ((Map<String, Integer>) field.get(session)).put(planeId, value);
     }
 
     private double distanceBetween(GameSnapshot snapshot, String leftShipId, String rightShipId) {

@@ -619,7 +619,6 @@ public final class GameSession {
         if (shouldForceHumanScoutPlaneTarget(plane)) {
             Optional<Ship> reachableHuman = candidates.stream()
                     .filter(this::isHumanControlled)
-                    .filter(ship -> plane.position().distanceTo(ship.position()) <= BOT_SCOUT_PLANE_ATTACK_RANGE)
                     .min((left, right) -> Double.compare(
                             plane.position().distanceTo(left.position()),
                             plane.position().distanceTo(right.position())
