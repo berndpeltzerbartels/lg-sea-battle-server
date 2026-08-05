@@ -433,7 +433,9 @@ class GameSessionTest {
                 List.of(new Vector2(0, -140), new Vector2(0, 140))
         ));
 
-        session.update(0.1, radarService, navigationService, session.worldMap());
+        for (int i = 0; i < 20 && session.snapshot().bombs().isEmpty(); i += 1) {
+            session.update(0.1, radarService, navigationService, session.worldMap());
+        }
 
         assertFalse(session.snapshot().bombs().isEmpty(), "Bot scout plane should drop bombs in a straight attack window");
     }
