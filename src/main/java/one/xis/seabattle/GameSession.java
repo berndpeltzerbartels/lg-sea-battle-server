@@ -33,6 +33,7 @@ public final class GameSession {
     private static final double BOT_SCOUT_PLANE_CRUISE_Y = 150.0;
     private static final double BOT_SCOUT_PLANE_TORPEDO_ATTACK_Y = 55.0;
     private static final double BOT_SCOUT_PLANE_BOMB_ATTACK_Y = 85.0;
+    private static final double BOT_SCOUT_PLANE_TERRAIN_CLEARANCE = 8.0;
     private static final double BOT_SCOUT_PLANE_TORPEDO_LEAD_SECONDS = 2.2;
     private static final double BOT_SCOUT_PLANE_POST_TORPEDO_BOMB_DELAY_SECONDS = 1.1;
     private static final int BOT_SCOUT_PLANE_FORCE_HUMAN_AFTER_NON_HUMAN_ATTACKS = 3;
@@ -109,6 +110,7 @@ public final class GameSession {
 
     private final String id;
     private final WorldMap worldMap;
+    private final WorldMap scoutPlaneObstacleMap;
     private final Map<String, Fleet> fleets;
     private final List<Vector2> respawnCandidates;
     private final Map<String, Integer> destroyedShipsByTeam = new LinkedHashMap<>();
@@ -137,6 +139,10 @@ public final class GameSession {
     GameSession(GameSetup setup) {
         this.id = setup.id();
         this.worldMap = setup.worldMap();
+        this.scoutPlaneObstacleMap = LandGeometry.obstacleMapForMinimumTerrainHeight(
+                worldMap,
+                Math.min(BOT_SCOUT_PLANE_TORPEDO_ATTACK_Y, BOT_SCOUT_PLANE_BOMB_ATTACK_Y) - BOT_SCOUT_PLANE_TERRAIN_CLEARANCE
+        );
         this.fleets = createFleets(setup.fleets());
         this.respawnCandidates = List.copyOf(setup.respawnCandidates());
         this.fleets.keySet().forEach(teamId -> destroyedShipsByTeam.put(teamId, 0));
@@ -424,25 +430,25 @@ public final class GameSession {
         Optional<Vector2> flyThroughTarget = botScoutPlaneFlyThroughTarget(plane, distance);
         if (flyThroughTarget.isPresent()) {
             plane.botScoutPlaneTargetY(BOT_SCOUT_PLANE_BOMB_ATTACK_Y);
-            applyScoutPlaneBotCommand(plane, angleTo(flyThroughTarget.get(), plane.position()), worldMap);
+            applyScoutPlaneBotCommand(plane, angleTo(flyThroughTarget.get(), plane.position()));
             return;
         }
         if (distance < BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE && !inBombWindow) {
             Vector2 flyThrough = startBotScoutPlaneFlyThrough(plane);
             plane.botScoutPlaneTargetY(BOT_SCOUT_PLANE_BOMB_ATTACK_Y);
-            applyScoutPlaneBotCommand(plane, angleTo(flyThrough, plane.position()), worldMap);
+            applyScoutPlaneBotCommand(plane, angleTo(flyThrough, plane.position()));
             return;
         }
         Vector2 aimTarget = inBombWindow ? bombTarget : torpedoTarget;
         double targetBearing = relativeBearing(plane, aimTarget);
         if (distance > BOT_SCOUT_PLANE_ATTACK_RANGE) {
             plane.botScoutPlaneTargetY(BOT_SCOUT_PLANE_CRUISE_Y);
-            applyScoutPlaneBotCommand(plane, angleTo(torpedoTarget, plane.position()), worldMap);
+            applyScoutPlaneBotCommand(plane, angleTo(torpedoTarget, plane.position()));
             return;
         }
 
         plane.botScoutPlaneTargetY(inBombWindow ? BOT_SCOUT_PLANE_BOMB_ATTACK_Y : BOT_SCOUT_PLANE_TORPEDO_ATTACK_Y);
-        applyScoutPlaneBotCommand(plane, MathSupport.normalizeAngle(plane.heading() + targetBearing), worldMap);
+        applyScoutPlaneBotCommand(plane, MathSupport.normalizeAngle(plane.heading() + targetBearing));
         if (Math.abs(targetBearing) > BOT_SCOUT_PLANE_ATTACK_ARC) {
             return;
         }
@@ -524,13 +530,13 @@ public final class GameSession {
         botScoutPlaneFlyThroughUntil.remove(plane.id());
     }
 
-    private void applyScoutPlaneBotCommand(Ship plane, double desiredHeading, WorldMap worldMap) {
-        double heading = scoutPlaneSeaSafeHeading(plane, desiredHeading, worldMap);
+    private void applyScoutPlaneBotCommand(Ship plane, double desiredHeading) {
+        double heading = scoutPlaneTerrainSafeHeading(plane, desiredHeading);
         plane.applyCommand(7, rudderTowardHeading(plane, heading));
     }
 
-    private double scoutPlaneSeaSafeHeading(Ship plane, double desiredHeading, WorldMap worldMap) {
-        if (isScoutPlaneCourseOverSea(plane, desiredHeading, worldMap)) {
+    private double scoutPlaneTerrainSafeHeading(Ship plane, double desiredHeading) {
+        if (isScoutPlaneCourseTerrainSafe(plane, desiredHeading)) {
             return desiredHeading;
         }
 
@@ -538,7 +544,7 @@ public final class GameSession {
         double bestScore = Double.NEGATIVE_INFINITY;
         for (int step = -8; step <= 8; step += 1) {
             double heading = MathSupport.normalizeAngle(plane.heading() + step * (Math.PI / 10.0));
-            double score = scoutPlaneSeaCourseScore(plane, heading, desiredHeading, worldMap);
+            double score = scoutPlaneTerrainCourseScore(plane, heading, desiredHeading);
             if (score > bestScore) {
                 bestScore = score;
                 bestHeading = heading;
@@ -547,13 +553,13 @@ public final class GameSession {
         return bestHeading;
     }
 
-    private double scoutPlaneSeaCourseScore(Ship plane, double heading, double desiredHeading, WorldMap worldMap) {
+    private double scoutPlaneTerrainCourseScore(Ship plane, double heading, double desiredHeading) {
         double score = 0;
         Vector2 forward = Vector2.fromHeading(heading);
         double[] distances = {32, 64, 104, 150, 205};
         for (int index = 0; index < distances.length; index += 1) {
             Vector2 sample = plane.position().add(forward.scale(distances[index]));
-            if (LandGeometry.isBlocked(sample, worldMap)) {
+            if (isScoutPlaneTerrainObstacle(sample)) {
                 score -= 4000 - index * 300;
                 continue;
             }
@@ -564,15 +570,19 @@ public final class GameSession {
         return score;
     }
 
-    private boolean isScoutPlaneCourseOverSea(Ship plane, double heading, WorldMap worldMap) {
+    private boolean isScoutPlaneCourseTerrainSafe(Ship plane, double heading) {
         Vector2 forward = Vector2.fromHeading(heading);
         double[] distances = {34, 72, 118, 170};
         for (double distance : distances) {
-            if (LandGeometry.isBlocked(plane.position().add(forward.scale(distance)), worldMap)) {
+            if (isScoutPlaneTerrainObstacle(plane.position().add(forward.scale(distance)))) {
                 return false;
             }
         }
         return true;
+    }
+
+    private boolean isScoutPlaneTerrainObstacle(Vector2 position) {
+        return LandGeometry.isBlocked(position, scoutPlaneObstacleMap);
     }
 
     private Optional<Ship> selectBotScoutPlaneTarget(Ship plane, List<Ship> activeShips) {

@@ -465,7 +465,7 @@ class GameSessionTest {
 
     @Test
     void botScoutPlaneAvoidsLowAttackCourseAcrossLand() {
-        WorldMap worldMap = new WorldMap(9043, List.of(testIsland("blocking-island", 0, -80, 36, 36)));
+        WorldMap worldMap = new WorldMap(9043, List.of(testCoastline("blocking-ridge", 0, -80, 36, 36, 2.0, 80.0)));
         GameSession session = new GameSession(new GameSetup(
                 "bot-scout-plane-land-avoidance-test",
                 worldMap,
@@ -1287,7 +1287,7 @@ class GameSessionTest {
         assertEquals(List.of("dark", "light"),
                 denseLand.fleets().stream().map(FleetSetup::teamId).toList());
         assertEquals(List.of(15, 15), denseLand.fleets().stream().map(fleet -> fleet.ships().size()).toList());
-        assertEquals(4, denseLand.fleets().stream()
+        assertEquals(6, denseLand.fleets().stream()
                 .flatMap(fleet -> fleet.ships().stream())
                 .filter(ship -> "scout-plane".equals(ship.vehicleType()))
                 .count());
@@ -1558,6 +1558,10 @@ class GameSessionTest {
     }
 
     private Landmass testIsland(String name, double x, double z, double rx, double rz) {
+        return testIsland(name, x, z, rx, rz, 1);
+    }
+
+    private Landmass testIsland(String name, double x, double z, double rx, double rz, double heightScale) {
         return new Landmass(
                 "island",
                 name,
@@ -1570,9 +1574,32 @@ class GameSessionTest {
                 rx * 1.2,
                 rz * 1.2,
                 null,
-                1,
+                heightScale,
                 null,
                 null,
+                null,
+                List.of(),
+                List.of(),
+                List.of()
+        );
+    }
+
+    private Landmass testCoastline(String name, double x, double z, double rx, double rz, double heightScale, Double peakBoost) {
+        return new Landmass(
+                "coastline",
+                name,
+                x,
+                z,
+                rx,
+                rz,
+                rx,
+                rz,
+                rx,
+                rz,
+                null,
+                heightScale,
+                peakBoost,
+                0.2,
                 null,
                 List.of(),
                 List.of(),

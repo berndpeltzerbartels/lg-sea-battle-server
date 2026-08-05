@@ -1,5 +1,7 @@
 package one.xis.seabattle;
 
+import java.util.List;
+
 final class LandGeometry {
 
     private static final double LINE_SAMPLE_DISTANCE = 8.0;
@@ -54,6 +56,15 @@ final class LandGeometry {
             height = Math.max(height, maxTerrainHeight(landmass));
         }
         return height;
+    }
+
+    static WorldMap obstacleMapForMinimumTerrainHeight(WorldMap worldMap, double minimumTerrainHeight) {
+        List<Landmass> obstacles = worldMap.landmasses().stream()
+                .filter(landmass -> maxTerrainHeight(landmass) >= minimumTerrainHeight)
+                .toList();
+        return obstacles.size() == worldMap.landmasses().size()
+                ? worldMap
+                : new WorldMap(worldMap.version(), obstacles);
     }
 
     static void prepareRadarBlockingGrid(WorldMap worldMap) {
