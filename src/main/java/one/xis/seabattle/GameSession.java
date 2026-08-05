@@ -778,8 +778,14 @@ public final class GameSession {
         return visibilityCache.candidates(ship, RadarService.HUMAN_TARGET_RANGE).stream()
                 .filter(target -> !target.teamId().equals(ship.teamId()))
                 .filter(target -> !target.isScoutPlane())
-                .filter(target -> isHumanControlled(target) || visibilityCache.isVisible(ship, target, RadarService.RADAR_RANGE))
+                .filter(target -> isStrategicHumanContact(ship, target)
+                        || visibilityCache.isVisible(ship, target, RadarService.RADAR_RANGE))
                 .toList();
+    }
+
+    private boolean isStrategicHumanContact(Ship observer, Ship target) {
+        return isHumanControlled(target)
+                && observer.position().distanceTo(target.position()) > RadarService.RADAR_RANGE;
     }
 
     private Optional<Ship> chooseBotTarget(Ship ship, List<Ship> targets) {
