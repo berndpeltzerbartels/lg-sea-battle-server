@@ -21,6 +21,8 @@ public final class GameSession {
     private static final double BOT_SCOUT_PLANE_ATTACK_RANGE = 360.0;
     private static final double BOT_SCOUT_PLANE_BOMB_MIN_RANGE = 35.0;
     private static final double BOT_SCOUT_PLANE_BOMB_RANGE = 165.0;
+    private static final double BOT_SCOUT_PLANE_BOMB_FORWARD_TOLERANCE = 24.0;
+    private static final double BOT_SCOUT_PLANE_BOMB_LATERAL_TOLERANCE = 18.0;
     private static final double BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE = 105.0;
     private static final double BOT_SCOUT_PLANE_TORPEDO_RANGE = 190.0;
     private static final double BOT_SCOUT_PLANE_ATTACK_ARC = Math.toRadians(32);
@@ -31,7 +33,6 @@ public final class GameSession {
     private static final double BOT_SCOUT_PLANE_CRUISE_Y = 150.0;
     private static final double BOT_SCOUT_PLANE_TORPEDO_ATTACK_Y = 55.0;
     private static final double BOT_SCOUT_PLANE_BOMB_ATTACK_Y = 85.0;
-    private static final double BOT_SCOUT_PLANE_BOMB_LEAD_SECONDS = 2.6;
     private static final double BOT_SCOUT_PLANE_TORPEDO_LEAD_SECONDS = 2.2;
     private static final double BOT_SCOUT_PLANE_POST_TORPEDO_BOMB_DELAY_SECONDS = 1.1;
     private static final int BOT_SCOUT_PLANE_FORCE_HUMAN_AFTER_NON_HUMAN_ATTACKS = 3;
@@ -416,7 +417,8 @@ public final class GameSession {
 
         Ship ship = target.get();
         Vector2 torpedoTarget = predictedShipPosition(ship, BOT_SCOUT_PLANE_TORPEDO_LEAD_SECONDS);
-        Vector2 bombTarget = predictedShipPosition(ship, BOT_SCOUT_PLANE_BOMB_LEAD_SECONDS);
+        BotBombingSolution bombSolution = botScoutPlaneBombingSolution(plane, ship);
+        Vector2 bombTarget = bombSolution.targetPosition();
         double distance = plane.position().distanceTo(ship.position());
         boolean inBombWindow = distance >= BOT_SCOUT_PLANE_BOMB_MIN_RANGE && distance <= BOT_SCOUT_PLANE_BOMB_RANGE;
         boolean inTorpedoWindow = distance >= BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE && distance <= BOT_SCOUT_PLANE_TORPEDO_RANGE;
@@ -424,10 +426,6 @@ public final class GameSession {
         if (flyThroughTarget.isPresent()) {
             plane.botScoutPlaneTargetY(BOT_SCOUT_PLANE_BOMB_ATTACK_Y);
             applyScoutPlaneBotCommand(plane, angleTo(flyThroughTarget.get(), plane.position()), worldMap);
-            if (plane.canDropBomb(nowSeconds)) {
-                dropBombsFromScoutPlane(plane, BOT_SCOUT_PLANE_BOMB_COOLDOWN_SECONDS);
-                recordBotScoutPlaneAttack(plane, ship);
-            }
             return;
         }
         if (distance < BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE && !inBombWindow) {
@@ -457,7 +455,7 @@ public final class GameSession {
             fireAirTorpedo(plane, BOT_SCOUT_PLANE_TORPEDO_COOLDOWN_SECONDS);
             recordBotScoutPlaneAttack(plane, ship);
         }
-        if (inBombWindow && plane.canDropBomb(nowSeconds)) {
+        if (inBombWindow && bombSolution.canRelease() && plane.canDropBomb(nowSeconds)) {
             dropBombsFromScoutPlane(plane, BOT_SCOUT_PLANE_BOMB_COOLDOWN_SECONDS);
             recordBotScoutPlaneAttack(plane, ship);
         }
@@ -465,6 +463,40 @@ public final class GameSession {
 
     private Vector2 predictedShipPosition(Ship ship, double leadSeconds) {
         return ship.position().add(Vector2.fromHeading(ship.heading()).scale(Math.max(0, ship.speed()) * leadSeconds));
+    }
+
+    private BotBombingSolution botScoutPlaneBombingSolution(Ship plane, Ship target) {
+        double fallSeconds = estimatedBombFallSeconds(plane);
+        double centerReleaseDelaySeconds = (BOMBS_PER_DROP - 1) * BOMB_RELEASE_INTERVAL_SECONDS * 0.5;
+        double leadSeconds = fallSeconds + centerReleaseDelaySeconds;
+        Vector2 targetPosition = predictedShipPosition(target, leadSeconds);
+        Vector2 toTarget = targetPosition.subtract(plane.position());
+        Vector2 forward = Vector2.fromHeading(plane.heading());
+        Vector2 right = rightFromHeading(plane.heading());
+        double forwardDistance = dot(toTarget, forward);
+        double lateralDistance = Math.abs(dot(toTarget, right));
+        double bombSpeed = Math.min(SCOUT_PLANE_MAX_BOMB_HORIZONTAL_SPEED, Math.max(4, plane.speed() * 0.92));
+        double patternCenterForwardDistance = bombSpeed * fallSeconds + Math.max(0, plane.speed()) * centerReleaseDelaySeconds;
+        boolean canRelease = forwardDistance > 0
+                && Math.abs(forwardDistance - patternCenterForwardDistance) <= BOT_SCOUT_PLANE_BOMB_FORWARD_TOLERANCE
+                && lateralDistance <= BOT_SCOUT_PLANE_BOMB_LATERAL_TOLERANCE;
+        return new BotBombingSolution(targetPosition, canRelease);
+    }
+
+    private static double estimatedBombFallSeconds(Ship plane) {
+        double altitude = Math.max(SCOUT_PLANE_MIN_BOMB_ALTITUDE, plane.y() - BOMB_DROP_VERTICAL_OFFSET);
+        double initialVerticalSpeed = MathSupport.clamp(
+                -plane.verticalSpeed(),
+                -SCOUT_PLANE_MAX_BOMB_INITIAL_UP_SPEED,
+                SCOUT_PLANE_MAX_BOMB_INITIAL_DOWN_SPEED
+        );
+        double gravity = 14.0;
+        double discriminant = initialVerticalSpeed * initialVerticalSpeed + 2.0 * gravity * altitude;
+        return Math.max(0.2, (-initialVerticalSpeed + Math.sqrt(Math.max(0, discriminant))) / gravity);
+    }
+
+    private static double dot(Vector2 left, Vector2 right) {
+        return left.x() * right.x() + left.z() * right.z();
     }
 
     private Optional<Vector2> botScoutPlaneFlyThroughTarget(Ship plane, double distanceToTarget) {
@@ -1810,6 +1842,9 @@ public final class GameSession {
 
     private record PendingBombRelease(String shipId, double releaseAtSeconds, int index, Vector2 position, double y,
                                       double heading, double speed, double turnVelocity, double verticalSpeed) {
+    }
+
+    private record BotBombingSolution(Vector2 targetPosition, boolean canRelease) {
     }
 
     private record PredictedPlaneRelease(Vector2 position, double y, double heading) {
