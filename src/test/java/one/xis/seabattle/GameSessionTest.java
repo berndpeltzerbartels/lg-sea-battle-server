@@ -1119,6 +1119,9 @@ class GameSessionTest {
         assertEquals(1, snapshot.destroyedShipsByTeam().get("blue"));
         assertEquals(0, snapshot.destroyedShipsByTeam().get("red"));
         assertEquals(1, snapshot.killsByPlayer().get(playerId));
+        assertEquals(1, snapshot.ramHits().size());
+        assertEquals("red-1", snapshot.ramHits().get(0).shipId());
+        assertEquals("blue-1", snapshot.ramHits().get(0).targetShipId());
     }
 
     @Test

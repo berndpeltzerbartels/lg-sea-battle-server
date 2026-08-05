@@ -16,6 +16,7 @@ public record GameSnapshot(
         List<FlakProjectileSnapshot> flakProjectiles,
         List<FlakHitSnapshot> flakHits,
         List<FlakImpactSnapshot> flakImpacts,
+        List<RamHitSnapshot> ramHits,
         Map<String, Integer> destroyedShipsByTeam,
         Map<String, Integer> killsByPlayer
 ) {

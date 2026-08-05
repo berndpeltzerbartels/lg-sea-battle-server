@@ -127,6 +127,7 @@ public final class GameSession {
     private final List<FlakProjectile> flakProjectiles = new ArrayList<>();
     private final List<FlakHitSnapshot> flakHits = new ArrayList<>();
     private final List<FlakImpactSnapshot> flakImpacts = new ArrayList<>();
+    private final List<RamHitSnapshot> ramHits = new ArrayList<>();
     private final Map<String, Integer> botScoutPlaneNonHumanAttackStreak = new LinkedHashMap<>();
     private final Map<String, Vector2> botScoutPlaneFlyThroughTargets = new LinkedHashMap<>();
     private final Map<String, Double> botScoutPlaneFlyThroughUntil = new LinkedHashMap<>();
@@ -203,6 +204,9 @@ public final class GameSession {
                         .toList(),
                 flakImpacts.stream()
                         .filter(impact -> nowSeconds - impact.t() <= FLAK_HIT_VISIBILITY_SECONDS)
+                        .toList(),
+                ramHits.stream()
+                        .filter(hit -> nowSeconds - hit.t() <= TORPEDO_IMPACT_VISIBILITY_SECONDS)
                         .toList(),
                 Map.copyOf(destroyedShipsByTeam),
                 Map.copyOf(killsByPlayer)
@@ -363,6 +367,7 @@ public final class GameSession {
         flakProjectiles.removeIf(projectile -> !"flying".equals(projectile.state()));
         flakHits.removeIf(hit -> nowSeconds - hit.t() > FLAK_HIT_VISIBILITY_SECONDS);
         flakImpacts.removeIf(impact -> nowSeconds - impact.t() > FLAK_HIT_VISIBILITY_SECONDS);
+        ramHits.removeIf(hit -> nowSeconds - hit.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
         checkGameOver();
     }
 
@@ -385,6 +390,7 @@ public final class GameSession {
         flakProjectiles.removeIf(projectile -> !"flying".equals(projectile.state()));
         flakHits.removeIf(hit -> nowSeconds - hit.t() > FLAK_HIT_VISIBILITY_SECONDS);
         flakImpacts.removeIf(impact -> nowSeconds - impact.t() > FLAK_HIT_VISIBILITY_SECONDS);
+        ramHits.removeIf(hit -> nowSeconds - hit.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
         checkGameOver();
     }
 
@@ -1041,8 +1047,8 @@ public final class GameSession {
                         && angularDistance(left.heading(), right.heading()) > Math.toRadians(135);
                 boolean glancingCollision = isGlancingCollision(left, right);
                 if (headOnCollision) {
-                    sinkShip(left, right.controlledBy());
-                    sinkShip(right, left.controlledBy());
+                    sinkShipByRam(left, right);
+                    sinkShipByRam(right, left);
                 } else if (glancingCollision) {
                     resolveGlancingRam(left, right);
                 } else if (leftImpact.hits() || rightImpact.hits()) {
@@ -1075,11 +1081,18 @@ public final class GameSession {
         double leftSpeed = Math.max(0, left.speed());
         double rightSpeed = Math.max(0, right.speed());
         if (leftSpeed >= rightSpeed) {
-            sinkShip(right, left.controlledBy());
+            sinkShipByRam(right, left);
             left.stopAfterRamImpact();
         } else {
-            sinkShip(left, right.controlledBy());
+            sinkShipByRam(left, right);
             right.stopAfterRamImpact();
+        }
+    }
+
+    private void sinkShipByRam(Ship target, Ship attacker) {
+        boolean sunk = sinkShip(target, attacker.controlledBy());
+        if (sunk) {
+            recordRamHit(attacker, target);
         }
     }
 
@@ -1602,13 +1615,13 @@ public final class GameSession {
         sinkShip(ship, null);
     }
 
-    private void sinkShip(Ship ship, String creditedPlayerId) {
+    private boolean sinkShip(Ship ship, String creditedPlayerId) {
         String sunkController = ship.controlledBy();
         Integer scoreDelta = isHumanController(creditedPlayerId)
                 ? scoreDeltaFor(creditedPlayerId, ship.teamId())
                 : null;
         if (!ship.sink(nowSeconds + RESPAWN_DELAY_SECONDS)) {
-            return;
+            return false;
         }
         if (ship.isScoutPlane()) {
             clearBotScoutPlaneAttackState(ship);
@@ -1621,6 +1634,19 @@ public final class GameSession {
             killsByPlayer.merge(sunkController, SCORE_PLAYER_SUNK, Integer::sum);
         }
         Optional.ofNullable(fleets.get(ship.teamId())).ifPresent(fleet -> fleet.releaseShip(ship.id()));
+        return true;
+    }
+
+    private void recordRamHit(Ship attacker, Ship target) {
+        ramHits.add(new RamHitSnapshot(
+                "ram-" + attacker.id() + "-" + target.id() + "-" + Math.round(nowSeconds * 1000),
+                attacker.teamId(),
+                attacker.id(),
+                target.id(),
+                MathSupport.round(target.position().x()),
+                MathSupport.round(target.position().z()),
+                MathSupport.round(nowSeconds)
+        ));
     }
 
     private void clearBotScoutPlaneAttackState(Ship ship) {
