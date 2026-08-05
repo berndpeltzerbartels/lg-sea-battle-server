@@ -83,7 +83,7 @@ public final class GameSession {
     private static final double BOT_TORPEDO_THREAT_CORRIDOR = 8.0;
     private static final double BOT_RADAR_INTERCEPT_RANGE = 360;
     private static final double HUMAN_RADAR_RANGE = 945;
-    private static final double BOT_HUMAN_TARGET_PRIORITY_CLEARANCE = HUMAN_RADAR_RANGE * 0.5;
+    private static final double BOT_HUMAN_TARGET_PRIORITY_CLEARANCE = RadarService.RADAR_RANGE;
     private static final double BOT_RETURN_TO_LAND_DISTANCE = 720;
     private static final double BOT_PATROL_LAND_DISTANCE = 470;
     private static final double BOT_ESCORT_JOIN_RANGE = 680;
