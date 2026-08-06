@@ -52,6 +52,7 @@ public final class GameSession {
     private static final double SCOUT_PLANE_MAX_BOMB_INITIAL_DOWN_SPEED = 34;
     private static final double BOT_SCOUT_PLANE_STABLE_ATTACK_TURN_RATE = 0.035;
     private static final double FLAK_FIRE_COOLDOWN_SECONDS = 0.075;
+    private static final double CANNON_FIRE_COOLDOWN_SECONDS = 3.8;
     private static final double FLAK_HIT_VISIBILITY_SECONDS = 2.4;
     private static final double FLAK_SWEEP_STEP = 1.5;
     private static final double SCOUT_PLANE_FUSELAGE_HALF_WIDTH = 0.55;
@@ -122,6 +123,7 @@ public final class GameSession {
     private final Map<String, Integer> destroyedShipsByTeam = new LinkedHashMap<>();
     private final Map<String, Integer> killsByPlayer = new LinkedHashMap<>();
     private final Map<String, Double> nextFlakFireTimeByShipId = new LinkedHashMap<>();
+    private final Map<String, Double> nextCannonFireTimeByShipId = new LinkedHashMap<>();
     private final List<Torpedo> torpedoes = new ArrayList<>();
     private final List<TorpedoImpactSnapshot> torpedoImpacts = new ArrayList<>();
     private final List<Bomb> bombs = new ArrayList<>();
@@ -308,6 +310,11 @@ public final class GameSession {
         return snapshot();
     }
 
+    public synchronized GameSnapshot fireCannon(FlakFireRequest request) {
+        applyFireCannon(request);
+        return snapshot();
+    }
+
     public synchronized void applyFireFlak(FlakFireRequest request) {
         Fleet fleet = fleets.get(request.teamId());
         if (fleet == null) {
@@ -338,8 +345,42 @@ public final class GameSession {
         ));
     }
 
+    public synchronized void applyFireCannon(FlakFireRequest request) {
+        Fleet fleet = fleets.get(request.teamId());
+        if (fleet == null) {
+            throw new IllegalArgumentException("Unknown team: " + request.teamId());
+        }
+
+        Ship ship = fleet.assignedShip(request.playerId())
+                .orElseThrow(() -> new IllegalStateException("No active ship available for team: " + request.teamId()));
+        if (ship.isScoutPlane() || !ship.id().equals(request.shipId()) || !canFireCannon(ship)) {
+            return;
+        }
+        if (cannonShotWouldHitOwnShip(ship, request)) {
+            return;
+        }
+
+        nextCannonFireTimeByShipId.put(ship.id(), nowSeconds + CANNON_FIRE_COOLDOWN_SECONDS);
+        flakProjectiles.add(new FlakProjectile(
+                "cannon-" + nextFlakProjectileId++,
+                ship.teamId(),
+                ship.id(),
+                request.x(),
+                Math.max(0, request.y()),
+                request.z(),
+                request.vx(),
+                request.vy(),
+                request.vz(),
+                nowSeconds
+        ));
+    }
+
     private boolean canFireFlak(Ship ship) {
         return nowSeconds >= nextFlakFireTimeByShipId.getOrDefault(ship.id(), 0.0);
+    }
+
+    private boolean canFireCannon(Ship ship) {
+        return nowSeconds >= nextCannonFireTimeByShipId.getOrDefault(ship.id(), 0.0);
     }
 
     public synchronized void releasePlayer(String playerId) {
@@ -1430,6 +1471,25 @@ public final class GameSession {
         return false;
     }
 
+    private boolean cannonShotWouldHitOwnShip(Ship ship, FlakFireRequest request) {
+        double length = Math.sqrt(request.vx() * request.vx() + request.vy() * request.vy() + request.vz() * request.vz());
+        if (length <= 0.001) {
+            return true;
+        }
+        double dx = request.vx() / length;
+        double dy = request.vy() / length;
+        double dz = request.vz() / length;
+        for (double distance = 0.65; distance <= 7.5; distance += 0.85) {
+            double x = request.x() + dx * distance;
+            double y = request.y() + dy * distance;
+            double z = request.z() + dz * distance;
+            if (shipFlakHitArea(x, y, z, ship) == FlakShipHitArea.CRITICAL) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private Optional<FlakTargetHit> flakProjectileHitsTarget(FlakProjectile projectile, Ship ship) {
         if (distanceToFlakSegment2D(projectile, ship.position()) > (ship.isScoutPlane() ? 9.0 : 7.2)) {
             return Optional.empty();
@@ -1488,10 +1548,17 @@ public final class GameSession {
             double z = projectile.previousZ() + dz * t;
             FlakShipHitArea area = shipFlakHitArea(x, y, z, ship);
             if (area != FlakShipHitArea.MISS) {
+                if (isCannonProjectile(projectile)) {
+                    return Optional.of(new FlakTargetHit(ship, FlakShipHitArea.CRITICAL.reason(), true, x, y, z));
+                }
                 return Optional.of(new FlakTargetHit(ship, area.reason(), area.sinks(), x, y, z));
             }
         }
         return Optional.empty();
+    }
+
+    private boolean isCannonProjectile(FlakProjectile projectile) {
+        return projectile.id().startsWith("cannon-");
     }
 
     private FlakShipHitArea shipFlakHitArea(double x, double y, double z, Ship ship) {

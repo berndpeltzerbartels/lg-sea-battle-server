@@ -136,6 +136,17 @@ public class GameStateService {
         return view.state();
     }
 
+    public GameSnapshot fireCannon(FlakFireRequest request) {
+        SessionView view;
+        activateTeam(request.teamId());
+        synchronized (this) {
+            session.applyFireCannon(request);
+            view = captureSessionView();
+        }
+        publishModel(view);
+        return view.state();
+    }
+
     public void releasePlayer(String playerId) {
         SessionView view;
         synchronized (this) {
