@@ -493,7 +493,7 @@ class GameSessionTest {
     }
 
     @Test
-    void botScoutPlanePrefersHumanTargetOverCloserBotTarget() {
+    void botScoutPlaneTargetsCloserBotUntilHumanAttackIsForced() {
         GameSession session = new GameSession(new GameSetup(
                 "bot-scout-plane-human-target-test",
                 new WorldMap(9037, List.of()),
@@ -503,7 +503,7 @@ class GameSessionTest {
                         )),
                         new FleetSetup("dark", List.of(
                                 ship("dark-player", "dark", 0, 80, Math.PI, "player-BPB", 5, 0, 99),
-                                ship("dark-bot", "dark", 30, 0, Math.PI, "bot", 5, 0, 99)
+                                ship("dark-bot", "dark", 45, 40, Math.PI, "bot", 5, 0, 99)
                         ))
                 ),
                 List.of(new Vector2(0, 0))
@@ -511,7 +511,8 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        assertEquals(0, findShip(session.snapshot(), "light-plane").rudderDegrees());
+        assertTrue(findShip(session.snapshot(), "light-plane").rudderDegrees() > 0,
+                "Bot scout plane should target the closer bot until the forced human attack rule applies");
     }
 
     @Test

@@ -39,7 +39,6 @@ public final class GameSession {
     private static final double BOT_SCOUT_PLANE_AIR_TORPEDO_BASE_SPEED = 25.0;
     private static final double BOT_SCOUT_PLANE_POST_TORPEDO_BOMB_DELAY_SECONDS = 1.1;
     private static final int BOT_SCOUT_PLANE_FORCE_HUMAN_AFTER_NON_HUMAN_ATTACKS = 3;
-    private static final double BOT_SCOUT_PLANE_HUMAN_TARGET_BONUS = 80.0;
     private static final double BOMB_DROP_FORWARD_OFFSET = 0.6;
     private static final double BOMB_DROP_VERTICAL_OFFSET = 0.65;
     private static final double BOMB_PATTERN_LATERAL_SPACING = 0.18;
@@ -647,8 +646,7 @@ public final class GameSession {
     }
 
     private double botScoutPlaneTargetScore(Ship plane, Ship target) {
-        double humanPriority = isHumanControlled(target) ? -BOT_SCOUT_PLANE_HUMAN_TARGET_BONUS : 0;
-        return humanPriority + plane.position().distanceTo(target.position());
+        return plane.position().distanceTo(target.position());
     }
 
     private boolean isHumanControlled(Ship ship) {
