@@ -51,7 +51,7 @@ public final class GameSession {
     private static final double SCOUT_PLANE_MAX_BOMB_INITIAL_UP_SPEED = 20;
     private static final double SCOUT_PLANE_MAX_BOMB_INITIAL_DOWN_SPEED = 34;
     private static final double BOT_SCOUT_PLANE_STABLE_ATTACK_TURN_RATE = 0.035;
-    private static final double FLAK_FIRE_COOLDOWN_SECONDS = 0.083;
+    private static final double FLAK_FIRE_COOLDOWN_SECONDS = 0.075;
     private static final double FLAK_HIT_VISIBILITY_SECONDS = 2.4;
     private static final double FLAK_SWEEP_STEP = 1.5;
     private static final double SCOUT_PLANE_FUSELAGE_HALF_WIDTH = 0.55;
@@ -633,7 +633,14 @@ public final class GameSession {
             }
         }
 
-        return candidates.stream()
+        List<Ship> preferredCandidates = candidates.stream()
+                .filter(ship -> !isHumanControlled(ship))
+                .toList();
+        if (preferredCandidates.isEmpty()) {
+            preferredCandidates = candidates;
+        }
+
+        return preferredCandidates.stream()
                 .min((left, right) -> Double.compare(
                         botScoutPlaneTargetScore(plane, left),
                         botScoutPlaneTargetScore(plane, right)

@@ -516,6 +516,29 @@ class GameSessionTest {
     }
 
     @Test
+    void botScoutPlaneAvoidsBackToBackHumanAttacksWhenBotTargetsExist() {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-scout-plane-human-cooldown-target-test",
+                new WorldMap(9041, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-plane", "light", 0, 0, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane")
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-player", "dark", 0, 80, Math.PI, "player-BPB", ENGINE_HALF, 0, 99),
+                                ship("dark-bot", "dark", 95, 40, Math.PI, "bot", ENGINE_HALF, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 0))
+        ));
+
+        session.update(0.05, radarService, navigationService, session.worldMap());
+
+        assertTrue(findShip(session.snapshot(), "light-plane").rudderDegrees() > 0,
+                "Bot scout plane should not choose a human again before enough non-human attacks happened");
+    }
+
+    @Test
     void botScoutPlaneForcedHumanTargetIsNotLimitedToAttackRange() throws Exception {
         GameSession session = new GameSession(new GameSetup(
                 "bot-scout-plane-forced-human-target-test",
