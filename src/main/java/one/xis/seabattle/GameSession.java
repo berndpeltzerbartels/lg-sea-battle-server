@@ -92,6 +92,10 @@ public final class GameSession {
     private static final double BOT_ESCORT_JOIN_RANGE = 680;
     private static final double BOT_ESCORT_MIN_DISTANCE = 95;
     private static final double BOT_ESCORT_TARGET_DISTANCE = 150;
+    private static final double BOT_FRIENDLY_HUMAN_COMBAT_RADIUS = 420;
+    private static final double BOT_FRIENDLY_HUMAN_TARGET_DRIFT_WEIGHT = 0.8;
+    private static final double BOT_SCOUT_PLANE_FRIENDLY_HUMAN_PATROL_RANGE = 460;
+    private static final double BOT_SCOUT_PLANE_FRIENDLY_HUMAN_TARGET_DRIFT_WEIGHT = 0.55;
     private static final double BOT_GLANCING_RAM_BACKOFF_SECONDS = 2.85;
     private static final boolean SCOUT_PLANE_EXPERIMENT_PEACEFUL_BOTS = false;
     private static final double RESPAWN_DELAY_SECONDS = 8;
@@ -648,12 +652,27 @@ public final class GameSession {
     }
 
     private void patrolScoutPlane(Ship plane) {
+        Optional<Ship> human = nearestHumanControlledTeamShip(plane);
+        if (human.isPresent()
+                && plane.position().distanceTo(human.get().position()) > BOT_SCOUT_PLANE_FRIENDLY_HUMAN_PATROL_RANGE) {
+            plane.botScoutPlaneTargetY(BOT_SCOUT_PLANE_CRUISE_Y);
+            applyScoutPlaneBotCommand(plane, angleTo(scoutPlanePatrolPointFor(plane, human.get()), plane.position()));
+            return;
+        }
         double patrolHeading = MathSupport.normalizeAngle(stablePhase(plane.id()) + Math.sin(nowSeconds * 0.08 + stablePhase(plane.id())) * 0.9);
         plane.applyCommand(7, rudderTowardHeading(plane, patrolHeading));
     }
 
     private double botScoutPlaneTargetScore(Ship plane, Ship target) {
-        return plane.position().distanceTo(target.position());
+        return plane.position().distanceTo(target.position())
+                + friendlyHumanDriftPenalty(plane, target.position(), BOT_SCOUT_PLANE_FRIENDLY_HUMAN_TARGET_DRIFT_WEIGHT);
+    }
+
+    private Vector2 scoutPlanePatrolPointFor(Ship plane, Ship human) {
+        double phase = stablePhase(plane.id());
+        double distance = 260 + (phase % 0.7) * 160;
+        double bearing = MathSupport.normalizeAngle(human.heading() + Math.PI * 0.55 + phase * 2.4);
+        return human.position().add(Vector2.fromHeading(bearing).scale(distance));
     }
 
     private boolean isHumanControlled(Ship ship) {
@@ -837,11 +856,14 @@ public final class GameSession {
 
         ShipDistance nearestHumanTarget = null;
         ShipDistance nearestBotTarget = null;
-        ShipDistance nearestTarget = null;
+        Ship bestTarget = null;
+        double bestTargetScore = Double.POSITIVE_INFINITY;
         for (Ship target : targets) {
             ShipDistance candidate = new ShipDistance(target, ship.position().distanceTo(target.position()));
-            if (nearestTarget == null || candidate.distance() < nearestTarget.distance()) {
-                nearestTarget = candidate;
+            double targetScore = botTargetScore(ship, target);
+            if (bestTarget == null || targetScore < bestTargetScore) {
+                bestTarget = target;
+                bestTargetScore = targetScore;
             }
             if ("bot".equals(target.controlledBy())) {
                 if (nearestBotTarget == null || candidate.distance() < nearestBotTarget.distance()) {
@@ -858,7 +880,21 @@ public final class GameSession {
             return Optional.of(nearestHumanTarget.ship());
         }
 
-        return nearestTarget == null ? Optional.empty() : Optional.of(nearestTarget.ship());
+        return Optional.ofNullable(bestTarget);
+    }
+
+    private double botTargetScore(Ship ship, Ship target) {
+        return ship.position().distanceTo(target.position())
+                + friendlyHumanDriftPenalty(ship, target.position(), BOT_FRIENDLY_HUMAN_TARGET_DRIFT_WEIGHT);
+    }
+
+    private double friendlyHumanDriftPenalty(Ship ship, Vector2 targetPosition, double weight) {
+        Optional<Ship> human = nearestHumanControlledTeamShip(ship);
+        if (human.isEmpty()) {
+            return 0;
+        }
+        double distanceToHumanArea = targetPosition.distanceTo(human.get().position());
+        return Math.max(0, distanceToHumanArea - BOT_FRIENDLY_HUMAN_COMBAT_RADIUS) * weight;
     }
 
     private Optional<Torpedo> visibleIncomingTorpedo(Ship ship) {
@@ -929,12 +965,7 @@ public final class GameSession {
     }
 
     private boolean escortHumanLeader(Ship ship, NavigationService navigationService, WorldMap worldMap) {
-        Optional<Ship> leader = activeTeamShips(ship.teamId()).stream()
-                .filter(candidate -> !"bot".equals(candidate.controlledBy()))
-                .min((left, right) -> Double.compare(
-                        ship.position().distanceTo(left.position()),
-                        ship.position().distanceTo(right.position())
-                ));
+        Optional<Ship> leader = nearestHumanControlledTeamShip(ship);
         if (leader.isEmpty()) {
             return false;
         }
@@ -954,6 +985,15 @@ public final class GameSession {
         int engineOrder = escortEngineOrder(distanceToEscortPoint, human.speed());
         steerToward(ship, escortPoint, engineOrder, navigationService, worldMap);
         return true;
+    }
+
+    private Optional<Ship> nearestHumanControlledTeamShip(Ship ship) {
+        return activeTeamShips(ship.teamId()).stream()
+                .filter(this::isHumanControlled)
+                .min((left, right) -> Double.compare(
+                        ship.position().distanceTo(left.position()),
+                        ship.position().distanceTo(right.position())
+                ));
     }
 
     private List<Ship> activeTeamShips(String teamId) {

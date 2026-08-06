@@ -539,6 +539,30 @@ class GameSessionTest {
     }
 
     @Test
+    void botScoutPlaneFavorsTargetsNearFriendlyHumanArea() {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-scout-plane-friendly-human-area-test",
+                new WorldMap(9042, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-plane", "light", 0, 0, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane"),
+                                ship("light-player", "light", -500, 0, 0, "player-BPB", ENGINE_HALF, 0, 99)
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-close-bot", "dark", 250, 0, Math.PI, "bot", ENGINE_HALF, 0, 99),
+                                ship("dark-human-area-bot", "dark", -350, 0, Math.PI, "bot", ENGINE_HALF, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 0))
+        ));
+
+        session.update(0.05, radarService, navigationService, session.worldMap());
+
+        assertTrue(findShip(session.snapshot(), "light-plane").rudderDegrees() < 0,
+                "Bot scout plane should lean toward enemy targets near its friendly human area");
+    }
+
+    @Test
     void botScoutPlaneForcedHumanTargetIsNotLimitedToAttackRange() throws Exception {
         GameSession session = new GameSession(new GameSetup(
                 "bot-scout-plane-forced-human-target-test",
@@ -800,6 +824,31 @@ class GameSessionTest {
         ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
         assertEquals(ENGINE_FULL, attacker.engineOrder());
         assertTrue(attacker.rudderDegrees() > 0);
+    }
+
+    @Test
+    void botBoatFavorsTargetsNearFriendlyHumanArea() {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-friendly-human-area-target-test",
+                new WorldMap(9045, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-1", "red", 0, 0, 0, "bot", 2, 0),
+                                ship("red-human", "red", -500, 0, 0, "player-BP-test", 5, 0)
+                        )),
+                        new FleetSetup("blue", List.of(
+                                ship("blue-close-bot", "blue", 250, 0, 0, "bot", 5, 0),
+                                ship("blue-human-area-bot", "blue", -350, 0, 0, "bot", 5, 0)
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(-500, 0), new Vector2(250, 0), new Vector2(-350, 0))
+        ));
+
+        session.update(0.05, radarService, navigationService, session.worldMap());
+
+        ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
+        assertTrue(attacker.engineOrder() >= ENGINE_HALF);
+        assertTrue(attacker.rudderDegrees() < 0);
     }
 
     @Test
