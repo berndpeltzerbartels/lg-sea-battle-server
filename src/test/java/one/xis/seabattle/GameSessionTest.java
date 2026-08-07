@@ -160,6 +160,47 @@ class GameSessionTest {
     }
 
     @Test
+    void cannonHitUsesScoutPlaneBankWhenResolvingWingHits() {
+        GameSession session = new GameSession(new GameSetup(
+                "cannon-hit-banked-plane-test",
+                new WorldMap(9043, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-1", "light", 0, 0, 0, "bot", 5, 0, 0)
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-1", "dark", 0, 47, 0, "bot", 7, 35, 0, "scout-plane")
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(0, 47))
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-gunner", "light", 0, 0, 0, 4, 0, 5, 0, 0, false, "torpedo-boat"),
+                navigationService,
+                session.worldMap()
+        );
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-plane", "dark", 0, 47, 0, 14, -0.3, 7, 0, 0, false, "scout-plane", 30),
+                navigationService,
+                session.worldMap()
+        );
+        session.fireCannon(new FlakFireRequest(
+                "player-gunner", "light", "light-1", 3, 1.5, 0, 0, 65, 95
+        ));
+
+        GameSnapshot snapshot = session.snapshot();
+        for (int i = 0; i < 20 && snapshot.flakHits().isEmpty(); i += 1) {
+            session.update(0.05, radarService, navigationService, session.worldMap());
+            snapshot = session.snapshot();
+        }
+
+        assertFalse(snapshot.flakHits().isEmpty());
+        assertEquals("dark-1", snapshot.flakHits().get(0).targetShipId());
+        assertEquals("sunk", findShip(snapshot, "dark-1").state());
+    }
+
+    @Test
     void scoutPlaneRespawnsAsPlaneAboveWater() {
         GameSession session = new GameSession(new GameSetup(
                 "scout-plane-respawn-test",

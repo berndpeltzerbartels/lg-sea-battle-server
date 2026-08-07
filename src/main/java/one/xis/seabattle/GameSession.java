@@ -66,6 +66,8 @@ public final class GameSession {
     private static final double SCOUT_PLANE_TAIL_FORWARD_MAX = -2.1;
     private static final double SCOUT_PLANE_VERTICAL_HALF_HEIGHT = 1.15;
     private static final double SCOUT_PLANE_HIT_MARGIN = 1.1;
+    private static final double SCOUT_PLANE_VISUAL_BANK_PER_TURN_RATE = 2.35;
+    private static final double SCOUT_PLANE_MAX_VISUAL_BANK = 0.72;
     private static final double FLAK_SHIP_HIT_MARGIN = 0.18;
     private static final double RAM_HIT_RADIUS = 4.8;
     private static final double RAM_BOW_OFFSET = 4.45;
@@ -1583,29 +1585,56 @@ public final class GameSession {
     }
 
     private boolean pointHitsScoutPlane(double x, double y, double z, Ship plane) {
-        double vertical = Math.abs(y - plane.y());
-        if (vertical > SCOUT_PLANE_VERTICAL_HALF_HEIGHT + SCOUT_PLANE_HIT_MARGIN) {
-            return false;
-        }
-
         double dx = x - plane.position().x();
         double dz = z - plane.position().z();
         double right = dx * Math.cos(plane.heading()) - dz * Math.sin(plane.heading());
         double forward = dx * Math.sin(plane.heading()) + dz * Math.cos(plane.heading());
-        double absRight = Math.abs(right);
-        if (forward >= -SCOUT_PLANE_HALF_LENGTH - SCOUT_PLANE_HIT_MARGIN
-                && forward <= SCOUT_PLANE_HALF_LENGTH + SCOUT_PLANE_HIT_MARGIN
-                && absRight <= SCOUT_PLANE_FUSELAGE_HALF_WIDTH + SCOUT_PLANE_HIT_MARGIN) {
+        double vertical = y - plane.y();
+        double bank = MathSupport.clamp(
+                -plane.turnVelocity() * SCOUT_PLANE_VISUAL_BANK_PER_TURN_RATE,
+                -SCOUT_PLANE_MAX_VISUAL_BANK,
+                SCOUT_PLANE_MAX_VISUAL_BANK
+        );
+        double cosBank = Math.cos(bank);
+        double sinBank = Math.sin(bank);
+        double modelRight = right * cosBank + vertical * sinBank;
+        double modelVertical = -right * sinBank + vertical * cosBank;
+        if (pointHitsScoutPlanePart(
+                forward,
+                modelRight,
+                modelVertical,
+                -SCOUT_PLANE_HALF_LENGTH,
+                SCOUT_PLANE_HALF_LENGTH,
+                SCOUT_PLANE_FUSELAGE_HALF_WIDTH
+        )) {
             return true;
         }
-        if (forward >= SCOUT_PLANE_WING_FORWARD_MIN - SCOUT_PLANE_HIT_MARGIN
-                && forward <= SCOUT_PLANE_WING_FORWARD_MAX + SCOUT_PLANE_HIT_MARGIN
-                && absRight <= SCOUT_PLANE_WING_HALF_WIDTH + SCOUT_PLANE_HIT_MARGIN) {
+        if (pointHitsScoutPlanePart(
+                forward,
+                modelRight,
+                modelVertical,
+                SCOUT_PLANE_WING_FORWARD_MIN,
+                SCOUT_PLANE_WING_FORWARD_MAX,
+                SCOUT_PLANE_WING_HALF_WIDTH
+        )) {
             return true;
         }
-        return forward >= SCOUT_PLANE_TAIL_FORWARD_MIN - SCOUT_PLANE_HIT_MARGIN
-                && forward <= SCOUT_PLANE_TAIL_FORWARD_MAX + SCOUT_PLANE_HIT_MARGIN
-                && absRight <= SCOUT_PLANE_TAIL_HALF_WIDTH + SCOUT_PLANE_HIT_MARGIN;
+        return pointHitsScoutPlanePart(
+                forward,
+                modelRight,
+                modelVertical,
+                SCOUT_PLANE_TAIL_FORWARD_MIN,
+                SCOUT_PLANE_TAIL_FORWARD_MAX,
+                SCOUT_PLANE_TAIL_HALF_WIDTH
+        );
+    }
+
+    private boolean pointHitsScoutPlanePart(double forward, double right, double vertical,
+                                            double forwardMin, double forwardMax, double halfWidth) {
+        return forward >= forwardMin - SCOUT_PLANE_HIT_MARGIN
+                && forward <= forwardMax + SCOUT_PLANE_HIT_MARGIN
+                && Math.abs(right) <= halfWidth + SCOUT_PLANE_HIT_MARGIN
+                && Math.abs(vertical) <= SCOUT_PLANE_VERTICAL_HALF_HEIGHT + SCOUT_PLANE_HIT_MARGIN;
     }
 
     private void recordFlakHit(FlakProjectile projectile, Ship target) {
