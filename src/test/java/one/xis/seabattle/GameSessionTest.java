@@ -1571,10 +1571,9 @@ class GameSessionTest {
     }
 
     @Test
-    void denseLandHasCalculatedBeachBandThatBlocksNavigationButNotRadar() {
+    void denseLandHasCalculatedBeachBandThatBlocksNavigationOnly() {
         WorldMap worldMap = new DefaultGameSetupFactory(new WorldMapService()).setup("dense-land").worldMap();
         List<String> navigationMismatches = new java.util.ArrayList<>();
-        List<String> radarMismatches = new java.util.ArrayList<>();
 
         for (Landmass landmass : worldMap.landmasses()) {
             sampleBoundaryPoints(landmass).stream()
@@ -1582,33 +1581,24 @@ class GameSessionTest {
                         double distance = LandGeometry.shapeDistance(point, landmass);
                         boolean landWater = LandGeometry.isInLandWater(point, landmass);
                         boolean navigationBlocked = LandGeometry.isBlockedByLandmass(point, landmass);
-                        boolean radarBlocked = LandGeometry.isRadarBlockedByLandmass(point, landmass);
                         boolean expectedNavigation = distance < LandGeometry.navigationBlockDistance(landmass) && !landWater;
-                        boolean expectedRadar = distance < LandGeometry.radarBlockDistance(landmass) && !landWater;
                         if (navigationBlocked != expectedNavigation) {
                             navigationMismatches.add(landmass.name() + " has wrong navigation boundary at " + point
                                     + " distance=" + distance + " expected=" + expectedNavigation
                                     + " actual=" + navigationBlocked);
                         }
-                        if (radarBlocked != expectedRadar) {
-                            radarMismatches.add(landmass.name() + " has wrong radar boundary at " + point
-                                    + " distance=" + distance + " expected=" + expectedRadar
-                                    + " actual=" + radarBlocked);
-                        }
                     });
         }
 
         assertTrue(navigationMismatches.isEmpty(), String.join("\n", navigationMismatches.stream().limit(40).toList()));
-        assertTrue(radarMismatches.isEmpty(), String.join("\n", radarMismatches.stream().limit(40).toList()));
 
         Landmass coastline = worldMap.landmasses().stream()
                 .filter(landmass -> "coastline".equals(landmass.kind()))
                 .findFirst()
                 .orElseThrow();
-        double beachBandDistance = (LandGeometry.navigationBlockDistance(coastline) + LandGeometry.radarBlockDistance(coastline)) / 2;
+        double beachBandDistance = LandGeometry.navigationBlockDistance(coastline) - 0.02;
         Vector2 beachBandPoint = new Vector2(coastline.x() + coastline.rx() * beachBandDistance, coastline.z());
         assertTrue(LandGeometry.isBlockedByLandmass(beachBandPoint, coastline));
-        assertFalse(LandGeometry.isRadarBlockedByLandmass(beachBandPoint, coastline));
     }
 
     @Test

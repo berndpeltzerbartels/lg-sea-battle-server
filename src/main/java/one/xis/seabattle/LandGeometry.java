@@ -5,20 +5,15 @@ import java.util.List;
 final class LandGeometry {
 
     private static final double LINE_SAMPLE_DISTANCE = 8.0;
-    private static final double BLOCK_GRID_RESOLUTION = 4.0;
     private static final double COASTLINE_NAVIGATION_BLOCK_DISTANCE = 1.06;
-    private static final double COASTLINE_RADAR_BLOCK_DISTANCE = 0.86;
     private static final double ISLAND_NAVIGATION_BLOCK_DISTANCE = 1.02;
-    private static final double ISLAND_RADAR_BLOCK_DISTANCE = 0.92;
     private static final double STEEP_ROCK_BLOCK_DISTANCE = 1.0;
-    private static volatile WorldMap cachedGridWorldMap;
-    private static volatile LandBlockGrid cachedGrid;
 
     private LandGeometry() {
     }
 
     static boolean isBlocked(Vector2 position, WorldMap worldMap) {
-        return isBlockedExact(position, worldMap, false);
+        return isBlockedExact(position, worldMap);
     }
 
     static boolean isBlockedByLandmass(Vector2 position, Landmass landmass) {
@@ -26,17 +21,8 @@ final class LandGeometry {
         return distance < navigationBlockDistance(landmass) && !isInLandWater(position, landmass);
     }
 
-    static boolean isRadarBlockedByLandmass(Vector2 position, Landmass landmass) {
-        double distance = shapeDistance(position, landmass);
-        return distance < radarBlockDistance(landmass) && !isInLandWater(position, landmass);
-    }
-
     static boolean lineIntersectsBlockedLand(Vector2 from, Vector2 to, WorldMap worldMap) {
-        return lineIntersectsLand(from, to, worldMap, false);
-    }
-
-    static boolean lineIntersectsRadarBlockingLand(Vector2 from, Vector2 to, WorldMap worldMap) {
-        return lineIntersectsLand(from, to, worldMap, true);
+        return lineIntersectsLand(from, to, worldMap);
     }
 
     static double terrainHeightAt(Vector2 position, WorldMap worldMap) {
@@ -67,11 +53,7 @@ final class LandGeometry {
                 : new WorldMap(worldMap.version(), obstacles);
     }
 
-    static void prepareRadarBlockingGrid(WorldMap worldMap) {
-        gridFor(worldMap);
-    }
-
-    private static boolean lineIntersectsLand(Vector2 from, Vector2 to, WorldMap worldMap, boolean radarOnly) {
+    private static boolean lineIntersectsLand(Vector2 from, Vector2 to, WorldMap worldMap) {
         double length = from.distanceTo(to);
         if (length <= 0.001) {
             return false;
@@ -83,39 +65,18 @@ final class LandGeometry {
                     from.x() + (to.x() - from.x()) * t,
                     from.z() + (to.z() - from.z()) * t
             );
-            boolean blocked = radarOnly
-                    ? gridFor(worldMap).isBlocked(sample)
-                    : isBlockedExact(sample, worldMap, false);
-            if (blocked) {
+            if (isBlockedExact(sample, worldMap)) {
                 return true;
             }
         }
         return false;
     }
 
-    private static boolean isBlockedExact(Vector2 position, WorldMap worldMap, boolean radarOnly) {
+    private static boolean isBlockedExact(Vector2 position, WorldMap worldMap) {
         return worldMap.landmasses().stream().anyMatch(landmass -> {
             double distance = shapeDistance(position, landmass);
-            double blockDistance = radarOnly ? radarBlockDistance(landmass) : navigationBlockDistance(landmass);
-            return distance < blockDistance && !isInLandWater(position, landmass);
+            return distance < navigationBlockDistance(landmass) && !isInLandWater(position, landmass);
         });
-    }
-
-    private static LandBlockGrid gridFor(WorldMap worldMap) {
-        LandBlockGrid grid = cachedGrid;
-        if (grid != null && cachedGridWorldMap == worldMap) {
-            return grid;
-        }
-        synchronized (LandGeometry.class) {
-            grid = cachedGrid;
-            if (grid != null && cachedGridWorldMap == worldMap) {
-                return grid;
-            }
-            grid = LandBlockGrid.from(worldMap, BLOCK_GRID_RESOLUTION);
-            cachedGridWorldMap = worldMap;
-            cachedGrid = grid;
-            return grid;
-        }
     }
 
     static double shapeDistance(Vector2 position, Landmass landmass) {
@@ -136,13 +97,6 @@ final class LandGeometry {
             return COASTLINE_NAVIGATION_BLOCK_DISTANCE;
         }
         return isSteepRock(landmass) ? STEEP_ROCK_BLOCK_DISTANCE : ISLAND_NAVIGATION_BLOCK_DISTANCE;
-    }
-
-    static double radarBlockDistance(Landmass landmass) {
-        if ("coastline".equals(landmass.kind())) {
-            return COASTLINE_RADAR_BLOCK_DISTANCE;
-        }
-        return isSteepRock(landmass) ? STEEP_ROCK_BLOCK_DISTANCE : ISLAND_RADAR_BLOCK_DISTANCE;
     }
 
     static boolean isInLandWater(Vector2 position, Landmass landmass) {

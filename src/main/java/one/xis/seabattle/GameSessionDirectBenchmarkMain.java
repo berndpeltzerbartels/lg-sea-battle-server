@@ -223,7 +223,6 @@ public class GameSessionDirectBenchmarkMain {
                 metrics.add("visibility-cache-hits", visibilityMetrics.cacheHits());
                 metrics.add("visibility-cache-misses", visibilityMetrics.cacheMisses());
                 metrics.add("visibility-range-rejects", visibilityMetrics.range());
-                metrics.add("visibility-land-rejects", visibilityMetrics.land());
                 metrics.add("visibility-visible", visibilityMetrics.visible());
                 metrics.add("publisher-deadline-lag", Math.max(0, (completed - (scheduledStart + periodNanos)) / 1_000_000.0));
                 latest.set(new PublishedModel(tick, scheduledStart, completed));

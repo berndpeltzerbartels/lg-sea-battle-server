@@ -36,10 +36,6 @@ final class RadarService {
                 result = "range";
                 return false;
             }
-            if (LandGeometry.lineIntersectsRadarBlockingLand(observer.position(), contact.position(), worldMap)) {
-                result = "land";
-                return false;
-            }
             return true;
         } finally {
             if (metrics != null) {
@@ -60,7 +56,7 @@ final class RadarService {
         if (observerPosition.distanceTo(contactPosition) > RADAR_RANGE) {
             return false;
         }
-        return !LandGeometry.lineIntersectsRadarBlockingLand(observerPosition, contactPosition, worldMap);
+        return true;
     }
 
     VisibilityCache visibilityCache(WorldMap worldMap, List<Ship> activeShips) {
@@ -87,7 +83,6 @@ final class RadarService {
         private long self;
         private long inactive;
         private long range;
-        private long land;
         private long visible;
 
         void record(String result, long elapsedNanos) {
@@ -97,7 +92,6 @@ final class RadarService {
                 case "self" -> self += 1;
                 case "inactive" -> inactive += 1;
                 case "range" -> range += 1;
-                case "land" -> land += 1;
                 case "visible" -> visible += 1;
                 default -> throw new IllegalArgumentException("Unknown visibility result: " + result);
             }
@@ -139,10 +133,6 @@ final class RadarService {
 
         long range() {
             return range;
-        }
-
-        long land() {
-            return land;
         }
 
         long visible() {
