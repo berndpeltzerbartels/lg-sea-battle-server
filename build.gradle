@@ -89,6 +89,9 @@ tasks.register('buildSeaBattleClient', Exec) {
 tasks.register('copySeaBattleClient', Copy) {
     dependsOn buildSeaBattleClient
     from(clientDistDir)
+    from(clientDistDir) {
+        into 'sea-battle'
+    }
     into layout.projectDirectory.dir('src/main/resources/sea-battle-client')
     doFirst {
         delete layout.projectDirectory.dir('src/main/resources/sea-battle-client')
