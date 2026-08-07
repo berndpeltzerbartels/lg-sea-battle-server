@@ -259,7 +259,7 @@ public final class GameSession {
         if (ship.isScoutPlane() || "scout-plane".equals(request.vehicleType())) {
             return;
         }
-        fireTorpedo(ship, 2.4, 0);
+        fireTorpedo(ship, 2.4, 0, request);
     }
 
     public synchronized GameSnapshot dropBomb(BombDropRequest request) {
@@ -1978,6 +1978,33 @@ public final class GameSession {
                 muzzlePosition,
                 heading,
                 SHIP_TORPEDO_BASE_SPEED + Math.max(0, ship.speed()) * SHIP_TORPEDO_SPEED_GAIN,
+                nowSeconds,
+                RadarService.TORPEDO_RANGE
+        ));
+        return true;
+    }
+
+    private boolean fireTorpedo(Ship ship, double cooldownSeconds, double headingOffsetRadians, FireTorpedoRequest request) {
+        if (!ship.canFire(nowSeconds)) {
+            return false;
+        }
+
+        ship.markFired(nowSeconds, cooldownSeconds);
+        double heading = MathSupport.normalizeAngle(request.heading() + headingOffsetRadians);
+        Vector2 position = request.includesPlayerState()
+                ? new Vector2(request.x(), request.z())
+                : ship.position();
+        double speed = request.includesPlayerState()
+                ? request.speed()
+                : ship.speed();
+        Vector2 muzzlePosition = position.add(Vector2.fromHeading(heading).scale(5.0));
+        torpedoes.add(new Torpedo(
+                "torpedo-" + nextTorpedoId++,
+                ship.teamId(),
+                ship.id(),
+                muzzlePosition,
+                heading,
+                SHIP_TORPEDO_BASE_SPEED + Math.max(0, speed) * SHIP_TORPEDO_SPEED_GAIN,
                 nowSeconds,
                 RadarService.TORPEDO_RANGE
         ));
