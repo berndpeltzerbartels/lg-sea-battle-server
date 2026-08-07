@@ -216,7 +216,9 @@ public class SeaBattleClientController {
                 request.z(),
                 request.vx(),
                 request.vy(),
-                request.vz()
+                request.vz(),
+                request.weaponYaw(),
+                request.weaponPitch()
         )));
     }
 
@@ -237,7 +239,9 @@ public class SeaBattleClientController {
                 request.z(),
                 request.vx(),
                 request.vy(),
-                request.vz()
+                request.vz(),
+                request.weaponYaw(),
+                request.weaponPitch()
         )));
     }
 

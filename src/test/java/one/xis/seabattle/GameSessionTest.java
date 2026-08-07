@@ -106,13 +106,42 @@ class GameSessionTest {
                 session.worldMap()
         );
         GameSnapshot snapshot = session.fireFlak(new FlakFireRequest(
-                "player-BP-test", "light", "light-1", 0, 1.5, -3, 0, 60, 95
+                "player-BP-test", "light", "light-1", 0, 1.5, -3, 0, 60, 95, 0.7, 0.4
         ));
 
         assertEquals(1, snapshot.flakProjectiles().size());
         FlakProjectileSnapshot projectile = snapshot.flakProjectiles().get(0);
         assertEquals("light-1", projectile.shipId());
         assertEquals(1.5, projectile.y(), 0.01);
+        ShipSnapshot ship = findShip(snapshot, "light-1");
+        assertEquals(0.7, ship.flakYaw(), 0.01);
+        assertEquals(0.4, ship.flakPitch(), 0.01);
+    }
+
+    @Test
+    void cannonFirePublishesWeaponAim() {
+        GameSession session = new GameSession(new GameSetup(
+                "cannon-aim-test",
+                new WorldMap(9045, List.of()),
+                List.of(new FleetSetup("light", List.of(
+                        ship("light-1", "light", 0, 0, 0, "bot", 5, 0, 0)
+                ))),
+                List.of(new Vector2(0, 0))
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-BP-test", "light", 0, 0, 0, 4, 0, 5, 0, 0, false, "torpedo-boat"),
+                navigationService,
+                session.worldMap()
+        );
+        GameSnapshot snapshot = session.fireCannon(new FlakFireRequest(
+                "player-BP-test", "light", "light-1", 0, 1.5, -3, 0, 72, 120, -0.5, 0.32
+        ));
+
+        assertEquals(1, snapshot.flakProjectiles().size());
+        ShipSnapshot ship = findShip(snapshot, "light-1");
+        assertEquals(-0.5, ship.cannonYaw(), 0.01);
+        assertEquals(0.32, ship.cannonPitch(), 0.01);
     }
 
     @Test

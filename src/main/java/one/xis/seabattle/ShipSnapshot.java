@@ -14,6 +14,10 @@ public record ShipSnapshot(
         String controlledBy,
         int torpedoesRemaining,
         String vehicleType,
-        double y
+        double y,
+        double flakYaw,
+        double flakPitch,
+        double cannonYaw,
+        double cannonPitch
 ) {
 }

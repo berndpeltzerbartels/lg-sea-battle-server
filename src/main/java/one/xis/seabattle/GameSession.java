@@ -338,6 +338,7 @@ public final class GameSession {
             return;
         }
 
+        ship.flakAim(request.weaponYaw(), request.weaponPitch());
         nextFlakFireTimeByShipId.put(ship.id(), nowSeconds + FLAK_FIRE_COOLDOWN_SECONDS);
         flakProjectiles.add(new FlakProjectile(
                 "flak-" + nextFlakProjectileId++,
@@ -368,6 +369,7 @@ public final class GameSession {
             return;
         }
 
+        ship.cannonAim(request.weaponYaw(), request.weaponPitch());
         nextCannonFireTimeByShipId.put(ship.id(), nowSeconds + CANNON_FIRE_COOLDOWN_SECONDS);
         flakProjectiles.add(new FlakProjectile(
                 "cannon-" + nextFlakProjectileId++,

@@ -33,6 +33,10 @@ final class Ship {
     private double glancingRamBackoffUntilSeconds = Double.NEGATIVE_INFINITY;
     private Vector2 glancingRamBackoffTarget;
     private double botScoutPlaneTargetY = BOT_SCOUT_PLANE_Y;
+    private double flakYaw;
+    private double flakPitch;
+    private double cannonYaw;
+    private double cannonPitch;
 
     Ship(String id, String teamId, Vector2 position, double heading, String controlledBy) {
         this.id = id;
@@ -110,6 +114,16 @@ final class Ship {
 
     double turnVelocity() {
         return turnVelocity;
+    }
+
+    void flakAim(double yaw, double pitch) {
+        flakYaw = MathSupport.normalizeAngle(yaw);
+        flakPitch = pitch;
+    }
+
+    void cannonAim(double yaw, double pitch) {
+        cannonYaw = MathSupport.normalizeAngle(yaw);
+        cannonPitch = pitch;
     }
 
     void nextFireTime(double nextFireTime) {
@@ -340,7 +354,11 @@ final class Ship {
                 controlledBy,
                 torpedoesRemaining,
                 vehicleType,
-                MathSupport.round(isScoutPlane() ? y : 0)
+                MathSupport.round(isScoutPlane() ? y : 0),
+                MathSupport.round(flakYaw),
+                MathSupport.round(flakPitch),
+                MathSupport.round(cannonYaw),
+                MathSupport.round(cannonPitch)
         );
     }
 
