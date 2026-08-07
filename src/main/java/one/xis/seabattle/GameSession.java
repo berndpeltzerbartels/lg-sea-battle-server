@@ -55,6 +55,7 @@ public final class GameSession {
     private static final double CANNON_FIRE_COOLDOWN_SECONDS = 3.8;
     private static final double FLAK_HIT_VISIBILITY_SECONDS = 2.4;
     private static final double FLAK_SWEEP_STEP = 1.5;
+    private static final double CANNON_HULL_MARGIN = 0.42;
     private static final double SCOUT_PLANE_FUSELAGE_HALF_WIDTH = 0.55;
     private static final double SCOUT_PLANE_HALF_LENGTH = 3.5;
     private static final double SCOUT_PLANE_WING_HALF_WIDTH = 4.15;
@@ -1546,6 +1547,9 @@ public final class GameSession {
             double x = projectile.previousX() + dx * t;
             double y = projectile.previousY() + dy * t;
             double z = projectile.previousZ() + dz * t;
+            if (isCannonProjectile(projectile) && pointHitsShipHull(new Vector2(x, z), ship, CANNON_HULL_MARGIN)) {
+                return Optional.of(new FlakTargetHit(ship, FlakShipHitArea.CRITICAL.reason(), true, x, y, z));
+            }
             FlakShipHitArea area = shipFlakHitArea(x, y, z, ship);
             if (area != FlakShipHitArea.MISS) {
                 if (isCannonProjectile(projectile)) {
