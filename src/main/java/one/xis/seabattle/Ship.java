@@ -217,7 +217,7 @@ final class Ship {
         turnVelocity += (targetTurnVelocity - turnVelocity) * Math.min(1, deltaSeconds * 1.2);
         heading = MathSupport.normalizeAngle(heading + turnVelocity * deltaSeconds);
         position = position.add(Vector2.fromHeading(heading).scale(speed * deltaSeconds));
-        y += (botScoutPlaneTargetY - y) * Math.min(1, deltaSeconds * 0.7);
+        y += (botScoutPlaneTargetY - y) * Math.min(1, deltaSeconds * 0.49);
         verticalSpeed = 0;
         engineOrder = 7;
     }
