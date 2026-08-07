@@ -241,6 +241,26 @@ public class SeaBattleClientController {
         )));
     }
 
+    @Post("/game/report-plane-hit")
+    @Produces(ContentType.JSON_UTF8)
+    public ResponseEntity<?> reportPlaneHit(@RequestBody ClientPlaneHitRequest request) {
+        String teamId = teamIdFor(request.playerId());
+        if (teamId == null) {
+            diagnosticsService.logRejectedRequest("report-plane-hit", request.playerId(), "not-registered");
+            return ResponseEntity.status(403, "Player is not registered");
+        }
+        return ResponseEntity.ok(gameStateService.reportClientPlaneHit(new ClientPlaneHitRequest(
+                request.playerId(),
+                teamId,
+                request.shipId(),
+                request.targetShipId(),
+                request.weaponType(),
+                request.x(),
+                request.y(),
+                request.z()
+        )));
+    }
+
     @Post("/game/reset")
     @Produces(ContentType.JSON_UTF8)
     public GameSnapshot resetGame(@RequestBody ResetGameRequest request) {

@@ -318,6 +318,11 @@ public final class GameSession {
         return snapshot();
     }
 
+    public synchronized GameSnapshot reportClientPlaneHit(ClientPlaneHitRequest request) {
+        applyClientPlaneHit(request);
+        return snapshot();
+    }
+
     public synchronized void applyFireFlak(FlakFireRequest request) {
         Fleet fleet = fleets.get(request.teamId());
         if (fleet == null) {
@@ -376,6 +381,30 @@ public final class GameSession {
                 request.vz(),
                 nowSeconds
         ));
+    }
+
+    public synchronized void applyClientPlaneHit(ClientPlaneHitRequest request) {
+        Fleet fleet = fleets.get(request.teamId());
+        if (fleet == null) {
+            throw new IllegalArgumentException("Unknown team: " + request.teamId());
+        }
+
+        Ship shooter = fleet.assignedShip(request.playerId())
+                .orElseThrow(() -> new IllegalStateException("No active ship available for team: " + request.teamId()));
+        if (shooter.isScoutPlane() || !shooter.id().equals(request.shipId())) {
+            return;
+        }
+
+        Optional<Ship> target = allShips().stream()
+                .filter(ship -> ship.id().equals(request.targetShipId()))
+                .findFirst();
+        if (target.isEmpty() || !target.get().isScoutPlane() || !"active".equals(target.get().state())) {
+            return;
+        }
+
+        if (sinkShip(target.get(), shooterController(shooter.id()))) {
+            recordClientPlaneHit(request, shooter, target.get());
+        }
     }
 
     private boolean canFireFlak(Ship ship) {
@@ -1646,6 +1675,20 @@ public final class GameSession {
                 MathSupport.round(projectile.x()),
                 MathSupport.round(projectile.y()),
                 MathSupport.round(projectile.z()),
+                MathSupport.round(nowSeconds)
+        ));
+    }
+
+    private void recordClientPlaneHit(ClientPlaneHitRequest request, Ship shooter, Ship target) {
+        String weaponPrefix = "cannon".equals(request.weaponType()) ? "cannon" : "flak";
+        flakHits.add(new FlakHitSnapshot(
+                weaponPrefix + "-client-" + nextFlakProjectileId++,
+                shooter.teamId(),
+                shooter.id(),
+                target.id(),
+                MathSupport.round(request.x()),
+                MathSupport.round(request.y()),
+                MathSupport.round(request.z()),
                 MathSupport.round(nowSeconds)
         ));
     }

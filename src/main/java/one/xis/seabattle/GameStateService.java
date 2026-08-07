@@ -147,6 +147,17 @@ public class GameStateService {
         return view.state();
     }
 
+    public GameSnapshot reportClientPlaneHit(ClientPlaneHitRequest request) {
+        SessionView view;
+        activateTeam(request.teamId());
+        synchronized (this) {
+            session.applyClientPlaneHit(request);
+            view = captureSessionView();
+        }
+        publishModel(view);
+        return view.state();
+    }
+
     public void releasePlayer(String playerId) {
         SessionView view;
         synchronized (this) {

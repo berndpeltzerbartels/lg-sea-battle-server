@@ -160,6 +160,38 @@ class GameSessionTest {
     }
 
     @Test
+    void clientReportedCannonPlaneHitIsAuthoritative() {
+        GameSession session = new GameSession(new GameSetup(
+                "client-plane-hit-test",
+                new WorldMap(9044, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-1", "light", 0, 0, 0, "bot", 5, 0, 0)
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-1", "dark", 0, 80, 0, "bot", 7, 0, 0, "scout-plane")
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(0, 80))
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-gunner", "light", 0, 0, 0, 4, 0, 5, 0, 0, false, "torpedo-boat"),
+                navigationService,
+                session.worldMap()
+        );
+        GameSnapshot snapshot = session.reportClientPlaneHit(new ClientPlaneHitRequest(
+                "player-gunner", "light", "light-1", "dark-1", "cannon", 0, 32, 80
+        ));
+
+        assertEquals("sunk", findShip(snapshot, "dark-1").state());
+        assertEquals(1, snapshot.flakHits().size());
+        assertTrue(snapshot.flakHits().get(0).id().startsWith("cannon-client-"));
+        assertEquals("light-1", snapshot.flakHits().get(0).shipId());
+        assertEquals("dark-1", snapshot.flakHits().get(0).targetShipId());
+    }
+
+    @Test
     void cannonHitUsesScoutPlaneBankWhenResolvingWingHits() {
         GameSession session = new GameSession(new GameSetup(
                 "cannon-hit-banked-plane-test",
