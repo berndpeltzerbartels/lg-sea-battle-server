@@ -43,6 +43,8 @@ public final class GameSession {
     private static final double BOT_SCOUT_PLANE_AIR_TORPEDO_SPEED_GAIN = SHIP_TORPEDO_SPEED_GAIN * AIR_TORPEDO_SPEED_FACTOR;
     private static final double BOT_SCOUT_PLANE_POST_TORPEDO_BOMB_DELAY_SECONDS = 1.1;
     private static final int BOT_SCOUT_PLANE_FORCE_HUMAN_AFTER_NON_HUMAN_ATTACKS = 3;
+    private static final double BOT_SCOUT_PLANE_TARGET_RESERVATION_PENALTY = 280.0;
+    private static final double BOT_SCOUT_PLANE_TARGET_TIE_BREAKER = 16.0;
     private static final double BOMB_DROP_FORWARD_OFFSET = 0.6;
     private static final double BOMB_DROP_VERTICAL_OFFSET = 0.65;
     private static final double BOMB_PATTERN_LATERAL_SPACING = 0.18;
@@ -491,19 +493,21 @@ public final class GameSession {
                 .filter(ship -> !ship.isScoutPlane())
                 .toList();
         RadarService.VisibilityCache visibilityCache = radarService.visibilityCache(worldMap, surfaceShips);
+        Map<String, Integer> scoutPlaneTargetReservations = new LinkedHashMap<>();
         activeShips.stream()
                 .filter(ship -> "bot".equals(ship.controlledBy()))
                 .forEach(ship -> {
                     if (ship.isScoutPlane()) {
-                        commandScoutPlaneBot(ship, activeShips, worldMap);
+                        commandScoutPlaneBot(ship, activeShips, worldMap, scoutPlaneTargetReservations);
                     } else {
                         commandBot(ship, visibilityCache, navigationService, worldMap);
                     }
                 });
     }
 
-    private void commandScoutPlaneBot(Ship plane, List<Ship> activeShips, WorldMap worldMap) {
-        Optional<Ship> target = selectBotScoutPlaneTarget(plane, activeShips);
+    private void commandScoutPlaneBot(Ship plane, List<Ship> activeShips, WorldMap worldMap,
+                                      Map<String, Integer> targetReservations) {
+        Optional<Ship> target = selectBotScoutPlaneTarget(plane, activeShips, targetReservations);
         if (target.isEmpty()) {
             clearBotScoutPlaneFlyThrough(plane);
             patrolScoutPlane(plane);
@@ -511,6 +515,7 @@ public final class GameSession {
         }
 
         Ship ship = target.get();
+        targetReservations.merge(ship.id(), 1, Integer::sum);
         BotTorpedoSolution torpedoSolution = botScoutPlaneTorpedoSolution(plane, ship);
         Vector2 torpedoTarget = torpedoSolution.targetPosition();
         BotBombingSolution bombSolution = botScoutPlaneBombingSolution(plane, ship);
@@ -694,7 +699,8 @@ public final class GameSession {
         return LandGeometry.isBlocked(position, scoutPlaneObstacleMap);
     }
 
-    private Optional<Ship> selectBotScoutPlaneTarget(Ship plane, List<Ship> activeShips) {
+    private Optional<Ship> selectBotScoutPlaneTarget(Ship plane, List<Ship> activeShips,
+                                                    Map<String, Integer> targetReservations) {
         List<Ship> candidates = activeShips.stream()
                 .filter(ship -> !ship.teamId().equals(plane.teamId()))
                 .filter(ship -> !ship.isScoutPlane())
@@ -707,8 +713,8 @@ public final class GameSession {
             Optional<Ship> reachableHuman = candidates.stream()
                     .filter(this::isHumanControlled)
                     .min((left, right) -> Double.compare(
-                            plane.position().distanceTo(left.position()),
-                            plane.position().distanceTo(right.position())
+                            botScoutPlaneTargetScore(plane, left, targetReservations),
+                            botScoutPlaneTargetScore(plane, right, targetReservations)
                     ));
             if (reachableHuman.isPresent()) {
                 return reachableHuman;
@@ -724,8 +730,8 @@ public final class GameSession {
 
         return preferredCandidates.stream()
                 .min((left, right) -> Double.compare(
-                        botScoutPlaneTargetScore(plane, left),
-                        botScoutPlaneTargetScore(plane, right)
+                        botScoutPlaneTargetScore(plane, left, targetReservations),
+                        botScoutPlaneTargetScore(plane, right, targetReservations)
                 ));
     }
 
@@ -741,9 +747,16 @@ public final class GameSession {
         plane.applyCommand(7, rudderTowardHeading(plane, patrolHeading));
     }
 
-    private double botScoutPlaneTargetScore(Ship plane, Ship target) {
+    private double botScoutPlaneTargetScore(Ship plane, Ship target, Map<String, Integer> targetReservations) {
         return plane.position().distanceTo(target.position())
-                + friendlyHumanDriftPenalty(plane, target.position(), BOT_SCOUT_PLANE_FRIENDLY_HUMAN_TARGET_DRIFT_WEIGHT);
+                + friendlyHumanDriftPenalty(plane, target.position(), BOT_SCOUT_PLANE_FRIENDLY_HUMAN_TARGET_DRIFT_WEIGHT)
+                + targetReservations.getOrDefault(target.id(), 0) * BOT_SCOUT_PLANE_TARGET_RESERVATION_PENALTY
+                + stablePlaneTargetBias(plane, target);
+    }
+
+    private double stablePlaneTargetBias(Ship plane, Ship target) {
+        double phase = stablePhase(plane.id() + ":" + target.id());
+        return Math.sin(phase * 2.3) * BOT_SCOUT_PLANE_TARGET_TIE_BREAKER;
     }
 
     private Vector2 scoutPlanePatrolPointFor(Ship plane, Ship human) {
