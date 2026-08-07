@@ -8,10 +8,14 @@ import one.xis.http.HttpResponse;
 import one.xis.http.PathVariable;
 import one.xis.http.Post;
 import one.xis.http.Produces;
+import one.xis.http.PublicResources;
 import one.xis.http.RequestBody;
 import one.xis.http.ResponseEntity;
 import one.xis.http.SseEndpoint;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -20,10 +24,12 @@ import java.util.UUID;
 import java.util.logging.Logger;
 
 @Controller
+@PublicResources("/sea-battle-client")
 public class SeaBattleClientController {
 
     private static final Logger LOGGER = Logger.getLogger(SeaBattleClientController.class.getName());
     private static final int MAX_CLIENT_ERRORS = 50;
+    private static final String CLIENT_INDEX_RESOURCE = "/sea-battle-client/index.html";
     private static final List<ClientErrorReport> RECENT_CLIENT_ERRORS = new ArrayList<>();
 
     private final GameStateService gameStateService;
@@ -65,6 +71,21 @@ public class SeaBattleClientController {
     @Get("/start.htm")
     public ResponseEntity<?> redirectLegacyStartPage() {
         return ResponseEntity.redirect("/start.html");
+    }
+
+    @Get("/app")
+    @Produces(ContentType.TEXT_HTML_UTF8)
+    public ResponseEntity<String> getClientApp() {
+        try (InputStream input = SeaBattleClientController.class.getResourceAsStream(CLIENT_INDEX_RESOURCE)) {
+            if (input == null) {
+                return ResponseEntity.notFound();
+            }
+            return ResponseEntity.ok(new String(input.readAllBytes(), StandardCharsets.UTF_8))
+                    .addHeader("Cache-Control", "no-store");
+        } catch (IOException e) {
+            LOGGER.warning(() -> "Could not load Sea Battle client resource " + CLIENT_INDEX_RESOURCE + ": " + e.getMessage());
+            return ResponseEntity.status(500, "Could not load Sea Battle client resource.");
+        }
     }
 
     @Get("/game/world")
