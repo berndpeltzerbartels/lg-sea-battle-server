@@ -36,7 +36,11 @@ public final class GameSession {
     private static final double BOT_SCOUT_PLANE_TERRAIN_CLEARANCE = 8.0;
     private static final double BOT_SCOUT_PLANE_TORPEDO_LEAD_SECONDS = 2.2;
     private static final double BOT_SCOUT_PLANE_AIR_TORPEDO_RELEASE_OFFSET = 10.0;
-    private static final double BOT_SCOUT_PLANE_AIR_TORPEDO_BASE_SPEED = 25.0;
+    private static final double SHIP_TORPEDO_BASE_SPEED = 24.0;
+    private static final double SHIP_TORPEDO_SPEED_GAIN = 0.35;
+    private static final double AIR_TORPEDO_SPEED_FACTOR = 0.75;
+    private static final double BOT_SCOUT_PLANE_AIR_TORPEDO_BASE_SPEED = SHIP_TORPEDO_BASE_SPEED * AIR_TORPEDO_SPEED_FACTOR;
+    private static final double BOT_SCOUT_PLANE_AIR_TORPEDO_SPEED_GAIN = SHIP_TORPEDO_SPEED_GAIN * AIR_TORPEDO_SPEED_FACTOR;
     private static final double BOT_SCOUT_PLANE_POST_TORPEDO_BOMB_DELAY_SECONDS = 1.1;
     private static final int BOT_SCOUT_PLANE_FORCE_HUMAN_AFTER_NON_HUMAN_ATTACKS = 3;
     private static final double BOMB_DROP_FORWARD_OFFSET = 0.6;
@@ -1974,7 +1978,7 @@ public final class GameSession {
                 ship.id(),
                 muzzlePosition,
                 heading,
-                24 + Math.max(0, ship.speed()) * 0.35,
+                SHIP_TORPEDO_BASE_SPEED + Math.max(0, ship.speed()) * SHIP_TORPEDO_SPEED_GAIN,
                 nowSeconds,
                 RadarService.TORPEDO_RANGE
         ));
@@ -2000,7 +2004,7 @@ public final class GameSession {
     }
 
     private double airTorpedoSpeed(Ship plane) {
-        return BOT_SCOUT_PLANE_AIR_TORPEDO_BASE_SPEED + Math.max(0, plane.speed()) * 0.2;
+        return BOT_SCOUT_PLANE_AIR_TORPEDO_BASE_SPEED + Math.max(0, plane.speed()) * BOT_SCOUT_PLANE_AIR_TORPEDO_SPEED_GAIN;
     }
 
     private void checkGameOver() {
