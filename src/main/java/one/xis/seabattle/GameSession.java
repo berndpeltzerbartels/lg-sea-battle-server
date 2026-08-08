@@ -738,7 +738,7 @@ public final class GameSession {
     }
 
     private void patrolScoutPlane(Ship plane) {
-        Optional<Ship> human = nearestHumanControlledTeamShip(plane);
+        Optional<Ship> human = scoutPlaneEscortHuman(plane);
         if (human.isPresent()
                 && plane.position().distanceTo(human.get().position()) > BOT_SCOUT_PLANE_FRIENDLY_HUMAN_PATROL_RANGE) {
             plane.botScoutPlaneTargetY(BOT_SCOUT_PLANE_CRUISE_Y);
@@ -751,7 +751,7 @@ public final class GameSession {
 
     private double botScoutPlaneTargetScore(Ship plane, Ship target, Map<String, Integer> targetReservations) {
         return plane.position().distanceTo(target.position())
-                + friendlyHumanDriftPenalty(plane, target.position(), BOT_SCOUT_PLANE_FRIENDLY_HUMAN_TARGET_DRIFT_WEIGHT)
+                + friendlyHumanDriftPenalty(scoutPlaneEscortHuman(plane), target.position(), BOT_SCOUT_PLANE_FRIENDLY_HUMAN_TARGET_DRIFT_WEIGHT)
                 + targetReservations.getOrDefault(target.id(), 0) * BOT_SCOUT_PLANE_TARGET_RESERVATION_PENALTY
                 + stablePlaneTargetBias(plane, target);
     }
@@ -775,6 +775,37 @@ public final class GameSession {
     private boolean shouldForceHumanScoutPlaneTarget(Ship plane) {
         return botScoutPlaneNonHumanAttackStreak.getOrDefault(plane.id(), 0)
                 >= BOT_SCOUT_PLANE_FORCE_HUMAN_AFTER_NON_HUMAN_ATTACKS;
+    }
+
+    private Optional<Ship> scoutPlaneEscortHuman(Ship plane) {
+        if (!plane.isScoutPlane() || !"bot".equals(plane.controlledBy())) {
+            return Optional.empty();
+        }
+
+        List<Ship> availablePlanes = activeTeamShips(plane.teamId()).stream()
+                .filter(candidate -> candidate.isScoutPlane() && "bot".equals(candidate.controlledBy()))
+                .toList();
+        List<Ship> humans = activeTeamShips(plane.teamId()).stream()
+                .filter(this::isHumanControlled)
+                .sorted((left, right) -> left.id().compareTo(right.id()))
+                .toList();
+        List<String> assignedPlaneIds = new ArrayList<>();
+        for (Ship human : humans) {
+            Optional<Ship> escort = availablePlanes.stream()
+                    .filter(candidate -> !assignedPlaneIds.contains(candidate.id()))
+                    .min((left, right) -> Double.compare(
+                            left.position().distanceTo(human.position()),
+                            right.position().distanceTo(human.position())
+                    ));
+            if (escort.isEmpty()) {
+                return Optional.empty();
+            }
+            assignedPlaneIds.add(escort.get().id());
+            if (escort.get().id().equals(plane.id())) {
+                return Optional.of(human);
+            }
+        }
+        return Optional.empty();
     }
 
     private void recordBotScoutPlaneAttack(Ship plane, Ship target) {
@@ -978,11 +1009,10 @@ public final class GameSession {
 
     private double botTargetScore(Ship ship, Ship target) {
         return ship.position().distanceTo(target.position())
-                + friendlyHumanDriftPenalty(ship, target.position(), BOT_FRIENDLY_HUMAN_TARGET_DRIFT_WEIGHT);
+                + friendlyHumanDriftPenalty(nearestHumanControlledTeamShip(ship), target.position(), BOT_FRIENDLY_HUMAN_TARGET_DRIFT_WEIGHT);
     }
 
-    private double friendlyHumanDriftPenalty(Ship ship, Vector2 targetPosition, double weight) {
-        Optional<Ship> human = nearestHumanControlledTeamShip(ship);
+    private double friendlyHumanDriftPenalty(Optional<Ship> human, Vector2 targetPosition, double weight) {
         if (human.isEmpty()) {
             return 0;
         }
