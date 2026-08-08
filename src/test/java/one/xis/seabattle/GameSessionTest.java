@@ -6,6 +6,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -484,6 +485,72 @@ class GameSessionTest {
         assertEquals("sunk", findShip(snapshot, "light-2").state());
         assertEquals(1, snapshot.flakImpacts().size());
         assertEquals("ship-critical-hit", snapshot.flakImpacts().get(0).reason());
+    }
+
+    @Test
+    void cannonProjectileSinksShipWhenItHitsHullHeight() {
+        GameSession session = cannonShipHitSession("cannon-hull-hit-test");
+
+        session.fireCannon(new FlakFireRequest(
+                "player-gunner", "light", "light-1", 3, 0.32, -40, 0, 2.8, 125
+        ));
+
+        GameSnapshot snapshot = tickUntilShipState(session, "dark-1", "sunk", 1);
+        assertEquals("sunk", findShip(snapshot, "dark-1").state());
+        assertEquals(1, snapshot.flakImpacts().size());
+        assertEquals("ship-critical-hit", snapshot.flakImpacts().get(0).reason());
+    }
+
+    @Test
+    void cannonProjectileDoesNotHitShipFarAboveHullAndSuperstructure() {
+        GameSession session = cannonShipHitSession("cannon-high-miss-test");
+
+        session.fireCannon(new FlakFireRequest(
+                "player-gunner", "light", "light-1", 3, 3.8, -40, 0, 0, 125
+        ));
+
+        session.update(0.5, radarService, navigationService, session.worldMap());
+        GameSnapshot snapshot = session.snapshot();
+        assertEquals("active", findShip(snapshot, "dark-1").state());
+        assertTrue(snapshot.flakHits().isEmpty());
+        assertTrue(snapshot.flakImpacts().stream().noneMatch(impact -> "ship-critical-hit".equals(impact.reason())));
+    }
+
+    @Test
+    void flakProjectileStillOnlyMarksHullHeightShipHitWithoutSinking() throws Exception {
+        GameSession session = cannonShipHitSession("flak-hull-hit-test");
+        FlakProjectile projectile = new FlakProjectile("flak-test", "light", "light-1", 3, 0.5, 0, 0, 0, 0, 0);
+
+        Object hit = projectileHit(session, "dark-1", projectile).orElseThrow();
+
+        assertEquals("ship-hit", flakTargetHitReason(hit));
+        assertFalse(flakTargetHitSinks(hit));
+    }
+
+    @Test
+    void flakProjectileHitsScoutPlaneAtDifferentHeadings() {
+        assertProjectileHitsScoutPlaneAtHeading(0);
+        assertProjectileHitsScoutPlaneAtHeading(Math.PI / 2);
+        assertProjectileHitsScoutPlaneAtHeading(Math.PI);
+        assertProjectileHitsScoutPlaneAtHeading(-Math.PI / 2);
+    }
+
+    @Test
+    void cannonProjectileHitsBankedScoutPlane() {
+        GameSession session = planeHitSession(
+                "cannon-plane-banked-hit-test",
+                Math.PI / 2,
+                -0.42
+        );
+
+        session.fireCannon(new FlakFireRequest(
+                "player-gunner", "light", "light-1", 0, 28, 0, 0, 0, 125
+        ));
+
+        GameSnapshot snapshot = tickUntilShipState(session, "dark-1", "sunk", 1);
+        assertEquals("sunk", findShip(snapshot, "dark-1").state());
+        assertFalse(snapshot.flakHits().isEmpty());
+        assertEquals("dark-1", snapshot.flakHits().get(0).targetShipId());
     }
 
     @Test
@@ -1839,6 +1906,98 @@ class GameSessionTest {
             }
         }
         return snapshot;
+    }
+
+    private GameSession cannonShipHitSession(String id) {
+        GameSession session = new GameSession(new GameSetup(
+                id,
+                new WorldMap(9050, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-1", "light", 0, -40, 0, "bot", 5, 0, 0)
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-1", "dark", 3, 0, 0, "bot", 2, 0, 0)
+                        ))
+                ),
+                List.of(new Vector2(0, -40), new Vector2(3, 0))
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-gunner", "light", 0, -40, 0, 4, 0, 5, 0, 0, false, "torpedo-boat"),
+                navigationService,
+                session.worldMap()
+        );
+        return session;
+    }
+
+    private GameSession planeHitSession(String id, double planeHeading, double planeTurnVelocity) {
+        GameSession session = new GameSession(new GameSetup(
+                id,
+                new WorldMap(9051, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-1", "light", 0, 0, 0, "bot", 5, 0, 0)
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-1", "dark", 0, 42, planeHeading, "bot", 7, 0, 0, "scout-plane")
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(0, 42))
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-gunner", "light", 0, 0, 0, 4, 0, 5, 0, 0, false, "torpedo-boat"),
+                navigationService,
+                session.worldMap()
+        );
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-plane", "dark", 0, 42, planeHeading, 14, planeTurnVelocity, 7, 0, 0, false, "scout-plane", 28),
+                navigationService,
+                session.worldMap()
+        );
+        return session;
+    }
+
+    private void assertProjectileHitsScoutPlaneAtHeading(double planeHeading) {
+        GameSession session = planeHitSession("flak-plane-heading-" + Math.round(planeHeading * 100), planeHeading, 0);
+        session.fireFlak(new FlakFireRequest(
+                "player-gunner", "light", "light-1", 0, 28, 0, 0, 0, 95
+        ));
+
+        GameSnapshot snapshot = tickUntilShipState(session, "dark-1", "sunk", 1);
+        assertEquals("sunk", findShip(snapshot, "dark-1").state());
+        assertFalse(snapshot.flakHits().isEmpty());
+        assertEquals("dark-1", snapshot.flakHits().get(0).targetShipId());
+    }
+
+    @SuppressWarnings("unchecked")
+    private Optional<Object> projectileHit(GameSession session, String shipId, FlakProjectile projectile) throws Exception {
+        Method allShips = GameSession.class.getDeclaredMethod("allShips");
+        allShips.setAccessible(true);
+        Ship ship = ((List<Ship>) allShips.invoke(session)).stream()
+                .filter(candidate -> shipId.equals(candidate.id()))
+                .findFirst()
+                .orElseThrow();
+        Method flakProjectileHitsTarget = GameSession.class.getDeclaredMethod(
+                "flakProjectileHitsTarget",
+                FlakProjectile.class,
+                Ship.class
+        );
+        flakProjectileHitsTarget.setAccessible(true);
+        return (Optional<Object>) flakProjectileHitsTarget.invoke(session, projectile, ship);
+    }
+
+    private String flakTargetHitReason(Object hit) throws Exception {
+        Method reason = hit.getClass().getDeclaredMethod("reason");
+        reason.setAccessible(true);
+        return (String) reason.invoke(hit);
+    }
+
+    private boolean flakTargetHitSinks(Object hit) throws Exception {
+        Method sinks = hit.getClass().getDeclaredMethod("sinks");
+        sinks.setAccessible(true);
+        return (boolean) sinks.invoke(hit);
     }
 
     private GameSnapshot tickUntilShipsTouch(GameSession session, double maxSeconds) {

@@ -62,6 +62,8 @@ public final class GameSession {
     private static final double FLAK_HIT_VISIBILITY_SECONDS = 2.4;
     private static final double FLAK_SWEEP_STEP = 1.5;
     private static final double CANNON_HULL_MARGIN = 0.42;
+    private static final double CANNON_HULL_MIN_Y = 0.0;
+    private static final double CANNON_HULL_MAX_Y = 1.08;
     private static final double SCOUT_PLANE_FUSELAGE_HALF_WIDTH = 0.55;
     private static final double SCOUT_PLANE_HALF_LENGTH = 3.5;
     private static final double SCOUT_PLANE_WING_HALF_WIDTH = 4.15;
@@ -1596,7 +1598,7 @@ public final class GameSession {
             double x = projectile.previousX() + dx * t;
             double y = projectile.previousY() + dy * t;
             double z = projectile.previousZ() + dz * t;
-            if (isCannonProjectile(projectile) && pointHitsShipHull(new Vector2(x, z), ship, CANNON_HULL_MARGIN)) {
+            if (isCannonProjectile(projectile) && pointHitsShipHullAtCannonHeight(x, y, z, ship)) {
                 return Optional.of(new FlakTargetHit(ship, FlakShipHitArea.CRITICAL.reason(), true, x, y, z));
             }
             FlakShipHitArea area = shipFlakHitArea(x, y, z, ship);
@@ -1612,6 +1614,12 @@ public final class GameSession {
 
     private boolean isCannonProjectile(FlakProjectile projectile) {
         return projectile.id().startsWith("cannon-");
+    }
+
+    private boolean pointHitsShipHullAtCannonHeight(double x, double y, double z, Ship ship) {
+        return y >= CANNON_HULL_MIN_Y
+                && y <= CANNON_HULL_MAX_Y
+                && pointHitsShipHull(new Vector2(x, z), ship, CANNON_HULL_MARGIN);
     }
 
     private FlakShipHitArea shipFlakHitArea(double x, double y, double z, Ship ship) {
