@@ -41,6 +41,7 @@ final class DefaultGameSetupFactory {
             case "islands" -> openIslandsSetup();
             case "single-island" -> singleIslandSetup();
             case "ram-side" -> ramSideSetup();
+            case "side-view-sandbox" -> sideViewSandboxSetup();
             case "explosion-demo" -> explosionDemoSetup();
             case "escort-debug" -> escortDebugSetup();
             case "landmark-tour" -> landmarkTourSetup();
@@ -116,6 +117,22 @@ final class DefaultGameSetupFactory {
                         new FleetSetup("blue", List.of(ship("blue-1", "blue", 56, 0, 0, "scenario", ENGINE_STOP, 0, 99)))
                 ),
                 List.of(new Vector2(0, 0), new Vector2(56, 0))
+        );
+    }
+
+    private GameSetup sideViewSandboxSetup() {
+        return new GameSetup(
+                "side-view-sandbox",
+                new WorldMap(1003, List.of()),
+                List.of(
+                        new FleetSetup(TEAM_DARK, List.of(
+                                ship("dark-S1", TEAM_DARK, 0, -24, 0, ENGINE_STOP, 0, 99)
+                        )),
+                        new FleetSetup(TEAM_LIGHT, List.of(
+                                ship("light-S1", TEAM_LIGHT, 0, 26, Math.PI / 2, ENGINE_STOP, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, -24), new Vector2(0, 26))
         );
     }
 

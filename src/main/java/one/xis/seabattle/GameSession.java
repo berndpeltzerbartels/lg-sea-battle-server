@@ -476,6 +476,9 @@ public final class GameSession {
     }
 
     private void commandBots(RadarService radarService, NavigationService navigationService, WorldMap worldMap) {
+        if ("side-view-sandbox".equals(id)) {
+            return;
+        }
         if (radarService == null || worldMap == null) {
             return;
         }
