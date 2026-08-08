@@ -42,7 +42,7 @@ public final class GameSession {
     private static final double BOT_SCOUT_PLANE_AIR_TORPEDO_BASE_SPEED = SHIP_TORPEDO_BASE_SPEED * AIR_TORPEDO_SPEED_FACTOR;
     private static final double BOT_SCOUT_PLANE_AIR_TORPEDO_SPEED_GAIN = SHIP_TORPEDO_SPEED_GAIN * AIR_TORPEDO_SPEED_FACTOR;
     private static final double BOT_SCOUT_PLANE_POST_TORPEDO_BOMB_DELAY_SECONDS = 1.1;
-    private static final int BOT_SCOUT_PLANE_FORCE_HUMAN_AFTER_NON_HUMAN_ATTACKS = 3;
+    private static final int BOT_SCOUT_PLANE_FORCE_HUMAN_AFTER_NON_HUMAN_ATTACKS = 2;
     private static final double BOT_SCOUT_PLANE_TARGET_RESERVATION_PENALTY = 280.0;
     private static final double BOT_SCOUT_PLANE_TARGET_TIE_BREAKER = 16.0;
     private static final double BOMB_DROP_FORWARD_OFFSET = 0.6;
@@ -711,16 +711,10 @@ public final class GameSession {
             return Optional.empty();
         }
 
-        if (shouldForceHumanScoutPlaneTarget(plane)) {
-            Optional<Ship> reachableHuman = candidates.stream()
-                    .filter(this::isHumanControlled)
-                    .min((left, right) -> Double.compare(
-                            botScoutPlaneTargetScore(plane, left, targetReservations),
-                            botScoutPlaneTargetScore(plane, right, targetReservations)
-                    ));
-            if (reachableHuman.isPresent()) {
-                return reachableHuman;
-            }
+        Optional<Ship> attackHuman = scoutPlaneAttackHuman(plane);
+        if (shouldForceHumanScoutPlaneTarget(plane, attackHuman)
+                && candidates.stream().anyMatch(candidate -> candidate.id().equals(attackHuman.get().id()))) {
+            return attackHuman;
         }
 
         List<Ship> preferredCandidates = candidates.stream()
@@ -772,9 +766,46 @@ public final class GameSession {
         return ship.controlledBy() != null && !"bot".equals(ship.controlledBy());
     }
 
-    private boolean shouldForceHumanScoutPlaneTarget(Ship plane) {
+    private boolean shouldForceHumanScoutPlaneTarget(Ship plane, Optional<Ship> attackHuman) {
+        if (attackHuman.isEmpty()) {
+            return false;
+        }
         return botScoutPlaneNonHumanAttackStreak.getOrDefault(plane.id(), 0)
                 >= BOT_SCOUT_PLANE_FORCE_HUMAN_AFTER_NON_HUMAN_ATTACKS;
+    }
+
+    private Optional<Ship> scoutPlaneAttackHuman(Ship plane) {
+        if (!plane.isScoutPlane() || !"bot".equals(plane.controlledBy())) {
+            return Optional.empty();
+        }
+
+        List<Ship> availablePlanes = activeTeamShips(plane.teamId()).stream()
+                .filter(candidate -> candidate.isScoutPlane() && "bot".equals(candidate.controlledBy()))
+                .toList();
+        List<Ship> humans = allShips().stream()
+                .filter(candidate -> "active".equals(candidate.state()))
+                .filter(candidate -> !candidate.teamId().equals(plane.teamId()))
+                .filter(candidate -> !candidate.isScoutPlane())
+                .filter(this::isHumanControlled)
+                .sorted((left, right) -> left.id().compareTo(right.id()))
+                .toList();
+        List<String> assignedPlaneIds = new ArrayList<>();
+        for (Ship human : humans) {
+            Optional<Ship> attacker = availablePlanes.stream()
+                    .filter(candidate -> !assignedPlaneIds.contains(candidate.id()))
+                    .min((left, right) -> Double.compare(
+                            left.position().distanceTo(human.position()),
+                            right.position().distanceTo(human.position())
+                    ));
+            if (attacker.isEmpty()) {
+                return Optional.empty();
+            }
+            assignedPlaneIds.add(attacker.get().id());
+            if (attacker.get().id().equals(plane.id())) {
+                return Optional.of(human);
+            }
+        }
+        return Optional.empty();
     }
 
     private Optional<Ship> scoutPlaneEscortHuman(Ship plane) {

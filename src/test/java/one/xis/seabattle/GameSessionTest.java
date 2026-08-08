@@ -768,6 +768,74 @@ class GameSessionTest {
     }
 
     @Test
+    void onlyOneEnemyBotScoutPlaneAttacksOneHumanPlayer() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-scout-plane-single-attacker-test",
+                new WorldMap(9048, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-plane-a", "light", 0, -500, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane"),
+                                ship("light-plane-b", "light", 90, -520, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane")
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-player", "dark", 0, 0, 0, "player-BPB", ENGINE_HALF, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 0))
+        ));
+
+        assertEquals("dark-player", scoutPlaneAttackHumanId(session, "light-plane-a").orElse(null));
+        assertTrue(scoutPlaneAttackHumanId(session, "light-plane-b").isEmpty());
+    }
+
+    @Test
+    void botScoutPlaneAttackerIsReassignedWhenAttackerIsSunk() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-scout-plane-attacker-reassigned-test",
+                new WorldMap(9049, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-plane-a", "light", 0, -500, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane"),
+                                ship("light-plane-b", "light", 90, -520, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane")
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-player", "dark", 0, 0, 0, "player-BPB", ENGINE_HALF, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 0))
+        ));
+
+        sinkShip(session, "light-plane-a");
+
+        assertTrue(scoutPlaneAttackHumanId(session, "light-plane-a").isEmpty());
+        assertEquals("dark-player", scoutPlaneAttackHumanId(session, "light-plane-b").orElse(null));
+    }
+
+    @Test
+    void onlyAssignedBotScoutPlaneCanForceHumanAttack() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-scout-plane-attacker-forced-human-test",
+                new WorldMap(9050, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-plane-a", "light", 0, -500, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane"),
+                                ship("light-plane-b", "light", 90, -520, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane")
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-player", "dark", 0, 0, 0, "player-BPB", ENGINE_HALF, 0, 99),
+                                ship("dark-bot", "dark", 20, 0, 0, "bot", ENGINE_HALF, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 0))
+        ));
+        setBotScoutPlaneNonHumanAttackStreak(session, "light-plane-a", 2);
+        setBotScoutPlaneNonHumanAttackStreak(session, "light-plane-b", 2);
+
+        assertTrue(shouldForceHumanScoutPlaneTarget(session, "light-plane-a"));
+        assertFalse(shouldForceHumanScoutPlaneTarget(session, "light-plane-b"));
+    }
+
+    @Test
     void botScoutPlaneForcedHumanTargetIsNotLimitedToAttackRange() throws Exception {
         GameSession session = new GameSession(new GameSetup(
                 "bot-scout-plane-forced-human-target-test",
@@ -2038,15 +2106,47 @@ class GameSessionTest {
 
     @SuppressWarnings("unchecked")
     private Optional<String> scoutPlaneEscortHumanId(GameSession session, String planeId) throws Exception {
-        Method allShips = GameSession.class.getDeclaredMethod("allShips");
-        allShips.setAccessible(true);
-        Ship plane = ((List<Ship>) allShips.invoke(session)).stream()
-                .filter(candidate -> planeId.equals(candidate.id()))
-                .findFirst()
-                .orElseThrow();
+        Ship plane = shipEntity(session, planeId);
         Method scoutPlaneEscortHuman = GameSession.class.getDeclaredMethod("scoutPlaneEscortHuman", Ship.class);
         scoutPlaneEscortHuman.setAccessible(true);
         return ((Optional<Ship>) scoutPlaneEscortHuman.invoke(session, plane)).map(Ship::id);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Optional<String> scoutPlaneAttackHumanId(GameSession session, String planeId) throws Exception {
+        Ship plane = shipEntity(session, planeId);
+        Method scoutPlaneAttackHuman = GameSession.class.getDeclaredMethod("scoutPlaneAttackHuman", Ship.class);
+        scoutPlaneAttackHuman.setAccessible(true);
+        return ((Optional<Ship>) scoutPlaneAttackHuman.invoke(session, plane)).map(Ship::id);
+    }
+
+    private boolean shouldForceHumanScoutPlaneTarget(GameSession session, String planeId) throws Exception {
+        Ship plane = shipEntity(session, planeId);
+        Optional<Ship> attackHuman = scoutPlaneAttackHumanId(session, planeId)
+                .map(humanId -> {
+                    try {
+                        return shipEntity(session, humanId);
+                    } catch (Exception exception) {
+                        throw new IllegalStateException(exception);
+                    }
+                });
+        Method shouldForceHumanScoutPlaneTarget = GameSession.class.getDeclaredMethod(
+                "shouldForceHumanScoutPlaneTarget",
+                Ship.class,
+                Optional.class
+        );
+        shouldForceHumanScoutPlaneTarget.setAccessible(true);
+        return (boolean) shouldForceHumanScoutPlaneTarget.invoke(session, plane, attackHuman);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Ship shipEntity(GameSession session, String shipId) throws Exception {
+        Method allShips = GameSession.class.getDeclaredMethod("allShips");
+        allShips.setAccessible(true);
+        return ((List<Ship>) allShips.invoke(session)).stream()
+                .filter(candidate -> shipId.equals(candidate.id()))
+                .findFirst()
+                .orElseThrow();
     }
 
     private GameSnapshot tickUntilShipsTouch(GameSession session, double maxSeconds) {

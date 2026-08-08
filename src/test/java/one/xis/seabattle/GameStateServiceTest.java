@@ -16,7 +16,9 @@ class GameStateServiceTest {
         );
         GameSnapshot before = service.snapshot();
 
-        GameSnapshot after = service.fireTorpedo(new FireTorpedoRequest("player-BP-test", "light"));
+        GameSnapshot after = service.fireTorpedo(new FireTorpedoRequest(
+                "player-BP-test", "light", "torpedo-boat", 0, 0, 0, 0, 0, 2, 0, 1
+        ));
 
         assertEquals(before.torpedoes().size() + 1, after.torpedoes().size());
         assertEquals(after.torpedoes().size(), service.snapshot().torpedoes().size());
