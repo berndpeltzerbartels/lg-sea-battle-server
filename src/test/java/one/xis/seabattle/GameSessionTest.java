@@ -590,6 +590,39 @@ class GameSessionTest {
     }
 
     @Test
+    void pendingScoutPlaneBombsUseCurrentPlanePosition() {
+        GameSession session = new GameSession(new GameSetup(
+                "scout-plane-moving-bomb-test",
+                new WorldMap(9035, List.of()),
+                List.of(new FleetSetup("light", List.of(
+                        ship("light-1", "light", 0, 0, 0, "bot", 5, 0, 0)
+                ))),
+                List.of(new Vector2(0, 0))
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-BP-test", "light", 0, 0, 0, 8, 0, 7, 0, 0, false, "scout-plane", 80),
+                navigationService,
+                session.worldMap()
+        );
+        session.dropBomb(new BombDropRequest(
+                "player-BP-test", "light", 0, 80, 0, 0, 14.5, 0, "scout-plane"
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-BP-test", "light", 0, 40, 0, 8, 0, 7, 0, 0.13, false, "scout-plane", 80),
+                navigationService,
+                session.worldMap()
+        );
+        session.update(0.13, radarService, navigationService, session.worldMap());
+
+        List<BombSnapshot> bombs = session.snapshot().bombs();
+        assertTrue(bombs.size() >= 2);
+        assertTrue(bombs.get(1).z() > 35,
+                "Delayed bombs must leave the current plane position, not the original release point");
+    }
+
+    @Test
     void botScoutPlaneDropsBombsDuringStraightAttackRun() {
         GameSession session = new GameSession(new GameSetup(
                 "bot-scout-plane-bomb-test",

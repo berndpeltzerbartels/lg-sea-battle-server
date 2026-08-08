@@ -304,13 +304,7 @@ public final class GameSession {
             pendingBombReleases.add(new PendingBombRelease(
                     ship.id(),
                     nowSeconds + index * BOMB_RELEASE_INTERVAL_SECONDS,
-                    index,
-                    ship.position(),
-                    ship.y(),
-                    ship.heading(),
-                    ship.speed(),
-                    ship.turnVelocity(),
-                    ship.verticalSpeed()
+                    index
             ));
         }
     }
@@ -1445,12 +1439,10 @@ public final class GameSession {
                 if (!"active".equals(ship.state()) || !ship.isScoutPlane()) {
                     return;
                 }
-                double releaseDelay = release.index() * BOMB_RELEASE_INTERVAL_SECONDS;
-                PredictedPlaneRelease planeRelease = predictPlaneRelease(release, releaseDelay);
-                double planeHeading = planeRelease.heading();
-                double planeSpeed = Math.min(SCOUT_PLANE_MAX_BOMB_HORIZONTAL_SPEED, Math.max(4, release.speed() * 0.92));
+                double planeHeading = ship.heading();
+                double planeSpeed = Math.min(SCOUT_PLANE_MAX_BOMB_HORIZONTAL_SPEED, Math.max(4, ship.speed() * 0.92));
                 double initialBombVerticalSpeed = MathSupport.clamp(
-                        -release.verticalSpeed(),
+                        -ship.verticalSpeed(),
                         -SCOUT_PLANE_MAX_BOMB_INITIAL_UP_SPEED,
                         SCOUT_PLANE_MAX_BOMB_INITIAL_DOWN_SPEED
                 );
@@ -1458,10 +1450,10 @@ public final class GameSession {
                 double horizontalSpeed = Math.max(0, planeSpeed + bombPatternSpeedJitter(release.index()));
                 Vector2 forward = Vector2.fromHeading(planeHeading);
                 Vector2 right = rightFromHeading(planeHeading);
-                Vector2 position = planeRelease.position()
+                Vector2 position = ship.position()
                         .add(forward.scale(BOMB_DROP_FORWARD_OFFSET))
                         .add(right.scale(bombPatternOffset(release.index())));
-                double altitude = Math.max(0, planeRelease.y() - BOMB_DROP_VERTICAL_OFFSET);
+                double altitude = Math.max(0, ship.y() - BOMB_DROP_VERTICAL_OFFSET);
                 bombs.add(new Bomb(
                         "bomb-" + nextBombId++,
                         ship.teamId(),
@@ -2151,23 +2143,6 @@ public final class GameSession {
         return new Vector2(Math.cos(heading), -Math.sin(heading));
     }
 
-    private static PredictedPlaneRelease predictPlaneRelease(PendingBombRelease release, double delaySeconds) {
-        int steps = Math.max(1, (int) Math.ceil(delaySeconds / 0.08));
-        double deltaSeconds = delaySeconds / steps;
-        double heading = release.heading();
-        Vector2 position = release.position();
-        for (int step = 0; step < steps; step += 1) {
-            heading = MathSupport.normalizeAngle(heading + release.turnVelocity() * deltaSeconds);
-            position = position.add(Vector2.fromHeading(heading).scale(release.speed() * deltaSeconds));
-        }
-        double y = MathSupport.clamp(
-                release.y() + release.verticalSpeed() * delaySeconds,
-                SCOUT_PLANE_MIN_BOMB_ALTITUDE,
-                SCOUT_PLANE_MAX_BOMB_ALTITUDE
-        );
-        return new PredictedPlaneRelease(position, y, heading);
-    }
-
     private static double bombPatternOffset(int index) {
         double side = index % 2 == 0 ? -1.0 : 1.0;
         return side * BOMB_PATTERN_LATERAL_SPACING;
@@ -2186,13 +2161,10 @@ public final class GameSession {
         return value - Math.floor(value);
     }
 
-    private record PendingBombRelease(String shipId, double releaseAtSeconds, int index, Vector2 position, double y,
-                                      double heading, double speed, double turnVelocity, double verticalSpeed) {
+    private record PendingBombRelease(String shipId, double releaseAtSeconds, int index) {
     }
 
     private record BotBombingSolution(Vector2 targetPosition, boolean canRelease) {
     }
 
-    private record PredictedPlaneRelease(Vector2 position, double y, double heading) {
-    }
 }
