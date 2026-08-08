@@ -168,7 +168,11 @@ public class SeaBattleClientController {
                 update.debugTeleport(),
                 update.vehicleType(),
                 update.y(),
-                update.verticalSpeed()
+                update.verticalSpeed(),
+                update.flakYaw(),
+                update.flakPitch(),
+                update.cannonYaw(),
+                update.cannonPitch()
         )));
     }
 

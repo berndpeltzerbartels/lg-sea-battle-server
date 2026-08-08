@@ -1591,6 +1591,50 @@ class GameSessionTest {
     }
 
     @Test
+    void playerStateUpdatesWeaponAimForExternalBoatView() {
+        GameSession session = new GameSession(new GameSetup(
+                "weapon-aim-state-test",
+                new WorldMap(9025, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, 0, 2, 0))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 200, 0, Math.PI, 2, 0)))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(200, 0))
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate(
+                        "player-BP-test",
+                        "red",
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        ENGINE_FULL,
+                        0,
+                        123.45,
+                        false,
+                        "torpedo-boat",
+                        0,
+                        0,
+                        Math.PI,
+                        0.33,
+                        -0.72,
+                        0.11
+                ),
+                navigationService,
+                session.worldMap()
+        );
+
+        ShipSnapshot snapshot = findShip(session.snapshot(), "red-1");
+        assertEquals(MathSupport.round(Math.PI), snapshot.flakYaw(), 0.001);
+        assertEquals(0.33, snapshot.flakPitch(), 0.001);
+        assertEquals(-0.72, snapshot.cannonYaw(), 0.001);
+        assertEquals(0.11, snapshot.cannonPitch(), 0.001);
+    }
+
+    @Test
     void scoutPlaneSnapshotIncludesClientAltitude() {
         GameSession session = new GameSession(new GameSetup(
                 "scout-plane-altitude-test",

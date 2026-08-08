@@ -178,6 +178,16 @@ final class Ship {
         );
         engineOrder = MathSupport.clamp(update.engineOrder(), 0, 8);
         rudderDegrees = MathSupport.clamp(update.rudderDegrees(), -35, 35);
+        if (isFinite(update.flakYaw()) && isFinite(update.flakPitch())) {
+            flakAim(update.flakYaw(), update.flakPitch());
+        }
+        if (isFinite(update.cannonYaw()) && isFinite(update.cannonPitch())) {
+            cannonAim(update.cannonYaw(), update.cannonPitch());
+        }
+    }
+
+    private static boolean isFinite(Double value) {
+        return value != null && Double.isFinite(value);
     }
 
     void applyScoutPlaneWeaponState(Vector2 position, double y, double heading, double speed, double verticalSpeed) {
