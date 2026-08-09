@@ -25,6 +25,21 @@ class GameStateServiceTest {
     }
 
     @Test
+    void freshServiceStartPublishesScoutPlanes() {
+        GameStateService service = new GameStateService(
+                new DefaultGameSetupFactory(new WorldMapService()),
+                new RadarService(),
+                new NavigationService()
+        );
+
+        long planes = service.snapshot().ships().stream()
+                .filter(ship -> "scout-plane".equals(ship.vehicleType()))
+                .count();
+
+        assertEquals(6, planes);
+    }
+
+    @Test
     void fireTorpedoUsesNavigationStateFromFireRequest() {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
@@ -52,7 +67,7 @@ class GameStateServiceTest {
     }
 
     @Test
-    void tickDoesNotAdvanceWithoutConnectedPlayer() {
+    void tickAdvancesIdleTimeWithoutConnectedPlayerWithoutMovingShips() {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
                 new RadarService(),
@@ -60,9 +75,16 @@ class GameStateServiceTest {
         );
 
         GameSnapshot before = service.snapshot();
+        ShipSnapshot beforeShip = before.ships().get(0);
         GameSnapshot after = service.tick(1);
+        ShipSnapshot afterShip = after.ships().stream()
+                .filter(ship -> ship.id().equals(beforeShip.id()))
+                .findFirst()
+                .orElseThrow();
 
-        assertEquals(before.t(), after.t());
+        assertTrue(after.t() > before.t());
+        assertEquals(beforeShip.x(), afterShip.x());
+        assertEquals(beforeShip.z(), afterShip.z());
     }
 
     @Test

@@ -1691,13 +1691,15 @@ class GameSessionTest {
 
         GameSetup escortDebug = factory.setup("escort-debug");
         assertEquals("escort-debug", escortDebug.id());
-        assertEquals(6, escortDebug.fleets().stream().mapToInt(fleet -> fleet.ships().size()).sum());
+        assertEquals(12, escortDebug.fleets().stream().mapToInt(fleet -> fleet.ships().size()).sum());
+        assertEquals(6, countScoutPlanes(escortDebug));
 
         GameSetup landmarkTour = factory.setup("landmark-tour");
         assertEquals("landmark-tour", landmarkTour.id());
         assertEquals(16, landmarkTour.worldMap().version());
-        assertEquals(1, landmarkTour.fleets().stream().mapToInt(fleet -> fleet.ships().size()).sum());
-        assertEquals(List.of("light"), landmarkTour.fleets().stream().map(FleetSetup::teamId).toList());
+        assertEquals(7, landmarkTour.fleets().stream().mapToInt(fleet -> fleet.ships().size()).sum());
+        assertEquals(List.of("light", "dark"), landmarkTour.fleets().stream().map(FleetSetup::teamId).toList());
+        assertEquals(6, countScoutPlanes(landmarkTour));
 
         GameSetup denseLand = factory.setup("dense-land");
         assertEquals("dense-land", denseLand.id());
@@ -1706,10 +1708,33 @@ class GameSessionTest {
         assertEquals(List.of("dark", "light"),
                 denseLand.fleets().stream().map(FleetSetup::teamId).toList());
         assertEquals(List.of(15, 15), denseLand.fleets().stream().map(fleet -> fleet.ships().size()).toList());
-        assertEquals(6, denseLand.fleets().stream()
-                .flatMap(fleet -> fleet.ships().stream())
-                .filter(ship -> "scout-plane".equals(ship.vehicleType()))
-                .count());
+        assertEquals(6, countScoutPlanes(denseLand));
+
+        GameSetup crowded = factory.setup("dense-land-crowded");
+        assertEquals(6, countScoutPlanes(crowded));
+
+        GameSetup crowdedReverse = factory.setup("dense-land-crowded-reverse");
+        assertEquals(6, countScoutPlanes(crowdedReverse));
+    }
+
+    @Test
+    void manualSpecialMenuSetupsExceptSideViewContainScoutPlanes() {
+        DefaultGameSetupFactory factory = new DefaultGameSetupFactory(new WorldMapService());
+
+        List<String> setupIds = List.of(
+                "dense-land",
+                "islands",
+                "escort-debug",
+                "landmark-tour",
+                "dense-land-crowded",
+                "dense-land-crowded-reverse",
+                "scout-plane"
+        );
+
+        for (String setupId : setupIds) {
+            assertTrue(countScoutPlanes(factory.setup(setupId)) > 0, setupId);
+        }
+        assertEquals(0, countScoutPlanes(factory.setup("side-view-sandbox")));
     }
 
     @Test
@@ -2277,5 +2302,12 @@ class GameSessionTest {
                 nextFireDelaySeconds,
                 vehicleType
         );
+    }
+
+    private long countScoutPlanes(GameSetup setup) {
+        return setup.fleets().stream()
+                .flatMap(fleet -> fleet.ships().stream())
+                .filter(ship -> "scout-plane".equals(ship.vehicleType()))
+                .count();
     }
 }

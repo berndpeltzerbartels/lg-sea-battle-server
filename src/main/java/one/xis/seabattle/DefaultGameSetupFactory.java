@@ -183,20 +183,24 @@ final class DefaultGameSetupFactory {
 
     private GameSetup escortDebugSetup() {
         WorldMap worldMap = worldMapService.denseWorld();
+        List<ShipSetup> lightShips = new ArrayList<>(List.of(
+                ship("light-1", TEAM_LIGHT, -180, -520, -0.58, ENGINE_SLOW, 0, 3),
+                ship("light-2", TEAM_LIGHT, -260, -420, -0.42, ENGINE_SLOW, 4, 3),
+                ship("light-3", TEAM_LIGHT, -40, -480, -0.75, ENGINE_SLOW, -4, 3)
+        ));
+        lightShips.addAll(specialScoutPlanes(TEAM_LIGHT, 0));
+        List<ShipSetup> darkShips = new ArrayList<>(List.of(
+                ship("dark-1", TEAM_DARK, 543, 208, 3.0, ENGINE_STOP, 0, 12),
+                ship("dark-2", TEAM_DARK, 1010, 260, -2.95, ENGINE_STOP, 0, 14),
+                ship("dark-3", TEAM_DARK, 1128, -773, -2.4, ENGINE_STOP, 0, 16)
+        ));
+        darkShips.addAll(specialScoutPlanes(TEAM_DARK, 0));
         return new GameSetup(
                 "escort-debug",
                 worldMap,
                 List.of(
-                        new FleetSetup(TEAM_LIGHT, List.of(
-                                ship("light-1", TEAM_LIGHT, -180, -520, -0.58, ENGINE_SLOW, 0, 3),
-                                ship("light-2", TEAM_LIGHT, -260, -420, -0.42, ENGINE_SLOW, 4, 3),
-                                ship("light-3", TEAM_LIGHT, -40, -480, -0.75, ENGINE_SLOW, -4, 3)
-                        )),
-                        new FleetSetup(TEAM_DARK, List.of(
-                                ship("dark-1", TEAM_DARK, 543, 208, 3.0, ENGINE_STOP, 0, 12),
-                                ship("dark-2", TEAM_DARK, 1010, 260, -2.95, ENGINE_STOP, 0, 14),
-                                ship("dark-3", TEAM_DARK, 1128, -773, -2.4, ENGINE_STOP, 0, 16)
-                        ))
+                        new FleetSetup(TEAM_LIGHT, lightShips),
+                        new FleetSetup(TEAM_DARK, darkShips)
                 ),
                 denseRespawnCandidates()
         );
@@ -225,12 +229,17 @@ final class DefaultGameSetupFactory {
     }
 
     private GameSetup landmarkTourSetup() {
+        List<ShipSetup> lightShips = new ArrayList<>(List.of(
+                ship("light-1", TEAM_LIGHT, -460, -560, -0.35, "bot", ENGINE_STOP, 0, 99)
+        ));
+        lightShips.addAll(specialScoutPlanes(TEAM_LIGHT, 2));
         return new GameSetup(
                 "landmark-tour",
                 worldMapService.denseWorld(),
-                List.of(new FleetSetup(TEAM_LIGHT, List.of(
-                        ship("light-1", TEAM_LIGHT, -460, -560, -0.35, "bot", ENGINE_STOP, 0, 99)
-                ))),
+                List.of(
+                        new FleetSetup(TEAM_LIGHT, lightShips),
+                        new FleetSetup(TEAM_DARK, specialScoutPlanes(TEAM_DARK, 2))
+                ),
                 denseRespawnCandidates()
         );
     }
@@ -301,6 +310,39 @@ final class DefaultGameSetupFactory {
         );
     }
 
+    private static ShipSetup scoutPlane(String id, String teamId, double x, double z, double heading,
+                                        int engineOrder, int rudderDegrees, double nextFireDelaySeconds) {
+        return new ShipSetup(
+                id,
+                teamId,
+                new Vector2(x, z),
+                MathSupport.normalizeAngle(heading),
+                "bot",
+                engineOrder,
+                rudderDegrees,
+                nextFireDelaySeconds,
+                VEHICLE_SCOUT_PLANE
+        );
+    }
+
+    private static List<ShipSetup> specialScoutPlanes(String teamId, int idOffset) {
+        if (TEAM_LIGHT.equals(teamId)) {
+            return List.of(
+                    scoutPlane(teamId + "-F" + (idOffset + 4), teamId, -413, 82, -0.1, ENGINE_HALF, 5, 4),
+                    scoutPlane(teamId + "-F" + (idOffset + 9), teamId, -1235, 395, -0.25, ENGINE_SLOW, -4, 7),
+                    scoutPlane(teamId + "-F" + (idOffset + 14), teamId, -1441, -303, 0.48, ENGINE_HALF, 5, 10)
+            );
+        }
+        if (TEAM_DARK.equals(teamId)) {
+            return List.of(
+                    scoutPlane(teamId + "-F" + (idOffset + 4), teamId, 543, 208, 3.0, ENGINE_HALF, -4, 4),
+                    scoutPlane(teamId + "-F" + (idOffset + 9), teamId, 1525, 820, 2.8, ENGINE_SLOW, 4, 7),
+                    scoutPlane(teamId + "-F" + (idOffset + 14), teamId, 1260, -180, -2.7, ENGINE_HALF, -5, 10)
+            );
+        }
+        return List.of();
+    }
+
     private static List<ShipSetup> createShips(String teamId, double[][] formation) {
         List<ShipSetup> ships = new ArrayList<>();
         for (int index = 0; index < formation.length; index += 1) {
@@ -334,15 +376,17 @@ final class DefaultGameSetupFactory {
         List<ShipSetup> ships = new ArrayList<>();
         for (int index = 0; index < positions.size(); index += 1) {
             Vector2 position = positions.get(index);
-            ships.add(ship(
-                    teamId + "-" + (index + 1),
+            String vehicleType = isBotScoutPlaneSlot(teamId, index) ? VEHICLE_SCOUT_PLANE : VEHICLE_TORPEDO_BOAT;
+            ships.add(new ShipSetup(
+                    teamId + "-" + vehiclePrefix(vehicleType) + (index + 1),
                     teamId,
-                    position.x(),
-                    position.z(),
-                    heading,
+                    position,
+                    MathSupport.normalizeAngle(heading),
+                    "bot",
                     ENGINE_STOP,
                     0,
-                    2 + index * 0.35
+                    2 + index * 0.35,
+                    vehicleType
             ));
         }
         return ships;
