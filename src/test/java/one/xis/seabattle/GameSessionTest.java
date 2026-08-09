@@ -18,6 +18,7 @@ class GameSessionTest {
     private static final int ENGINE_FULL_ASTERN = 0;
     private static final int ENGINE_ONE_THIRD = 4;
     private static final int ENGINE_HALF = 5;
+    private static final int ENGINE_TWO_THIRDS = 6;
     private static final int ENGINE_FULL = 7;
     private static final int ENGINE_FLANK = 8;
 
@@ -499,6 +500,38 @@ class GameSessionTest {
         assertEquals("sunk", findShip(snapshot, "dark-1").state());
         assertEquals(1, snapshot.flakImpacts().size());
         assertEquals("ship-critical-hit", snapshot.flakImpacts().get(0).reason());
+    }
+
+    @Test
+    void cannonCloseSideShotHitGridCoversVisibleHullProfile() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "cannon-side-grid-hit-test",
+                new WorldMap(9051, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-1", "light", -18, 0, Math.PI / 2, "player-gunner", 2, 0, 99)
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-1", "dark", 0, 0, 0, "bot", 2, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(-18, 0), new Vector2(0, 0))
+        ));
+        List<String> misses = new java.util.ArrayList<>();
+
+        for (int forwardIndex = 0; forwardIndex < 10; forwardIndex += 1) {
+            double forward = -3.75 + forwardIndex * (7.5 / 9.0);
+            for (int heightIndex = 0; heightIndex < 10; heightIndex += 1) {
+                double y = 0.02 + heightIndex * (0.62 / 9.0);
+                FlakProjectile projectile = cannonSideShotProjectile(-0.7, 0.7, y, y, forward);
+                Optional<Object> hit = projectileHit(session, "dark-1", projectile);
+                if (hit.isEmpty() || !"ship-critical-hit".equals(flakTargetHitReason(hit.get()))) {
+                    misses.add("forward=" + MathSupport.round(forward) + " y=" + MathSupport.round(y));
+                }
+            }
+        }
+
+        assertTrue(misses.isEmpty(), String.join("\n", misses));
     }
 
     @Test
@@ -1049,9 +1082,9 @@ class GameSessionTest {
     }
 
     @Test
-    void botAttacksEnemyBotInsideRadarRingBeforeDistantHumanTarget() {
+    void botPrefersHumanTargetWhenEnemyBotIsOnlyMidDistance() {
         GameSession session = new GameSession(new GameSetup(
-                "bot-near-enemy-priority-test",
+                "bot-mid-distance-enemy-human-priority-test",
                 new WorldMap(9023, List.of()),
                 List.of(
                         new FleetSetup("red", List.of(
@@ -1069,6 +1102,30 @@ class GameSessionTest {
 
         ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
         assertEquals(ENGINE_FULL, attacker.engineOrder());
+        assertTrue(attacker.rudderDegrees() < 0);
+    }
+
+    @Test
+    void botAttacksVeryCloseEnemyBotBeforeDistantHumanTarget() {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-very-near-enemy-priority-test",
+                new WorldMap(9046, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-1", "red", 0, 0, 0, "bot", 2, 0)
+                        )),
+                        new FleetSetup("blue", List.of(
+                                ship("blue-human", "blue", -900, 0, 0, "player-BP-test", 5, 0),
+                                ship("blue-bot", "blue", 240, 0, 0, "bot", 5, 0)
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(-900, 0), new Vector2(240, 0))
+        ));
+
+        session.update(0.05, radarService, navigationService, session.worldMap());
+
+        ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
+        assertEquals(ENGINE_TWO_THIRDS, attacker.engineOrder());
         assertTrue(attacker.rudderDegrees() > 0);
     }
 
@@ -1822,6 +1879,26 @@ class GameSessionTest {
     }
 
     @Test
+    void botUsesControlledPowerInsteadOfCrawlingWhenLandBlocksCourseAhead() {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-blocked-course-power-test",
+                new WorldMap(9051, List.of(testIsland("tight-channel-rock", 0, 18, 5, 5))),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-1", "red", 0, 0, 0, "bot", 2, 0)
+                        ))
+                ),
+                List.of(new Vector2(0, 0))
+        ));
+
+        session.update(0.05, radarService, navigationService, session.worldMap());
+
+        ShipSnapshot bot = findShip(session.snapshot(), "red-1");
+        assertEquals(ENGINE_ONE_THIRD, bot.engineOrder());
+        assertTrue(bot.rudderDegrees() != 0);
+    }
+
+    @Test
     void asternMovementCanLeaveBowGroundingWhenSternIsClear() {
         WorldMap worldMap = new WorldMap(9003, List.of(testIsland("bow-rock", 0, 5.2, 2.5, 2.5)));
         Ship ship = new Ship("red-1", "red", new Vector2(0, 0), 0, "player-test");
@@ -2144,6 +2221,24 @@ class GameSessionTest {
         Method sinks = hit.getClass().getDeclaredMethod("sinks");
         sinks.setAccessible(true);
         return (boolean) sinks.invoke(hit);
+    }
+
+    private FlakProjectile cannonSideShotProjectile(double fromRight, double toRight, double fromY, double toY, double forward) {
+        double deltaSeconds = 0.1;
+        FlakProjectile projectile = new FlakProjectile(
+                "cannon-side-shot-" + fromRight + "-" + toRight + "-" + fromY + "-" + forward,
+                "light",
+                "light-1",
+                fromRight,
+                fromY,
+                forward,
+                (toRight - fromRight) / deltaSeconds,
+                (toY - fromY) / deltaSeconds + 9.0 * deltaSeconds,
+                0,
+                0
+        );
+        projectile.update(deltaSeconds);
+        return projectile;
     }
 
     @SuppressWarnings("unchecked")

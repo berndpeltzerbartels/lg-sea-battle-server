@@ -61,8 +61,9 @@ public final class GameSession {
     private static final double CANNON_FIRE_COOLDOWN_SECONDS = 2.4;
     private static final double FLAK_HIT_VISIBILITY_SECONDS = 2.4;
     private static final double FLAK_SWEEP_STEP = 1.5;
+    private static final double CANNON_SWEEP_STEP = 0.45;
     private static final double CANNON_HULL_MARGIN = 0.42;
-    private static final double CANNON_HULL_MIN_Y = 0.0;
+    private static final double CANNON_HULL_MIN_Y = -0.08;
     private static final double CANNON_HULL_MAX_Y = 1.08;
     private static final double SCOUT_PLANE_FUSELAGE_HALF_WIDTH = 0.55;
     private static final double SCOUT_PLANE_HALF_LENGTH = 3.5;
@@ -98,7 +99,7 @@ public final class GameSession {
     private static final double BOT_TORPEDO_INCOMING_ARC = 0.34;
     private static final double BOT_TORPEDO_THREAT_CORRIDOR = 8.0;
     private static final double BOT_RADAR_INTERCEPT_RANGE = 360;
-    private static final double BOT_HUMAN_TARGET_PRIORITY_CLEARANCE = RadarService.RADAR_RANGE;
+    private static final double BOT_HUMAN_TARGET_PRIORITY_CLEARANCE = 320;
     private static final double BOT_RETURN_TO_LAND_DISTANCE = 720;
     private static final double BOT_PATROL_LAND_DISTANCE = 470;
     private static final double BOT_ESCORT_JOIN_RANGE = 680;
@@ -856,7 +857,7 @@ public final class GameSession {
         if (blockedAhead) {
             double safeHeading = chooseSafeEscapeHeading(ship, navigationService, worldMap);
             int rudder = rudderTowardHeading(ship, safeHeading);
-            ship.applyCommand(ENGINE_SLOW, rudder);
+            ship.applyCommand(ENGINE_ONE_THIRD, rudder);
             return true;
         }
 
@@ -1582,7 +1583,8 @@ public final class GameSession {
         double dy = projectile.y() - projectile.previousY();
         double dz = projectile.z() - projectile.previousZ();
         double segmentLength = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        int samples = Math.max(1, (int) Math.ceil(segmentLength / FLAK_SWEEP_STEP));
+        double sweepStep = isCannonProjectile(projectile) ? CANNON_SWEEP_STEP : FLAK_SWEEP_STEP;
+        int samples = Math.max(1, (int) Math.ceil(segmentLength / sweepStep));
         for (int index = 0; index <= samples; index += 1) {
             double t = samples == 0 ? 1 : (double) index / samples;
             double x = projectile.previousX() + dx * t;
@@ -1600,7 +1602,8 @@ public final class GameSession {
         double dy = projectile.y() - projectile.previousY();
         double dz = projectile.z() - projectile.previousZ();
         double segmentLength = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        int samples = Math.max(1, (int) Math.ceil(segmentLength / FLAK_SWEEP_STEP));
+        double sweepStep = isCannonProjectile(projectile) ? CANNON_SWEEP_STEP : FLAK_SWEEP_STEP;
+        int samples = Math.max(1, (int) Math.ceil(segmentLength / sweepStep));
         for (int index = 0; index <= samples; index += 1) {
             double t = samples == 0 ? 1 : (double) index / samples;
             double x = projectile.previousX() + dx * t;
