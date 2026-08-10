@@ -68,6 +68,29 @@ class GameSessionTest {
     }
 
     @Test
+    void playerAssignmentSkipsScoutPlanes() {
+        GameSession session = new GameSession(new GameSetup(
+                "player-assignment-skips-scout-planes-test",
+                new WorldMap(90255, List.of()),
+                List.of(new FleetSetup("light", List.of(
+                        ship("light-F1", "light", -20, 0, 0, "bot", 7, 0, 0, "scout-plane"),
+                        ship("light-S1", "light", 20, 0, 0, "bot", 5, 0, 0)
+                ))),
+                List.of(new Vector2(20, 0))
+        ));
+
+        GameSnapshot snapshot = session.fireTorpedo(new FireTorpedoRequest("player-BP-test", "light"));
+
+        ShipSnapshot assignedShip = snapshot.ships().stream()
+                .filter(ship -> "player-BP-test".equals(ship.controlledBy()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals("light-S1", assignedShip.id());
+        assertEquals("torpedo-boat", assignedShip.vehicleType());
+        assertEquals(1, snapshot.torpedoes().size());
+    }
+
+    @Test
     void scoutPlanePlayerCannotFireTorpedoes() {
         GameSession session = new GameSession(new GameSetup(
                 "scout-plane-fire-test",

@@ -43,6 +43,7 @@ final class Fleet {
 
         List<Ship> availableShips = activeShips().stream()
                 .filter(ship -> "bot".equals(ship.controlledBy()))
+                .filter(ship -> !ship.isScoutPlane())
                 .toList();
         Optional<Ship> availableShip = randomShip(availableShips);
         if (availableShip.isEmpty() && ships.size() == 1) {
