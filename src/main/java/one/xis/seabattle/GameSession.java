@@ -42,7 +42,7 @@ public final class GameSession {
     private static final double BOT_SCOUT_PLANE_AIR_TORPEDO_BASE_SPEED = SHIP_TORPEDO_BASE_SPEED * AIR_TORPEDO_SPEED_FACTOR;
     private static final double BOT_SCOUT_PLANE_AIR_TORPEDO_SPEED_GAIN = SHIP_TORPEDO_SPEED_GAIN * AIR_TORPEDO_SPEED_FACTOR;
     private static final double BOT_SCOUT_PLANE_POST_TORPEDO_BOMB_DELAY_SECONDS = 1.1;
-    private static final int BOT_SCOUT_PLANE_FORCE_HUMAN_AFTER_NON_HUMAN_ATTACKS = 2;
+    private static final int BOT_SCOUT_PLANE_FORCE_HUMAN_AFTER_NON_HUMAN_ATTACKS = 5;
     private static final double BOT_SCOUT_PLANE_TARGET_RESERVATION_PENALTY = 280.0;
     private static final double BOT_SCOUT_PLANE_TARGET_TIE_BREAKER = 16.0;
     private static final double BOMB_DROP_FORWARD_OFFSET = 0.6;
@@ -58,7 +58,7 @@ public final class GameSession {
     private static final double SCOUT_PLANE_MAX_BOMB_INITIAL_DOWN_SPEED = 34;
     private static final double BOT_SCOUT_PLANE_STABLE_ATTACK_TURN_RATE = 0.035;
     private static final double FLAK_FIRE_COOLDOWN_SECONDS = 0.065;
-    private static final double CANNON_FIRE_COOLDOWN_SECONDS = 2.4;
+    private static final double CANNON_FIRE_COOLDOWN_SECONDS = 1.5;
     private static final double FLAK_HIT_VISIBILITY_SECONDS = 2.4;
     private static final double FLAK_SWEEP_STEP = 1.5;
     private static final double CANNON_SWEEP_STEP = 0.45;
@@ -143,7 +143,7 @@ public final class GameSession {
     private final List<FlakHitSnapshot> flakHits = new ArrayList<>();
     private final List<FlakImpactSnapshot> flakImpacts = new ArrayList<>();
     private final List<RamHitSnapshot> ramHits = new ArrayList<>();
-    private final Map<String, Integer> botScoutPlaneNonHumanAttackStreak = new LinkedHashMap<>();
+    private final Map<String, Integer> botScoutPlaneNonHumanAttackStreakByHumanTarget = new LinkedHashMap<>();
     private final Map<String, Vector2> botScoutPlaneFlyThroughTargets = new LinkedHashMap<>();
     private final Map<String, Double> botScoutPlaneFlyThroughUntil = new LinkedHashMap<>();
     private int nextTorpedoId = 1;
@@ -751,7 +751,10 @@ public final class GameSession {
         if (attackHuman.isEmpty()) {
             return false;
         }
-        return botScoutPlaneNonHumanAttackStreak.getOrDefault(plane.id(), 0)
+        return botScoutPlaneNonHumanAttackStreakByHumanTarget.getOrDefault(
+                scoutPlaneHumanAttackStreakKey(plane.teamId(), attackHuman.get().id()),
+                0
+        )
                 >= BOT_SCOUT_PLANE_FORCE_HUMAN_AFTER_NON_HUMAN_ATTACKS;
     }
 
@@ -791,10 +794,29 @@ public final class GameSession {
 
     private void recordBotScoutPlaneAttack(Ship plane, Ship target) {
         if (isHumanControlled(target)) {
-            botScoutPlaneNonHumanAttackStreak.remove(plane.id());
+            botScoutPlaneNonHumanAttackStreakByHumanTarget.remove(scoutPlaneHumanAttackStreakKey(plane.teamId(), target.id()));
             return;
         }
-        botScoutPlaneNonHumanAttackStreak.merge(plane.id(), 1, Integer::sum);
+        activeHumanTargetsForScoutPlaneTeam(plane.teamId()).forEach(human ->
+                botScoutPlaneNonHumanAttackStreakByHumanTarget.merge(
+                        scoutPlaneHumanAttackStreakKey(plane.teamId(), human.id()),
+                        1,
+                        Integer::sum
+                )
+        );
+    }
+
+    private List<Ship> activeHumanTargetsForScoutPlaneTeam(String teamId) {
+        return allShips().stream()
+                .filter(candidate -> "active".equals(candidate.state()))
+                .filter(candidate -> !candidate.teamId().equals(teamId))
+                .filter(candidate -> !candidate.isScoutPlane())
+                .filter(this::isHumanControlled)
+                .toList();
+    }
+
+    private String scoutPlaneHumanAttackStreakKey(String attackingTeamId, String humanShipId) {
+        return attackingTeamId + ">" + humanShipId;
     }
 
     private void commandBot(Ship ship, RadarService.VisibilityCache visibilityCache, NavigationService navigationService, WorldMap worldMap) {
@@ -1875,7 +1897,6 @@ public final class GameSession {
     }
 
     private void clearBotScoutPlaneAttackState(Ship ship) {
-        botScoutPlaneNonHumanAttackStreak.remove(ship.id());
         clearBotScoutPlaneFlyThrough(ship);
     }
 

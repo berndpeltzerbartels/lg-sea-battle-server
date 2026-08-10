@@ -834,11 +834,30 @@ class GameSessionTest {
                 ),
                 List.of(new Vector2(0, 0))
         ));
-        setBotScoutPlaneNonHumanAttackStreak(session, "light-plane-a", 2);
-        setBotScoutPlaneNonHumanAttackStreak(session, "light-plane-b", 2);
+        setBotScoutPlaneNonHumanAttackStreak(session, "light", "dark-player", 5);
 
         assertTrue(shouldForceHumanScoutPlaneTarget(session, "light-plane-a"));
         assertFalse(shouldForceHumanScoutPlaneTarget(session, "light-plane-b"));
+    }
+
+    @Test
+    void botScoutPlaneDoesNotForceHumanAttackAfterOnlyFourNonHumanAttacks() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-scout-plane-two-attacks-no-human-force-test",
+                new WorldMap(9052, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-plane", "light", 0, -500, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane")
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-player", "dark", 0, 0, 0, "player-BPB", ENGINE_HALF, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 0))
+        ));
+        setBotScoutPlaneNonHumanAttackStreak(session, "light", "dark-player", 4);
+
+        assertFalse(shouldForceHumanScoutPlaneTarget(session, "light-plane"));
     }
 
     @Test
@@ -857,7 +876,7 @@ class GameSessionTest {
                 ),
                 List.of(new Vector2(0, 0))
         ));
-        setBotScoutPlaneNonHumanAttackStreak(session, "light-plane", 3);
+        setBotScoutPlaneNonHumanAttackStreak(session, "light", "dark-player", 5);
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
@@ -866,13 +885,45 @@ class GameSessionTest {
     }
 
     @Test
-    void sinkingBotScoutPlaneClearsForcedHumanAttackState() throws Exception {
+    void nonHumanAttacksByOtherScoutPlanesCountTowardAssignedHumanAttack() throws Exception {
         GameSession session = new GameSession(new GameSetup(
-                "bot-scout-plane-sunk-clears-attack-state-test",
+                "bot-scout-plane-team-human-attack-counter-test",
+                new WorldMap(9053, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-plane-a", "light", 0, -500, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane"),
+                                ship("light-plane-b", "light", 90, -520, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane"),
+                                ship("light-plane-c", "light", 180, -540, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane")
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-player", "dark", 0, 0, 0, "player-BPB", ENGINE_HALF, 0, 99),
+                                ship("dark-bot-1", "dark", 200, 0, 0, "bot", ENGINE_HALF, 0, 99),
+                                ship("dark-bot-2", "dark", 260, 0, 0, "bot", ENGINE_HALF, 0, 99),
+                                ship("dark-bot-3", "dark", 320, 0, 0, "bot", ENGINE_HALF, 0, 99),
+                                ship("dark-bot-4", "dark", 380, 0, 0, "bot", ENGINE_HALF, 0, 99),
+                                ship("dark-bot-5", "dark", 440, 0, 0, "bot", ENGINE_HALF, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 0))
+        ));
+
+        recordBotScoutPlaneAttack(session, "light-plane-b", "dark-bot-1");
+        recordBotScoutPlaneAttack(session, "light-plane-c", "dark-bot-2");
+        recordBotScoutPlaneAttack(session, "light-plane-b", "dark-bot-3");
+        recordBotScoutPlaneAttack(session, "light-plane-c", "dark-bot-4");
+        recordBotScoutPlaneAttack(session, "light-plane-b", "dark-bot-5");
+
+        assertTrue(shouldForceHumanScoutPlaneTarget(session, "light-plane-a"));
+    }
+
+    @Test
+    void humanScoutPlaneAttackClearsForcedHumanAttackState() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-scout-plane-human-attack-clears-state-test",
                 new WorldMap(9039, List.of()),
                 List.of(
                         new FleetSetup("light", List.of(
-                                ship("light-boat", "light", 0, 0, 0, "bot", ENGINE_HALF, 0, 99)
+                                ship("light-human", "light", 0, 0, 0, "player-BPB", ENGINE_HALF, 0, 99)
                         )),
                         new FleetSetup("dark", List.of(
                                 ship("dark-plane", "dark", 3, 47, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane")
@@ -880,13 +931,11 @@ class GameSessionTest {
                 ),
                 List.of(new Vector2(0, 0), new Vector2(3, 47))
         ));
-        setBotScoutPlaneNonHumanAttackStreak(session, "dark-plane", 3);
+        setBotScoutPlaneNonHumanAttackStreak(session, "dark", "light-human", 5);
 
-        sinkShip(session, "dark-plane");
-        GameSnapshot snapshot = session.snapshot();
+        recordBotScoutPlaneAttack(session, "dark-plane", "light-human");
 
-        assertEquals("sunk", findShip(snapshot, "dark-plane").state());
-        assertFalse(botScoutPlaneNonHumanAttackStreak(session).containsKey("dark-plane"));
+        assertFalse(botScoutPlaneNonHumanAttackStreak(session).containsKey("dark>light-human"));
     }
 
     @Test
@@ -2338,17 +2387,24 @@ class GameSessionTest {
     }
 
     @SuppressWarnings("unchecked")
-    private void setBotScoutPlaneNonHumanAttackStreak(GameSession session, String planeId, int value) throws Exception {
-        Field field = GameSession.class.getDeclaredField("botScoutPlaneNonHumanAttackStreak");
+    private void setBotScoutPlaneNonHumanAttackStreak(GameSession session, String attackingTeamId,
+                                                       String humanShipId, int value) throws Exception {
+        Field field = GameSession.class.getDeclaredField("botScoutPlaneNonHumanAttackStreakByHumanTarget");
         field.setAccessible(true);
-        ((Map<String, Integer>) field.get(session)).put(planeId, value);
+        ((Map<String, Integer>) field.get(session)).put(attackingTeamId + ">" + humanShipId, value);
     }
 
     @SuppressWarnings("unchecked")
     private Map<String, Integer> botScoutPlaneNonHumanAttackStreak(GameSession session) throws Exception {
-        Field field = GameSession.class.getDeclaredField("botScoutPlaneNonHumanAttackStreak");
+        Field field = GameSession.class.getDeclaredField("botScoutPlaneNonHumanAttackStreakByHumanTarget");
         field.setAccessible(true);
         return (Map<String, Integer>) field.get(session);
+    }
+
+    private void recordBotScoutPlaneAttack(GameSession session, String planeId, String targetId) throws Exception {
+        Method recordBotScoutPlaneAttack = GameSession.class.getDeclaredMethod("recordBotScoutPlaneAttack", Ship.class, Ship.class);
+        recordBotScoutPlaneAttack.setAccessible(true);
+        recordBotScoutPlaneAttack.invoke(session, shipEntity(session, planeId), shipEntity(session, targetId));
     }
 
     @SuppressWarnings("unchecked")
