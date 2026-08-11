@@ -58,7 +58,7 @@ public final class GameSession {
     private static final double SCOUT_PLANE_MAX_BOMB_INITIAL_DOWN_SPEED = 34;
     private static final double BOT_SCOUT_PLANE_STABLE_ATTACK_TURN_RATE = 0.035;
     private static final double FLAK_FIRE_COOLDOWN_SECONDS = 0.065;
-    private static final double CANNON_FIRE_COOLDOWN_SECONDS = 1.5;
+    private static final double CANNON_FIRE_COOLDOWN_SECONDS = 1.0;
     private static final double FLAK_HIT_VISIBILITY_SECONDS = 2.4;
     private static final double FLAK_SWEEP_STEP = 1.5;
     private static final double CANNON_SWEEP_STEP = 0.45;
