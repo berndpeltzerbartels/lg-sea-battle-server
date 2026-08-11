@@ -707,17 +707,21 @@ public final class GameSession {
             return Optional.empty();
         }
 
-        Optional<Ship> attackHuman = scoutPlaneAttackHuman(plane);
-        if (shouldForceHumanScoutPlaneTarget(plane, attackHuman)
-                && candidates.stream().anyMatch(candidate -> candidate.id().equals(attackHuman.get().id()))) {
-            return attackHuman;
-        }
-
         List<Ship> preferredCandidates = candidates.stream()
                 .filter(ship -> !isHumanControlled(ship))
                 .toList();
         if (preferredCandidates.isEmpty()) {
-            preferredCandidates = candidates;
+            return candidates.stream()
+                    .min((left, right) -> Double.compare(
+                            botScoutPlaneTargetScore(plane, left, targetReservations),
+                            botScoutPlaneTargetScore(plane, right, targetReservations)
+                    ));
+        }
+
+        Optional<Ship> attackHuman = scoutPlaneAttackHuman(plane);
+        if (shouldForceHumanScoutPlaneTarget(plane, attackHuman)
+                && candidates.stream().anyMatch(candidate -> candidate.id().equals(attackHuman.get().id()))) {
+            return attackHuman;
         }
 
         return preferredCandidates.stream()

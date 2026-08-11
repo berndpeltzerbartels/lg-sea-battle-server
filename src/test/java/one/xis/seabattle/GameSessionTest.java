@@ -797,6 +797,27 @@ class GameSessionTest {
     }
 
     @Test
+    void botScoutPlaneTargetsNearestHumanWhenNoBotTargetsRemain() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-scout-plane-human-only-target-test",
+                new WorldMap(9054, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-plane", "light", 0, 0, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane")
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-human-a", "dark", 620, 0, Math.PI, "player-A", ENGINE_HALF, 0, 99),
+                                ship("dark-human-z", "dark", 0, 90, Math.PI, "player-Z", ENGINE_HALF, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 0))
+        ));
+        setBotScoutPlaneNonHumanAttackStreak(session, "light", "dark-human-a", 5);
+
+        assertEquals("dark-human-z", selectBotScoutPlaneTargetId(session, "light-plane").orElse(null));
+    }
+
+    @Test
     void onlyOneEnemyBotScoutPlaneAttacksOneHumanPlayer() throws Exception {
         GameSession session = new GameSession(new GameSetup(
                 "bot-scout-plane-single-attacker-test",
@@ -2428,6 +2449,24 @@ class GameSessionTest {
         Method recordBotScoutPlaneAttack = GameSession.class.getDeclaredMethod("recordBotScoutPlaneAttack", Ship.class, Ship.class);
         recordBotScoutPlaneAttack.setAccessible(true);
         recordBotScoutPlaneAttack.invoke(session, shipEntity(session, planeId), shipEntity(session, targetId));
+    }
+
+    @SuppressWarnings("unchecked")
+    private Optional<String> selectBotScoutPlaneTargetId(GameSession session, String planeId) throws Exception {
+        Method allShips = GameSession.class.getDeclaredMethod("allShips");
+        allShips.setAccessible(true);
+        List<Ship> activeShips = ((List<Ship>) allShips.invoke(session)).stream()
+                .filter(ship -> "active".equals(ship.state()))
+                .toList();
+        Method selectBotScoutPlaneTarget = GameSession.class.getDeclaredMethod(
+                "selectBotScoutPlaneTarget",
+                Ship.class,
+                List.class,
+                Map.class
+        );
+        selectBotScoutPlaneTarget.setAccessible(true);
+        return ((Optional<Ship>) selectBotScoutPlaneTarget.invoke(session, shipEntity(session, planeId), activeShips, Map.of()))
+                .map(Ship::id);
     }
 
     @SuppressWarnings("unchecked")
