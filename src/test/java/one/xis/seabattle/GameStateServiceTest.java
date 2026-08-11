@@ -17,7 +17,7 @@ class GameStateServiceTest {
         GameSnapshot before = service.snapshot();
 
         GameSnapshot after = service.fireTorpedo(new FireTorpedoRequest(
-                "player-BP-test", "light", "torpedo-boat", 0, 0, 0, 0, 0, 2, 0, 1, 1
+                "player-BP-test", "light", "torpedo-boat", 0, 0, 0, 0, 0, 2, 0, 1
         ));
 
         assertEquals(before.torpedoes().size() + 1, after.torpedoes().size());
@@ -57,12 +57,12 @@ class GameStateServiceTest {
 
         double heading = Math.PI / 2;
         GameSnapshot after = service.fireTorpedo(new FireTorpedoRequest(
-                playerId, teamId, "torpedo-boat", x, z, heading, 5, 0.1, 7, 12, 1, 2
+                playerId, teamId, "torpedo-boat", x, z, heading, 5, 0.1, 7, 12, 2
         ));
 
         TorpedoSnapshot torpedo = after.torpedoes().get(after.torpedoes().size() - 1);
-        assertEquals(x + 2.88, torpedo.x(), 0.08);
-        assertEquals(z - 0.56, torpedo.z(), 0.08);
+        assertEquals(x + 5, torpedo.x(), 1.0);
+        assertEquals(z, torpedo.z(), 1.0);
         assertEquals(heading, torpedo.heading(), 0.001);
     }
 

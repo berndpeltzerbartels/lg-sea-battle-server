@@ -262,7 +262,7 @@ public final class GameSession {
         if (ship.isScoutPlane() || "scout-plane".equals(request.vehicleType())) {
             return;
         }
-        fireTorpedo(ship, 2.4, 0, request.tubeSide());
+        fireTorpedo(ship, 2.4, 0);
     }
 
     public synchronized GameSnapshot dropBomb(BombDropRequest request) {
@@ -2017,22 +2017,13 @@ public final class GameSession {
     }
 
     private boolean fireTorpedo(Ship ship, double cooldownSeconds, double headingOffsetRadians) {
-        return fireTorpedo(ship, cooldownSeconds, headingOffsetRadians, 0);
-    }
-
-    private boolean fireTorpedo(Ship ship, double cooldownSeconds, double headingOffsetRadians, int tubeSide) {
         if (!ship.canFire(nowSeconds)) {
             return false;
         }
 
         ship.markFired(nowSeconds, cooldownSeconds);
         double heading = MathSupport.normalizeAngle(ship.heading() + headingOffsetRadians);
-        Vector2 forward = Vector2.fromHeading(heading);
-        Vector2 right = new Vector2(forward.z(), -forward.x());
-        double tubeOffset = Integer.compare(tubeSide, 0) * 0.56;
-        Vector2 muzzlePosition = ship.position()
-                .add(right.scale(tubeOffset))
-                .add(forward.scale(2.88));
+        Vector2 muzzlePosition = ship.position().add(Vector2.fromHeading(heading).scale(5.0));
         torpedoes.add(new Torpedo(
                 "torpedo-" + nextTorpedoId++,
                 ship.teamId(),
