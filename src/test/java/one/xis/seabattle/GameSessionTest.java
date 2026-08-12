@@ -482,6 +482,44 @@ class GameSessionTest {
     }
 
     @Test
+    void flakShotOverOwnDeckCanLeaveShipBackwardAndForwardOffTheSide() {
+        GameSession session = new GameSession(new GameSetup(
+                "flak-own-deck-clearance-test",
+                new WorldMap(9145, List.of()),
+                List.of(new FleetSetup("light", List.of(
+                        ship("light-1", "light", 0, 0, 0, "bot", 5, 0, 0)
+                ))),
+                List.of(new Vector2(0, 0))
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-gunner", "light", 0, 0, 0, 4, 0, 5, 0, 0, false, "torpedo-boat"),
+                navigationService,
+                session.worldMap()
+        );
+        session.fireFlak(new FlakFireRequest(
+                "player-gunner", "light", "light-1", 0, 0.64, -2.92, 0, 0, -95
+        ));
+        session.update(0.08, radarService, navigationService, session.worldMap());
+        GameSnapshot backwardSnapshot = session.snapshot();
+
+        assertEquals(1, backwardSnapshot.flakProjectiles().size());
+        assertEquals(0, backwardSnapshot.flakImpacts().size());
+
+        session.update(1.0, radarService, navigationService, session.worldMap());
+        session.fireFlak(new FlakFireRequest(
+                "player-gunner", "light", "light-1", 0, 0.64, -2.92, 70, 0, 70
+        ));
+        session.update(0.08, radarService, navigationService, session.worldMap());
+        GameSnapshot forwardSnapshot = session.snapshot();
+
+        assertTrue(forwardSnapshot.flakProjectiles().stream()
+                .anyMatch(projectile -> projectile.z() > -2.92 && projectile.x() > 0));
+        assertTrue(forwardSnapshot.flakImpacts().stream()
+                .noneMatch(impact -> "ship-hit".equals(impact.reason()) || "ship-critical-hit".equals(impact.reason())));
+    }
+
+    @Test
     void flakProjectileCanSinkFriendlyShip() {
         GameSession session = new GameSession(new GameSetup(
                 "flak-friendly-ship-hit-test",

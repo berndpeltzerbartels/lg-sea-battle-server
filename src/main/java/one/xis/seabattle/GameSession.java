@@ -1665,15 +1665,45 @@ public final class GameSession {
         if (y >= 0.72 && y <= 1.72 && hit.forward() >= 0.32 && hit.forward() <= 1.24 && absRight <= 0.62) {
             return FlakShipHitArea.CRITICAL;
         }
-        if (y >= 0.78 && y <= 1.92 && hit.forward() >= -1.62 && hit.forward() <= 0.36 && absRight <= 0.38) {
+        if (y >= 0.78 && y <= 1.92 && hit.forward() >= -1.5 && hit.forward() <= 0.24 && absRight <= 0.26) {
             return FlakShipHitArea.CRITICAL;
         }
-        if (y >= 0.1 && y <= 0.98 && hit.forward() >= RAM_STERN_LENGTH - FLAK_SHIP_HIT_MARGIN
+        double deckClearance = torpedoBoatDeckY(hit.forward()) + 0.025;
+        if (y >= 0.1 && y <= deckClearance && hit.forward() >= RAM_STERN_LENGTH - FLAK_SHIP_HIT_MARGIN
                 && hit.forward() <= RAM_BOW_LENGTH + FLAK_SHIP_HIT_MARGIN
                 && absRight <= enemyHullHalfWidthAt(hit.forward()) + FLAK_SHIP_HIT_MARGIN) {
             return FlakShipHitArea.SURFACE;
         }
         return FlakShipHitArea.MISS;
+    }
+
+    private double torpedoBoatDeckY(double forward) {
+        double[][] sections = {
+                {-4.2, 0.52},
+                {-3.45, 0.54},
+                {-2.25, 0.56},
+                {-1.1, 0.57},
+                {-0.22, 0.57},
+                {-0.04, 0.74},
+                {1.25, 0.74},
+                {2.45, 0.74},
+                {2.72, 0.736},
+                {3.18, 0.73},
+                {3.68, 0.73}
+        };
+
+        if (forward <= sections[0][0]) {
+            return sections[0][1];
+        }
+        for (int i = 0; i < sections.length - 1; i += 1) {
+            double currentForward = sections[i][0];
+            double nextForward = sections[i + 1][0];
+            if (forward <= nextForward) {
+                double t = (forward - currentForward) / (nextForward - currentForward);
+                return sections[i][1] + (sections[i + 1][1] - sections[i][1]) * t;
+            }
+        }
+        return sections[sections.length - 1][1];
     }
 
     private boolean pointHitsScoutPlane(double x, double y, double z, Ship plane) {
