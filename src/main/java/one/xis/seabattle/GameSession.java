@@ -78,10 +78,12 @@ public final class GameSession {
     private static final double SCOUT_PLANE_VISUAL_BANK_PER_TURN_RATE = 2.35;
     private static final double SCOUT_PLANE_MAX_VISUAL_BANK = 0.72;
     private static final double FLAK_SHIP_HIT_MARGIN = 0.18;
+    private static final double TORPEDO_BOAT_STERN_Z = -4.2;
+    private static final double TORPEDO_BOAT_BOW_Z = 3.68;
     private static final double RAM_HIT_RADIUS = 4.8;
-    private static final double RAM_BOW_OFFSET = 4.45;
-    private static final double RAM_STERN_LENGTH = -4.05;
-    private static final double RAM_BOW_LENGTH = 4.45;
+    private static final double RAM_BOW_OFFSET = TORPEDO_BOAT_BOW_Z;
+    private static final double RAM_STERN_LENGTH = TORPEDO_BOAT_STERN_Z;
+    private static final double RAM_BOW_LENGTH = TORPEDO_BOAT_BOW_Z;
     private static final double RAM_SIDE_FORWARD_MIN = -2.85;
     private static final double RAM_SIDE_FORWARD_MAX = 2.95;
     private static final double RAM_SIDE_MARGIN = 0.42;
@@ -1296,7 +1298,7 @@ public final class GameSession {
         Vector2 attackerBow = attacker.position()
                 .add(Vector2.fromHeading(attacker.heading()).scale(bowOffset));
         LocalHullPoint hit = localHullPoint(attackerBow, target);
-        if (hit.forward() < RAM_STERN_LENGTH - RAM_SIDE_MARGIN || hit.forward() > RAM_BOW_LENGTH + RAM_SIDE_MARGIN) {
+        if (!forwardInsideTorpedoBoatHull(hit.forward(), RAM_SIDE_MARGIN)) {
             return RamImpact.miss();
         }
 
@@ -1330,28 +1332,31 @@ public final class GameSession {
     }
 
     private double enemyHullHalfWidthAt(double forward) {
+        return torpedoBoatHullTopHalfWidthAt(forward);
+    }
+
+    private boolean forwardInsideTorpedoBoatHull(double forward, double margin) {
+        return forward >= TORPEDO_BOAT_STERN_Z - margin && forward <= TORPEDO_BOAT_BOW_Z + margin;
+    }
+
+    private double torpedoBoatHullTopHalfWidthAt(double forward) {
         double[][] sections = {
-                {-4.05, 0.39},
-                {-2.3, 0.61},
-                {1.55, 0.66},
-                {3.25, 0.31},
-                {4.45, 0.04}
+                {-4.2, 0.31},
+                {-3.45, 0.53},
+                {-2.25, 0.73},
+                {-1.1, 0.79},
+                {-0.22, 0.79},
+                {-0.04, 0.78},
+                {1.25, 0.67},
+                {2.42, 0.436},
+                {2.452, 0.4295},
+                {2.469, 0.4245},
+                {2.72, 0.35},
+                {3.18, 0.21},
+                {3.68, 0.01}
         };
 
-        if (forward <= sections[0][0]) {
-            return sections[0][1];
-        }
-
-        for (int i = 0; i < sections.length - 1; i += 1) {
-            double currentForward = sections[i][0];
-            double nextForward = sections[i + 1][0];
-            if (forward <= nextForward) {
-                double t = (forward - currentForward) / (nextForward - currentForward);
-                return sections[i][1] + (sections[i + 1][1] - sections[i][1]) * t;
-            }
-        }
-
-        return sections[sections.length - 1][1];
+        return interpolateSectionValue(sections, forward);
     }
 
     private record LocalHullPoint(double right, double forward) {
@@ -1669,8 +1674,8 @@ public final class GameSession {
             return FlakShipHitArea.CRITICAL;
         }
         double deckClearance = torpedoBoatDeckY(hit.forward()) + 0.025;
-        if (y >= 0.1 && y <= deckClearance && hit.forward() >= RAM_STERN_LENGTH - FLAK_SHIP_HIT_MARGIN
-                && hit.forward() <= RAM_BOW_LENGTH + FLAK_SHIP_HIT_MARGIN
+        if (y >= 0.1 && y <= deckClearance
+                && forwardInsideTorpedoBoatHull(hit.forward(), FLAK_SHIP_HIT_MARGIN)
                 && absRight <= enemyHullHalfWidthAt(hit.forward()) + FLAK_SHIP_HIT_MARGIN) {
             return FlakShipHitArea.SURFACE;
         }
@@ -1686,12 +1691,18 @@ public final class GameSession {
                 {-0.22, 0.57},
                 {-0.04, 0.74},
                 {1.25, 0.74},
-                {2.45, 0.74},
+                {2.42, 0.74},
+                {2.452, 0.74},
+                {2.469, 0.74},
                 {2.72, 0.736},
                 {3.18, 0.73},
                 {3.68, 0.73}
         };
 
+        return interpolateSectionValue(sections, forward);
+    }
+
+    private double interpolateSectionValue(double[][] sections, double forward) {
         if (forward <= sections[0][0]) {
             return sections[0][1];
         }
@@ -1885,7 +1896,7 @@ public final class GameSession {
 
     private boolean pointHitsShipHull(Vector2 point, Ship ship, double margin) {
         LocalHullPoint hit = localHullPoint(point, ship);
-        if (hit.forward() < RAM_STERN_LENGTH - margin || hit.forward() > RAM_BOW_LENGTH + margin) {
+        if (!forwardInsideTorpedoBoatHull(hit.forward(), margin)) {
             return false;
         }
 

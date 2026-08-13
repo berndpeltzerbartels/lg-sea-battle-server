@@ -712,8 +712,16 @@ class GameSessionTest {
 
         List<BombSnapshot> bombs = session.snapshot().bombs();
         assertTrue(bombs.size() >= 2);
-        assertTrue(bombs.get(1).z() > 35,
+        assertTrue(bombs.get(1).launchZ() > 35,
                 "Delayed bombs must leave the current plane position, not the original release point");
+
+        session.update(0.2, radarService, navigationService, session.worldMap());
+        BombSnapshot movingBomb = session.snapshot().bombs().stream()
+                .filter(bomb -> bomb.id().equals(bombs.get(1).id()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(bombs.get(1).launchZ(), movingBomb.launchZ(),
+                "Launch position must stay the backend release point");
     }
 
     @Test

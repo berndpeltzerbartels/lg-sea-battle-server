@@ -8,6 +8,8 @@ final class Bomb {
     private final String id;
     private final String teamId;
     private final String shipId;
+    private final Vector2 launchPosition;
+    private final double launchAltitude;
     private Vector2 position;
     private final double heading;
     private final double horizontalSpeed;
@@ -27,8 +29,10 @@ final class Bomb {
         this.id = id;
         this.teamId = teamId;
         this.shipId = shipId;
+        this.launchPosition = position;
+        this.launchAltitude = Math.max(SEA_LEVEL, altitude);
         this.position = position;
-        this.altitude = Math.max(SEA_LEVEL, altitude);
+        this.altitude = launchAltitude;
         this.heading = heading;
         this.horizontalSpeed = Math.max(0, horizontalSpeed);
         this.verticalSpeed = initialVerticalSpeed;
@@ -92,6 +96,9 @@ final class Bomb {
                 MathSupport.round(position.x()),
                 MathSupport.round(altitude),
                 MathSupport.round(position.z()),
+                MathSupport.round(launchPosition.x()),
+                MathSupport.round(launchAltitude),
+                MathSupport.round(launchPosition.z()),
                 MathSupport.round(heading),
                 MathSupport.round(horizontalSpeed),
                 state,
