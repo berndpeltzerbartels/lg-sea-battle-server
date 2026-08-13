@@ -1,10 +1,10 @@
 package one.xis.seabattle.webapp;
 
 import one.xis.*;
-import one.xis.seabattle.GameSnapshot;
-import one.xis.seabattle.GameStateService;
-import one.xis.seabattle.SeaBattlePlayerRegistry;
-import one.xis.seabattle.ShipSnapshot;
+import one.xis.seabattle.game.GameSnapshot;
+import one.xis.seabattle.game.GameStateService;
+import one.xis.seabattle.game.SeaBattlePlayerRegistry;
+import one.xis.seabattle.game.ShipSnapshot;
 import one.xis.seabattle.webapp.account.AccountService;
 
 import java.util.*;

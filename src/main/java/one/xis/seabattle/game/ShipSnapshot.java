@@ -1,0 +1,23 @@
+package one.xis.seabattle.game;
+
+public record ShipSnapshot(
+        String id,
+        String teamId,
+        double x,
+        double z,
+        double heading,
+        double speed,
+        double turnVelocity,
+        int rudderDegrees,
+        int engineOrder,
+        String state,
+        String controlledBy,
+        int torpedoesRemaining,
+        String vehicleType,
+        double y,
+        double flakYaw,
+        double flakPitch,
+        double cannonYaw,
+        double cannonPitch
+) {
+}
