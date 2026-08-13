@@ -1,4 +1,4 @@
-package one.xis.seabattle.game;
+package one.xis.seabattle;
 
 import one.xis.boot.XISBootApplication;
 import one.xis.boot.XISBootRunner;
