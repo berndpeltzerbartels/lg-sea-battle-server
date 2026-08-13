@@ -28,7 +28,7 @@ ps -eo pid,args | grep "[j]ava .*sea-battle.jar 9090"
 '
 
 local_sum="$(shasum -a 256 "$JAR_PATH" | awk "{print \$1}")"
-remote_sum="$(ssh "$REMOTE_HOST" "sha256sum $REMOTE_JAR | awk '{print \\$1}'")"
+remote_sum="$(ssh "$REMOTE_HOST" "sha256sum $REMOTE_JAR | awk '{print \$1}'")"
 
 if [[ "$local_sum" != "$remote_sum" ]]; then
   echo "Checksum mismatch after deploy." >&2

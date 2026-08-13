@@ -253,19 +253,6 @@
                 </div>
             </div>
 
-            <div xis:if="${inviteToPlay}">
-                <p class="hint">Welche Wochentage passen am besten?</p>
-                <div class="weekday-list">
-                    <xis:foreach var="weekday" array="weekdays">
-                        <div class="choice">
-                            <input id="weekday-${weekday.id}" type="checkbox" xis:binding="inviteWeekdays"
-                                   value="${weekday.id}">
-                            <label for="weekday-${weekday.id}">${weekday.label}</label>
-                        </div>
-                    </xis:foreach>
-                </div>
-            </div>
-
             <div class="actions">
                 <button type="submit" xis:action="save">Speichern</button>
                 <a class="back-link" href="/">Zurück</a>
