@@ -1,4 +1,4 @@
-package one.xis.seabattle;
+package one.xis.seabattle.webapp.contact;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

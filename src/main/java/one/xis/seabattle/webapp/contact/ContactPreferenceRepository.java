@@ -1,4 +1,5 @@
-package one.xis.seabattle;
+package one.xis.seabattle.webapp.contact;
+
 
 import one.xis.sql.CrudRepository;
 import one.xis.sql.Repository;

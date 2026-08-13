@@ -1,6 +1,6 @@
-package one.xis.seabattle;
+package one.xis.seabattle.webapp.game;
 
-interface GameService {
+public interface GameService {
     GameEntity activeGame();
 
     default String activeGameId() {

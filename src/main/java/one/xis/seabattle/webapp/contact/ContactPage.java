@@ -1,19 +1,12 @@
-package one.xis.seabattle;
+package one.xis.seabattle.webapp.contact;
 
-import one.xis.Action;
-import one.xis.FormData;
-import one.xis.LocalStorage;
-import one.xis.ModelData;
-import one.xis.NullAllowed;
-import one.xis.Page;
-import one.xis.PageUrlResponse;
-import one.xis.ToastLevel;
-import one.xis.ToastMessages;
+import one.xis.*;
+import one.xis.seabattle.webapp.SeaBattleStartPage;
 
 import java.util.List;
 
 @Page("/contact.html")
-class SeaBattleContactPage {
+class ContactPage {
 
     private static final List<WeekdayOption> WEEKDAYS = List.of(
             new WeekdayOption("monday", "Montag"),
@@ -27,7 +20,7 @@ class SeaBattleContactPage {
 
     private final ContactPreferenceService contactPreferenceService;
 
-    SeaBattleContactPage(ContactPreferenceService contactPreferenceService) {
+    ContactPage(ContactPreferenceService contactPreferenceService) {
         this.contactPreferenceService = contactPreferenceService;
     }
 
@@ -57,16 +50,16 @@ class SeaBattleContactPage {
     }
 
     @Action("save")
-    PageUrlResponse save(@NullAllowed @LocalStorage("accountId") String accountId,
-                         @FormData("preferences") ContactPreferencesForm form,
-                         ToastMessages toastMessages) {
+    Class<?> save(@NullAllowed @LocalStorage("accountId") String accountId,
+                  @FormData("preferences") ContactPreferencesForm form,
+                  ToastMessages toastMessages) {
         contactPreferenceService.save(accountId, form);
         if (contactPreferenceService.canSave(accountId)) {
             toastMessages.show("Gespeichert.", ToastLevel.SUCCESS);
         } else {
             toastMessages.show("Zum dauerhaften Speichern bitte erst in Sea Battle einsteigen.", ToastLevel.WARNING);
         }
-        return new PageUrlResponse("/");
+        return SeaBattleStartPage.class;
     }
 
     record WeekdayOption(String id, String label) {

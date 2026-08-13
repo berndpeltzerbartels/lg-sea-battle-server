@@ -1,10 +1,6 @@
-package one.xis.seabattle;
+package one.xis.seabattle.webapp.playsession;
 
-import one.xis.sql.CrudRepository;
-import one.xis.sql.Param;
-import one.xis.sql.Repository;
-import one.xis.sql.Select;
-import one.xis.sql.Update;
+import one.xis.sql.*;
 
 import java.time.LocalDateTime;
 import java.util.Optional;

@@ -1,4 +1,4 @@
-package one.xis.seabattle;
+package one.xis.seabattle.webapp.playsession;
 
 import one.xis.context.Component;
 

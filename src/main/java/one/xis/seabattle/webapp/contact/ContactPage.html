@@ -104,11 +104,27 @@
         }
 
         form {
-            gap: 20px;
+            gap: 16px;
         }
 
         .field {
             gap: 7px;
+        }
+
+        input.error {
+            border-color: #ff7d65;
+            box-shadow: 0 0 0 3px rgb(255 125 101 / 16%);
+        }
+
+        label.error {
+            color: #ffb39f;
+        }
+
+        .message {
+            min-height: 16px;
+            color: #ffb39f;
+            font-size: 12px;
+            font-weight: 800;
         }
 
         input[type="email"] {
@@ -118,7 +134,7 @@
             border-radius: 7px;
             background: rgb(2 18 27 / 82%);
             color: #f7fbff;
-            font: 850 17px/1 Inter, ui-sans-serif, system-ui, sans-serif;
+            font: 900 18px/1 Inter, ui-sans-serif, system-ui, sans-serif;
             letter-spacing: 0;
             outline: none;
             padding: 10px 14px;
@@ -215,22 +231,25 @@
 
     <section class="card" aria-label="Kontakt und Einladungen">
         <div class="panel-title">Kontakt und Einladungen</div>
-        <xis:form binding="preferences" xis:onchange-action="refresh">
+        <xis:form binding="preferences">
             <div class="field">
                 <label for="email" xis:binding="email" xis:error-class="error">E-Mail</label>
-                <input id="email" type="email" xis:binding="email" autocomplete="email">
+                <input id="email" type="email" xis:binding="email" autocomplete="email" xis:error-class="error">
+                <div class="message" xis:message-for="email"></div>
                 <p class="hint">Wir nutzen die Adresse nur für diese Sea-Battle-Hinweise.</p>
             </div>
 
             <div class="option-list">
                 <div class="choice">
                     <input id="weekly-updates" type="checkbox" xis:binding="weeklyUpdates" value="true">
-                    <label for="weekly-updates">Über Erweiterungen und Veränderungen informieren, maximal einmal pro Woche.</label>
+                    <label for="weekly-updates">Über Erweiterungen und Veränderungen informieren, maximal einmal pro
+                        Woche.</label>
                 </div>
 
                 <div class="choice">
                     <input id="invite-to-play" type="checkbox" xis:binding="inviteToPlay" value="true">
-                    <label for="invite-to-play">Zu Spielrunden mit anderen Spielern eingeladen werden. Spielabende finden um 20:00 statt.</label>
+                    <label for="invite-to-play">Zu Spielrunden mit anderen Spielern eingeladen werden. Spielabende
+                        finden um 20:00 statt.</label>
                 </div>
             </div>
 
@@ -239,7 +258,8 @@
                 <div class="weekday-list">
                     <xis:foreach var="weekday" array="weekdays">
                         <div class="choice">
-                            <input id="weekday-${weekday.id}" type="checkbox" xis:binding="inviteWeekdays" value="${weekday.id}">
+                            <input id="weekday-${weekday.id}" type="checkbox" xis:binding="inviteWeekdays"
+                                   value="${weekday.id}">
                             <label for="weekday-${weekday.id}">${weekday.label}</label>
                         </div>
                     </xis:foreach>

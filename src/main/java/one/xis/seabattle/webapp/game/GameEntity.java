@@ -1,4 +1,4 @@
-package one.xis.seabattle;
+package one.xis.seabattle.webapp.game;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -10,15 +10,10 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Entity("sessions")
-class PlaySessionEntity {
+@Entity("games")
+class GameEntity {
     String id;
-    String gameId;
-    String accountId;
-    String playerId;
-    String alias;
-    String team;
+    String status;
     LocalDateTime beginTime;
     LocalDateTime endTime;
-    int score;
 }

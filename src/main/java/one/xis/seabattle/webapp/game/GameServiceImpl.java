@@ -1,6 +1,7 @@
-package one.xis.seabattle;
+package one.xis.seabattle.webapp.game;
 
 import one.xis.context.Service;
+import one.xis.seabattle.webapp.playsession.PlaySessionService;
 
 import java.time.LocalDateTime;
 import java.util.UUID;

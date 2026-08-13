@@ -1,26 +1,15 @@
 package one.xis.seabattle;
 
-import one.xis.http.ContentType;
-import one.xis.http.Controller;
-import one.xis.http.Get;
-import one.xis.http.HttpRequest;
-import one.xis.http.HttpResponse;
-import one.xis.http.PathVariable;
-import one.xis.http.Post;
-import one.xis.http.Produces;
-import one.xis.http.PublicResources;
-import one.xis.http.RequestBody;
-import one.xis.http.ResponseEntity;
-import one.xis.http.SseEndpoint;
+import one.xis.http.*;
+import one.xis.seabattle.webapp.account.Account;
+import one.xis.seabattle.webapp.account.AccountService;
+import one.xis.seabattle.webapp.game.GameService;
+import one.xis.seabattle.webapp.playsession.PlaySessionService;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Properties;
-import java.util.UUID;
+import java.util.*;
 import java.util.logging.Logger;
 
 @Controller
@@ -60,7 +49,12 @@ public class SeaBattleClientController {
 
     @Get("/")
     public ResponseEntity<?> redirectToStartPage() {
-        return ResponseEntity.redirect("/index.html");
+        return ResponseEntity.redirect("/portal.html");
+    }
+
+    @Get("/index.html")
+    public ResponseEntity<?> redirectLegacyIndexPage() {
+        return ResponseEntity.redirect("/portal.html");
     }
 
     @Get("/sea-battle")

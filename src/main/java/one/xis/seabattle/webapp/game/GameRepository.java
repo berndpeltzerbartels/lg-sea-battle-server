@@ -1,4 +1,4 @@
-package one.xis.seabattle;
+package one.xis.seabattle.webapp.game;
 
 import one.xis.sql.CrudRepository;
 import one.xis.sql.Param;

@@ -1,6 +1,8 @@
-package one.xis.seabattle;
+package one.xis.seabattle.webapp.contact;
 
 import one.xis.context.Component;
+import one.xis.seabattle.webapp.account.Account;
+import one.xis.seabattle.webapp.account.AccountService;
 
 import java.util.ArrayList;
 import java.util.List;

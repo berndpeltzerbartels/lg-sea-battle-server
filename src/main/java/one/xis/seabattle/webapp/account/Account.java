@@ -1,4 +1,4 @@
-package one.xis.seabattle;
+package one.xis.seabattle.webapp.account;
 
 import one.xis.validation.LabelKey;
 import one.xis.validation.Mandatory;

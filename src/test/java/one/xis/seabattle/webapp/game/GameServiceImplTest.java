@@ -1,13 +1,10 @@
-package one.xis.seabattle;
+package one.xis.seabattle.webapp.game;
 
+import one.xis.seabattle.webapp.playsession.PlaySessionService;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;

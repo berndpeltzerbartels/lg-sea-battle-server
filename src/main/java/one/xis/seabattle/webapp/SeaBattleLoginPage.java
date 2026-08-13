@@ -1,23 +1,20 @@
-package one.xis.seabattle;
+package one.xis.seabattle.webapp;
 
-import one.xis.Action;
-import one.xis.FormData;
-import one.xis.LocalStorage;
-import one.xis.ModelData;
-import one.xis.NullAllowed;
-import one.xis.Page;
-import one.xis.PageUrlResponse;
+import one.xis.*;
+import one.xis.seabattle.GameSnapshot;
+import one.xis.seabattle.GameStateService;
+import one.xis.seabattle.SeaBattlePlayerRegistry;
+import one.xis.seabattle.ShipSnapshot;
+import one.xis.seabattle.webapp.account.Account;
+import one.xis.seabattle.webapp.account.AccountService;
+import one.xis.seabattle.webapp.game.GameService;
+import one.xis.seabattle.webapp.playsession.PlaySessionService;
 import one.xis.validation.LabelKey;
 import one.xis.validation.Mandatory;
 import one.xis.validation.RegExpr;
 import one.xis.validation.ValidationFailedException;
 
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Page("/start.html")
@@ -229,6 +226,7 @@ public class SeaBattleLoginPage {
     ) {
     }
 
-    public record PlayerEntry(String name, String initials, String teamId, String team, String ship, int kills, String sector) {
+    public record PlayerEntry(String name, String initials, String teamId, String team, String ship, int kills,
+                              String sector) {
     }
 }

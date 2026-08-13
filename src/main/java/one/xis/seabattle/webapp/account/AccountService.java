@@ -1,8 +1,8 @@
-package one.xis.seabattle;
+package one.xis.seabattle.webapp.account;
 
 import java.util.Optional;
 
-interface AccountService {
+public interface AccountService {
 
     Account saveAccount(Account account);
 
