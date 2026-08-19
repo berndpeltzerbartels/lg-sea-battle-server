@@ -36,7 +36,7 @@ class GameStateServiceTest {
                 .filter(ship -> "scout-plane".equals(ship.vehicleType()))
                 .count();
 
-        assertEquals(6, planes);
+        assertEquals(2, planes);
     }
 
     @Test

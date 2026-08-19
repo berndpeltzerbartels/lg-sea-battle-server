@@ -1004,6 +1004,35 @@ class GameSessionTest {
     }
 
     @Test
+    void forcedHumanScoutPlaneAttackThresholdGrowsWithHumanTargets() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-scout-plane-many-human-target-counter-test",
+                new WorldMap(9063, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-plane-a", "light", 0, -500, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane"),
+                                ship("light-plane-b", "light", 90, -520, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane"),
+                                ship("light-plane-c", "light", 180, -540, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane")
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-human-a", "dark", 0, 0, 0, "player-A", ENGINE_HALF, 0, 99),
+                                ship("dark-human-b", "dark", 70, 0, 0, "player-B", ENGINE_HALF, 0, 99),
+                                ship("dark-human-c", "dark", 140, 0, 0, "player-C", ENGINE_HALF, 0, 99),
+                                ship("dark-bot", "dark", 240, 0, 0, "bot", ENGINE_HALF, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 0))
+        ));
+        setBotScoutPlaneNonHumanAttackStreak(session, "light", "dark-human-a", 6);
+
+        assertFalse(shouldForceHumanScoutPlaneTarget(session, "light-plane-a"));
+
+        setBotScoutPlaneNonHumanAttackStreak(session, "light", "dark-human-a", 7);
+
+        assertTrue(shouldForceHumanScoutPlaneTarget(session, "light-plane-a"));
+    }
+
+    @Test
     void humanScoutPlaneAttackClearsForcedHumanAttackState() throws Exception {
         GameSession session = new GameSession(new GameSetup(
                 "bot-scout-plane-human-attack-clears-state-test",
@@ -1901,13 +1930,13 @@ class GameSessionTest {
         assertEquals(List.of("dark", "light"),
                 denseLand.fleets().stream().map(FleetSetup::teamId).toList());
         assertEquals(List.of(15, 15), denseLand.fleets().stream().map(fleet -> fleet.ships().size()).toList());
-        assertEquals(6, countScoutPlanes(denseLand));
+        assertEquals(2, countScoutPlanes(denseLand));
 
         GameSetup crowded = factory.setup("dense-land-crowded");
-        assertEquals(6, countScoutPlanes(crowded));
+        assertEquals(2, countScoutPlanes(crowded));
 
         GameSetup crowdedReverse = factory.setup("dense-land-crowded-reverse");
-        assertEquals(6, countScoutPlanes(crowdedReverse));
+        assertEquals(2, countScoutPlanes(crowdedReverse));
     }
 
     @Test
@@ -2104,6 +2133,59 @@ class GameSessionTest {
 
         assertEquals(candidates.get(0), first);
         assertEquals(candidates.get(1), second);
+    }
+
+    @Test
+    void botBoatRespawnsAsScoutPlaneWhenHumanTargetsNeedMorePlanes() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "dynamic-scout-plane-respawn-test",
+                new WorldMap(9064, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-plane", "light", -300, 0, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane"),
+                                ship("light-boat", "light", 0, 0, 0, "bot", ENGINE_HALF, 0, 99, "torpedo-boat")
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-human", "dark", 320, 0, Math.PI, "player-BPB", ENGINE_HALF, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 360))
+        ));
+
+        sinkShip(session, "light-boat");
+        session.update(8.05, radarService, navigationService, session.worldMap());
+
+        ShipSnapshot respawned = findShip(session.snapshot(), "light-boat");
+        assertEquals("active", respawned.state());
+        assertEquals("scout-plane", respawned.vehicleType());
+        assertTrue(respawned.y() > 0);
+    }
+
+    @Test
+    void botBoatRespawnsAsBoatWhenScoutPlaneTargetCountIsAlreadyMet() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "dynamic-scout-plane-keeps-boat-respawn-test",
+                new WorldMap(9065, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-plane-a", "light", -300, 0, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane"),
+                                ship("light-plane-b", "light", -340, 0, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane"),
+                                ship("light-boat", "light", 0, 0, 0, "bot", ENGINE_HALF, 0, 99, "torpedo-boat")
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-human", "dark", 320, 0, Math.PI, "player-BPB", ENGINE_HALF, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 360))
+        ));
+
+        sinkShip(session, "light-boat");
+        session.update(8.05, radarService, navigationService, session.worldMap());
+
+        ShipSnapshot respawned = findShip(session.snapshot(), "light-boat");
+        assertEquals("active", respawned.state());
+        assertEquals("torpedo-boat", respawned.vehicleType());
+        assertEquals(0, respawned.y());
     }
 
     @Test

@@ -37,7 +37,14 @@ public final class GameSession {
     private static final double BOT_SCOUT_PLANE_AIR_TORPEDO_BASE_SPEED = SHIP_TORPEDO_BASE_SPEED * AIR_TORPEDO_SPEED_FACTOR;
     private static final double BOT_SCOUT_PLANE_AIR_TORPEDO_SPEED_GAIN = SHIP_TORPEDO_SPEED_GAIN * AIR_TORPEDO_SPEED_FACTOR;
     private static final double BOT_SCOUT_PLANE_POST_TORPEDO_BOMB_DELAY_SECONDS = 1.1;
-    private static final int BOT_SCOUT_PLANE_FORCE_HUMAN_AFTER_NON_HUMAN_ATTACKS = 5;
+    private static final int BOT_SCOUT_PLANE_FORCE_HUMAN_SINGLE_TARGET_STREAK = 5;
+    private static final int BOT_SCOUT_PLANE_FORCE_HUMAN_TWO_TARGET_STREAK = 6;
+    private static final int BOT_SCOUT_PLANE_FORCE_HUMAN_MANY_TARGET_STREAK = 7;
+    private static final int BOT_SCOUT_PLANE_DESIRED_WITHOUT_HUMAN_TARGETS = 1;
+    private static final int BOT_SCOUT_PLANE_DESIRED_WITH_ONE_OR_TWO_HUMAN_TARGETS = 2;
+    private static final int BOT_SCOUT_PLANE_DESIRED_WITH_MANY_HUMAN_TARGETS = 3;
+    private static final String VEHICLE_TORPEDO_BOAT = "torpedo-boat";
+    private static final String VEHICLE_SCOUT_PLANE = "scout-plane";
     private static final double BOT_SCOUT_PLANE_TARGET_RESERVATION_PENALTY = 280.0;
     private static final double BOT_SCOUT_PLANE_TARGET_TIE_BREAKER = 16.0;
     private static final double BOMB_DROP_FORWARD_OFFSET = 0.6;
@@ -745,18 +752,36 @@ public final class GameSession {
     }
 
     private boolean isHumanControlled(Ship ship) {
-        return ship.controlledBy() != null && !"bot".equals(ship.controlledBy());
+        return isHumanController(ship.controlledBy());
     }
 
     private boolean shouldForceHumanScoutPlaneTarget(Ship plane, Optional<Ship> attackHuman) {
         if (attackHuman.isEmpty()) {
             return false;
         }
+        int threshold = botScoutPlaneForceHumanAttackThreshold(plane.teamId());
+        if (threshold == Integer.MAX_VALUE) {
+            return false;
+        }
         return botScoutPlaneNonHumanAttackStreakByHumanTarget.getOrDefault(
                 scoutPlaneHumanAttackStreakKey(plane.teamId(), attackHuman.get().id()),
                 0
         )
-                >= BOT_SCOUT_PLANE_FORCE_HUMAN_AFTER_NON_HUMAN_ATTACKS;
+                >= threshold;
+    }
+
+    private int botScoutPlaneForceHumanAttackThreshold(String attackingTeamId) {
+        int humanTargetCount = activeHumanTargetsForScoutPlaneTeam(attackingTeamId).size();
+        if (humanTargetCount <= 0) {
+            return Integer.MAX_VALUE;
+        }
+        if (humanTargetCount == 1) {
+            return BOT_SCOUT_PLANE_FORCE_HUMAN_SINGLE_TARGET_STREAK;
+        }
+        if (humanTargetCount == 2) {
+            return BOT_SCOUT_PLANE_FORCE_HUMAN_TWO_TARGET_STREAK;
+        }
+        return BOT_SCOUT_PLANE_FORCE_HUMAN_MANY_TARGET_STREAK;
     }
 
     private Optional<Ship> scoutPlaneAttackHuman(Ship plane) {
@@ -1969,10 +1994,51 @@ public final class GameSession {
         allShips().stream()
                 .filter(ship -> ship.isReadyToRespawn(nowSeconds))
                 .forEach(ship -> {
+                    prepareBotVehicleTypeForRespawn(ship);
                     Vector2 position = findRespawnPosition(ship, navigationService, worldMap, radarService);
                     double heading = MathSupport.normalizeAngle(angleTo(nearestLandCenter(position, worldMap).orElse(new Vector2(0, 0)), position) + Math.PI);
                     ship.respawn(position, heading, nowSeconds);
                 });
+    }
+
+    private void prepareBotVehicleTypeForRespawn(Ship ship) {
+        if (!ship.isBotControlled()) {
+            return;
+        }
+        int desiredScoutPlanes = desiredBotScoutPlaneCount(ship.teamId());
+        long currentScoutPlanesWithoutRespawningShip = teamShips(ship.teamId()).stream()
+                .filter(candidate -> !candidate.id().equals(ship.id()))
+                .filter(Ship::isScoutPlane)
+                .filter(Ship::isBotControlled)
+                .count();
+        ship.vehicleType(currentScoutPlanesWithoutRespawningShip < desiredScoutPlanes
+                ? VEHICLE_SCOUT_PLANE
+                : VEHICLE_TORPEDO_BOAT);
+    }
+
+    private int desiredBotScoutPlaneCount(String teamId) {
+        int humanTargets = activeHumanTargetsForScoutPlaneTeam(teamId).size();
+        int desired = desiredBotScoutPlaneCountForHumanTargets(humanTargets);
+        long humanControlledTeamShips = teamShips(teamId).stream()
+                .filter(this::isHumanControlled)
+                .count();
+        int availableBotSlots = Math.max(0, teamShips(teamId).size() - (int) humanControlledTeamShips);
+        return Math.min(desired, availableBotSlots);
+    }
+
+    private int desiredBotScoutPlaneCountForHumanTargets(int humanTargets) {
+        if (humanTargets <= 0) {
+            return BOT_SCOUT_PLANE_DESIRED_WITHOUT_HUMAN_TARGETS;
+        }
+        if (humanTargets <= 2) {
+            return BOT_SCOUT_PLANE_DESIRED_WITH_ONE_OR_TWO_HUMAN_TARGETS;
+        }
+        return BOT_SCOUT_PLANE_DESIRED_WITH_MANY_HUMAN_TARGETS;
+    }
+
+    private List<Ship> teamShips(String teamId) {
+        Fleet fleet = fleets.get(teamId);
+        return fleet == null ? List.of() : fleet.ships();
     }
 
     Vector2 findRespawnPosition(Ship ship, NavigationService navigationService, WorldMap worldMap, RadarService radarService) {
