@@ -266,7 +266,7 @@ public final class GameSession {
         if (ship.isScoutPlane() || "scout-plane".equals(request.vehicleType())) {
             return;
         }
-        fireTorpedo(ship, 2.4, 0);
+        fireTorpedo(ship, 2.4, 0, request.tubeSide());
     }
 
     public synchronized GameSnapshot dropBomb(BombDropRequest request) {
@@ -435,8 +435,8 @@ public final class GameSession {
                 .filter(Ship::isServerSimulated)
                 .forEach(ship -> ship.update(deltaSeconds, navigationService, worldMap));
         updateTorpedoes(deltaSeconds, navigationService, worldMap);
-        releasePendingBombs();
-        updateBombs(deltaSeconds);
+        Set<String> releasedBombIds = releasePendingBombs();
+        updateBombs(deltaSeconds, releasedBombIds);
         updateFlakProjectiles(deltaSeconds);
         updateFlakHits();
         updateFlakTerrainImpacts(worldMap);
@@ -459,8 +459,8 @@ public final class GameSession {
         }
         nowSeconds += deltaSeconds;
         updateTorpedoes(deltaSeconds, navigationService, worldMap);
-        releasePendingBombs();
-        updateBombs(deltaSeconds);
+        Set<String> releasedBombIds = releasePendingBombs();
+        updateBombs(deltaSeconds, releasedBombIds);
         updateFlakProjectiles(deltaSeconds);
         updateFlakHits();
         updateFlakTerrainImpacts(worldMap);
@@ -1433,13 +1433,14 @@ public final class GameSession {
         ));
     }
 
-    private void releasePendingBombs() {
+    private Set<String> releasePendingBombs() {
         List<PendingBombRelease> dueReleases = pendingBombReleases.stream()
                 .filter(release -> release.releaseAtSeconds() <= nowSeconds)
                 .toList();
         if (dueReleases.isEmpty()) {
-            return;
+            return Set.of();
         }
+        Set<String> releasedBombIds = new HashSet<>();
         pendingBombReleases.removeAll(dueReleases);
         dueReleases.forEach(release ->
                 findShipById(release.shipId()).ifPresent(ship -> {
@@ -1461,8 +1462,9 @@ public final class GameSession {
                             .add(forward.scale(BOMB_DROP_FORWARD_OFFSET))
                             .add(right.scale(bombPatternOffset(release.index())));
                     double altitude = Math.max(0, ship.y() - BOMB_DROP_VERTICAL_OFFSET);
+                    String bombId = "bomb-" + nextBombId++;
                     bombs.add(new Bomb(
-                            "bomb-" + nextBombId++,
+                            bombId,
                             ship.teamId(),
                             ship.id(),
                             position,
@@ -1473,12 +1475,21 @@ public final class GameSession {
                             nowSeconds,
                             0
                     ));
+                    releasedBombIds.add(bombId);
                 })
         );
+        return releasedBombIds;
     }
 
     private void updateBombs(double deltaSeconds) {
+        updateBombs(deltaSeconds, Set.of());
+    }
+
+    private void updateBombs(double deltaSeconds, Set<String> releasedBombIds) {
         for (Bomb bomb : bombs) {
+            if (releasedBombIds.contains(bomb.id())) {
+                continue;
+            }
             bomb.update(deltaSeconds);
             if (!"detonated".equals(bomb.state())) {
                 continue;
@@ -2123,6 +2134,10 @@ public final class GameSession {
     }
 
     private boolean fireTorpedo(Ship ship, double cooldownSeconds, double headingOffsetRadians) {
+        return fireTorpedo(ship, cooldownSeconds, headingOffsetRadians, null);
+    }
+
+    private boolean fireTorpedo(Ship ship, double cooldownSeconds, double headingOffsetRadians, Integer requestedTubeSide) {
         if (!ship.canFire(nowSeconds)) {
             return false;
         }
@@ -2138,9 +2153,23 @@ public final class GameSession {
                 heading,
                 SHIP_TORPEDO_BASE_SPEED + Math.max(0, ship.speed()) * SHIP_TORPEDO_SPEED_GAIN,
                 nowSeconds,
-                RadarService.TORPEDO_RANGE
+                RadarService.TORPEDO_RANGE,
+                normalizeTubeSide(requestedTubeSide)
         ));
         return true;
+    }
+
+    private int normalizeTubeSide(Integer value) {
+        if (value == null) {
+            return 0;
+        }
+        if (value < 0) {
+            return -1;
+        }
+        if (value > 0) {
+            return 1;
+        }
+        return 0;
     }
 
     private boolean fireAirTorpedo(Ship plane, double cooldownSeconds, double heading) {

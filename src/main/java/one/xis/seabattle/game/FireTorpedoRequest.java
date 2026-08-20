@@ -11,6 +11,7 @@ public record FireTorpedoRequest(
         double turnVelocity,
         int engineOrder,
         double rudderDegrees,
+        Integer tubeSide,
         double clientTime
 ) {
     public FireTorpedoRequest(String playerId, String teamId) {
@@ -18,7 +19,7 @@ public record FireTorpedoRequest(
     }
 
     public FireTorpedoRequest(String playerId, String teamId, String vehicleType) {
-        this(playerId, teamId, vehicleType, 0, 0, 0, 0, 0, 2, 0, 0);
+        this(playerId, teamId, vehicleType, 0, 0, 0, 0, 0, 2, 0, null, 0);
     }
 
     boolean includesPlayerState() {

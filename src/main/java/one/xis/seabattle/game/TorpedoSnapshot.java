@@ -9,6 +9,7 @@ public record TorpedoSnapshot(
         double heading,
         double speed,
         String state,
-        double firedAt
+        double firedAt,
+        int tubeSide
 ) {
 }

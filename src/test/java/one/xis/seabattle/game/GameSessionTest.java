@@ -711,6 +711,8 @@ class GameSessionTest {
         assertTrue(bombs.size() >= 2);
         assertTrue(bombs.get(1).launchZ() > 35,
                 "Delayed bombs must leave the current plane position, not the original release point");
+        assertEquals(bombs.get(1).launchZ(), bombs.get(1).z(), 0.001,
+                "Delayed bombs must not jump forward in the same server tick that releases them");
 
         session.update(0.2, radarService, navigationService, session.worldMap());
         BombSnapshot movingBomb = session.snapshot().bombs().stream()

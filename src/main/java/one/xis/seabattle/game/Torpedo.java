@@ -11,10 +11,15 @@ final class Torpedo {
     private final double speed;
     private final double firedAtSeconds;
     private final double maxRange;
+    private final int tubeSide;
     private double runDistance;
     private String state = "running";
 
     Torpedo(String id, String teamId, String shipId, Vector2 position, double heading, double speed, double firedAtSeconds, double maxRange) {
+        this(id, teamId, shipId, position, heading, speed, firedAtSeconds, maxRange, 0);
+    }
+
+    Torpedo(String id, String teamId, String shipId, Vector2 position, double heading, double speed, double firedAtSeconds, double maxRange, int tubeSide) {
         this.id = id;
         this.teamId = teamId;
         this.shipId = shipId;
@@ -24,6 +29,7 @@ final class Torpedo {
         this.speed = speed;
         this.firedAtSeconds = firedAtSeconds;
         this.maxRange = maxRange;
+        this.tubeSide = normalizeTubeSide(tubeSide);
     }
 
     String state() {
@@ -86,7 +92,18 @@ final class Torpedo {
                 MathSupport.round(heading),
                 MathSupport.round(speed),
                 state,
-                MathSupport.round(firedAtSeconds)
+                MathSupport.round(firedAtSeconds),
+                tubeSide
         );
+    }
+
+    private int normalizeTubeSide(int value) {
+        if (value < 0) {
+            return -1;
+        }
+        if (value > 0) {
+            return 1;
+        }
+        return 0;
     }
 }

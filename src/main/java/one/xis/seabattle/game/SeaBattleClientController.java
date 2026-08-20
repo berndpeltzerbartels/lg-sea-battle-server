@@ -190,6 +190,7 @@ public class SeaBattleClientController {
                 request.turnVelocity(),
                 request.engineOrder(),
                 request.rudderDegrees(),
+                request.tubeSide(),
                 request.clientTime()
         ));
         diagnosticsService.logFireRequest(request.playerId(), teamId, before, after, "ok");
