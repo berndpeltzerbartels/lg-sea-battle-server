@@ -22,6 +22,20 @@ final class DefaultGameSetupFactory {
     private static final String VEHICLE_SCOUT_PLANE = "scout-plane";
     private static final List<String> BASE_TEAMS = List.of(TEAM_DARK, TEAM_LIGHT);
     private static final List<String> TEAM_ORDER = List.of(TEAM_DARK, TEAM_LIGHT, TEAM_GREEN, TEAM_SAND);
+    private static final String BOMB_DROP_SCENARIO = """
+            scenario: scenario-bomb-drop
+            version: 9101
+            cell: 80
+            map:
+            ...........
+            ...........
+            ....1..2...
+            ...........
+            ...........
+            objects:
+            1: ship, light, human [orientation: 90°, speed: 0knt]
+            2: plane, dark, bot [orientation: 270°, speed: 30knt, height: 150m]
+            """;
 
     private final WorldMapService worldMapService;
 
@@ -48,6 +62,7 @@ final class DefaultGameSetupFactory {
             case "fleet-clash" -> fleetClashSetup();
             case "dense-land-crowded" -> fleetClashSetup();
             case "dense-land-crowded-reverse" -> fleetClashReverseSetup();
+            case "scenario-bomb-drop" -> ScenarioScriptParser.parse(BOMB_DROP_SCENARIO);
             case "scout-plane" -> scoutPlaneSetup(activeTeamIds(requestedTeamIds));
             case "dense-land" -> denseLandSetup(activeTeamIds(requestedTeamIds));
             default -> throw new IllegalArgumentException("Unknown game setup: " + setupId);
@@ -291,7 +306,8 @@ final class DefaultGameSetupFactory {
                 engineOrder,
                 rudderDegrees,
                 nextFireDelaySeconds,
-                VEHICLE_TORPEDO_BOAT
+                VEHICLE_TORPEDO_BOAT,
+                0
         );
     }
 
@@ -306,7 +322,8 @@ final class DefaultGameSetupFactory {
                 engineOrder,
                 rudderDegrees,
                 nextFireDelaySeconds,
-                VEHICLE_TORPEDO_BOAT
+                VEHICLE_TORPEDO_BOAT,
+                0
         );
     }
 
@@ -321,7 +338,8 @@ final class DefaultGameSetupFactory {
                 engineOrder,
                 rudderDegrees,
                 nextFireDelaySeconds,
-                VEHICLE_SCOUT_PLANE
+                VEHICLE_SCOUT_PLANE,
+                150
         );
     }
 
@@ -358,7 +376,8 @@ final class DefaultGameSetupFactory {
                     (int) slot[3],
                     (int) slot[4],
                     index == 0 ? 0 : 3 + index * 1.5,
-                    vehicleType
+                    vehicleType,
+                    VEHICLE_SCOUT_PLANE.equals(vehicleType) ? 150 : 0
             ));
         }
         return ships;
@@ -386,7 +405,8 @@ final class DefaultGameSetupFactory {
                     ENGINE_STOP,
                     0,
                     2 + index * 0.35,
-                    vehicleType
+                    vehicleType,
+                    VEHICLE_SCOUT_PLANE.equals(vehicleType) ? 150 : 0
             ));
         }
         return ships;

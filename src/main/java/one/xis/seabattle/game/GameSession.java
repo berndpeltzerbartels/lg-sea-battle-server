@@ -66,7 +66,7 @@ public final class GameSession {
     private static final double CANNON_SWEEP_STEP = 0.45;
     private static final double CANNON_HULL_MARGIN = 0.42;
     private static final double CANNON_HULL_MIN_Y = -0.08;
-    private static final double CANNON_HULL_MAX_Y = 1.08;
+    private static final double CANNON_HULL_DECK_MARGIN = 0.14;
     private static final double SCOUT_PLANE_FUSELAGE_HALF_WIDTH = 0.55;
     private static final double SCOUT_PLANE_HALF_LENGTH = 3.5;
     private static final double SCOUT_PLANE_WING_HALF_WIDTH = 4.15;
@@ -334,6 +334,7 @@ public final class GameSession {
         }
 
         Ship ship = fleet.assignedShip(request.playerId())
+                .or(() -> fleet.assignNextShipToPlayer(request.playerId()))
                 .orElseThrow(() -> new IllegalStateException("No active ship available for team: " + request.teamId()));
         if (ship.isScoutPlane() || !ship.id().equals(request.shipId()) || !canFireFlak(ship)) {
             return;
@@ -365,6 +366,7 @@ public final class GameSession {
         }
 
         Ship ship = fleet.assignedShip(request.playerId())
+                .or(() -> fleet.assignNextShipToPlayer(request.playerId()))
                 .orElseThrow(() -> new IllegalStateException("No active ship available for team: " + request.teamId()));
         if (ship.isScoutPlane() || !ship.id().equals(request.shipId()) || !canFireCannon(ship)) {
             return;
@@ -1690,9 +1692,14 @@ public final class GameSession {
     }
 
     private boolean pointHitsShipHullAtCannonHeight(double x, double y, double z, Ship ship) {
+        LocalHullPoint hit = localHullPoint(new Vector2(x, z), ship);
+        if (!forwardInsideTorpedoBoatHull(hit.forward(), CANNON_HULL_MARGIN)) {
+            return false;
+        }
+        double deckHeight = torpedoBoatDeckY(hit.forward()) + CANNON_HULL_DECK_MARGIN;
         return y >= CANNON_HULL_MIN_Y
-                && y <= CANNON_HULL_MAX_Y
-                && pointHitsShipHull(new Vector2(x, z), ship, CANNON_HULL_MARGIN);
+                && y <= deckHeight
+                && Math.abs(hit.right()) <= enemyHullHalfWidthAt(hit.forward()) + CANNON_HULL_MARGIN;
     }
 
     private FlakShipHitArea shipFlakHitArea(double x, double y, double z, Ship ship) {
@@ -2232,6 +2239,7 @@ public final class GameSession {
         );
         ship.applyCommand(setup.engineOrder(), setup.rudderDegrees());
         ship.vehicleType(setup.vehicleType());
+        ship.y(setup.y());
         ship.nextFireTime(setup.nextFireDelaySeconds());
         return ship;
     }

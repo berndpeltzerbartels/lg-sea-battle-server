@@ -9,6 +9,7 @@ record ShipSetup(
         int engineOrder,
         int rudderDegrees,
         double nextFireDelaySeconds,
-        String vehicleType
+        String vehicleType,
+        double y
 ) {
 }

@@ -309,7 +309,8 @@ public class GameSessionDirectBenchmarkMain {
                         5,
                         0,
                         3 + index * 1.5,
-                        "torpedo-boat"
+                        "torpedo-boat",
+                        0
                 ));
             }
             fleets.add(new FleetSetup(fleet.teamId(), ships.size() <= shipsPerTeam ? ships : ships.subList(0, shipsPerTeam)));

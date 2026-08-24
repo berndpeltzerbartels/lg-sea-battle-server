@@ -593,6 +593,34 @@ class GameSessionTest {
     }
 
     @Test
+    void cannonCloseSideShotDoesNotSinkWhenItPassesAboveDeck() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "cannon-side-grid-air-test",
+                new WorldMap(9052, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-1", "light", -18, 0, Math.PI / 2, "player-gunner", 2, 0, 99)
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-1", "dark", 0, 0, 0, "bot", 2, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(-18, 0), new Vector2(0, 0))
+        ));
+        List<String> falseHits = new java.util.ArrayList<>();
+
+        for (double forward : List.of(-3.75, -2.917, 2.083, 2.917, 3.75)) {
+            FlakProjectile projectile = cannonSideShotProjectile(-0.7, 0.7, 0.96, 0.96, forward);
+            Optional<Object> hit = projectileHit(session, "dark-1", projectile);
+            if (hit.isPresent() && "ship-critical-hit".equals(flakTargetHitReason(hit.get()))) {
+                falseHits.add("forward=" + MathSupport.round(forward));
+            }
+        }
+
+        assertTrue(falseHits.isEmpty(), String.join("\n", falseHits));
+    }
+
+    @Test
     void cannonProjectileDoesNotHitShipFarAboveHullAndSuperstructure() {
         GameSession session = cannonShipHitSession("cannon-high-miss-test");
 
@@ -1939,6 +1967,11 @@ class GameSessionTest {
 
         GameSetup crowdedReverse = factory.setup("dense-land-crowded-reverse");
         assertEquals(2, countScoutPlanes(crowdedReverse));
+
+        GameSetup bombDropScenario = factory.setup("scenario-bomb-drop");
+        assertEquals("scenario-bomb-drop", bombDropScenario.id());
+        assertEquals(2, bombDropScenario.fleets().stream().mapToInt(fleet -> fleet.ships().size()).sum());
+        assertEquals(1, countScoutPlanes(bombDropScenario));
     }
 
     @Test
@@ -2640,7 +2673,8 @@ class GameSessionTest {
                 engineOrder,
                 rudderDegrees,
                 nextFireDelaySeconds,
-                vehicleType
+                vehicleType,
+                "scout-plane".equals(vehicleType) ? 150 : 0
         );
     }
 

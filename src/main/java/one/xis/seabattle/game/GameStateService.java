@@ -19,7 +19,9 @@ public class GameStateService {
     private static final long TICK_MILLIS = 100;
     private static final double TICK_SECONDS = TICK_MILLIS / 1000.0;
     private static final boolean TICK_METRICS_ENABLED = Boolean.getBoolean("seaBattle.tickMetrics.enabled");
-    private static final double SLOW_TICK_LOG_THRESHOLD_MS = 80.0;
+    private static final boolean SLOW_TICK_LOGGING_ENABLED = Boolean.parseBoolean(System.getProperty("seaBattle.slowTickLogging.enabled", "true"));
+    private static final double SLOW_TICK_LOG_THRESHOLD_MS = Double.parseDouble(System.getProperty("seaBattle.slowTickThresholdMs", "45.0"));
+    private static final long SLOW_TICK_LOG_MIN_INTERVAL_NANOS = TimeUnit.SECONDS.toNanos(Long.getLong("seaBattle.slowTickLogMinSeconds", 10));
     private static final long TICK_METRICS_LOG_INTERVAL_NANOS = TimeUnit.MINUTES.toNanos(1);
 
     private volatile GameSession session;
@@ -40,6 +42,9 @@ public class GameStateService {
     private double measuredTickMillisTotal;
     private double measuredTickMillisMax;
     private long measuredSlowTicks;
+    private long lastSlowTickLoggedAtNanos;
+    private long suppressedSlowTickLogs;
+    private boolean scenarioSetupActive;
 
     public GameStateService(DefaultGameSetupFactory setupFactory, RadarService radarService, NavigationService navigationService) {
         this.setupFactory = setupFactory;
@@ -178,10 +183,28 @@ public class GameStateService {
         return resetToSetup(request.setupId());
     }
 
+    public GameSnapshot resetToScenario(ScenarioGameRequest request) {
+        if (request == null || !"bernd".equals(request.adminKey())) {
+            throw new IllegalArgumentException("Scenario reset is only available to the host.");
+        }
+        GameSetup setup = ScenarioScriptParser.parse(request.scenario());
+        SessionView view;
+        synchronized (this) {
+            setupId = setup.id();
+            scenarioSetupActive = true;
+            requestedTeamIds.clear();
+            session = new GameSession(setup);
+            view = captureSessionView();
+        }
+        publishModel(view);
+        return view.state();
+    }
+
     public GameSnapshot resetToSetup(String nextSetupId) {
         SessionView view;
         synchronized (this) {
             setupId = nextSetupId;
+            scenarioSetupActive = false;
             requestedTeamIds.clear();
             session = new GameSession(setupFactory.setup(setupId, List.copyOf(requestedTeamIds)));
             view = captureSessionView();
@@ -191,12 +214,18 @@ public class GameStateService {
     }
 
     public GameSnapshot resetCurrentSetup() {
+        if (scenarioSetupActive) {
+            return snapshot();
+        }
         return resetToSetup(setupId);
     }
 
     public void activateTeam(String teamId) {
         SessionView view;
         synchronized (this) {
+            if (scenarioSetupActive) {
+                return;
+            }
             if (!setupFactory.isKnownTeam(teamId) || !setupFactory.isPublicTeam(teamId) || requestedTeamIds.contains(teamId)) {
                 return;
             }
@@ -244,10 +273,10 @@ public class GameStateService {
             long started = System.nanoTime();
             double deltaSeconds = Math.max(TICK_SECONDS, (started - previousStart) / 1_000_000_000.0);
             previousStart = started;
-            safeTick(deltaSeconds);
+            GameSnapshot tickSnapshot = safeTick(deltaSeconds);
 
             long completed = System.nanoTime();
-            recordTickDuration(started, completed);
+            recordTickDuration(started, completed, deltaSeconds, tickSnapshot);
             nextStart += periodNanos;
             while (nextStart < completed) {
                 nextStart += periodNanos;
@@ -255,12 +284,13 @@ public class GameStateService {
         }
     }
 
-    private void safeTick(double deltaSeconds) {
+    private GameSnapshot safeTick(double deltaSeconds) {
         try {
-            tick(deltaSeconds);
+            return tick(deltaSeconds);
         } catch (RuntimeException exception) {
             System.err.println("Sea Battle game tick failed: " + exception.getMessage());
             exception.printStackTrace(System.err);
+            return null;
         }
     }
 
@@ -275,11 +305,14 @@ public class GameStateService {
         }
     }
 
-    private void recordTickDuration(long startedNanos, long completedNanos) {
+    private void recordTickDuration(long startedNanos, long completedNanos, double deltaSeconds, GameSnapshot snapshot) {
+        double elapsedMillis = (completedNanos - startedNanos) / 1_000_000.0;
+        if (SLOW_TICK_LOGGING_ENABLED && elapsedMillis > SLOW_TICK_LOG_THRESHOLD_MS) {
+            logSlowTickIfDue(completedNanos, elapsedMillis, deltaSeconds, snapshot);
+        }
         if (!TICK_METRICS_ENABLED) {
             return;
         }
-        double elapsedMillis = (completedNanos - startedNanos) / 1_000_000.0;
         measuredTicks += 1;
         measuredTickMillisTotal += elapsedMillis;
         measuredTickMillisMax = Math.max(measuredTickMillisMax, elapsedMillis);
@@ -289,6 +322,29 @@ public class GameStateService {
         if (completedNanos - tickMetricsStartedAtNanos >= TICK_METRICS_LOG_INTERVAL_NANOS) {
             logAndResetTickMetrics(completedNanos);
         }
+    }
+
+    private void logSlowTickIfDue(long nowNanos, double elapsedMillis, double deltaSeconds, GameSnapshot snapshot) {
+        if (lastSlowTickLoggedAtNanos > 0 && nowNanos - lastSlowTickLoggedAtNanos < SLOW_TICK_LOG_MIN_INTERVAL_NANOS) {
+            suppressedSlowTickLogs += 1;
+            return;
+        }
+        long suppressed = suppressedSlowTickLogs;
+        suppressedSlowTickLogs = 0;
+        lastSlowTickLoggedAtNanos = nowNanos;
+        LOGGER.warning(() -> String.format(
+                Locale.ROOT,
+                "sea-battle-slow-tick elapsedMs=%.2f thresholdMs=%.2f deltaSeconds=%.3f setup=%s t=%.2f ships=%d torpedoes=%d bombs=%d suppressed=%d",
+                elapsedMillis,
+                SLOW_TICK_LOG_THRESHOLD_MS,
+                deltaSeconds,
+                setupId,
+                snapshot == null ? -1 : snapshot.t(),
+                snapshot == null || snapshot.ships() == null ? -1 : snapshot.ships().size(),
+                snapshot == null || snapshot.torpedoes() == null ? -1 : snapshot.torpedoes().size(),
+                snapshot == null || snapshot.bombs() == null ? -1 : snapshot.bombs().size(),
+                suppressed
+        ));
     }
 
     private void logAndResetTickMetrics(long nowNanos) {

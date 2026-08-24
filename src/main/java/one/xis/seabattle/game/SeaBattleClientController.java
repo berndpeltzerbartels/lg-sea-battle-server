@@ -291,6 +291,12 @@ public class SeaBattleClientController {
         return gameStateService.reset(request);
     }
 
+    @Post("/game/test-scenario")
+    @Produces(ContentType.JSON_UTF8)
+    public GameSnapshot resetToTestScenario(@RequestBody ScenarioGameRequest request) {
+        return gameStateService.resetToScenario(request);
+    }
+
     @Get("/game/version")
     @Produces(ContentType.JSON_UTF8)
     public BuildInfo getBuildInfo() {

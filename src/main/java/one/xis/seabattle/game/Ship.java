@@ -130,6 +130,13 @@ final class Ship {
         this.nextFireTime = nextFireTime;
     }
 
+    void y(double y) {
+        this.y = isScoutPlane() ? MathSupport.clamp(y, SCOUT_PLANE_MIN_Y, SCOUT_PLANE_MAX_Y) : 0;
+        if (isScoutPlane()) {
+            botScoutPlaneTargetY = this.y;
+        }
+    }
+
     void botScoutPlaneTargetY(double y) {
         if (isScoutPlane()) {
             botScoutPlaneTargetY = MathSupport.clamp(y, SCOUT_PLANE_MIN_Y, SCOUT_PLANE_MAX_Y);

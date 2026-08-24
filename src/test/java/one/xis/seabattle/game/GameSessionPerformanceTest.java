@@ -153,7 +153,8 @@ class GameSessionPerformanceTest {
                 engineOrder,
                 rudderDegrees,
                 nextFireDelaySeconds,
-                vehicleType
+                vehicleType,
+                "scout-plane".equals(vehicleType) ? 150 : 0
         );
     }
 

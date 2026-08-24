@@ -211,4 +211,5 @@ public class SeaBattleDiagnosticsService {
                 ? "-"
                 : value.replace('\n', ' ').replace('\r', ' ');
     }
+
 }

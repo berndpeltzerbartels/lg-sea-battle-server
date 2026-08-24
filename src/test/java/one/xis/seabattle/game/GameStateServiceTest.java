@@ -40,6 +40,29 @@ class GameStateServiceTest {
     }
 
     @Test
+    void canResetToInlineScenarioForBrowserTests() {
+        GameStateService service = new GameStateService(
+                new DefaultGameSetupFactory(new WorldMapService()),
+                new RadarService(),
+                new NavigationService()
+        );
+
+        GameSnapshot snapshot = service.resetToScenario(new ScenarioGameRequest("bernd", """
+                scenario: inline-browser-test
+                map:
+                .1.2.
+                objects:
+                1: ship light human [orientation: 90°]
+                2: plane dark bot [orientation: 270°, height: 110m]
+                """));
+
+        assertEquals(2, snapshot.ships().size());
+        assertEquals("light-S1", snapshot.ships().get(0).id());
+        assertEquals("dark-F2", snapshot.ships().get(1).id());
+        assertEquals(110, snapshot.ships().get(1).y(), 0.001);
+    }
+
+    @Test
     void fireTorpedoUsesNavigationStateFromFireRequest() {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
