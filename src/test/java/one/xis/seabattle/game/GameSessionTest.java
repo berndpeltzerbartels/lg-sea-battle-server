@@ -406,7 +406,7 @@ class GameSessionTest {
                 session.worldMap()
         );
         session.fireFlak(new FlakFireRequest(
-                "player-gunner", "light", "light-1", 3, 0.5, -40, 0, 4.5, 95
+                "player-gunner", "light", "light-1", 3, 0.5, -40, 0, 2.25, 95
         ));
 
         session.update(0.5, radarService, navigationService, session.worldMap());
@@ -439,7 +439,7 @@ class GameSessionTest {
                 session.worldMap()
         );
         session.fireFlak(new FlakFireRequest(
-                "player-gunner", "light", "light-1", 3, 1.14, -40, 0, 4.5, 95
+                "player-gunner", "light", "light-1", 3, 1.14, -40, 0, 2.25, 95
         ));
 
         session.update(0.5, radarService, navigationService, session.worldMap());
@@ -534,7 +534,7 @@ class GameSessionTest {
                 session.worldMap()
         );
         session.fireFlak(new FlakFireRequest(
-                "player-gunner", "light", "light-1", 3, 1.14, -40, 0, 4.5, 95
+                "player-gunner", "light", "light-1", 3, 1.14, -40, 0, 2.25, 95
         ));
 
         session.update(0.5, radarService, navigationService, session.worldMap());

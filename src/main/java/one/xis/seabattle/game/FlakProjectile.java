@@ -2,12 +2,20 @@ package one.xis.seabattle.game;
 
 final class FlakProjectile {
 
-    private static final double GRAVITY = 9.0;
-    private static final double LIFETIME_SECONDS = 8.0;
+    private static final double FLAK_GRAVITY = 9.0;
+    private static final double CANNON_GRAVITY = 9.8;
+    private static final double FLAK_LIFETIME_SECONDS = 8.0;
+    private static final double CANNON_LIFETIME_SECONDS = 18.0;
 
     private final String id;
     private final String teamId;
     private final String shipId;
+    private final double originX;
+    private final double originY;
+    private final double originZ;
+    private final double initialVx;
+    private final double initialVy;
+    private final double initialVz;
     private double previousX;
     private double previousY;
     private double previousZ;
@@ -19,12 +27,19 @@ final class FlakProjectile {
     private double vz;
     private final double firedAtSeconds;
     private double ageSeconds;
+    private boolean hitResolved;
 
     FlakProjectile(String id, String teamId, String shipId, double x, double y, double z,
                    double vx, double vy, double vz, double firedAtSeconds) {
         this.id = id;
         this.teamId = teamId;
         this.shipId = shipId;
+        this.originX = x;
+        this.originY = y;
+        this.originZ = z;
+        this.initialVx = vx;
+        this.initialVy = vy;
+        this.initialVz = vz;
         this.previousX = x;
         this.previousY = y;
         this.previousZ = z;
@@ -38,7 +53,7 @@ final class FlakProjectile {
     }
 
     String state() {
-        return ageSeconds >= LIFETIME_SECONDS || y < 0 ? "expired" : "flying";
+        return ageSeconds >= lifetimeSeconds() || y < 0 ? "expired" : "flying";
     }
 
     String id() {
@@ -78,7 +93,12 @@ final class FlakProjectile {
     }
 
     void hit() {
-        ageSeconds = LIFETIME_SECONDS;
+        hitResolved = true;
+        ageSeconds = lifetimeSeconds();
+    }
+
+    boolean hitResolved() {
+        return hitResolved;
     }
 
     void update(double deltaSeconds) {
@@ -89,10 +109,20 @@ final class FlakProjectile {
         previousX = x;
         previousY = y;
         previousZ = z;
-        vy -= GRAVITY * deltaSeconds;
-        x += vx * deltaSeconds;
-        y += vy * deltaSeconds;
-        z += vz * deltaSeconds;
+        x = originX + initialVx * ageSeconds;
+        y = originY + initialVy * ageSeconds - 0.5 * gravity() * ageSeconds * ageSeconds;
+        z = originZ + initialVz * ageSeconds;
+        vx = initialVx;
+        vy = initialVy - gravity() * ageSeconds;
+        vz = initialVz;
+    }
+
+    private double gravity() {
+        return id.startsWith("cannon-") ? CANNON_GRAVITY : FLAK_GRAVITY;
+    }
+
+    private double lifetimeSeconds() {
+        return id.startsWith("cannon-") ? CANNON_LIFETIME_SECONDS : FLAK_LIFETIME_SECONDS;
     }
 
     FlakProjectileSnapshot snapshot() {

@@ -1519,6 +1519,7 @@ public final class GameSession {
     private void updateFlakTerrainImpacts(WorldMap worldMap) {
         double maxTerrainHeight = LandGeometry.maxTerrainHeight(worldMap) + 1.5;
         flakProjectiles.stream()
+                .filter(projectile -> !projectile.hitResolved())
                 .filter(projectile -> "flying".equals(projectile.state()) || (projectile.previousY() > 0 && projectile.y() <= 0))
                 .forEach(projectile -> recordFlakTerrainImpact(projectile, worldMap, maxTerrainHeight)
                         .ifPresent(impact -> projectile.hit()));
@@ -1558,7 +1559,8 @@ public final class GameSession {
                 .toList();
 
         flakProjectiles.stream()
-                .filter(projectile -> "flying".equals(projectile.state()))
+                .filter(projectile -> !projectile.hitResolved())
+                .filter(this::hasActiveFlakCollisionSegment)
                 .forEach(projectile -> activeTargets.stream()
                         .filter(ship -> !ship.id().equals(projectile.shipId()))
                         .map(ship -> flakProjectileHitsTarget(projectile, ship))
@@ -1575,6 +1577,10 @@ public final class GameSession {
                                 recordFlakImpact(projectile, hit.reason(), hit.x(), hit.y(), hit.z());
                             }
                         }));
+    }
+
+    private boolean hasActiveFlakCollisionSegment(FlakProjectile projectile) {
+        return "flying".equals(projectile.state()) || (projectile.previousY() > 0 && projectile.y() <= 0);
     }
 
     private boolean flakShotWouldHitOwnShip(Ship ship, FlakFireRequest request) {
