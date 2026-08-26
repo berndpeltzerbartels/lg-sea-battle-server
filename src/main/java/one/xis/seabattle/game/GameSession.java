@@ -59,7 +59,7 @@ public final class GameSession {
     private static final double SCOUT_PLANE_MAX_BOMB_INITIAL_UP_SPEED = 20;
     private static final double SCOUT_PLANE_MAX_BOMB_INITIAL_DOWN_SPEED = 34;
     private static final double BOT_SCOUT_PLANE_STABLE_ATTACK_TURN_RATE = 0.035;
-    private static final double FLAK_FIRE_COOLDOWN_SECONDS = 0.065;
+    private static final double FLAK_FIRE_COOLDOWN_SECONDS = 0.059;
     private static final double CANNON_FIRE_COOLDOWN_SECONDS = 1.0;
     private static final double FLAK_HIT_VISIBILITY_SECONDS = 2.4;
     private static final double FLAK_SWEEP_STEP = 1.5;
@@ -1687,7 +1687,7 @@ public final class GameSession {
                 if (isCannonProjectile(projectile)) {
                     return Optional.of(new FlakTargetHit(ship, FlakShipHitArea.CRITICAL.reason(), true, x, y, z));
                 }
-                return Optional.of(new FlakTargetHit(ship, area.reason(), area.sinks(), x, y, z));
+                return Optional.of(new FlakTargetHit(ship, FlakShipHitArea.SURFACE.reason(), true, x, y, z));
             }
         }
         return Optional.empty();

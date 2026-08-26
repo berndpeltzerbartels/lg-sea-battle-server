@@ -385,7 +385,7 @@ class GameSessionTest {
     }
 
     @Test
-    void flakProjectileCreatesVisibleShipImpactWithoutSinkingHullHit() {
+    void flakProjectileSinksShipWhenItHitsHull() {
         GameSession session = new GameSession(new GameSetup(
                 "flak-ship-surface-hit-test",
                 new WorldMap(9037, List.of()),
@@ -394,7 +394,7 @@ class GameSessionTest {
                                 ship("light-1", "light", 0, -40, 0, "bot", 5, 0, 0)
                         )),
                         new FleetSetup("dark", List.of(
-                                ship("dark-1", "dark", 3, 0, 0, "bot", 2, 0, 0)
+                                ship("dark-1", "dark", 3, 0, 0, "target", 2, 0, 0)
                         ))
                 ),
                 List.of(new Vector2(0, -40), new Vector2(3, 0))
@@ -412,7 +412,8 @@ class GameSessionTest {
         session.update(0.5, radarService, navigationService, session.worldMap());
         GameSnapshot snapshot = session.snapshot();
 
-        assertEquals("active", findShip(snapshot, "dark-1").state());
+        assertEquals("sunk", findShip(snapshot, "dark-1").state());
+        assertEquals(1, snapshot.flakHits().size());
         assertEquals(1, snapshot.flakImpacts().size());
         assertEquals("ship-hit", snapshot.flakImpacts().get(0).reason());
     }
@@ -427,7 +428,7 @@ class GameSessionTest {
                                 ship("light-1", "light", 0, -40, 0, "bot", 5, 0, 0)
                         )),
                         new FleetSetup("dark", List.of(
-                                ship("dark-1", "dark", 3, 0, 0, "bot", 2, 0, 0)
+                                ship("dark-1", "dark", 3, 0, 0, "target", 2, 0, 0)
                         ))
                 ),
                 List.of(new Vector2(0, -40), new Vector2(3, 0))
@@ -446,8 +447,9 @@ class GameSessionTest {
         GameSnapshot snapshot = session.snapshot();
 
         assertEquals("sunk", findShip(snapshot, "dark-1").state());
+        assertEquals(1, snapshot.flakHits().size());
         assertEquals(1, snapshot.flakImpacts().size());
-        assertEquals("ship-critical-hit", snapshot.flakImpacts().get(0).reason());
+        assertEquals("ship-hit", snapshot.flakImpacts().get(0).reason());
     }
 
     @Test
@@ -542,8 +544,9 @@ class GameSessionTest {
 
         assertEquals("active", findShip(snapshot, "light-1").state());
         assertEquals("sunk", findShip(snapshot, "light-2").state());
+        assertEquals(1, snapshot.flakHits().size());
         assertEquals(1, snapshot.flakImpacts().size());
-        assertEquals("ship-critical-hit", snapshot.flakImpacts().get(0).reason());
+        assertEquals("ship-hit", snapshot.flakImpacts().get(0).reason());
     }
 
     @Test
@@ -636,14 +639,14 @@ class GameSessionTest {
     }
 
     @Test
-    void flakProjectileStillOnlyMarksHullHeightShipHitWithoutSinking() throws Exception {
+    void flakProjectileHullHeightShipHitSinks() throws Exception {
         GameSession session = cannonShipHitSession("flak-hull-hit-test");
         FlakProjectile projectile = new FlakProjectile("flak-test", "light", "light-1", 3, 0.5, 0, 0, 0, 0, 0);
 
         Object hit = projectileHit(session, "dark-1", projectile).orElseThrow();
 
         assertEquals("ship-hit", flakTargetHitReason(hit));
-        assertFalse(flakTargetHitSinks(hit));
+        assertTrue(flakTargetHitSinks(hit));
     }
 
     @Test
