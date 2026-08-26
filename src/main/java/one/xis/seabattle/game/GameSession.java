@@ -33,7 +33,7 @@ public final class GameSession {
     private static final double BOT_SCOUT_PLANE_TERRAIN_CLEARANCE = 8.0;
     private static final double BOT_SCOUT_PLANE_TORPEDO_LEAD_SECONDS = 2.2;
     private static final double BOT_SCOUT_PLANE_AIR_TORPEDO_RELEASE_OFFSET = 10.0;
-    private static final double SHIP_TORPEDO_SPEED_SCALE = TORPEDO_BOAT_MODEL_SCALE;
+    private static final double SHIP_TORPEDO_SPEED_SCALE = Math.sqrt(TORPEDO_BOAT_MODEL_SCALE);
     private static final double SHIP_TORPEDO_BASE_SPEED = 24.0 * SHIP_TORPEDO_SPEED_SCALE;
     private static final double SHIP_TORPEDO_SPEED_GAIN = 0.35 * SHIP_TORPEDO_SPEED_SCALE;
     private static final double AIR_TORPEDO_SPEED_FACTOR = 0.75;
