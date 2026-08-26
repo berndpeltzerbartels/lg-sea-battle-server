@@ -33,8 +33,9 @@ public final class GameSession {
     private static final double BOT_SCOUT_PLANE_TERRAIN_CLEARANCE = 8.0;
     private static final double BOT_SCOUT_PLANE_TORPEDO_LEAD_SECONDS = 2.2;
     private static final double BOT_SCOUT_PLANE_AIR_TORPEDO_RELEASE_OFFSET = 10.0;
-    private static final double SHIP_TORPEDO_BASE_SPEED = 24.0;
-    private static final double SHIP_TORPEDO_SPEED_GAIN = 0.35;
+    private static final double SHIP_TORPEDO_SPEED_SCALE = TORPEDO_BOAT_MODEL_SCALE;
+    private static final double SHIP_TORPEDO_BASE_SPEED = 24.0 * SHIP_TORPEDO_SPEED_SCALE;
+    private static final double SHIP_TORPEDO_SPEED_GAIN = 0.35 * SHIP_TORPEDO_SPEED_SCALE;
     private static final double AIR_TORPEDO_SPEED_FACTOR = 0.75;
     private static final double BOT_SCOUT_PLANE_AIR_TORPEDO_BASE_SPEED = SHIP_TORPEDO_BASE_SPEED * AIR_TORPEDO_SPEED_FACTOR;
     private static final double BOT_SCOUT_PLANE_AIR_TORPEDO_SPEED_GAIN = SHIP_TORPEDO_SPEED_GAIN * AIR_TORPEDO_SPEED_FACTOR;
@@ -2165,7 +2166,12 @@ public final class GameSession {
 
         ship.markFired(nowSeconds, cooldownSeconds);
         double heading = MathSupport.normalizeAngle(ship.heading() + headingOffsetRadians);
-        Vector2 muzzlePosition = ship.position().add(Vector2.fromHeading(heading).scale(5.0));
+        int tubeSide = normalizeTubeSide(requestedTubeSide);
+        Vector2 forward = Vector2.fromHeading(heading);
+        Vector2 right = new Vector2(Math.cos(heading), -Math.sin(heading));
+        Vector2 muzzlePosition = ship.position()
+                .add(forward.scale(5.0 * TORPEDO_BOAT_MODEL_SCALE))
+                .add(right.scale(tubeSide * 0.56 * TORPEDO_BOAT_MODEL_SCALE));
         torpedoes.add(new Torpedo(
                 "torpedo-" + nextTorpedoId++,
                 ship.teamId(),
@@ -2175,7 +2181,7 @@ public final class GameSession {
                 SHIP_TORPEDO_BASE_SPEED + Math.max(0, ship.speed()) * SHIP_TORPEDO_SPEED_GAIN,
                 nowSeconds,
                 RadarService.TORPEDO_RANGE,
-                normalizeTubeSide(requestedTubeSide)
+                tubeSide
         ));
         return true;
     }
