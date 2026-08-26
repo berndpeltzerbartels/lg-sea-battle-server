@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class GameSessionTest {
 
+    private static final double TORPEDO_BOAT_MODEL_SCALE = SeaBattleGameConfig.TORPEDO_BOAT_SCALE;
     private static final int ENGINE_FULL_ASTERN = 0;
     private static final int ENGINE_ONE_THIRD = 4;
     private static final int ENGINE_HALF = 5;
@@ -128,13 +129,13 @@ class GameSessionTest {
                 session.worldMap()
         );
         GameSnapshot snapshot = session.fireFlak(new FlakFireRequest(
-                "player-BP-test", "light", "light-1", 0, 1.5, -3, 0, 60, 95, 0.7, 0.4
+                "player-BP-test", "light", "light-1", 0, 1.5 * TORPEDO_BOAT_MODEL_SCALE, -3 * TORPEDO_BOAT_MODEL_SCALE, 0, 60, 95, 0.7, 0.4
         ));
 
         assertEquals(1, snapshot.flakProjectiles().size());
         FlakProjectileSnapshot projectile = snapshot.flakProjectiles().get(0);
         assertEquals("light-1", projectile.shipId());
-        assertEquals(1.5, projectile.y(), 0.01);
+        assertEquals(1.5 * TORPEDO_BOAT_MODEL_SCALE, projectile.y(), 0.01);
         ShipSnapshot ship = findShip(snapshot, "light-1");
         assertEquals(0.7, ship.flakYaw(), 0.01);
         assertEquals(0.4, ship.flakPitch(), 0.01);
@@ -157,7 +158,7 @@ class GameSessionTest {
                 session.worldMap()
         );
         GameSnapshot snapshot = session.fireCannon(new FlakFireRequest(
-                "player-BP-test", "light", "light-1", 0, 1.5, -3, 0, 72, 120, -0.5, 0.32
+                "player-BP-test", "light", "light-1", 0, 1.5 * TORPEDO_BOAT_MODEL_SCALE, -3 * TORPEDO_BOAT_MODEL_SCALE, 0, 72, 120, -0.5, 0.32
         ));
 
         assertEquals(1, snapshot.flakProjectiles().size());
@@ -497,7 +498,7 @@ class GameSessionTest {
                 session.worldMap()
         );
         session.fireFlak(new FlakFireRequest(
-                "player-gunner", "light", "light-1", 0, 0.64, -2.92, 0, 0, -95
+                "player-gunner", "light", "light-1", 0, 0.64 * TORPEDO_BOAT_MODEL_SCALE, -2.92 * TORPEDO_BOAT_MODEL_SCALE, 0, 0, -95
         ));
         session.update(0.08, radarService, navigationService, session.worldMap());
         GameSnapshot backwardSnapshot = session.snapshot();
@@ -507,13 +508,13 @@ class GameSessionTest {
 
         session.update(1.0, radarService, navigationService, session.worldMap());
         session.fireFlak(new FlakFireRequest(
-                "player-gunner", "light", "light-1", 0, 0.64, -2.92, 70, 0, 70
+                "player-gunner", "light", "light-1", 0, 0.64 * TORPEDO_BOAT_MODEL_SCALE, -2.92 * TORPEDO_BOAT_MODEL_SCALE, 70, 0, 70
         ));
         session.update(0.08, radarService, navigationService, session.worldMap());
         GameSnapshot forwardSnapshot = session.snapshot();
 
         assertTrue(forwardSnapshot.flakProjectiles().stream()
-                .anyMatch(projectile -> projectile.z() > -2.92 && projectile.x() > 0));
+                .anyMatch(projectile -> projectile.z() > -2.92 * TORPEDO_BOAT_MODEL_SCALE && projectile.x() > 0));
         assertTrue(forwardSnapshot.flakImpacts().stream()
                 .noneMatch(impact -> "ship-hit".equals(impact.reason()) || "ship-critical-hit".equals(impact.reason())));
     }
@@ -628,7 +629,7 @@ class GameSessionTest {
         GameSession session = cannonShipHitSession("cannon-high-miss-test");
 
         session.fireCannon(new FlakFireRequest(
-                "player-gunner", "light", "light-1", 3, 3.8, -40, 0, 0, 125
+                "player-gunner", "light", "light-1", 3, 3.8 * TORPEDO_BOAT_MODEL_SCALE, -40, 0, 0, 125
         ));
 
         session.update(0.5, radarService, navigationService, session.worldMap());
@@ -641,7 +642,7 @@ class GameSessionTest {
     @Test
     void flakProjectileHullHeightShipHitSinks() throws Exception {
         GameSession session = cannonShipHitSession("flak-hull-hit-test");
-        FlakProjectile projectile = new FlakProjectile("flak-test", "light", "light-1", 3, 0.5, 0, 0, 0, 0, 0);
+        FlakProjectile projectile = new FlakProjectile("flak-test", "light", "light-1", 3, 0.5 * TORPEDO_BOAT_MODEL_SCALE, 0, 0, 0, 0, 0);
 
         Object hit = projectileHit(session, "dark-1", projectile).orElseThrow();
 
@@ -1142,7 +1143,7 @@ class GameSessionTest {
                 new WorldMap(9034, List.of()),
                 List.of(
                         new FleetSetup("light", List.of(ship("light-1", "light", 0, 0, 0, "bot", 5, 0, 0))),
-                        new FleetSetup("dark", List.of(ship("dark-1", "dark", 2.0, 2.6, 0, "bot", 2, 0)))
+                        new FleetSetup("dark", List.of(ship("dark-1", "dark", 8.0, 8.0, 0, "bot", 2, 0)))
                 ),
                 List.of(new Vector2(0, 0), new Vector2(20, 0))
         ));
@@ -2485,11 +2486,11 @@ class GameSessionTest {
                 "cannon-side-shot-" + fromRight + "-" + toRight + "-" + fromY + "-" + forward,
                 "light",
                 "light-1",
-                fromRight,
-                fromY,
-                forward,
-                (toRight - fromRight) / deltaSeconds,
-                (toY - fromY) / deltaSeconds + 9.0 * deltaSeconds,
+                fromRight * TORPEDO_BOAT_MODEL_SCALE,
+                fromY * TORPEDO_BOAT_MODEL_SCALE,
+                forward * TORPEDO_BOAT_MODEL_SCALE,
+                (toRight - fromRight) * TORPEDO_BOAT_MODEL_SCALE / deltaSeconds,
+                (toY - fromY) * TORPEDO_BOAT_MODEL_SCALE / deltaSeconds + 9.0 * deltaSeconds,
                 0,
                 0
         );
@@ -2541,7 +2542,7 @@ class GameSessionTest {
             snapshot = session.snapshot();
             ShipSnapshot red = findShip(snapshot, "red-1");
             ShipSnapshot blue = findShip(snapshot, "blue-1");
-            if (red != null && blue != null && new Vector2(red.x(), red.z()).distanceTo(new Vector2(blue.x(), blue.z())) < 6) {
+            if (red != null && blue != null && new Vector2(red.x(), red.z()).distanceTo(new Vector2(blue.x(), blue.z())) < 6 * TORPEDO_BOAT_MODEL_SCALE) {
                 return snapshot;
             }
         }

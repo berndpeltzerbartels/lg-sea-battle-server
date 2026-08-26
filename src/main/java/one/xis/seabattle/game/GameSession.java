@@ -4,6 +4,8 @@ import java.util.*;
 
 public final class GameSession {
 
+    private static final double TORPEDO_BOAT_MODEL_SCALE = SeaBattleGameConfig.TORPEDO_BOAT_SCALE;
+    private static final double SCOUT_PLANE_MODEL_SCALE = SeaBattleGameConfig.SCOUT_PLANE_SCALE;
     private static final double TORPEDO_BROAD_PHASE_RADIUS = 6.2;
     private static final double TORPEDO_HULL_MARGIN = 0.28;
     private static final double TORPEDO_SWEEP_STEP = 1.15;
@@ -1238,7 +1240,7 @@ public final class GameSession {
                 RamImpact leftImpact = ramImpact(left, right);
                 RamImpact rightImpact = ramImpact(right, left);
                 if (!leftImpact.hits() && !rightImpact.hits()
-                        && left.position().distanceTo(right.position()) > RAM_HIT_RADIUS) {
+                        && left.position().distanceTo(right.position()) > RAM_HIT_RADIUS * TORPEDO_BOAT_MODEL_SCALE) {
                     continue;
                 }
 
@@ -1318,7 +1320,7 @@ public final class GameSession {
 
     private RamImpact ramImpactAt(Ship attacker, Ship target, double bowOffset) {
         Vector2 attackerBow = attacker.position()
-                .add(Vector2.fromHeading(attacker.heading()).scale(bowOffset));
+                .add(Vector2.fromHeading(attacker.heading()).scale(bowOffset * TORPEDO_BOAT_MODEL_SCALE));
         LocalHullPoint hit = localHullPoint(attackerBow, target);
         if (!forwardInsideTorpedoBoatHull(hit.forward(), RAM_SIDE_MARGIN)) {
             return RamImpact.miss();
@@ -1348,9 +1350,13 @@ public final class GameSession {
         double dx = point.x() - ship.position().x();
         double dz = point.z() - ship.position().z();
         return new LocalHullPoint(
-                dx * Math.cos(ship.heading()) - dz * Math.sin(ship.heading()),
-                dx * Math.sin(ship.heading()) + dz * Math.cos(ship.heading())
+                (dx * Math.cos(ship.heading()) - dz * Math.sin(ship.heading())) / TORPEDO_BOAT_MODEL_SCALE,
+                (dx * Math.sin(ship.heading()) + dz * Math.cos(ship.heading())) / TORPEDO_BOAT_MODEL_SCALE
         );
+    }
+
+    private double localShipY(double y, Ship ship, double scale) {
+        return (y - ship.y()) / scale;
     }
 
     private double enemyHullHalfWidthAt(double forward) {
@@ -1622,7 +1628,7 @@ public final class GameSession {
     }
 
     private Optional<FlakTargetHit> flakProjectileHitsTarget(FlakProjectile projectile, Ship ship) {
-        if (distanceToFlakSegment2D(projectile, ship.position()) > (ship.isScoutPlane() ? 9.0 : 7.2)) {
+        if (distanceToFlakSegment2D(projectile, ship.position()) > (ship.isScoutPlane() ? 9.0 * SCOUT_PLANE_MODEL_SCALE : 7.2 * TORPEDO_BOAT_MODEL_SCALE)) {
             return Optional.empty();
         }
         return ship.isScoutPlane()
@@ -1702,23 +1708,25 @@ public final class GameSession {
         if (!forwardInsideTorpedoBoatHull(hit.forward(), CANNON_HULL_MARGIN)) {
             return false;
         }
+        double localY = localShipY(y, ship, TORPEDO_BOAT_MODEL_SCALE);
         double deckHeight = torpedoBoatDeckY(hit.forward()) + CANNON_HULL_DECK_MARGIN;
-        return y >= CANNON_HULL_MIN_Y
-                && y <= deckHeight
+        return localY >= CANNON_HULL_MIN_Y
+                && localY <= deckHeight
                 && Math.abs(hit.right()) <= enemyHullHalfWidthAt(hit.forward()) + CANNON_HULL_MARGIN;
     }
 
     private FlakShipHitArea shipFlakHitArea(double x, double y, double z, Ship ship) {
         LocalHullPoint hit = localHullPoint(new Vector2(x, z), ship);
+        double localY = localShipY(y, ship, TORPEDO_BOAT_MODEL_SCALE);
         double absRight = Math.abs(hit.right());
-        if (y >= 0.72 && y <= 1.72 && hit.forward() >= 0.32 && hit.forward() <= 1.24 && absRight <= 0.62) {
+        if (localY >= 0.72 && localY <= 1.72 && hit.forward() >= 0.32 && hit.forward() <= 1.24 && absRight <= 0.62) {
             return FlakShipHitArea.CRITICAL;
         }
-        if (y >= 0.78 && y <= 1.92 && hit.forward() >= -1.5 && hit.forward() <= 0.24 && absRight <= 0.26) {
+        if (localY >= 0.78 && localY <= 1.92 && hit.forward() >= -1.5 && hit.forward() <= 0.24 && absRight <= 0.26) {
             return FlakShipHitArea.CRITICAL;
         }
         double deckClearance = torpedoBoatDeckY(hit.forward()) + 0.025;
-        if (y >= 0.1 && y <= deckClearance
+        if (localY >= 0.1 && localY <= deckClearance
                 && forwardInsideTorpedoBoatHull(hit.forward(), FLAK_SHIP_HIT_MARGIN)
                 && absRight <= enemyHullHalfWidthAt(hit.forward()) + FLAK_SHIP_HIT_MARGIN) {
             return FlakShipHitArea.SURFACE;
@@ -1764,9 +1772,9 @@ public final class GameSession {
     private boolean pointHitsScoutPlane(double x, double y, double z, Ship plane) {
         double dx = x - plane.position().x();
         double dz = z - plane.position().z();
-        double right = dx * Math.cos(plane.heading()) - dz * Math.sin(plane.heading());
-        double forward = dx * Math.sin(plane.heading()) + dz * Math.cos(plane.heading());
-        double vertical = y - plane.y();
+        double right = (dx * Math.cos(plane.heading()) - dz * Math.sin(plane.heading())) / SCOUT_PLANE_MODEL_SCALE;
+        double forward = (dx * Math.sin(plane.heading()) + dz * Math.cos(plane.heading())) / SCOUT_PLANE_MODEL_SCALE;
+        double vertical = (y - plane.y()) / SCOUT_PLANE_MODEL_SCALE;
         double bank = MathSupport.clamp(
                 -plane.turnVelocity() * SCOUT_PLANE_VISUAL_BANK_PER_TURN_RATE,
                 -SCOUT_PLANE_MAX_VISUAL_BANK,
@@ -1882,7 +1890,7 @@ public final class GameSession {
     }
 
     private boolean bombHitsShip(Bomb bomb, Ship ship) {
-        if (ship.position().distanceTo(bomb.position()) > BOMB_HIT_RADIUS) {
+        if (ship.position().distanceTo(bomb.position()) > BOMB_HIT_RADIUS * TORPEDO_BOAT_MODEL_SCALE) {
             return false;
         }
         return pointHitsShipHull(bomb.position(), ship, BOMB_HULL_MARGIN);
@@ -1918,8 +1926,8 @@ public final class GameSession {
     }
 
     private boolean torpedoHitsShip(Torpedo torpedo, Ship ship) {
-        if (ship.position().distanceTo(torpedo.position()) > TORPEDO_BROAD_PHASE_RADIUS
-                && ship.position().distanceTo(torpedo.previousPosition()) > TORPEDO_BROAD_PHASE_RADIUS) {
+        if (ship.position().distanceTo(torpedo.position()) > TORPEDO_BROAD_PHASE_RADIUS * TORPEDO_BOAT_MODEL_SCALE
+                && ship.position().distanceTo(torpedo.previousPosition()) > TORPEDO_BROAD_PHASE_RADIUS * TORPEDO_BOAT_MODEL_SCALE) {
             return false;
         }
 
