@@ -342,7 +342,7 @@ public final class GameSession {
         if (ship.isScoutPlane() || !ship.id().equals(request.shipId()) || !canFireFlak(ship)) {
             return;
         }
-        if (flakShotWouldHitOwnShip(ship, request)) {
+        if (!hasShotVelocity(request)) {
             return;
         }
 
@@ -374,7 +374,7 @@ public final class GameSession {
         if (ship.isScoutPlane() || !ship.id().equals(request.shipId()) || !canFireCannon(ship)) {
             return;
         }
-        if (cannonShotWouldHitOwnShip(ship, request)) {
+        if (!hasShotVelocity(request)) {
             return;
         }
 
@@ -424,6 +424,11 @@ public final class GameSession {
 
     private boolean canFireCannon(Ship ship) {
         return nowSeconds >= nextCannonFireTimeByShipId.getOrDefault(ship.id(), 0.0);
+    }
+
+    private boolean hasShotVelocity(FlakFireRequest request) {
+        double squaredLength = request.vx() * request.vx() + request.vy() * request.vy() + request.vz() * request.vz();
+        return squaredLength > 0.000001;
     }
 
     public synchronized void releasePlayer(String playerId) {
@@ -1588,44 +1593,6 @@ public final class GameSession {
 
     private boolean hasActiveFlakCollisionSegment(FlakProjectile projectile) {
         return "flying".equals(projectile.state()) || (projectile.previousY() > 0 && projectile.y() <= 0);
-    }
-
-    private boolean flakShotWouldHitOwnShip(Ship ship, FlakFireRequest request) {
-        double length = Math.sqrt(request.vx() * request.vx() + request.vy() * request.vy() + request.vz() * request.vz());
-        if (length <= 0.001) {
-            return true;
-        }
-        double dx = request.vx() / length;
-        double dy = request.vy() / length;
-        double dz = request.vz() / length;
-        for (double distance = 0.35; distance <= 8.0; distance += FLAK_SWEEP_STEP) {
-            double x = request.x() + dx * distance;
-            double y = request.y() + dy * distance;
-            double z = request.z() + dz * distance;
-            if (shipFlakHitArea(x, y, z, ship) != FlakShipHitArea.MISS) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean cannonShotWouldHitOwnShip(Ship ship, FlakFireRequest request) {
-        double length = Math.sqrt(request.vx() * request.vx() + request.vy() * request.vy() + request.vz() * request.vz());
-        if (length <= 0.001) {
-            return true;
-        }
-        double dx = request.vx() / length;
-        double dy = request.vy() / length;
-        double dz = request.vz() / length;
-        for (double distance = 0.65; distance <= 7.5; distance += 0.85) {
-            double x = request.x() + dx * distance;
-            double y = request.y() + dy * distance;
-            double z = request.z() + dz * distance;
-            if (shipFlakHitArea(x, y, z, ship) == FlakShipHitArea.CRITICAL) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private Optional<FlakTargetHit> flakProjectileHitsTarget(FlakProjectile projectile, Ship ship) {
