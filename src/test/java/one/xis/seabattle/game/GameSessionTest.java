@@ -881,7 +881,7 @@ class GameSessionTest {
                 new WorldMap(9044, List.of()),
                 List.of(
                         new FleetSetup("light", List.of(
-                                ship("light-plane-1", "light", 0, -315, 0, "bot", ENGINE_FULL, 0, 0, "scout-plane")
+                                ship("light-plane-1", "light", 0, -520, 0, "bot", ENGINE_FULL, 0, 0, "scout-plane")
                         )),
                         new FleetSetup("dark", List.of(
                                 ship("dark-human-1", "dark", 0, 0, Math.PI, "player-dark", ENGINE_HALF, 0, 99, "torpedo-boat")
@@ -902,13 +902,49 @@ class GameSessionTest {
     }
 
     @Test
+    void botScoutPlaneDoesNotReleaseTorpedoBeforeDescendingToAttackHeight() {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-scout-plane-high-torpedo-release-test",
+                new WorldMap(9046, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-plane-1", "light", 0, -260, 0, "bot", ENGINE_FULL, 0, 0, "scout-plane")
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-human-1", "dark", 0, 0, Math.PI, "player-dark", ENGINE_HALF, 0, 99, "torpedo-boat")
+                        ))
+                ),
+                List.of(new Vector2(0, -300), new Vector2(0, 140))
+        ));
+
+        session.update(0.1, radarService, navigationService, session.worldMap());
+
+        ShipSnapshot plane = findShip(session.snapshot(), "light-plane-1");
+        assertTrue(plane.y() > 118,
+                "Test setup should still have the plane above a credible torpedo-drop height");
+        assertTrue(session.snapshot().torpedoes().isEmpty(),
+                "Bot scout plane must not release a torpedo while still high above torpedo-attack height");
+    }
+
+    @Test
     void botScoutPlanePrefersTorpedoOverBombsInSharedAttackRange() {
         GameSession session = new GameSession(new GameSetup(
                 "bot-scout-plane-prefers-torpedo-test",
                 new WorldMap(9045, List.of()),
                 List.of(
                         new FleetSetup("light", List.of(
-                                ship("light-plane-1", "light", 0, -220, 0, "bot", ENGINE_FULL, 0, 0, "scout-plane")
+                                new ShipSetup(
+                                        "light-plane-1",
+                                        "light",
+                                        new Vector2(0, -220),
+                                        0,
+                                        "bot",
+                                        ENGINE_FULL,
+                                        0,
+                                        0,
+                                        "scout-plane",
+                                        105
+                                )
                         )),
                         new FleetSetup("dark", List.of(
                                 ship("dark-human-1", "dark", 0, 0, Math.PI, "player-dark", ENGINE_HALF, 0, 99, "torpedo-boat")
@@ -934,17 +970,17 @@ class GameSessionTest {
                 new WorldMap(9042, List.of()),
                 List.of(
                         new FleetSetup("light", List.of(
-                                ship("light-plane-1", "light", 0, -165, 0, "bot", ENGINE_FULL, 0, 0, "scout-plane")
+                                ship("light-plane-1", "light", 0, -520, 0, "bot", ENGINE_FULL, 0, 0, "scout-plane")
                         )),
                         new FleetSetup("dark", List.of(
                                 ship("dark-human-1", "dark", 0, 0, Math.PI / 2, "player-dark", ENGINE_HALF, 0, 99, "torpedo-boat")
                         ))
                 ),
-                List.of(new Vector2(0, -180), new Vector2(0, 180))
+                List.of(new Vector2(0, -540), new Vector2(0, 180))
         ));
 
         GameSnapshot snapshot = session.snapshot();
-        for (int i = 0; i < 360 && "active".equals(findShip(snapshot, "dark-human-1").state()); i += 1) {
+        for (int i = 0; i < 700 && "active".equals(findShip(snapshot, "dark-human-1").state()); i += 1) {
             session.update(0.1, radarService, navigationService, session.worldMap());
             snapshot = session.snapshot();
         }

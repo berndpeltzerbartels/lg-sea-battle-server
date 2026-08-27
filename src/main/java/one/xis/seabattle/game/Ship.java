@@ -5,7 +5,7 @@ final class Ship {
     private static final double MAX_ACCEPTED_PLAYER_POSITION_DELTA = 90;
     private static final double MAX_ACCEPTED_PLAYER_SPEED = 48;
     private static final double SCOUT_PLANE_ALTITUDE_SCALE = SeaBattleGameConfig.SCOUT_PLANE_ALTITUDE_SCALE;
-    private static final double BOT_SCOUT_PLANE_ALTITUDE_RESPONSE = 0.26;
+    private static final double BOT_SCOUT_PLANE_ALTITUDE_RESPONSE = 0.38;
     private static final double SCOUT_PLANE_MIN_Y = 3 * SCOUT_PLANE_ALTITUDE_SCALE;
     private static final double SCOUT_PLANE_MAX_Y = 200 * SCOUT_PLANE_ALTITUDE_SCALE;
     private static final double BOT_SCOUT_PLANE_Y = 150 * SCOUT_PLANE_ALTITUDE_SCALE;

@@ -15,14 +15,14 @@ public final class GameSession {
     private static final double BOMB_RELEASE_INTERVAL_SECONDS = 0.12;
     private static final double BOT_SCOUT_PLANE_BOMB_COOLDOWN_SECONDS = 4.5;
     private static final double BOT_SCOUT_PLANE_TORPEDO_COOLDOWN_SECONDS = 12.0;
-    private static final double BOT_SCOUT_PLANE_ATTACK_RANGE = 360.0;
+    private static final double BOT_SCOUT_PLANE_ATTACK_RANGE = 620.0;
     private static final double BOT_SCOUT_PLANE_BOMB_MIN_RANGE = 35.0;
     private static final double BOT_SCOUT_PLANE_BOMB_RANGE = 245.0;
     private static final double BOT_SCOUT_PLANE_BOMB_FORWARD_TOLERANCE = 24.0;
     private static final double BOT_SCOUT_PLANE_BOMB_LATERAL_TOLERANCE = 18.0;
     private static final double BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE = 95.0;
-    private static final double BOT_SCOUT_PLANE_TORPEDO_RELEASE_RANGE = 260.0;
-    private static final double BOT_SCOUT_PLANE_TORPEDO_APPROACH_RANGE = 340.0;
+    private static final double BOT_SCOUT_PLANE_TORPEDO_RELEASE_RANGE = 300.0;
+    private static final double BOT_SCOUT_PLANE_TORPEDO_APPROACH_RANGE = 560.0;
     private static final double BOT_SCOUT_PLANE_ATTACK_ARC = Math.toRadians(32);
     private static final double BOT_SCOUT_PLANE_TORPEDO_ARC = Math.toRadians(14);
     private static final double BOT_SCOUT_PLANE_FLY_THROUGH_DISTANCE = 230.0;
@@ -32,6 +32,7 @@ public final class GameSession {
     private static final double BOT_SCOUT_PLANE_CRUISE_Y = 150.0 * SCOUT_PLANE_ALTITUDE_SCALE;
     private static final double BOT_SCOUT_PLANE_TORPEDO_ATTACK_Y = 55.0 * SCOUT_PLANE_ALTITUDE_SCALE;
     private static final double BOT_SCOUT_PLANE_BOMB_ATTACK_Y = 85.0 * SCOUT_PLANE_ALTITUDE_SCALE;
+    private static final double BOT_SCOUT_PLANE_TORPEDO_RELEASE_MAX_Y = BOT_SCOUT_PLANE_TORPEDO_ATTACK_Y + 22.0;
     private static final double BOT_SCOUT_PLANE_TERRAIN_CLEARANCE = 8.0 * SCOUT_PLANE_ALTITUDE_SCALE;
     private static final double BOT_SCOUT_PLANE_TORPEDO_LEAD_SECONDS = 2.2;
     private static final double BOT_SCOUT_PLANE_AIR_TORPEDO_RELEASE_OFFSET = 10.0;
@@ -597,6 +598,7 @@ public final class GameSession {
 
         if (preferTorpedoAttack
                 && inTorpedoReleaseWindow
+                && plane.y() <= BOT_SCOUT_PLANE_TORPEDO_RELEASE_MAX_Y
                 && torpedoSolution.canRelease()
                 && nowSeconds >= nextBotScoutPlaneTorpedoTime
                 && plane.canDropBomb(nowSeconds)) {
