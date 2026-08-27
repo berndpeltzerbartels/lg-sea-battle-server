@@ -20,6 +20,7 @@ final class DefaultGameSetupFactory {
     private static final String TEAM_SAND = "sand";
     private static final String VEHICLE_TORPEDO_BOAT = "torpedo-boat";
     private static final String VEHICLE_SCOUT_PLANE = "scout-plane";
+    private static final double SCOUT_PLANE_START_Y = 150 * SeaBattleGameConfig.SCOUT_PLANE_ALTITUDE_SCALE;
     private static final List<String> BASE_TEAMS = List.of(TEAM_DARK, TEAM_LIGHT);
     private static final List<String> TEAM_ORDER = List.of(TEAM_DARK, TEAM_LIGHT, TEAM_GREEN, TEAM_SAND);
     private static final String BOMB_DROP_SCENARIO = """
@@ -34,7 +35,7 @@ final class DefaultGameSetupFactory {
             ...........
             objects:
             1: ship, light, human [orientation: 90°, speed: 0knt]
-            2: plane, dark, bot [orientation: 270°, speed: 30knt, height: 150m]
+            2: plane, dark, bot [orientation: 270°, speed: 30knt, height: 262.5m]
             """;
 
     private final WorldMapService worldMapService;
@@ -56,6 +57,7 @@ final class DefaultGameSetupFactory {
             case "single-island" -> singleIslandSetup();
             case "ram-side" -> ramSideSetup();
             case "side-view-sandbox" -> sideViewSandboxSetup();
+            case "two-ship-duel" -> twoShipDuelSetup();
             case "explosion-demo" -> explosionDemoSetup();
             case "escort-debug" -> escortDebugSetup();
             case "landmark-tour" -> landmarkTourSetup();
@@ -148,6 +150,22 @@ final class DefaultGameSetupFactory {
                         ))
                 ),
                 List.of(new Vector2(0, -24), new Vector2(0, 26))
+        );
+    }
+
+    private GameSetup twoShipDuelSetup() {
+        return new GameSetup(
+                "two-ship-duel",
+                worldMapService.denseWorld(),
+                List.of(
+                        new FleetSetup(TEAM_LIGHT, List.of(
+                                ship("light-S1", TEAM_LIGHT, -140, 0, Math.PI / 2, ENGINE_STOP, 0, 99)
+                        )),
+                        new FleetSetup(TEAM_DARK, List.of(
+                                ship("dark-S1", TEAM_DARK, 140, 0, -Math.PI / 2, ENGINE_STOP, 0, 99)
+                        ))
+                ),
+                denseRespawnCandidates()
         );
     }
 
@@ -339,7 +357,7 @@ final class DefaultGameSetupFactory {
                 rudderDegrees,
                 nextFireDelaySeconds,
                 VEHICLE_SCOUT_PLANE,
-                150
+                SCOUT_PLANE_START_Y
         );
     }
 
@@ -377,7 +395,7 @@ final class DefaultGameSetupFactory {
                     (int) slot[4],
                     index == 0 ? 0 : 3 + index * 1.5,
                     vehicleType,
-                    VEHICLE_SCOUT_PLANE.equals(vehicleType) ? 150 : 0
+                    VEHICLE_SCOUT_PLANE.equals(vehicleType) ? SCOUT_PLANE_START_Y : 0
             ));
         }
         return ships;
@@ -406,7 +424,7 @@ final class DefaultGameSetupFactory {
                     0,
                     2 + index * 0.35,
                     vehicleType,
-                    VEHICLE_SCOUT_PLANE.equals(vehicleType) ? 150 : 0
+                    VEHICLE_SCOUT_PLANE.equals(vehicleType) ? SCOUT_PLANE_START_Y : 0
             ));
         }
         return ships;

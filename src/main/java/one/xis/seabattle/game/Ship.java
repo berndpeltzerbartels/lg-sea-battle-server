@@ -3,11 +3,13 @@ package one.xis.seabattle.game;
 final class Ship {
 
     private static final double MAX_ACCEPTED_PLAYER_POSITION_DELTA = 90;
-    private static final double MAX_ACCEPTED_PLAYER_SPEED = 32;
-    private static final double SCOUT_PLANE_MIN_Y = 3;
-    private static final double SCOUT_PLANE_MAX_Y = 200;
-    private static final double BOT_SCOUT_PLANE_Y = 150;
-    private static final double BOT_SCOUT_PLANE_SPEED = 19;
+    private static final double MAX_ACCEPTED_PLAYER_SPEED = 48;
+    private static final double SCOUT_PLANE_ALTITUDE_SCALE = SeaBattleGameConfig.SCOUT_PLANE_ALTITUDE_SCALE;
+    private static final double BOT_SCOUT_PLANE_ALTITUDE_RESPONSE = 0.26;
+    private static final double SCOUT_PLANE_MIN_Y = 3 * SCOUT_PLANE_ALTITUDE_SCALE;
+    private static final double SCOUT_PLANE_MAX_Y = 200 * SCOUT_PLANE_ALTITUDE_SCALE;
+    private static final double BOT_SCOUT_PLANE_Y = 150 * SCOUT_PLANE_ALTITUDE_SCALE;
+    private static final double BOT_SCOUT_PLANE_SPEED = 28.5;
     private static final double MAX_ACCEPTED_PLAYER_TURN_VELOCITY = 1.2;
     private static final int ENGINE_FULL_ASTERN = 0;
     private static final int TORPEDO_STOCK = 12;
@@ -220,7 +222,7 @@ final class Ship {
         Vector2 previousPosition = position;
         double previousSpeed = speed;
         double targetSpeed = EngineOrders.speedFor(engineOrder);
-        double speedResponse = Math.abs(targetSpeed) > Math.abs(speed) ? 0.45 : 0.75;
+        double speedResponse = Math.abs(targetSpeed) > Math.abs(speed) ? 0.45 : 0.42;
         speed += (targetSpeed - speed) * Math.min(1, deltaSeconds * speedResponse);
 
         double rudderRatio = rudderDegrees / 35.0;
@@ -248,7 +250,7 @@ final class Ship {
         turnVelocity += (targetTurnVelocity - turnVelocity) * Math.min(1, deltaSeconds * 1.2);
         heading = MathSupport.normalizeAngle(heading + turnVelocity * deltaSeconds);
         position = position.add(Vector2.fromHeading(heading).scale(speed * deltaSeconds));
-        y += (botScoutPlaneTargetY - y) * Math.min(1, deltaSeconds * 0.49);
+        y += (botScoutPlaneTargetY - y) * Math.min(1, deltaSeconds * BOT_SCOUT_PLANE_ALTITUDE_RESPONSE);
         verticalSpeed = 0;
         engineOrder = 7;
     }

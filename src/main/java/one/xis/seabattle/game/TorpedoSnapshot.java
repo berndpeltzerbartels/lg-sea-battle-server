@@ -8,6 +8,8 @@ public record TorpedoSnapshot(
         double z,
         double heading,
         double speed,
+        double y,
+        double verticalSpeed,
         String state,
         double firedAt,
         int tubeSide

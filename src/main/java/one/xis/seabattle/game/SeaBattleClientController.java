@@ -196,6 +196,8 @@ public class SeaBattleClientController {
                 request.turnVelocity(),
                 request.engineOrder(),
                 request.rudderDegrees(),
+                request.y(),
+                request.verticalSpeed(),
                 request.tubeSide(),
                 request.clientTime()
         ));
