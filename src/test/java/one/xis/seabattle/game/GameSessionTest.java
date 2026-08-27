@@ -453,7 +453,7 @@ class GameSessionTest {
     }
 
     @Test
-    void flakShotIntoOwnShipIsBlockedCompletely() {
+    void flakShotCrossingOwnShipDoesNotHitShooter() {
         GameSession session = new GameSession(new GameSetup(
                 "flak-own-ship-hit-test",
                 new WorldMap(9039, List.of()),
@@ -476,8 +476,10 @@ class GameSessionTest {
         GameSnapshot snapshot = session.snapshot();
 
         assertEquals("active", findShip(snapshot, "light-1").state());
-        assertEquals(0, snapshot.flakProjectiles().size());
-        assertEquals(0, snapshot.flakImpacts().size());
+        assertEquals(1, snapshot.flakProjectiles().size());
+        assertEquals(0, snapshot.flakHits().size());
+        assertTrue(snapshot.flakImpacts().stream()
+                .noneMatch(impact -> "ship-hit".equals(impact.reason()) || "ship-critical-hit".equals(impact.reason())));
     }
 
     @Test
