@@ -4,6 +4,8 @@ import java.util.*;
 
 public final class GameSession {
 
+    private static final double TORPEDO_BOAT_MODEL_SCALE = SeaBattleGameConfig.TORPEDO_BOAT_SCALE;
+    private static final double SCOUT_PLANE_MODEL_SCALE = SeaBattleGameConfig.SCOUT_PLANE_SCALE;
     private static final double TORPEDO_BROAD_PHASE_RADIUS = 6.2;
     private static final double TORPEDO_HULL_MARGIN = 0.28;
     private static final double TORPEDO_SWEEP_STEP = 1.15;
@@ -15,28 +17,34 @@ public final class GameSession {
     private static final double BOT_SCOUT_PLANE_TORPEDO_COOLDOWN_SECONDS = 12.0;
     private static final double BOT_SCOUT_PLANE_ATTACK_RANGE = 360.0;
     private static final double BOT_SCOUT_PLANE_BOMB_MIN_RANGE = 35.0;
-    private static final double BOT_SCOUT_PLANE_BOMB_RANGE = 165.0;
+    private static final double BOT_SCOUT_PLANE_BOMB_RANGE = 245.0;
     private static final double BOT_SCOUT_PLANE_BOMB_FORWARD_TOLERANCE = 24.0;
     private static final double BOT_SCOUT_PLANE_BOMB_LATERAL_TOLERANCE = 18.0;
-    private static final double BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE = 105.0;
-    private static final double BOT_SCOUT_PLANE_TORPEDO_RANGE = 190.0;
+    private static final double BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE = 95.0;
+    private static final double BOT_SCOUT_PLANE_TORPEDO_RELEASE_RANGE = 260.0;
+    private static final double BOT_SCOUT_PLANE_TORPEDO_APPROACH_RANGE = 340.0;
     private static final double BOT_SCOUT_PLANE_ATTACK_ARC = Math.toRadians(32);
     private static final double BOT_SCOUT_PLANE_TORPEDO_ARC = Math.toRadians(14);
     private static final double BOT_SCOUT_PLANE_FLY_THROUGH_DISTANCE = 230.0;
     private static final double BOT_SCOUT_PLANE_FLY_THROUGH_COMPLETE_DISTANCE = 30.0;
     private static final double BOT_SCOUT_PLANE_FLY_THROUGH_SECONDS = 12.0;
-    private static final double BOT_SCOUT_PLANE_CRUISE_Y = 150.0;
-    private static final double BOT_SCOUT_PLANE_TORPEDO_ATTACK_Y = 55.0;
-    private static final double BOT_SCOUT_PLANE_BOMB_ATTACK_Y = 85.0;
-    private static final double BOT_SCOUT_PLANE_TERRAIN_CLEARANCE = 8.0;
+    private static final double SCOUT_PLANE_ALTITUDE_SCALE = SeaBattleGameConfig.SCOUT_PLANE_ALTITUDE_SCALE;
+    private static final double BOT_SCOUT_PLANE_CRUISE_Y = 150.0 * SCOUT_PLANE_ALTITUDE_SCALE;
+    private static final double BOT_SCOUT_PLANE_TORPEDO_ATTACK_Y = 55.0 * SCOUT_PLANE_ALTITUDE_SCALE;
+    private static final double BOT_SCOUT_PLANE_BOMB_ATTACK_Y = 85.0 * SCOUT_PLANE_ALTITUDE_SCALE;
+    private static final double BOT_SCOUT_PLANE_TERRAIN_CLEARANCE = 8.0 * SCOUT_PLANE_ALTITUDE_SCALE;
     private static final double BOT_SCOUT_PLANE_TORPEDO_LEAD_SECONDS = 2.2;
     private static final double BOT_SCOUT_PLANE_AIR_TORPEDO_RELEASE_OFFSET = 10.0;
-    private static final double SHIP_TORPEDO_BASE_SPEED = 24.0;
-    private static final double SHIP_TORPEDO_SPEED_GAIN = 0.35;
+    private static final double BOT_SCOUT_PLANE_AIR_TORPEDO_RELEASE_Y_OFFSET = 1.6 * SCOUT_PLANE_MODEL_SCALE;
+    private static final double SHIP_TORPEDO_SPEED_SCALE = Math.sqrt(TORPEDO_BOAT_MODEL_SCALE);
+    private static final double TORPEDO_SPEED_ADJUSTMENT = 0.8;
+    private static final double SHIP_TORPEDO_BASE_SPEED = 24.0 * SHIP_TORPEDO_SPEED_SCALE * TORPEDO_SPEED_ADJUSTMENT;
+    private static final double SHIP_TORPEDO_SPEED_GAIN = 0.35 * SHIP_TORPEDO_SPEED_SCALE * TORPEDO_SPEED_ADJUSTMENT;
     private static final double AIR_TORPEDO_SPEED_FACTOR = 0.75;
     private static final double BOT_SCOUT_PLANE_AIR_TORPEDO_BASE_SPEED = SHIP_TORPEDO_BASE_SPEED * AIR_TORPEDO_SPEED_FACTOR;
     private static final double BOT_SCOUT_PLANE_AIR_TORPEDO_SPEED_GAIN = SHIP_TORPEDO_SPEED_GAIN * AIR_TORPEDO_SPEED_FACTOR;
     private static final double BOT_SCOUT_PLANE_POST_TORPEDO_BOMB_DELAY_SECONDS = 1.1;
+    private static final double PLAYER_SCOUT_PLANE_TORPEDO_COOLDOWN_SECONDS = 1.5;
     private static final int BOT_SCOUT_PLANE_FORCE_HUMAN_SINGLE_TARGET_STREAK = 5;
     private static final int BOT_SCOUT_PLANE_FORCE_HUMAN_TWO_TARGET_STREAK = 6;
     private static final int BOT_SCOUT_PLANE_FORCE_HUMAN_MANY_TARGET_STREAK = 7;
@@ -53,15 +61,16 @@ public final class GameSession {
     private static final double BOMB_PATTERN_HEADING_JITTER = 0.008;
     private static final double BOMB_PATTERN_SPEED_JITTER = 1.1;
     private static final double BOMB_DROP_COOLDOWN_SECONDS = 2.8;
-    private static final double SCOUT_PLANE_MIN_BOMB_ALTITUDE = 3;
-    private static final double SCOUT_PLANE_MAX_BOMB_ALTITUDE = 200;
-    private static final double SCOUT_PLANE_MAX_BOMB_HORIZONTAL_SPEED = 28;
+    private static final double SCOUT_PLANE_MIN_BOMB_ALTITUDE = 3 * SCOUT_PLANE_ALTITUDE_SCALE;
+    private static final double SCOUT_PLANE_MAX_BOMB_ALTITUDE = 200 * SCOUT_PLANE_ALTITUDE_SCALE;
+    private static final double SCOUT_PLANE_MAX_BOMB_HORIZONTAL_SPEED = 42;
     private static final double SCOUT_PLANE_MAX_BOMB_INITIAL_UP_SPEED = 20;
     private static final double SCOUT_PLANE_MAX_BOMB_INITIAL_DOWN_SPEED = 34;
     private static final double BOT_SCOUT_PLANE_STABLE_ATTACK_TURN_RATE = 0.035;
     private static final double FLAK_FIRE_COOLDOWN_SECONDS = 0.059;
     private static final double CANNON_FIRE_COOLDOWN_SECONDS = 1.0;
     private static final double FLAK_HIT_VISIBILITY_SECONDS = 2.4;
+    private static final double AIRBORNE_TORPEDO_SWEEP_STEP = 1.0;
     private static final double FLAK_SWEEP_STEP = 1.5;
     private static final double CANNON_SWEEP_STEP = 0.45;
     private static final double CANNON_HULL_MARGIN = 0.42;
@@ -80,8 +89,10 @@ public final class GameSession {
     private static final double SCOUT_PLANE_VISUAL_BANK_PER_TURN_RATE = 2.35;
     private static final double SCOUT_PLANE_MAX_VISUAL_BANK = 0.72;
     private static final double FLAK_SHIP_HIT_MARGIN = 0.18;
+    private static final double TORPEDO_BOAT_MODEL_WATERLINE_Y = -0.2;
     private static final double TORPEDO_BOAT_STERN_Z = -4.2;
     private static final double TORPEDO_BOAT_BOW_Z = 3.68;
+    private static final double BOT_SHIP_TACTICAL_SCALE = TORPEDO_BOAT_MODEL_SCALE;
     private static final double RAM_HIT_RADIUS = 4.8;
     private static final double RAM_BOW_OFFSET = TORPEDO_BOAT_BOW_Z;
     private static final double RAM_STERN_LENGTH = TORPEDO_BOAT_STERN_Z;
@@ -94,14 +105,18 @@ public final class GameSession {
     private static final double RAM_GLANCING_HEADING_IMPULSE = Math.toRadians(9);
     private static final double BOT_FIRE_ARC = 0.16;
     private static final double BOT_CLOSE_FIRE_ARC = 1.15;
-    private static final double BOT_CLOSE_FIRE_RANGE = 145;
+    private static final double BOT_FIRE_MIN_RANGE = 65 * BOT_SHIP_TACTICAL_SCALE;
+    private static final double BOT_FIRE_MAX_RANGE = 230 * BOT_SHIP_TACTICAL_SCALE;
+    private static final double BOT_CLOSE_FIRE_RANGE = 145 * BOT_SHIP_TACTICAL_SCALE;
+    private static final double BOT_CLOSE_MANEUVER_RANGE = 130;
+    private static final double BOT_APPROACH_SLOW_RANGE = 230;
     private static final double BOT_AIM_ERROR = 0.055;
-    private static final double BOT_RAM_RANGE = 34;
-    private static final double BOT_TORPEDO_EVADE_RANGE = 115;
-    private static final double BOT_TORPEDO_LOOKOUT_FORWARD_OFFSET = 4.5;
+    private static final double BOT_RAM_RANGE = 34 * BOT_SHIP_TACTICAL_SCALE;
+    private static final double BOT_TORPEDO_EVADE_RANGE = 115 * BOT_SHIP_TACTICAL_SCALE;
+    private static final double BOT_TORPEDO_LOOKOUT_FORWARD_OFFSET = 4.5 * TORPEDO_BOAT_MODEL_SCALE;
     private static final double BOT_TORPEDO_LOOKOUT_ARC = 0.38;
     private static final double BOT_TORPEDO_INCOMING_ARC = 0.34;
-    private static final double BOT_TORPEDO_THREAT_CORRIDOR = 8.0;
+    private static final double BOT_TORPEDO_THREAT_CORRIDOR = 8.0 * TORPEDO_BOAT_MODEL_SCALE;
     private static final double BOT_RADAR_INTERCEPT_RANGE = 360;
     private static final double BOT_HUMAN_TARGET_PRIORITY_CLEARANCE = 320;
     private static final double BOT_RETURN_TO_LAND_DISTANCE = 720;
@@ -200,7 +215,7 @@ public final class GameSession {
                         .map(Ship::snapshot)
                         .toList(),
                 torpedoes.stream()
-                        .filter(torpedo -> "running".equals(torpedo.state()))
+                        .filter(torpedo -> "running".equals(torpedo.state()) || "airborne".equals(torpedo.state()))
                         .map(Torpedo::snapshot)
                         .toList(),
                 torpedoImpacts.stream()
@@ -239,7 +254,7 @@ public final class GameSession {
     public synchronized void applyPlayerState(PlayerStateUpdate update, NavigationService navigationService, WorldMap worldMap) {
         Fleet fleet = fleets.get(update.teamId());
         if (fleet == null) {
-            throw new IllegalArgumentException("Unknown team: " + update.teamId());
+            return;
         }
 
         Optional<Ship> assignedShip = fleet.assignedShip(update.playerId());
@@ -257,13 +272,29 @@ public final class GameSession {
     public synchronized void applyFireTorpedo(FireTorpedoRequest request) {
         Fleet fleet = fleets.get(request.teamId());
         if (fleet == null) {
-            throw new IllegalArgumentException("Unknown team: " + request.teamId());
+            return;
         }
 
         Ship ship = fleet.assignedShip(request.playerId())
                 .or(() -> fleet.assignNextShipToPlayer(request.playerId()))
                 .orElseThrow(() -> new IllegalStateException("No active ship available for team: " + request.teamId()));
-        if (ship.isScoutPlane() || "scout-plane".equals(request.vehicleType())) {
+        if ("scout-plane".equals(request.vehicleType())) {
+            if (!ship.isScoutPlane()) {
+                return;
+            }
+            if (request.includesPlayerState()) {
+                ship.applyScoutPlaneWeaponState(
+                        new Vector2(request.x(), request.z()),
+                        request.y(),
+                        request.heading(),
+                        request.speed(),
+                        request.verticalSpeed()
+                );
+            }
+            firePlayerAirTorpedo(ship, PLAYER_SCOUT_PLANE_TORPEDO_COOLDOWN_SECONDS, request.heading());
+            return;
+        }
+        if (ship.isScoutPlane()) {
             return;
         }
         fireTorpedo(ship, 2.4, 0, request.tubeSide());
@@ -277,12 +308,15 @@ public final class GameSession {
     public synchronized void applyDropBomb(BombDropRequest request) {
         Fleet fleet = fleets.get(request.teamId());
         if (fleet == null) {
-            throw new IllegalArgumentException("Unknown team: " + request.teamId());
+            return;
         }
 
         Ship ship = fleet.assignedShip(request.playerId())
                 .or(() -> fleet.assignNextShipToPlayer(request.playerId()))
                 .orElseThrow(() -> new IllegalStateException("No active ship available for team: " + request.teamId()));
+        if (!ship.isBotControlled()) {
+            return;
+        }
         if (!ship.isScoutPlane() && !"scout-plane".equals(request.vehicleType())) {
             return;
         }
@@ -330,7 +364,7 @@ public final class GameSession {
     public synchronized void applyFireFlak(FlakFireRequest request) {
         Fleet fleet = fleets.get(request.teamId());
         if (fleet == null) {
-            throw new IllegalArgumentException("Unknown team: " + request.teamId());
+            return;
         }
 
         Ship ship = fleet.assignedShip(request.playerId())
@@ -362,7 +396,7 @@ public final class GameSession {
     public synchronized void applyFireCannon(FlakFireRequest request) {
         Fleet fleet = fleets.get(request.teamId());
         if (fleet == null) {
-            throw new IllegalArgumentException("Unknown team: " + request.teamId());
+            return;
         }
 
         Ship ship = fleet.assignedShip(request.playerId())
@@ -394,7 +428,7 @@ public final class GameSession {
     public synchronized void applyClientPlaneHit(ClientPlaneHitRequest request) {
         Fleet fleet = fleets.get(request.teamId());
         if (fleet == null) {
-            throw new IllegalArgumentException("Unknown team: " + request.teamId());
+            return;
         }
 
         Ship shooter = fleet.assignedShip(request.playerId())
@@ -449,7 +483,7 @@ public final class GameSession {
         updateFlakTerrainImpacts(worldMap);
         updateRamCollisions();
         respawnSunkShips(navigationService, worldMap, radarService);
-        torpedoes.removeIf(torpedo -> !"running".equals(torpedo.state()));
+        torpedoes.removeIf(torpedo -> !torpedoVisibleInWorld(torpedo));
         torpedoImpacts.removeIf(impact -> nowSeconds - impact.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
         bombs.removeIf(bomb -> !"falling".equals(bomb.state()));
         bombImpacts.removeIf(impact -> nowSeconds - impact.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
@@ -472,7 +506,7 @@ public final class GameSession {
         updateFlakHits();
         updateFlakTerrainImpacts(worldMap);
         respawnSunkShips(navigationService, worldMap, radarService);
-        torpedoes.removeIf(torpedo -> !"running".equals(torpedo.state()));
+        torpedoes.removeIf(torpedo -> !torpedoVisibleInWorld(torpedo));
         torpedoImpacts.removeIf(impact -> nowSeconds - impact.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
         bombs.removeIf(bomb -> !"falling".equals(bomb.state()));
         bombImpacts.removeIf(impact -> nowSeconds - impact.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
@@ -531,7 +565,10 @@ public final class GameSession {
         Vector2 bombTarget = bombSolution.targetPosition();
         double distance = plane.position().distanceTo(ship.position());
         boolean inBombWindow = distance >= BOT_SCOUT_PLANE_BOMB_MIN_RANGE && distance <= BOT_SCOUT_PLANE_BOMB_RANGE;
-        boolean inTorpedoWindow = distance >= BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE && distance <= BOT_SCOUT_PLANE_TORPEDO_RANGE;
+        boolean inTorpedoReleaseWindow = distance >= BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE
+                && distance <= BOT_SCOUT_PLANE_TORPEDO_RELEASE_RANGE;
+        boolean preferTorpedoAttack = distance >= BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE
+                && distance <= BOT_SCOUT_PLANE_TORPEDO_APPROACH_RANGE;
         Optional<Vector2> flyThroughTarget = botScoutPlaneFlyThroughTarget(plane, distance);
         if (flyThroughTarget.isPresent()) {
             plane.botScoutPlaneTargetY(BOT_SCOUT_PLANE_BOMB_ATTACK_Y);
@@ -544,7 +581,7 @@ public final class GameSession {
             applyScoutPlaneBotCommand(plane, angleTo(flyThrough, plane.position()));
             return;
         }
-        Vector2 aimTarget = inBombWindow ? bombTarget : torpedoTarget;
+        Vector2 aimTarget = preferTorpedoAttack ? torpedoTarget : bombTarget;
         double targetBearing = relativeBearing(plane, aimTarget);
         if (distance > BOT_SCOUT_PLANE_ATTACK_RANGE) {
             plane.botScoutPlaneTargetY(BOT_SCOUT_PLANE_CRUISE_Y);
@@ -552,22 +589,28 @@ public final class GameSession {
             return;
         }
 
-        plane.botScoutPlaneTargetY(inBombWindow ? BOT_SCOUT_PLANE_BOMB_ATTACK_Y : BOT_SCOUT_PLANE_TORPEDO_ATTACK_Y);
+        plane.botScoutPlaneTargetY(preferTorpedoAttack ? BOT_SCOUT_PLANE_TORPEDO_ATTACK_Y : BOT_SCOUT_PLANE_BOMB_ATTACK_Y);
         applyScoutPlaneBotCommand(plane, MathSupport.normalizeAngle(plane.heading() + targetBearing));
         if (Math.abs(targetBearing) > BOT_SCOUT_PLANE_ATTACK_ARC) {
             return;
         }
 
-        if (inTorpedoWindow
+        if (preferTorpedoAttack
+                && inTorpedoReleaseWindow
                 && torpedoSolution.canRelease()
                 && nowSeconds >= nextBotScoutPlaneTorpedoTime
                 && plane.canDropBomb(nowSeconds)) {
             fireAirTorpedo(plane, BOT_SCOUT_PLANE_TORPEDO_COOLDOWN_SECONDS, torpedoSolution.heading());
             recordBotScoutPlaneAttack(plane, ship);
+            return;
         }
-        if (inBombWindow && bombSolution.canRelease() && plane.canDropBomb(nowSeconds)) {
+        if (inBombWindow
+                && (!preferTorpedoAttack || distance < BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE)
+                && bombSolution.canRelease()
+                && plane.canDropBomb(nowSeconds)) {
             dropBombsFromScoutPlane(plane, BOT_SCOUT_PLANE_BOMB_COOLDOWN_SECONDS);
             recordBotScoutPlaneAttack(plane, ship);
+            return;
         }
     }
 
@@ -634,7 +677,7 @@ public final class GameSession {
         }
         if (nowSeconds >= botScoutPlaneFlyThroughUntil.getOrDefault(plane.id(), 0.0)
                 || plane.position().distanceTo(target) <= BOT_SCOUT_PLANE_FLY_THROUGH_COMPLETE_DISTANCE
-                || distanceToTarget >= BOT_SCOUT_PLANE_TORPEDO_RANGE + 40.0) {
+                || distanceToTarget >= BOT_SCOUT_PLANE_TORPEDO_APPROACH_RANGE + 40.0) {
             clearBotScoutPlaneFlyThrough(plane);
             return Optional.empty();
         }
@@ -1201,7 +1244,7 @@ public final class GameSession {
         applyBotCommand(ship, engineOrder, rudder, navigationService, worldMap);
 
         boolean closeInFront = distance <= BOT_CLOSE_FIRE_RANGE && Math.abs(targetBearing) <= BOT_CLOSE_FIRE_ARC;
-        boolean aimedShot = distance >= 65 && distance <= 230 && Math.abs(steerError) <= BOT_FIRE_ARC;
+        boolean aimedShot = distance >= BOT_FIRE_MIN_RANGE && distance <= BOT_FIRE_MAX_RANGE && Math.abs(steerError) <= BOT_FIRE_ARC;
         if (!SCOUT_PLANE_EXPERIMENT_PEACEFUL_BOTS && (closeInFront || aimedShot)) {
             fireTorpedo(ship, 10.5 + Math.abs(Math.sin(stablePhase(ship.id()))) * 3.0, aimError * 0.65);
         }
@@ -1212,7 +1255,7 @@ public final class GameSession {
         if (distance < BOT_RAM_RANGE) {
             return absoluteBearing <= Math.toRadians(30) ? ENGINE_ONE_THIRD : ENGINE_FULL;
         }
-        if (distance < 130) {
+        if (distance < BOT_CLOSE_MANEUVER_RANGE) {
             if (absoluteBearing <= Math.toRadians(30)) {
                 return ENGINE_ONE_THIRD;
             }
@@ -1224,7 +1267,7 @@ public final class GameSession {
         if (distance > BOT_RADAR_INTERCEPT_RANGE) {
             return ENGINE_FULL;
         }
-        if (distance > 230) {
+        if (distance > BOT_APPROACH_SLOW_RANGE) {
             return ENGINE_TWO_THIRDS;
         }
         return ENGINE_HALF;
@@ -1243,7 +1286,7 @@ public final class GameSession {
                 RamImpact leftImpact = ramImpact(left, right);
                 RamImpact rightImpact = ramImpact(right, left);
                 if (!leftImpact.hits() && !rightImpact.hits()
-                        && left.position().distanceTo(right.position()) > RAM_HIT_RADIUS) {
+                        && left.position().distanceTo(right.position()) > RAM_HIT_RADIUS * TORPEDO_BOAT_MODEL_SCALE) {
                     continue;
                 }
 
@@ -1323,7 +1366,7 @@ public final class GameSession {
 
     private RamImpact ramImpactAt(Ship attacker, Ship target, double bowOffset) {
         Vector2 attackerBow = attacker.position()
-                .add(Vector2.fromHeading(attacker.heading()).scale(bowOffset));
+                .add(Vector2.fromHeading(attacker.heading()).scale(bowOffset * TORPEDO_BOAT_MODEL_SCALE));
         LocalHullPoint hit = localHullPoint(attackerBow, target);
         if (!forwardInsideTorpedoBoatHull(hit.forward(), RAM_SIDE_MARGIN)) {
             return RamImpact.miss();
@@ -1353,9 +1396,13 @@ public final class GameSession {
         double dx = point.x() - ship.position().x();
         double dz = point.z() - ship.position().z();
         return new LocalHullPoint(
-                dx * Math.cos(ship.heading()) - dz * Math.sin(ship.heading()),
-                dx * Math.sin(ship.heading()) + dz * Math.cos(ship.heading())
+                (dx * Math.cos(ship.heading()) - dz * Math.sin(ship.heading())) / TORPEDO_BOAT_MODEL_SCALE,
+                (dx * Math.sin(ship.heading()) + dz * Math.cos(ship.heading())) / TORPEDO_BOAT_MODEL_SCALE
         );
+    }
+
+    private double localShipY(double y, Ship ship, double scale) {
+        return (y - ship.y()) / scale - TORPEDO_BOAT_MODEL_WATERLINE_Y;
     }
 
     private double enemyHullHalfWidthAt(double forward) {
@@ -1402,6 +1449,15 @@ public final class GameSession {
                 recordTorpedoImpact(torpedo, "expired", null);
                 continue;
             }
+            if ("airborne".equals(torpedo.state())) {
+                airborneTorpedoHitsScoutPlane(torpedo)
+                        .ifPresent(plane -> {
+                            sinkShip(plane, shooterController(torpedo.shipId()));
+                            torpedo.hit();
+                            recordTorpedoImpact(torpedo, "plane-hit", plane.id());
+                        });
+                continue;
+            }
             if (!"running".equals(torpedo.state())) {
                 continue;
             }
@@ -1424,6 +1480,37 @@ public final class GameSession {
                         recordTorpedoImpact(torpedo, "ship-hit", ship.id());
                     });
         }
+    }
+
+    private Optional<Ship> airborneTorpedoHitsScoutPlane(Torpedo torpedo) {
+        return allShips().stream()
+                .filter(ship -> "active".equals(ship.state()))
+                .filter(Ship::isScoutPlane)
+                .filter(ship -> !ship.id().equals(torpedo.shipId()))
+                .filter(ship -> torpedoAirSegmentHitsScoutPlane(torpedo, ship))
+                .findFirst();
+    }
+
+    private boolean torpedoAirSegmentHitsScoutPlane(Torpedo torpedo, Ship plane) {
+        double dx = torpedo.position().x() - torpedo.previousPosition().x();
+        double dy = torpedo.y() - torpedo.previousY();
+        double dz = torpedo.position().z() - torpedo.previousPosition().z();
+        double segmentLength = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        int samples = Math.max(1, (int) Math.ceil(segmentLength / AIRBORNE_TORPEDO_SWEEP_STEP));
+        for (int index = 0; index <= samples; index += 1) {
+            double t = (double) index / samples;
+            double x = torpedo.previousPosition().x() + dx * t;
+            double y = torpedo.previousY() + dy * t;
+            double z = torpedo.previousPosition().z() + dz * t;
+            if (pointHitsScoutPlane(x, y, z, plane)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean torpedoVisibleInWorld(Torpedo torpedo) {
+        return "running".equals(torpedo.state()) || "airborne".equals(torpedo.state());
     }
 
     private void recordTorpedoImpact(Torpedo torpedo, String reason, String targetShipId) {
@@ -1589,7 +1676,7 @@ public final class GameSession {
     }
 
     private Optional<FlakTargetHit> flakProjectileHitsTarget(FlakProjectile projectile, Ship ship) {
-        if (distanceToFlakSegment2D(projectile, ship.position()) > (ship.isScoutPlane() ? 9.0 : 7.2)) {
+        if (distanceToFlakSegment2D(projectile, ship.position()) > (ship.isScoutPlane() ? 9.0 * SCOUT_PLANE_MODEL_SCALE : 7.2 * TORPEDO_BOAT_MODEL_SCALE)) {
             return Optional.empty();
         }
         return ship.isScoutPlane()
@@ -1669,23 +1756,25 @@ public final class GameSession {
         if (!forwardInsideTorpedoBoatHull(hit.forward(), CANNON_HULL_MARGIN)) {
             return false;
         }
+        double localY = localShipY(y, ship, TORPEDO_BOAT_MODEL_SCALE);
         double deckHeight = torpedoBoatDeckY(hit.forward()) + CANNON_HULL_DECK_MARGIN;
-        return y >= CANNON_HULL_MIN_Y
-                && y <= deckHeight
+        return localY >= CANNON_HULL_MIN_Y
+                && localY <= deckHeight
                 && Math.abs(hit.right()) <= enemyHullHalfWidthAt(hit.forward()) + CANNON_HULL_MARGIN;
     }
 
     private FlakShipHitArea shipFlakHitArea(double x, double y, double z, Ship ship) {
         LocalHullPoint hit = localHullPoint(new Vector2(x, z), ship);
+        double localY = localShipY(y, ship, TORPEDO_BOAT_MODEL_SCALE);
         double absRight = Math.abs(hit.right());
-        if (y >= 0.72 && y <= 1.72 && hit.forward() >= 0.32 && hit.forward() <= 1.24 && absRight <= 0.62) {
+        if (localY >= 0.72 && localY <= 1.72 && hit.forward() >= 0.32 && hit.forward() <= 1.24 && absRight <= 0.62) {
             return FlakShipHitArea.CRITICAL;
         }
-        if (y >= 0.78 && y <= 1.92 && hit.forward() >= -1.5 && hit.forward() <= 0.24 && absRight <= 0.26) {
+        if (localY >= 0.78 && localY <= 1.92 && hit.forward() >= -1.5 && hit.forward() <= 0.24 && absRight <= 0.26) {
             return FlakShipHitArea.CRITICAL;
         }
         double deckClearance = torpedoBoatDeckY(hit.forward()) + 0.025;
-        if (y >= 0.1 && y <= deckClearance
+        if (localY >= 0.1 && localY <= deckClearance
                 && forwardInsideTorpedoBoatHull(hit.forward(), FLAK_SHIP_HIT_MARGIN)
                 && absRight <= enemyHullHalfWidthAt(hit.forward()) + FLAK_SHIP_HIT_MARGIN) {
             return FlakShipHitArea.SURFACE;
@@ -1731,9 +1820,9 @@ public final class GameSession {
     private boolean pointHitsScoutPlane(double x, double y, double z, Ship plane) {
         double dx = x - plane.position().x();
         double dz = z - plane.position().z();
-        double right = dx * Math.cos(plane.heading()) - dz * Math.sin(plane.heading());
-        double forward = dx * Math.sin(plane.heading()) + dz * Math.cos(plane.heading());
-        double vertical = y - plane.y();
+        double right = (dx * Math.cos(plane.heading()) - dz * Math.sin(plane.heading())) / SCOUT_PLANE_MODEL_SCALE;
+        double forward = (dx * Math.sin(plane.heading()) + dz * Math.cos(plane.heading())) / SCOUT_PLANE_MODEL_SCALE;
+        double vertical = (y - plane.y()) / SCOUT_PLANE_MODEL_SCALE;
         double bank = MathSupport.clamp(
                 -plane.turnVelocity() * SCOUT_PLANE_VISUAL_BANK_PER_TURN_RATE,
                 -SCOUT_PLANE_MAX_VISUAL_BANK,
@@ -1849,7 +1938,7 @@ public final class GameSession {
     }
 
     private boolean bombHitsShip(Bomb bomb, Ship ship) {
-        if (ship.position().distanceTo(bomb.position()) > BOMB_HIT_RADIUS) {
+        if (ship.position().distanceTo(bomb.position()) > BOMB_HIT_RADIUS * TORPEDO_BOAT_MODEL_SCALE) {
             return false;
         }
         return pointHitsShipHull(bomb.position(), ship, BOMB_HULL_MARGIN);
@@ -1885,8 +1974,8 @@ public final class GameSession {
     }
 
     private boolean torpedoHitsShip(Torpedo torpedo, Ship ship) {
-        if (ship.position().distanceTo(torpedo.position()) > TORPEDO_BROAD_PHASE_RADIUS
-                && ship.position().distanceTo(torpedo.previousPosition()) > TORPEDO_BROAD_PHASE_RADIUS) {
+        if (ship.position().distanceTo(torpedo.position()) > TORPEDO_BROAD_PHASE_RADIUS * TORPEDO_BOAT_MODEL_SCALE
+                && ship.position().distanceTo(torpedo.previousPosition()) > TORPEDO_BROAD_PHASE_RADIUS * TORPEDO_BOAT_MODEL_SCALE) {
             return false;
         }
 
@@ -2124,7 +2213,12 @@ public final class GameSession {
 
         ship.markFired(nowSeconds, cooldownSeconds);
         double heading = MathSupport.normalizeAngle(ship.heading() + headingOffsetRadians);
-        Vector2 muzzlePosition = ship.position().add(Vector2.fromHeading(heading).scale(5.0));
+        int tubeSide = normalizeTubeSide(requestedTubeSide);
+        Vector2 forward = Vector2.fromHeading(heading);
+        Vector2 right = new Vector2(Math.cos(heading), -Math.sin(heading));
+        Vector2 muzzlePosition = ship.position()
+                .add(forward.scale(5.0 * TORPEDO_BOAT_MODEL_SCALE))
+                .add(right.scale(tubeSide * 0.56 * TORPEDO_BOAT_MODEL_SCALE));
         torpedoes.add(new Torpedo(
                 "torpedo-" + nextTorpedoId++,
                 ship.teamId(),
@@ -2134,7 +2228,7 @@ public final class GameSession {
                 SHIP_TORPEDO_BASE_SPEED + Math.max(0, ship.speed()) * SHIP_TORPEDO_SPEED_GAIN,
                 nowSeconds,
                 RadarService.TORPEDO_RANGE,
-                normalizeTubeSide(requestedTubeSide)
+                tubeSide
         ));
         return true;
     }
@@ -2155,18 +2249,44 @@ public final class GameSession {
     private boolean fireAirTorpedo(Ship plane, double cooldownSeconds, double heading) {
         heading = MathSupport.normalizeAngle(heading);
         Vector2 releasePosition = plane.position().add(Vector2.fromHeading(heading).scale(BOT_SCOUT_PLANE_AIR_TORPEDO_RELEASE_OFFSET));
-        torpedoes.add(new Torpedo(
+        torpedoes.add(Torpedo.airDropped(
                 "torpedo-" + nextTorpedoId++,
                 plane.teamId(),
                 plane.id(),
                 releasePosition,
                 heading,
+                Math.max(0, plane.speed()),
                 airTorpedoSpeed(plane),
+                plane.y() - BOT_SCOUT_PLANE_AIR_TORPEDO_RELEASE_Y_OFFSET,
+                plane.verticalSpeed(),
                 nowSeconds,
                 RadarService.TORPEDO_RANGE
         ));
         plane.markFired(nowSeconds, BOT_SCOUT_PLANE_POST_TORPEDO_BOMB_DELAY_SECONDS);
         nextBotScoutPlaneTorpedoTime = nowSeconds + cooldownSeconds;
+        return true;
+    }
+
+    private boolean firePlayerAirTorpedo(Ship plane, double cooldownSeconds, double heading) {
+        if (!plane.canDropBomb(nowSeconds)) {
+            return false;
+        }
+        heading = MathSupport.normalizeAngle(heading);
+        Vector2 releasePosition = plane.position().add(Vector2.fromHeading(heading).scale(BOT_SCOUT_PLANE_AIR_TORPEDO_RELEASE_OFFSET));
+        torpedoes.add(Torpedo.airDropped(
+                "torpedo-" + nextTorpedoId++,
+                plane.teamId(),
+                plane.id(),
+                releasePosition,
+                heading,
+                Math.max(0, plane.speed()),
+                airTorpedoSpeed(plane),
+                plane.y() - BOT_SCOUT_PLANE_AIR_TORPEDO_RELEASE_Y_OFFSET,
+                plane.verticalSpeed(),
+                nowSeconds,
+                RadarService.TORPEDO_RANGE
+        ));
+        plane.markFired(nowSeconds, cooldownSeconds);
         return true;
     }
 

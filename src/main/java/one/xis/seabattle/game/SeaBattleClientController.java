@@ -88,6 +88,12 @@ public class SeaBattleClientController {
         return gameStateService.worldMap();
     }
 
+    @Get("/game/config")
+    @Produces(ContentType.JSON_UTF8)
+    public SeaBattleGameConfig getGameConfig() {
+        return SeaBattleGameConfig.current();
+    }
+
     @Get("/game/debug/respawn-candidates")
     @Produces(ContentType.JSON_UTF8)
     public List<Vector2> getRespawnCandidates() {
@@ -190,6 +196,8 @@ public class SeaBattleClientController {
                 request.turnVelocity(),
                 request.engineOrder(),
                 request.rudderDegrees(),
+                request.y(),
+                request.verticalSpeed(),
                 request.tubeSide(),
                 request.clientTime()
         ));

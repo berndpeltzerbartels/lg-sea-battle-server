@@ -106,7 +106,9 @@ public class GameStateService {
                         (int) Math.round(request.rudderDegrees()),
                         request.clientTime(),
                         false,
-                        request.vehicleType()
+                        request.vehicleType(),
+                        request.y(),
+                        request.verticalSpeed()
                 ), navigationService, session.worldMap());
             }
             session.applyFireTorpedo(request);

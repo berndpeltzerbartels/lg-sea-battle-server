@@ -84,8 +84,8 @@ class GameStateServiceTest {
         ));
 
         TorpedoSnapshot torpedo = after.torpedoes().get(after.torpedoes().size() - 1);
-        assertEquals(x + 5, torpedo.x(), 1.0);
-        assertEquals(z, torpedo.z(), 1.0);
+        assertEquals(x + 15, torpedo.x(), 1.0);
+        assertEquals(z - 1.68, torpedo.z(), 0.2);
         assertEquals(heading, torpedo.heading(), 0.001);
     }
 
