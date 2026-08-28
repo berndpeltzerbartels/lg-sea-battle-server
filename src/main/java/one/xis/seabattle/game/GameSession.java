@@ -382,7 +382,10 @@ public final class GameSession {
 
         Ship ship = fleet.assignedShip(request.playerId())
                 .or(() -> fleet.assignNextShipToPlayer(request.playerId()))
-                .orElseThrow(() -> new IllegalStateException("No active ship available for team: " + request.teamId()));
+                .orElse(null);
+        if (ship == null) {
+            return;
+        }
         if (ship.isScoutPlane() || !ship.id().equals(request.shipId()) || !canFireFlak(ship)) {
             return;
         }
@@ -414,7 +417,10 @@ public final class GameSession {
 
         Ship ship = fleet.assignedShip(request.playerId())
                 .or(() -> fleet.assignNextShipToPlayer(request.playerId()))
-                .orElseThrow(() -> new IllegalStateException("No active ship available for team: " + request.teamId()));
+                .orElse(null);
+        if (ship == null) {
+            return;
+        }
         if (ship.isScoutPlane() || !ship.id().equals(request.shipId()) || !canFireCannon(ship)) {
             return;
         }

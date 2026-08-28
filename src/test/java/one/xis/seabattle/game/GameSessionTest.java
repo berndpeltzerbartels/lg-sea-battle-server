@@ -1414,6 +1414,31 @@ class GameSessionTest {
     }
 
     @Test
+    void shipGunRequestsWithoutAvailableShipAreIgnored() {
+        GameSession session = new GameSession(new GameSetup(
+                "no-ship-for-gun-request-test",
+                new WorldMap(90301, List.of()),
+                List.of(new FleetSetup("light", List.of(
+                        ship("light-1", "light", 0, 0, 0, "player-other-1", ENGINE_HALF, 0, 0),
+                        ship("light-2", "light", 30, 0, 0, "player-other-2", ENGINE_HALF, 0, 0)
+                ))),
+                List.of(new Vector2(0, 0))
+        ));
+
+        assertDoesNotThrow(() -> session.fireFlak(new FlakFireRequest(
+                "player-new", "light", "light-1", 0, 5, 0, 0, 0, 180, 0, 0
+        )));
+        assertDoesNotThrow(() -> session.fireCannon(new FlakFireRequest(
+                "player-new", "light", "light-1", 0, 5, 0, 0, 0, 260, 0, 0
+        )));
+
+        GameSnapshot snapshot = session.snapshot();
+        assertTrue(snapshot.flakProjectiles().isEmpty());
+        assertEquals("player-other-1", findShip(snapshot, "light-1").controlledBy());
+        assertEquals("player-other-2", findShip(snapshot, "light-2").controlledBy());
+    }
+
+    @Test
     void escortBotUsesFlankWhenFallingBehindHumanLeader() {
         GameSession session = new GameSession(new GameSetup(
                 "escort-speed-test",
