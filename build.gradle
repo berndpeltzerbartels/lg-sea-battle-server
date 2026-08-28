@@ -132,7 +132,7 @@ tasks.register('runDirectBenchmark', JavaExec) {
     group = 'verification'
     description = 'Runs the Sea Battle direct in-memory benchmark without HTTP.'
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'one.xis.seabattle.GameSessionDirectBenchmarkMain'
+    mainClass = 'one.xis.seabattle.game.GameSessionDirectBenchmarkMain'
     args = [
             '--clients', project.findProperty('clients') ?: '30',
             '--update-clients', project.findProperty('updateClients') ?: '1',
@@ -176,7 +176,7 @@ tasks.register('compileDirectBenchmarkNative', Exec) {
                 '-march=native',
                 '-cp',
                 nativeClasspath,
-                'one.xis.seabattle.GameSessionDirectBenchmarkMain',
+                'one.xis.seabattle.game.GameSessionDirectBenchmarkMain',
                 outputFile.absolutePath
     }
 }

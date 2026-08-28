@@ -2061,6 +2061,66 @@ class GameSessionTest {
     }
 
     @Test
+    void joiningPlayerCreatesAdditionalShipWhenAllBoatsAreHumanControlled() {
+        GameSession session = new GameSession(new GameSetup(
+                "player-overflow-test",
+                new WorldMap(9029, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-1", "red", -100, 0, 0, "player-AA-test", 2, 0),
+                                ship("red-2", "red", 0, 0, 0, "player-BB-test", 2, 0),
+                                ship("red-3", "red", 100, 0, 0, "player-CC-test", 2, 0)
+                        )),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 400, 0, Math.PI, 2, 0)))
+                ),
+                List.of(new Vector2(-100, 0), new Vector2(0, 0), new Vector2(100, 0), new Vector2(400, 0))
+        ));
+
+        GameSnapshot snapshot = session.updatePlayerState(new PlayerStateUpdate(
+                "player-DD-test", "red", 180, 0, 0, 0, 0, 2, 0, 0, false, "torpedo-boat"
+        ), navigationService, session.worldMap());
+
+        List<ShipSnapshot> redShips = snapshot.ships().stream()
+                .filter(ship -> "red".equals(ship.teamId()))
+                .toList();
+        assertEquals(4, redShips.size());
+        ShipSnapshot joinedShip = redShips.stream()
+                .filter(ship -> "player-DD-test".equals(ship.controlledBy()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals("torpedo-boat", joinedShip.vehicleType());
+        assertEquals(180, joinedShip.x(), 0.001);
+        assertEquals(0, joinedShip.z(), 0.001);
+    }
+
+    @Test
+    void releasingAdditionalHumanShipRemovesItInsteadOfCreatingExtraBot() {
+        GameSession session = new GameSession(new GameSetup(
+                "player-overflow-release-test",
+                new WorldMap(9030, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-1", "red", -100, 0, 0, "player-AA-test", 2, 0),
+                                ship("red-2", "red", 0, 0, 0, "player-BB-test", 2, 0)
+                        )),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 400, 0, Math.PI, 2, 0)))
+                ),
+                List.of(new Vector2(-100, 0), new Vector2(0, 0), new Vector2(400, 0))
+        ));
+        session.updatePlayerState(new PlayerStateUpdate(
+                "player-CC-test", "red", 180, 0, 0, 0, 0, 2, 0, 0, false, "torpedo-boat"
+        ), navigationService, session.worldMap());
+
+        session.releasePlayer("player-CC-test");
+
+        List<ShipSnapshot> redShips = session.snapshot().ships().stream()
+                .filter(ship -> "red".equals(ship.teamId()))
+                .toList();
+        assertEquals(2, redShips.size());
+        assertTrue(redShips.stream().noneMatch(ship -> "player-CC-test".equals(ship.controlledBy())));
+    }
+
+    @Test
     void playerStateUsesClientPositionWithoutServerAdvancingHumanShip() {
         GameSession session = new GameSession(new GameSetup(
                 "client-authority-test",

@@ -261,7 +261,13 @@ public final class GameSession {
         Optional<Ship> assignedShip = fleet.assignedShip(update.playerId());
         Ship ship = assignedShip
                 .or(() -> fleet.assignNextShipToPlayer(update.playerId()))
-                .orElseThrow(() -> new IllegalStateException("No active ship available for team: " + update.teamId()));
+                .orElseGet(() -> fleet.assignAdditionalShipToPlayer(
+                        update.playerId(),
+                        new Vector2(update.x(), update.z()),
+                        update.heading(),
+                        update.vehicleType(),
+                        update.y()
+                ));
         ship.applyPlayerState(update, navigationService, worldMap);
     }
 
@@ -278,7 +284,13 @@ public final class GameSession {
 
         Ship ship = fleet.assignedShip(request.playerId())
                 .or(() -> fleet.assignNextShipToPlayer(request.playerId()))
-                .orElseThrow(() -> new IllegalStateException("No active ship available for team: " + request.teamId()));
+                .orElseGet(() -> fleet.assignAdditionalShipToPlayer(
+                        request.playerId(),
+                        new Vector2(request.x(), request.z()),
+                        request.heading(),
+                        request.vehicleType(),
+                        request.y()
+                ));
         if ("scout-plane".equals(request.vehicleType())) {
             if (!ship.isScoutPlane()) {
                 return;
