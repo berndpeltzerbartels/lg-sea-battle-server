@@ -2146,6 +2146,39 @@ class GameSessionTest {
     }
 
     @Test
+    void sinkingAdditionalHumanShipRemovesItInsteadOfRespawningExtraBot() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "player-overflow-sink-test",
+                new WorldMap(9030, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-1", "red", -100, 0, 0, "player-AA-test", 2, 0),
+                                ship("red-2", "red", 0, 0, 0, "player-BB-test", 2, 0)
+                        )),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 400, 0, Math.PI, 2, 0)))
+                ),
+                List.of(new Vector2(-100, 0), new Vector2(0, 0), new Vector2(400, 0))
+        ));
+        GameSnapshot joined = session.updatePlayerState(new PlayerStateUpdate(
+                "player-CC-test", "red", 180, 0, 0, 0, 0, 2, 0, 0, false, "torpedo-boat"
+        ), navigationService, session.worldMap());
+        String extraShipId = joined.ships().stream()
+                .filter(ship -> "player-CC-test".equals(ship.controlledBy()))
+                .findFirst()
+                .orElseThrow()
+                .id();
+
+        sinkShip(session, extraShipId);
+        session.update(10, radarService, navigationService, session.worldMap());
+
+        List<ShipSnapshot> redShips = session.snapshot().ships().stream()
+                .filter(ship -> "red".equals(ship.teamId()))
+                .toList();
+        assertEquals(2, redShips.size());
+        assertTrue(redShips.stream().noneMatch(ship -> extraShipId.equals(ship.id())));
+    }
+
+    @Test
     void playerStateUsesClientPositionWithoutServerAdvancingHumanShip() {
         GameSession session = new GameSession(new GameSetup(
                 "client-authority-test",

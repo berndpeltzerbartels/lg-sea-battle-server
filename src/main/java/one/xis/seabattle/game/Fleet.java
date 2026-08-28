@@ -97,6 +97,9 @@ final class Fleet {
 
     void releaseShip(String shipId) {
         activeShipIdByPlayerId.entrySet().removeIf(entry -> shipId.equals(entry.getValue()));
+        if (additionalHumanShipIds.remove(shipId)) {
+            ships.removeIf(ship -> ship.id().equals(shipId));
+        }
     }
 
     void releasePlayer(String playerId) {
