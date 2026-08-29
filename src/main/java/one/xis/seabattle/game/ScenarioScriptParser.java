@@ -16,7 +16,7 @@ final class ScenarioScriptParser {
     private static final int ENGINE_SLOW = 3;
     private static final int ENGINE_HALF = 5;
     private static final int ENGINE_TWO_THIRDS = 6;
-    private static final int ENGINE_FULL = 7;
+    private static final int ENGINE_FULL = 8;
 
     private ScenarioScriptParser() {
     }

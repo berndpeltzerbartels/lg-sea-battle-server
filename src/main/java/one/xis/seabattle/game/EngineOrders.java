@@ -2,7 +2,7 @@ package one.xis.seabattle.game;
 
 final class EngineOrders {
 
-    private static final double[] SPEEDS = {-8.0, -2.2, 0, 0.69, 2.25, 4.75, 8.0, 12.0, 15.5};
+    private static final double[] SPEEDS = {-8.0, -2.2, 0, 0.9, 2.93, 6.18, 10.4, 12.0, 15.5};
 
     private EngineOrders() {
     }

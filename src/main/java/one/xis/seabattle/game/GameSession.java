@@ -29,10 +29,10 @@ public final class GameSession {
     private static final double BOT_SCOUT_PLANE_FLY_THROUGH_COMPLETE_DISTANCE = 30.0;
     private static final double BOT_SCOUT_PLANE_FLY_THROUGH_SECONDS = 12.0;
     private static final double SCOUT_PLANE_ALTITUDE_SCALE = SeaBattleGameConfig.SCOUT_PLANE_ALTITUDE_SCALE;
-    private static final double BOT_SCOUT_PLANE_CRUISE_Y = 150.0 * SCOUT_PLANE_ALTITUDE_SCALE;
-    private static final double BOT_SCOUT_PLANE_TORPEDO_ATTACK_Y = 55.0 * SCOUT_PLANE_ALTITUDE_SCALE;
-    private static final double BOT_SCOUT_PLANE_BOMB_ATTACK_Y = 85.0 * SCOUT_PLANE_ALTITUDE_SCALE;
-    private static final double BOT_SCOUT_PLANE_TORPEDO_RELEASE_MAX_Y = BOT_SCOUT_PLANE_TORPEDO_ATTACK_Y + 22.0;
+    private static final double BOT_SCOUT_PLANE_CRUISE_Y = 220.0;
+    private static final double BOT_SCOUT_PLANE_TORPEDO_ATTACK_Y = 70.0;
+    private static final double BOT_SCOUT_PLANE_BOMB_ATTACK_Y = 110.0;
+    private static final double BOT_SCOUT_PLANE_TORPEDO_RELEASE_MAX_Y = 118.25;
     private static final double BOT_SCOUT_PLANE_TERRAIN_CLEARANCE = 8.0 * SCOUT_PLANE_ALTITUDE_SCALE;
     private static final double BOT_SCOUT_PLANE_TORPEDO_LEAD_SECONDS = 2.2;
     private static final double BOT_SCOUT_PLANE_AIR_TORPEDO_RELEASE_OFFSET = 10.0;

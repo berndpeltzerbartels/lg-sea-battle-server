@@ -20,7 +20,7 @@ final class DefaultGameSetupFactory {
     private static final String TEAM_SAND = "sand";
     private static final String VEHICLE_TORPEDO_BOAT = "torpedo-boat";
     private static final String VEHICLE_SCOUT_PLANE = "scout-plane";
-    private static final double SCOUT_PLANE_START_Y = 150 * SeaBattleGameConfig.SCOUT_PLANE_ALTITUDE_SCALE;
+    private static final double SCOUT_PLANE_START_Y = 220;
     private static final List<String> BASE_TEAMS = List.of(TEAM_DARK, TEAM_LIGHT);
     private static final List<String> TEAM_ORDER = List.of(TEAM_DARK, TEAM_LIGHT, TEAM_GREEN, TEAM_SAND);
     private static final String BOMB_DROP_SCENARIO = """
@@ -35,7 +35,7 @@ final class DefaultGameSetupFactory {
             ...........
             objects:
             1: ship, light, human [orientation: 90°, speed: 0knt]
-            2: plane, dark, bot [orientation: 270°, speed: 30knt, height: 262.5m]
+            2: plane, dark, bot [orientation: 270°, speed: 30knt, height: 220m]
             """;
 
     private final WorldMapService worldMapService;
@@ -159,13 +159,13 @@ final class DefaultGameSetupFactory {
                 worldMapService.denseWorld(),
                 List.of(
                         new FleetSetup(TEAM_LIGHT, List.of(
-                                ship("light-S1", TEAM_LIGHT, -140, 0, Math.PI / 2, ENGINE_STOP, 0, 99)
+                                ship("light-S1", TEAM_LIGHT, -40, -480, Math.PI / 2, ENGINE_STOP, 0, 99)
                         )),
                         new FleetSetup(TEAM_DARK, List.of(
-                                ship("dark-S1", TEAM_DARK, 140, 0, -Math.PI / 2, ENGINE_STOP, 0, 99)
+                                ship("dark-S1", TEAM_DARK, 195, -505, -Math.PI / 2, ENGINE_STOP, 0, 99)
                         ))
                 ),
-                denseRespawnCandidates()
+                List.of(new Vector2(-40, -480), new Vector2(195, -505))
         );
     }
 

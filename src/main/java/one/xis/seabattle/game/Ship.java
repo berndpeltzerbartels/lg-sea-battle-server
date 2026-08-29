@@ -8,8 +8,8 @@ final class Ship {
     private static final double BOT_SCOUT_PLANE_ALTITUDE_RESPONSE = 0.38;
     private static final double SCOUT_PLANE_MIN_Y = 3 * SCOUT_PLANE_ALTITUDE_SCALE;
     private static final double SCOUT_PLANE_MAX_Y = 200 * SCOUT_PLANE_ALTITUDE_SCALE;
-    private static final double BOT_SCOUT_PLANE_Y = 150 * SCOUT_PLANE_ALTITUDE_SCALE;
-    private static final double BOT_SCOUT_PLANE_SPEED = 28.5;
+    private static final double BOT_SCOUT_PLANE_Y = 220;
+    private static final double BOT_SCOUT_PLANE_SPEED = 25.65;
     private static final double MAX_ACCEPTED_PLAYER_TURN_VELOCITY = 1.2;
     private static final int ENGINE_FULL_ASTERN = 0;
     private static final int TORPEDO_STOCK = 12;

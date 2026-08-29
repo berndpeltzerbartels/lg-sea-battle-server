@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class GameSessionTest {
 
     private static final double TORPEDO_BOAT_MODEL_SCALE = SeaBattleGameConfig.TORPEDO_BOAT_SCALE;
-    private static final double SCOUT_PLANE_START_Y = 150 * SeaBattleGameConfig.SCOUT_PLANE_ALTITUDE_SCALE;
+    private static final double SCOUT_PLANE_START_Y = 220;
     private static final double TORPEDO_BOAT_MODEL_WATERLINE_Y = -0.2;
     private static final int ENGINE_FULL_ASTERN = 0;
     private static final int ENGINE_STOP = 2;

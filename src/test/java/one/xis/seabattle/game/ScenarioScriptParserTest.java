@@ -43,7 +43,7 @@ final class ScenarioScriptParserTest {
         assertEquals("bot", plane.controlledBy());
         assertEquals("scout-plane", plane.vehicleType());
         assertEquals(120, plane.y(), 0.001);
-        assertEquals(7, plane.engineOrder());
+        assertEquals(8, plane.engineOrder());
     }
 
     @Test
