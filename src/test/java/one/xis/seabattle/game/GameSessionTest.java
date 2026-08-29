@@ -1212,6 +1212,49 @@ class GameSessionTest {
     }
 
     @Test
+    void botScoutPlanePrefersCleanApproachOverCloserSideTarget() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-scout-plane-clean-approach-target-test",
+                new WorldMap(9055, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-plane", "light", 0, 0, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane")
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-side", "dark", 80, 55, Math.PI, "bot", ENGINE_HALF, 0, 99),
+                                ship("dark-ahead", "dark", 0, 165, Math.PI, "bot", ENGINE_HALF, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 0))
+        ));
+
+        assertEquals("dark-ahead", selectBotScoutPlaneTargetId(session, "light-plane").orElse(null),
+                "A bot scout plane should prefer a target already in a useful attack lane over a closer side target");
+    }
+
+    @Test
+    void botScoutPlaneFliesThroughBeforeTurningOntoCloseSideTarget() {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-scout-plane-close-side-realign-test",
+                new WorldMap(9056, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-plane", "light", 0, 0, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane")
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-side", "dark", 135, 70, Math.PI, "bot", ENGINE_HALF, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 0))
+        ));
+
+        session.update(0.1, radarService, navigationService, session.worldMap());
+
+        assertEquals(0, findShip(session.snapshot(), "light-plane").rudderDegrees(),
+                "A close side target should trigger a straight fly-through instead of a tight circling turn");
+    }
+
+    @Test
     void onlyOneEnemyBotScoutPlaneAttacksOneHumanPlayer() throws Exception {
         GameSession session = new GameSession(new GameSetup(
                 "bot-scout-plane-single-attacker-test",

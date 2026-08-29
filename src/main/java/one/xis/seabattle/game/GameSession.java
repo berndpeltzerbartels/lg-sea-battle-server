@@ -56,6 +56,10 @@ public final class GameSession {
     private static final String VEHICLE_SCOUT_PLANE = "scout-plane";
     private static final double BOT_SCOUT_PLANE_TARGET_RESERVATION_PENALTY = 280.0;
     private static final double BOT_SCOUT_PLANE_TARGET_TIE_BREAKER = 16.0;
+    private static final double BOT_SCOUT_PLANE_TARGET_BEARING_PENALTY = 170.0;
+    private static final double BOT_SCOUT_PLANE_CLOSE_REALIGN_RANGE = 225.0;
+    private static final double BOT_SCOUT_PLANE_CLOSE_REALIGN_ARC = Math.toRadians(52);
+    private static final double BOT_SCOUT_PLANE_CLOSE_REALIGN_PENALTY = 260.0;
     private static final double BOMB_DROP_FORWARD_OFFSET = 0.6;
     private static final double BOMB_DROP_VERTICAL_OFFSET = 0.65;
     private static final double BOMB_PATTERN_LATERAL_SPACING = 0.18;
@@ -600,6 +604,13 @@ public final class GameSession {
         }
         Vector2 aimTarget = preferTorpedoAttack ? torpedoTarget : bombTarget;
         double targetBearing = relativeBearing(plane, aimTarget);
+        if (distance < BOT_SCOUT_PLANE_CLOSE_REALIGN_RANGE
+                && Math.abs(targetBearing) > BOT_SCOUT_PLANE_CLOSE_REALIGN_ARC) {
+            Vector2 flyThrough = startBotScoutPlaneFlyThrough(plane);
+            plane.botScoutPlaneTargetY(BOT_SCOUT_PLANE_BOMB_ATTACK_Y);
+            applyScoutPlaneBotCommand(plane, angleTo(flyThrough, plane.position()));
+            return;
+        }
         if (distance > BOT_SCOUT_PLANE_ATTACK_RANGE) {
             plane.botScoutPlaneTargetY(BOT_SCOUT_PLANE_CRUISE_Y);
             applyScoutPlaneBotCommand(plane, angleTo(torpedoTarget, plane.position()));
@@ -809,8 +820,14 @@ public final class GameSession {
     }
 
     private double botScoutPlaneTargetScore(Ship plane, Ship target, Map<String, Integer> targetReservations) {
-        return plane.position().distanceTo(target.position())
+        double distance = plane.position().distanceTo(target.position());
+        double bearing = Math.abs(relativeBearing(plane, predictedShipPosition(target, 1.5)));
+        return distance
                 + targetReservations.getOrDefault(target.id(), 0) * BOT_SCOUT_PLANE_TARGET_RESERVATION_PENALTY
+                + bearing * BOT_SCOUT_PLANE_TARGET_BEARING_PENALTY
+                + (distance < BOT_SCOUT_PLANE_CLOSE_REALIGN_RANGE && bearing > BOT_SCOUT_PLANE_CLOSE_REALIGN_ARC
+                    ? BOT_SCOUT_PLANE_CLOSE_REALIGN_PENALTY
+                    : 0)
                 + stablePlaneTargetBias(plane, target);
     }
 
