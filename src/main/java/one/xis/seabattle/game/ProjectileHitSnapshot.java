@@ -1,6 +1,6 @@
 package one.xis.seabattle.game;
 
-public record FlakHitSnapshot(
+public record ProjectileHitSnapshot(
         String id,
         String teamId,
         String shipId,

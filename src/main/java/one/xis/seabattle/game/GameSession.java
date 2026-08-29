@@ -161,7 +161,7 @@ public final class GameSession {
     private final List<PendingBombRelease> pendingBombReleases = new ArrayList<>();
     private final List<BombImpactSnapshot> bombImpacts = new ArrayList<>();
     private final List<FlakProjectile> flakProjectiles = new ArrayList<>();
-    private final List<FlakHitSnapshot> flakHits = new ArrayList<>();
+    private final List<ProjectileHitSnapshot> projectileHits = new ArrayList<>();
     private final List<FlakImpactSnapshot> flakImpacts = new ArrayList<>();
     private final List<RamHitSnapshot> ramHits = new ArrayList<>();
     private final Map<String, Integer> botScoutPlaneNonHumanAttackStreakByHumanTarget = new LinkedHashMap<>();
@@ -234,7 +234,7 @@ public final class GameSession {
                         .filter(projectile -> "flying".equals(projectile.state()))
                         .map(FlakProjectile::snapshot)
                         .toList(),
-                flakHits.stream()
+                projectileHits.stream()
                         .filter(hit -> nowSeconds - hit.t() <= FLAK_HIT_VISIBILITY_SECONDS)
                         .toList(),
                 flakImpacts.stream()
@@ -505,7 +505,7 @@ public final class GameSession {
         bombs.removeIf(bomb -> !"falling".equals(bomb.state()));
         bombImpacts.removeIf(impact -> nowSeconds - impact.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
         flakProjectiles.removeIf(projectile -> !"flying".equals(projectile.state()));
-        flakHits.removeIf(hit -> nowSeconds - hit.t() > FLAK_HIT_VISIBILITY_SECONDS);
+        projectileHits.removeIf(hit -> nowSeconds - hit.t() > FLAK_HIT_VISIBILITY_SECONDS);
         flakImpacts.removeIf(impact -> nowSeconds - impact.t() > FLAK_HIT_VISIBILITY_SECONDS);
         ramHits.removeIf(hit -> nowSeconds - hit.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
         checkGameOver();
@@ -528,7 +528,7 @@ public final class GameSession {
         bombs.removeIf(bomb -> !"falling".equals(bomb.state()));
         bombImpacts.removeIf(impact -> nowSeconds - impact.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
         flakProjectiles.removeIf(projectile -> !"flying".equals(projectile.state()));
-        flakHits.removeIf(hit -> nowSeconds - hit.t() > FLAK_HIT_VISIBILITY_SECONDS);
+        projectileHits.removeIf(hit -> nowSeconds - hit.t() > FLAK_HIT_VISIBILITY_SECONDS);
         flakImpacts.removeIf(impact -> nowSeconds - impact.t() > FLAK_HIT_VISIBILITY_SECONDS);
         ramHits.removeIf(hit -> nowSeconds - hit.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
         checkGameOver();
@@ -1715,7 +1715,7 @@ public final class GameSession {
                         .ifPresent(hit -> {
                             if (hit.sinks()) {
                                 sinkShip(hit.ship(), shooterController(projectile.shipId()));
-                                recordFlakHit(projectile, hit.ship());
+                                recordProjectileHit(projectile, hit);
                             }
                             projectile.hit();
                             if (!hit.ship().isScoutPlane()) {
@@ -1923,22 +1923,22 @@ public final class GameSession {
                 && Math.abs(vertical) <= SCOUT_PLANE_VERTICAL_HALF_HEIGHT + SCOUT_PLANE_HIT_MARGIN;
     }
 
-    private void recordFlakHit(FlakProjectile projectile, Ship target) {
-        flakHits.add(new FlakHitSnapshot(
+    private void recordProjectileHit(FlakProjectile projectile, FlakTargetHit hit) {
+        projectileHits.add(new ProjectileHitSnapshot(
                 projectile.id(),
                 projectile.teamId(),
                 projectile.shipId(),
-                target.id(),
-                MathSupport.round(projectile.x()),
-                MathSupport.round(projectile.y()),
-                MathSupport.round(projectile.z()),
+                hit.ship().id(),
+                MathSupport.round(hit.x()),
+                MathSupport.round(hit.y()),
+                MathSupport.round(hit.z()),
                 MathSupport.round(nowSeconds)
         ));
     }
 
     private void recordClientPlaneHit(ClientPlaneHitRequest request, Ship shooter, Ship target) {
         String weaponPrefix = "cannon".equals(request.weaponType()) ? "cannon" : "flak";
-        flakHits.add(new FlakHitSnapshot(
+        projectileHits.add(new ProjectileHitSnapshot(
                 weaponPrefix + "-client-" + nextFlakProjectileId++,
                 shooter.teamId(),
                 shooter.id(),
