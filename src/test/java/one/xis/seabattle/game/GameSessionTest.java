@@ -297,6 +297,27 @@ class GameSessionTest {
     }
 
     @Test
+    void botDoesNotFireTorpedoWhenEnemyIsOutsideStaticFiringLine() {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-empty-torpedo-line-test",
+                new WorldMap(9034, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-shooter", "red", 0, 0, 0, "bot", ENGINE_HALF, 0, 0)
+                        )),
+                        new FleetSetup("blue", List.of(
+                                ship("blue-target", "blue", 95, 95, Math.PI, "player-BP-test", ENGINE_STOP, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(95, 95))
+        ));
+
+        session.update(0.1, radarService, navigationService, session.worldMap());
+
+        assertTrue(session.snapshot().torpedoes().isEmpty());
+    }
+
+    @Test
     void torpedoBoatPlayerCanFireVisibleFlakProjectile() {
         GameSession session = new GameSession(new GameSetup(
                 "flak-fire-test",
