@@ -16,6 +16,7 @@ class GameSessionTest {
     private static final double SCOUT_PLANE_START_Y = 150 * SeaBattleGameConfig.SCOUT_PLANE_ALTITUDE_SCALE;
     private static final double TORPEDO_BOAT_MODEL_WATERLINE_Y = -0.2;
     private static final int ENGINE_FULL_ASTERN = 0;
+    private static final int ENGINE_STOP = 2;
     private static final int ENGINE_ONE_THIRD = 4;
     private static final int ENGINE_HALF = 5;
     private static final int ENGINE_TWO_THIRDS = 6;
@@ -184,6 +185,114 @@ class GameSessionTest {
         assertEquals("sunk", findShip(snapshot, "dark-F1").state());
         assertTrue(snapshot.torpedoImpacts().stream()
                 .anyMatch(impact -> "plane-hit".equals(impact.reason()) && "dark-F1".equals(impact.targetShipId())));
+    }
+
+    @Test
+    void scoutPlaneBombsStartBelowPlaneAndNearReleaseBay() throws Exception {
+        double planeHeading = Math.PI / 2;
+        double planeY = 140;
+        Vector2 planePosition = new Vector2(12, -18);
+        GameSession session = new GameSession(new GameSetup(
+                "bomb-release-geometry-test",
+                new WorldMap(9030, List.of()),
+                List.of(new FleetSetup("dark", List.of(
+                        new ShipSetup("dark-F1", "dark", planePosition, planeHeading,
+                                "bot", 7, 0, 0, "scout-plane", planeY)
+                ))),
+                List.of(planePosition)
+        ));
+
+        Ship plane = shipEntity(session, "dark-F1");
+        dropBombsFromScoutPlane(session, plane, 4.5);
+        session.updateIdle(0, radarService, navigationService, session.worldMap());
+
+        GameSnapshot snapshot = session.snapshot();
+        assertEquals(1, snapshot.bombs().size());
+        BombSnapshot bomb = snapshot.bombs().get(0);
+        double dx = bomb.launchX() - planePosition.x();
+        double dz = bomb.launchZ() - planePosition.z();
+        double forward = dx * Math.sin(planeHeading) + dz * Math.cos(planeHeading);
+        double right = dx * Math.cos(planeHeading) - dz * Math.sin(planeHeading);
+
+        assertTrue(bomb.launchY() < planeY, "bomb must be released below the aircraft, not above it");
+        assertTrue(bomb.launchY() > planeY - 2.0, "bomb release should stay close to the bay");
+        assertEquals(bomb.launchY(), bomb.y(), 0.001, "fresh bomb visual state should start at its launch height");
+        assertTrue(forward >= 0.0 && forward <= 1.0, "bomb release should be only slightly ahead of the aircraft");
+        assertTrue(Math.abs(right) <= 0.4, "bomb release should stay near the aircraft centerline");
+    }
+
+    @Test
+    void humanScoutPlaneCanDropBombsForScenarioObservation() {
+        GameSession session = new GameSession(new GameSetup(
+                "human-bomb-release-test",
+                new WorldMap(9032, List.of()),
+                List.of(new FleetSetup("light", List.of(
+                        new ShipSetup("light-F1", "light", new Vector2(0, 0), 0,
+                                "player-human-bomb", 7, 0, 0, "scout-plane", 150)
+                ))),
+                List.of(new Vector2(0, 0))
+        ));
+
+        GameSnapshot snapshot = session.dropBomb(new BombDropRequest(
+                "player-human-bomb",
+                "light",
+                0,
+                150,
+                0,
+                0,
+                30,
+                0,
+                0,
+                "scout-plane"
+        ));
+
+        assertEquals(1, snapshot.bombs().size());
+        assertEquals("light-F1", snapshot.bombs().get(0).shipId());
+    }
+
+    @Test
+    void sleepingBotShipAcceleratesHardWhenEnemyAppearsNearby() {
+        GameSession session = new GameSession(new GameSetup(
+                "sleeping-bot-threat-response-test",
+                new WorldMap(9031, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-1", "red", 0, 0, 0, "bot", 2, 0, 0)
+                        )),
+                        new FleetSetup("blue", List.of(
+                                ship("blue-1", "blue", 0, 180, Math.PI, "player-BP-test", 2, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(0, 180))
+        ));
+
+        session.update(0.1, radarService, navigationService, session.worldMap());
+
+        ShipSnapshot bot = findShip(session.snapshot(), "red-1");
+        assertNotNull(bot);
+        assertEquals(ENGINE_FULL, bot.engineOrder());
+    }
+
+    @Test
+    void botDoesNotFireTorpedoThroughFriendlyShipOnStaticFiringLine() {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-friendly-fire-line-test",
+                new WorldMap(9033, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-shooter", "red", 0, 0, 0, "bot", ENGINE_HALF, 0, 0),
+                                ship("red-screen", "red", 0, 82, 0, "bot", ENGINE_STOP, 0, 99)
+                        )),
+                        new FleetSetup("blue", List.of(
+                                ship("blue-target", "blue", 0, 260, Math.PI, "player-BP-test", ENGINE_STOP, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(0, 82), new Vector2(0, 260))
+        ));
+
+        session.update(0.1, radarService, navigationService, session.worldMap());
+
+        assertTrue(session.snapshot().torpedoes().isEmpty());
     }
 
     @Test
@@ -1747,8 +1856,8 @@ class GameSessionTest {
                 "ram-test",
                 new WorldMap(9002, List.of()),
                 List.of(
-                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, Math.PI / 2, 5, 0))),
-                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 56, 0, 0, 2, 0)))
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, Math.PI / 2, "scenario", 5, 0))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 56, 0, 0, "scenario", 2, 0)))
                 ),
                 List.of(new Vector2(0, 0), new Vector2(56, 0))
         ));
@@ -1824,8 +1933,8 @@ class GameSessionTest {
                 "diagonal-ram-test",
                 new WorldMap(9003, List.of()),
                 List.of(
-                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, Math.PI / 4, 5, 0))),
-                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 41, 41, 0, 2, 0)))
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, Math.PI / 4, "scenario", 5, 0))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 41, 41, 0, "scenario", 2, 0)))
                 ),
                 List.of(new Vector2(0, 0), new Vector2(41, 41))
         ));
@@ -1846,8 +1955,8 @@ class GameSessionTest {
                 "steep-side-ram-test",
                 new WorldMap(9011, List.of()),
                 List.of(
-                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, attackerHeading, 5, 0))),
-                        new FleetSetup("blue", List.of(ship("blue-1", "blue", targetPosition.x(), targetPosition.z(), 0, 2, 0)))
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, attackerHeading, "scenario", 5, 0))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", targetPosition.x(), targetPosition.z(), 0, "scenario", 2, 0)))
                 ),
                 List.of(new Vector2(0, 0), targetPosition)
         ));
@@ -1868,8 +1977,8 @@ class GameSessionTest {
                 "shallow-angle-ram-test",
                 new WorldMap(9012, List.of()),
                 List.of(
-                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, attackerHeading, 5, 0))),
-                        new FleetSetup("blue", List.of(ship("blue-1", "blue", targetPosition.x(), targetPosition.z(), 0, 2, 0)))
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, attackerHeading, "scenario", 5, 0))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", targetPosition.x(), targetPosition.z(), 0, "scenario", 2, 0)))
                 ),
                 List.of(new Vector2(0, 0), targetPosition)
         ));
@@ -1944,6 +2053,25 @@ class GameSessionTest {
     }
 
     @Test
+    void botRamCollisionDoesNotSinkEnemyShip() {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-ram-no-sink-test",
+                new WorldMap(9069, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, Math.PI / 2, "bot", ENGINE_FULL, 0))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 56, 0, 0, "scenario", ENGINE_STOP, 0)))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(56, 0))
+        ));
+
+        GameSnapshot snapshot = tickUntilShipsTouch(session, 24);
+
+        assertEquals("active", findShip(snapshot, "red-1").state());
+        assertEquals("active", findShip(snapshot, "blue-1").state());
+        assertEquals(0, snapshot.destroyedShipsByTeam().get("blue"));
+    }
+
+    @Test
     void playerSideRamEnemyScoresKillWithoutSinkingAttacker() {
         String playerId = "player-BP-test";
         GameSession session = new GameSession(new GameSetup(
@@ -1951,7 +2079,7 @@ class GameSessionTest {
                 new WorldMap(9007, List.of()),
                 List.of(
                         new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, Math.PI / 2, "bot", 5, 0))),
-                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 56, 0, 0, 2, 0)))
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 56, 0, 0, "scenario", 2, 0)))
                 ),
                 List.of(new Vector2(0, 0), new Vector2(56, 0))
         ));
@@ -1971,7 +2099,7 @@ class GameSessionTest {
     }
 
     @Test
-    void playerSideRamFriendlyShipSubtractsScore() {
+    void playerSideRamFriendlyShipDoesNotSinkOrScore() {
         String playerId = "player-BP-test";
         GameSession session = new GameSession(new GameSetup(
                 "player-friendly-ram-score-test",
@@ -1979,21 +2107,20 @@ class GameSessionTest {
                 List.of(
                         new FleetSetup("red", List.of(
                                 ship("red-1", "red", 0, 0, Math.PI / 2, "bot", 5, 0),
-                                ship("red-2", "red", 56, 0, 0, 2, 0)
+                                ship("red-2", "red", 56, 0, 0, "scenario", 2, 0)
                         )),
                         new FleetSetup("blue", List.of(ship("blue-1", "blue", 240, 240, Math.PI, 2, 0)))
                 ),
                 List.of(new Vector2(0, 0), new Vector2(56, 0), new Vector2(240, 240))
         ));
 
-        GameSnapshot snapshot = tickPlayerForwardUntilShipState(
-                session, playerId, "red", "red-2", "sunk", new Vector2(0, 0), Math.PI / 2, 24
-        );
+        GameSnapshot snapshot = tickPlayerForwardUntilShipState(session, playerId, "red", "red-2", "sunk",
+                new Vector2(0, 0), Math.PI / 2, 2);
 
         assertEquals("active", findShip(snapshot, "red-1").state());
-        assertEquals("sunk", findShip(snapshot, "red-2").state());
-        assertEquals(1, snapshot.destroyedShipsByTeam().get("red"));
-        assertEquals(-2, snapshot.killsByPlayer().get(playerId));
+        assertEquals("active", findShip(snapshot, "red-2").state());
+        assertEquals(0, snapshot.destroyedShipsByTeam().get("red"));
+        assertFalse(snapshot.killsByPlayer().containsKey(playerId));
     }
 
     @Test
@@ -2003,7 +2130,7 @@ class GameSessionTest {
                 "player-sunk-score-test",
                 new WorldMap(9014, List.of()),
                 List.of(
-                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, Math.PI / 2, 5, 0))),
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, Math.PI / 2, "scenario", 5, 0))),
                         new FleetSetup("blue", List.of(ship("blue-1", "blue", 56, 0, 0, playerId, 2, 0)))
                 ),
                 List.of(new Vector2(0, 0), new Vector2(56, 0))
@@ -2395,7 +2522,20 @@ class GameSessionTest {
         GameSession session = new GameSession(new DefaultGameSetupFactory(new WorldMapService()).setup("dense-land"));
 
         GameSnapshot snapshot = session.snapshot();
-        for (int index = 0; index < 160; index += 1) {
+        Map<String, Vector2> startPositions = snapshot.ships().stream()
+                .filter(ship -> "bot".equals(ship.controlledBy()))
+                .filter(ship -> !"scout-plane".equals(ship.vehicleType()))
+                .collect(java.util.stream.Collectors.toMap(
+                        ShipSnapshot::id,
+                        ship -> new Vector2(ship.x(), ship.z())
+                ));
+
+        for (int index = 0; index < 120; index += 1) {
+            session.update(0.1, radarService, navigationService, session.worldMap());
+        }
+        int warmupTorpedoes = session.snapshot().torpedoes().size();
+
+        for (int index = 0; index < 280; index += 1) {
             session.update(0.1, radarService, navigationService, session.worldMap());
             snapshot = session.snapshot();
         }
@@ -2405,7 +2545,15 @@ class GameSessionTest {
                 .filter(ship -> "active".equals(ship.state()))
                 .filter(ship -> "bot".equals(ship.controlledBy()))
                 .filter(ship -> !"scout-plane".equals(ship.vehicleType()))
-                .filter(ship -> ship.engineOrder() >= ENGINE_HALF)
+                .filter(ship -> Math.abs(ship.speed()) >= 2.0)
+                .count();
+        long botBoatsThatMadeWay = finalSnapshot.ships().stream()
+                .filter(ship -> "bot".equals(ship.controlledBy()))
+                .filter(ship -> !"scout-plane".equals(ship.vehicleType()))
+                .filter(ship -> {
+                    Vector2 start = startPositions.get(ship.id());
+                    return start != null && start.distanceTo(new Vector2(ship.x(), ship.z())) >= 55;
+                })
                 .count();
         long shipTorpedoes = finalSnapshot.torpedoes().stream()
                 .filter(torpedo -> {
@@ -2415,7 +2563,8 @@ class GameSessionTest {
                 .count();
 
         assertTrue(movingBotBoats >= 6);
-        assertTrue(shipTorpedoes > 0);
+        assertTrue(botBoatsThatMadeWay >= 6);
+        assertTrue(shipTorpedoes > warmupTorpedoes);
     }
 
     @Test
@@ -2500,6 +2649,49 @@ class GameSessionTest {
         ShipSnapshot bot = findShip(session.snapshot(), "red-1");
         assertEquals(ENGINE_ONE_THIRD, bot.engineOrder());
         assertTrue(bot.rudderDegrees() != 0);
+    }
+
+    @Test
+    void botBacksOutInsteadOfStoppingWhenAlreadyBowBlockedByLand() {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-bow-blocked-escape-test",
+                new WorldMap(9067, List.of(testIsland("bow-rock", 0, 5.2, 2.5, 2.5))),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-1", "red", 0, 0, 0, "bot", ENGINE_FULL, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 0))
+        ));
+
+        assertTrue(navigationService.isShipBlocked(new Vector2(0, 0), 0, session.worldMap()));
+
+        session.update(0.05, radarService, navigationService, session.worldMap());
+
+        ShipSnapshot bot = findShip(session.snapshot(), "red-1");
+        assertEquals(ENGINE_FULL_ASTERN, bot.engineOrder());
+    }
+
+    @Test
+    void friendlyShipsDoNotSinkEachOtherByRamCollision() {
+        GameSession session = new GameSession(new GameSetup(
+                "friendly-ram-ignore-test",
+                new WorldMap(9068, List.of()),
+                List.of(new FleetSetup("red", List.of(
+                        ship("red-1", "red", 0, -10, 0, "bot", ENGINE_FULL, 0, 99),
+                        ship("red-2", "red", 0, 10, Math.PI, "bot", ENGINE_FULL, 0, 99)
+                ))),
+                List.of(new Vector2(0, -10), new Vector2(0, 10))
+        ));
+
+        for (int index = 0; index < 30; index += 1) {
+            session.update(0.05, radarService, navigationService, session.worldMap());
+        }
+
+        GameSnapshot snapshot = session.snapshot();
+        assertEquals("active", findShip(snapshot, "red-1").state());
+        assertEquals("active", findShip(snapshot, "red-2").state());
+        assertEquals(0, snapshot.destroyedShipsByTeam().get("red"));
     }
 
     @Test

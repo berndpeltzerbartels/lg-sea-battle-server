@@ -133,6 +133,7 @@ public final class GameSession {
     private static final double RESPAWN_HUMAN_RADAR_MARGIN = 120;
     private static final double RESPAWN_MIN_SHIP_DISTANCE = 170;
     private static final double TORPEDO_IMPACT_VISIBILITY_SECONDS = 3.0;
+    private static final int ENGINE_FULL_ASTERN = 0;
     private static final int ENGINE_ASTERN = 1;
     private static final int ENGINE_STOP = 2;
     private static final int ENGINE_SLOW = 3;
@@ -327,9 +328,6 @@ public final class GameSession {
         Ship ship = fleet.assignedShip(request.playerId())
                 .or(() -> fleet.assignNextShipToPlayer(request.playerId()))
                 .orElseThrow(() -> new IllegalStateException("No active ship available for team: " + request.teamId()));
-        if (!ship.isBotControlled()) {
-            return;
-        }
         if (!ship.isScoutPlane() && !"scout-plane".equals(request.vehicleType())) {
             return;
         }
@@ -968,6 +966,14 @@ public final class GameSession {
                 || navigationService.isShipBlocked(farLookAhead, ship.heading(), worldMap);
 
         if (blockedHere) {
+            if (!navigationService.isShipMovementBlocked(ship.position(), ship.heading(), EngineOrders.speedFor(ENGINE_FULL_ASTERN), worldMap)) {
+                ship.applyCommand(ENGINE_FULL_ASTERN, 0);
+                return true;
+            }
+            if (!navigationService.isShipMovementBlocked(ship.position(), ship.heading(), EngineOrders.speedFor(ENGINE_SLOW), worldMap)) {
+                ship.applyCommand(ENGINE_SLOW, 0);
+                return true;
+            }
             ship.applyCommand(ENGINE_STOP, 0);
             return true;
         }
@@ -1260,7 +1266,7 @@ public final class GameSession {
         double aimError = Math.sin(nowSeconds * 0.31 + stablePhase(ship.id())) * BOT_AIM_ERROR;
         double steerError = MathSupport.normalizeAngle(targetBearing + aimError);
         int rudder = (int) Math.round(MathSupport.clamp(steerError / 0.58, -1, 1) * 35);
-        int engineOrder = botAttackEngineOrder(distance, targetBearing);
+        int engineOrder = botAttackEngineOrder(ship, target, distance, targetBearing);
         applyBotCommand(ship, engineOrder, rudder, navigationService, worldMap);
 
         boolean closeInFront = distance <= BOT_CLOSE_FIRE_RANGE && Math.abs(targetBearing) <= BOT_CLOSE_FIRE_ARC;
@@ -1270,10 +1276,13 @@ public final class GameSession {
         }
     }
 
-    private int botAttackEngineOrder(double distance, double targetBearing) {
+    private int botAttackEngineOrder(Ship ship, Ship target, double distance, double targetBearing) {
         double absoluteBearing = Math.abs(targetBearing);
         if (distance < BOT_RAM_RANGE) {
             return absoluteBearing <= Math.toRadians(30) ? ENGINE_ONE_THIRD : ENGINE_FULL;
+        }
+        if (isHumanControlled(target) && Math.abs(ship.speed()) < 0.8 && distance <= BOT_APPROACH_SLOW_RANGE) {
+            return ENGINE_FULL;
         }
         if (distance < BOT_CLOSE_MANEUVER_RANGE) {
             if (absoluteBearing <= Math.toRadians(30)) {
@@ -1302,11 +1311,19 @@ public final class GameSession {
             Ship left = activeShips.get(i);
             for (int j = i + 1; j < activeShips.size(); j += 1) {
                 Ship right = activeShips.get(j);
+                if (left.teamId().equals(right.teamId())) {
+                    continue;
+                }
 
                 RamImpact leftImpact = ramImpact(left, right);
                 RamImpact rightImpact = ramImpact(right, left);
                 if (!leftImpact.hits() && !rightImpact.hits()
                         && left.position().distanceTo(right.position()) > RAM_HIT_RADIUS * TORPEDO_BOAT_MODEL_SCALE) {
+                    continue;
+                }
+
+                if (left.isBotControlled() || right.isBotControlled()) {
+                    resolveGlancingRam(left, right);
                     continue;
                 }
 
@@ -2239,6 +2256,9 @@ public final class GameSession {
         Vector2 muzzlePosition = ship.position()
                 .add(forward.scale(5.0 * TORPEDO_BOAT_MODEL_SCALE))
                 .add(right.scale(tubeSide * 0.56 * TORPEDO_BOAT_MODEL_SCALE));
+        if (torpedoLaunchWouldHitFriendlyShip(ship, muzzlePosition, heading)) {
+            return false;
+        }
         torpedoes.add(new Torpedo(
                 "torpedo-" + nextTorpedoId++,
                 ship.teamId(),
@@ -2251,6 +2271,42 @@ public final class GameSession {
                 tubeSide
         ));
         return true;
+    }
+
+    private boolean torpedoLaunchWouldHitFriendlyShip(Ship shooter, Vector2 muzzlePosition, double heading) {
+        Vector2 forward = Vector2.fromHeading(heading);
+        Vector2 right = new Vector2(Math.cos(heading), -Math.sin(heading));
+        double broadRadius = (TORPEDO_BROAD_PHASE_RADIUS + TORPEDO_HULL_MARGIN) * TORPEDO_BOAT_MODEL_SCALE;
+        return allShips().stream()
+                .filter(ship -> "active".equals(ship.state()))
+                .filter(ship -> !ship.isScoutPlane())
+                .filter(ship -> !ship.id().equals(shooter.id()))
+                .filter(ship -> ship.teamId().equals(shooter.teamId()))
+                .anyMatch(ship -> torpedoLaunchWouldHitFriendlyShip(shooter, muzzlePosition, forward, right, ship, broadRadius));
+    }
+
+    private boolean torpedoLaunchWouldHitFriendlyShip(Ship shooter, Vector2 muzzlePosition, Vector2 forward,
+                                                     Vector2 right, Ship friendly, double broadRadius) {
+        Vector2 toFriendly = friendly.position().subtract(muzzlePosition);
+        double along = toFriendly.x() * forward.x() + toFriendly.z() * forward.z();
+        if (along < 0 || along > BOT_FIRE_MAX_RANGE) {
+            return false;
+        }
+        double lateral = Math.abs(toFriendly.x() * right.x() + toFriendly.z() * right.z());
+        if (lateral > broadRadius) {
+            return false;
+        }
+
+        double sweepStart = Math.max(0, along - broadRadius);
+        double sweepEnd = Math.min(BOT_FIRE_MAX_RANGE, along + broadRadius);
+        double sweepStep = Math.max(TORPEDO_SWEEP_STEP, TORPEDO_BOAT_MODEL_SCALE);
+        for (double distance = sweepStart; distance <= sweepEnd; distance += sweepStep) {
+            if (pointHitsShipHull(muzzlePosition.add(forward.scale(distance)), friendly, TORPEDO_HULL_MARGIN)) {
+                return true;
+            }
+        }
+        Vector2 endPoint = muzzlePosition.add(forward.scale(sweepEnd));
+        return pointHitsShipHull(endPoint, friendly, TORPEDO_HULL_MARGIN);
     }
 
     private int normalizeTubeSide(Integer value) {
