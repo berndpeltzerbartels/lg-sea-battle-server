@@ -20,7 +20,7 @@ public final class GameSession {
     private static final double BOT_SCOUT_PLANE_BOMB_RANGE = 245.0;
     private static final double BOT_SCOUT_PLANE_BOMB_FORWARD_TOLERANCE = 24.0;
     private static final double BOT_SCOUT_PLANE_BOMB_LATERAL_TOLERANCE = 18.0;
-    private static final double BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE = 95.0;
+    private static final double BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE = 115.0;
     private static final double BOT_SCOUT_PLANE_TORPEDO_RELEASE_RANGE = 300.0;
     private static final double BOT_SCOUT_PLANE_TORPEDO_APPROACH_RANGE = 560.0;
     private static final double BOT_SCOUT_PLANE_ATTACK_ARC = Math.toRadians(32);
