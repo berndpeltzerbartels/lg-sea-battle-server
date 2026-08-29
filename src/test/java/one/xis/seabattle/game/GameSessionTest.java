@@ -17,6 +17,7 @@ class GameSessionTest {
     private static final double TORPEDO_BOAT_MODEL_WATERLINE_Y = -0.2;
     private static final int ENGINE_FULL_ASTERN = 0;
     private static final int ENGINE_STOP = 2;
+    private static final int ENGINE_SLOW = 3;
     private static final int ENGINE_ONE_THIRD = 4;
     private static final int ENGINE_HALF = 5;
     private static final int ENGINE_TWO_THIRDS = 6;
@@ -890,7 +891,7 @@ class GameSessionTest {
     }
 
     @Test
-    void scoutPlanePlayerCannotDropBomb() {
+    void scoutPlanePlayerCanDropBomb() {
         GameSession session = new GameSession(new GameSetup(
                 "scout-plane-bomb-test",
                 new WorldMap(9031, List.of()),
@@ -912,7 +913,8 @@ class GameSessionTest {
         ShipSnapshot ship = findShip(snapshot, "light-1");
         assertNotNull(ship);
         assertEquals("scout-plane", ship.vehicleType());
-        assertEquals(0, snapshot.bombs().size());
+        assertEquals(1, snapshot.bombs().size());
+        assertEquals("light-1", snapshot.bombs().get(0).shipId());
     }
 
     @Test
@@ -2670,6 +2672,29 @@ class GameSessionTest {
 
         ShipSnapshot bot = findShip(session.snapshot(), "red-1");
         assertEquals(ENGINE_FULL_ASTERN, bot.engineOrder());
+    }
+
+    @Test
+    void botMovesForwardWhenOnlyAsternSideIsBlockedAtShore() {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-parallel-shore-forward-escape-test",
+                new WorldMap(9069, List.of(testIsland("astern-side-bank", 1.86, -1, 2.0, 2.0))),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-1", "red", 0, 0, 0, "bot", ENGINE_FULL, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 0))
+        ));
+
+        assertTrue(navigationService.isShipBlocked(new Vector2(0, 0), 0, session.worldMap()));
+        assertFalse(navigationService.isShipMovementBlocked(new Vector2(0, 0), 0, EngineOrders.speedFor(ENGINE_SLOW), session.worldMap()));
+        assertTrue(navigationService.isShipMovementBlocked(new Vector2(0, 0), 0, EngineOrders.speedFor(ENGINE_FULL_ASTERN), session.worldMap()));
+
+        session.update(0.05, radarService, navigationService, session.worldMap());
+
+        ShipSnapshot bot = findShip(session.snapshot(), "red-1");
+        assertEquals(ENGINE_SLOW, bot.engineOrder());
     }
 
     @Test

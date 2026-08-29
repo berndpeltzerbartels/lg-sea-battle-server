@@ -966,11 +966,27 @@ public final class GameSession {
                 || navigationService.isShipBlocked(farLookAhead, ship.heading(), worldMap);
 
         if (blockedHere) {
-            if (!navigationService.isShipMovementBlocked(ship.position(), ship.heading(), EngineOrders.speedFor(ENGINE_FULL_ASTERN), worldMap)) {
+            boolean forwardClear = !navigationService.isShipMovementBlocked(
+                    ship.position(),
+                    ship.heading(),
+                    EngineOrders.speedFor(ENGINE_SLOW),
+                    worldMap
+            );
+            boolean asternClear = !navigationService.isShipMovementBlocked(
+                    ship.position(),
+                    ship.heading(),
+                    EngineOrders.speedFor(ENGINE_FULL_ASTERN),
+                    worldMap
+            );
+            if (ship.speed() >= 0 && forwardClear) {
+                ship.applyCommand(ENGINE_SLOW, 0);
+                return true;
+            }
+            if (asternClear) {
                 ship.applyCommand(ENGINE_FULL_ASTERN, 0);
                 return true;
             }
-            if (!navigationService.isShipMovementBlocked(ship.position(), ship.heading(), EngineOrders.speedFor(ENGINE_SLOW), worldMap)) {
+            if (forwardClear) {
                 ship.applyCommand(ENGINE_SLOW, 0);
                 return true;
             }
