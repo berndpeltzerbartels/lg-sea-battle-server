@@ -597,8 +597,8 @@ class GameSessionTest {
         session.update(0.5, radarService, navigationService, session.worldMap());
         GameSnapshot snapshot = session.snapshot();
 
-        assertEquals("sunk", findShip(snapshot, "dark-1").state());
-        assertEquals(1, snapshot.flakHits().size());
+        assertEquals("active", findShip(snapshot, "dark-1").state());
+        assertEquals(0, snapshot.flakHits().size());
         assertEquals(1, snapshot.flakImpacts().size());
         assertEquals("ship-hit", snapshot.flakImpacts().get(0).reason());
     }
@@ -625,7 +625,7 @@ class GameSessionTest {
                 session.worldMap()
         );
         session.fireFlak(new FlakFireRequest(
-                "player-gunner", "light", "light-1", 3, 1.14, -40, 0, 2.25, 95
+                "player-gunner", "light", "light-1", 3, 1.14, -40, 3, 6.2, 95
         ));
 
         session.update(0.5, radarService, navigationService, session.worldMap());
@@ -634,7 +634,7 @@ class GameSessionTest {
         assertEquals("sunk", findShip(snapshot, "dark-1").state());
         assertEquals(1, snapshot.flakHits().size());
         assertEquals(1, snapshot.flakImpacts().size());
-        assertEquals("ship-hit", snapshot.flakImpacts().get(0).reason());
+        assertEquals("ship-critical-hit", snapshot.flakImpacts().get(0).reason());
     }
 
     @Test
@@ -854,14 +854,14 @@ class GameSessionTest {
     }
 
     @Test
-    void flakProjectileHullHeightShipHitSinks() throws Exception {
+    void flakProjectileHullHeightShipHitDoesNotSink() throws Exception {
         GameSession session = cannonShipHitSession("flak-hull-hit-test");
         FlakProjectile projectile = new FlakProjectile("flak-test", "light", "light-1", 3, 0.5 * TORPEDO_BOAT_MODEL_SCALE, 0, 0, 0, 0, 0);
 
         Object hit = projectileHit(session, "dark-1", projectile).orElseThrow();
 
         assertEquals("ship-hit", flakTargetHitReason(hit));
-        assertTrue(flakTargetHitSinks(hit));
+        assertFalse(flakTargetHitSinks(hit));
     }
 
     @Test

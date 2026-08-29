@@ -1794,7 +1794,7 @@ public final class GameSession {
                 if (isCannonProjectile(projectile)) {
                     return Optional.of(new FlakTargetHit(ship, FlakShipHitArea.CRITICAL.reason(), true, x, y, z));
                 }
-                return Optional.of(new FlakTargetHit(ship, FlakShipHitArea.SURFACE.reason(), true, x, y, z));
+                return Optional.of(new FlakTargetHit(ship, area.reason(), area.sinks(), x, y, z));
             }
         }
         return Optional.empty();
