@@ -132,6 +132,8 @@ public final class GameSession {
     private static final double BOT_FRIENDLY_HUMAN_COMBAT_RADIUS = 420;
     private static final double BOT_FRIENDLY_HUMAN_TARGET_DRIFT_WEIGHT = 0.8;
     private static final double BOT_GLANCING_RAM_BACKOFF_SECONDS = 2.85;
+    private static final double BOT_IDLE_WAKE_INTERVAL_SECONDS = 24.0;
+    private static final double BOT_IDLE_WAKE_DURATION_SECONDS = 6.0;
     private static final boolean SCOUT_PLANE_EXPERIMENT_PEACEFUL_BOTS = false;
     private static final double RESPAWN_DELAY_SECONDS = 8;
     private static final double RESPAWN_HUMAN_RADAR_MARGIN = 120;
@@ -556,6 +558,9 @@ public final class GameSession {
         List<Ship> surfaceShips = activeShips.stream()
                 .filter(ship -> !ship.isScoutPlane())
                 .toList();
+        List<Ship> humanSurfaceShips = surfaceShips.stream()
+                .filter(this::isHumanControlled)
+                .toList();
         RadarService.VisibilityCache visibilityCache = radarService.visibilityCache(worldMap, surfaceShips);
         Map<String, Integer> scoutPlaneTargetReservations = new LinkedHashMap<>();
         activeShips.stream()
@@ -564,7 +569,7 @@ public final class GameSession {
                     if (ship.isScoutPlane()) {
                         commandScoutPlaneBot(ship, activeShips, worldMap, scoutPlaneTargetReservations);
                     } else {
-                        commandBot(ship, visibilityCache, navigationService, worldMap);
+                        commandBot(ship, visibilityCache, navigationService, worldMap, humanSurfaceShips);
                     }
                 });
     }
@@ -930,7 +935,8 @@ public final class GameSession {
         return attackingTeamId + ">" + humanShipId;
     }
 
-    private void commandBot(Ship ship, RadarService.VisibilityCache visibilityCache, NavigationService navigationService, WorldMap worldMap) {
+    private void commandBot(Ship ship, RadarService.VisibilityCache visibilityCache, NavigationService navigationService,
+                            WorldMap worldMap, List<Ship> humanSurfaceShips) {
         if (escapeBlockedWater(ship, navigationService, worldMap)) {
             return;
         }
@@ -946,15 +952,19 @@ public final class GameSession {
 
         Optional<Ship> target = chooseBotTarget(ship, visibleTargets(ship, visibilityCache));
         if (target.isEmpty()) {
-            moveWithoutTarget(ship, navigationService, worldMap);
+            moveWithoutTarget(ship, navigationService, worldMap, humanSurfaceShips);
             return;
         }
 
         aimAtTarget(ship, target.get(), navigationService, worldMap);
     }
 
-    private void moveWithoutTarget(Ship ship, NavigationService navigationService, WorldMap worldMap) {
+    private void moveWithoutTarget(Ship ship, NavigationService navigationService, WorldMap worldMap,
+                                   List<Ship> humanSurfaceShips) {
         if (escortHumanLeader(ship, navigationService, worldMap)) {
+            return;
+        }
+        if (moveDuringIdleWake(ship, navigationService, worldMap, humanSurfaceShips)) {
             return;
         }
 
@@ -1007,7 +1017,8 @@ public final class GameSession {
                 ship.applyCommand(ENGINE_SLOW, 0);
                 return true;
             }
-            ship.applyCommand(ENGINE_STOP, 0);
+            double safeHeading = chooseSafeEscapeHeading(ship, navigationService, worldMap);
+            ship.applyCommand(ENGINE_SLOW, rudderTowardHeading(ship, safeHeading));
             return true;
         }
 
@@ -1237,13 +1248,14 @@ public final class GameSession {
             return false;
         }
         if (distanceToHuman < BOT_ESCORT_MIN_DISTANCE) {
-            steerAwayFrom(ship, human.position(), Math.abs(human.speed()) < 0.8 ? ENGINE_STOP : ENGINE_SLOW, navigationService, worldMap);
+            int engineOrder = Math.abs(human.speed()) < 0.8 ? idleWakeEngineOrder(ship, ENGINE_STOP) : ENGINE_SLOW;
+            steerAwayFrom(ship, human.position(), engineOrder, navigationService, worldMap);
             return true;
         }
 
         Vector2 escortPoint = escortPointFor(ship, human);
         double distanceToEscortPoint = ship.position().distanceTo(escortPoint);
-        int engineOrder = escortEngineOrder(distanceToEscortPoint, human.speed());
+        int engineOrder = escortEngineOrder(ship, distanceToEscortPoint, human.speed());
         steerToward(ship, escortPoint, engineOrder, navigationService, worldMap);
         return true;
     }
@@ -1251,6 +1263,29 @@ public final class GameSession {
     private Optional<Ship> nearestHumanControlledTeamShip(Ship ship) {
         return activeTeamShips(ship.teamId()).stream()
                 .filter(this::isHumanControlled)
+                .min((left, right) -> Double.compare(
+                        ship.position().distanceTo(left.position()),
+                        ship.position().distanceTo(right.position())
+                ));
+    }
+
+    private boolean moveDuringIdleWake(Ship ship, NavigationService navigationService, WorldMap worldMap,
+                                       List<Ship> humanSurfaceShips) {
+        if (!botIdleWakeActive(ship)) {
+            return false;
+        }
+        Optional<Ship> humanTarget = nearestHumanControlledEnemyShip(ship, humanSurfaceShips);
+        if (humanTarget.isPresent()) {
+            steerToward(ship, humanTarget.get().position(), ENGINE_FULL, navigationService, worldMap);
+            return true;
+        }
+        patrol(ship, navigationService, worldMap);
+        return true;
+    }
+
+    private Optional<Ship> nearestHumanControlledEnemyShip(Ship ship, List<Ship> humanSurfaceShips) {
+        return humanSurfaceShips.stream()
+                .filter(target -> !target.teamId().equals(ship.teamId()))
                 .min((left, right) -> Double.compare(
                         ship.position().distanceTo(left.position()),
                         ship.position().distanceTo(right.position())
@@ -1275,9 +1310,9 @@ public final class GameSession {
                 .add(right.scale(side * lane));
     }
 
-    private int escortEngineOrder(double distanceToEscortPoint, double leaderSpeed) {
+    private int escortEngineOrder(Ship ship, double distanceToEscortPoint, double leaderSpeed) {
         if (distanceToEscortPoint < 45 && Math.abs(leaderSpeed) < 0.8) {
-            return ENGINE_STOP;
+            return idleWakeEngineOrder(ship, ENGINE_STOP);
         }
         if (distanceToEscortPoint < 90) {
             return Math.abs(leaderSpeed) < 2.5 ? ENGINE_SLOW : ENGINE_HALF;
@@ -1286,6 +1321,16 @@ public final class GameSession {
             return ENGINE_HALF;
         }
         return ENGINE_FLANK;
+    }
+
+    private int idleWakeEngineOrder(Ship ship, int restingEngineOrder) {
+        return botIdleWakeActive(ship) ? ENGINE_SLOW : restingEngineOrder;
+    }
+
+    private boolean botIdleWakeActive(Ship ship) {
+        double phase = stablePhase(ship.id()) % BOT_IDLE_WAKE_INTERVAL_SECONDS;
+        double cycleTime = (nowSeconds + phase) % BOT_IDLE_WAKE_INTERVAL_SECONDS;
+        return cycleTime < BOT_IDLE_WAKE_DURATION_SECONDS;
     }
 
     private void steerAwayFrom(Ship ship, Vector2 point, int engineOrder, NavigationService navigationService, WorldMap worldMap) {
@@ -2141,14 +2186,26 @@ public final class GameSession {
     }
 
     private void respawnSunkShips(NavigationService navigationService, WorldMap worldMap, RadarService radarService) {
+        Set<Vector2> reservedRespawnPositions = new HashSet<>();
         allShips().stream()
                 .filter(ship -> ship.isReadyToRespawn(nowSeconds))
                 .forEach(ship -> {
                     prepareBotVehicleTypeForRespawn(ship);
-                    Vector2 position = findRespawnPosition(ship, navigationService, worldMap, radarService);
-                    double heading = MathSupport.normalizeAngle(angleTo(nearestLandCenter(position, worldMap).orElse(new Vector2(0, 0)), position) + Math.PI);
+                    Vector2 position = findRespawnPosition(ship, navigationService, worldMap, radarService, reservedRespawnPositions);
+                    if (navigationService.isShipBlocked(position, ship.heading(), worldMap)
+                            || activeShipsTooClose(position, reservedRespawnPositions)) {
+                        return;
+                    }
+                    reservedRespawnPositions.add(position);
+                    double heading = respawnHeading(ship, position, worldMap);
                     ship.respawn(position, heading, nowSeconds);
                 });
+    }
+
+    private double respawnHeading(Ship ship, Vector2 position, WorldMap worldMap) {
+        double heading = MathSupport.normalizeAngle(angleTo(nearestLandCenter(position, worldMap).orElse(new Vector2(0, 0)), position) + Math.PI);
+        double headingVariation = Math.sin(stablePhase(ship.id())) * Math.toRadians(8);
+        return MathSupport.normalizeAngle(heading + headingVariation);
     }
 
     private void prepareBotVehicleTypeForRespawn(Ship ship) {
@@ -2192,6 +2249,11 @@ public final class GameSession {
     }
 
     Vector2 findRespawnPosition(Ship ship, NavigationService navigationService, WorldMap worldMap, RadarService radarService) {
+        return findRespawnPosition(ship, navigationService, worldMap, radarService, Set.of());
+    }
+
+    private Vector2 findRespawnPosition(Ship ship, NavigationService navigationService, WorldMap worldMap, RadarService radarService,
+                                        Set<Vector2> reservedRespawnPositions) {
         List<Vector2> candidates = respawnCandidates;
         if (candidates.isEmpty()) {
             return ship.position();
@@ -2208,21 +2270,21 @@ public final class GameSession {
             RespawnChoice choice = new RespawnChoice(index, candidate);
             boolean sameAsLast = index == lastRespawnCandidateIndex;
             boolean blocked = navigationService.isShipBlocked(candidate, ship.heading(), worldMap);
-            boolean activeShipsTooClose = activeShipsTooClose(candidate);
+            boolean activeShipsTooClose = activeShipsTooClose(candidate, reservedRespawnPositions);
             double distanceToHumans = distanceToNearestHumanShip(candidate);
             boolean tooCloseToHuman = distanceToHumans <= radarService.range() + RESPAWN_HUMAN_RADAR_MARGIN;
 
             if (!sameAsLast && !blocked && !activeShipsTooClose && !tooCloseToHuman) {
                 return selectRespawnChoice(choice, candidates.size());
             }
-            if (!sameAsLast && !blocked) {
-                double fallbackScore = distanceToHumans - (activeShipsTooClose ? radarService.range() * 2 : 0);
+            if (!sameAsLast && !blocked && !activeShipsTooClose) {
+                double fallbackScore = distanceToHumans;
                 if (fallbackScore > bestFallbackScore) {
                     bestFallbackScore = fallbackScore;
                     bestFallbackCandidate = choice;
                 }
             }
-            if (!sameAsLast && !blocked && firstNavigableCandidate == null) {
+            if (!sameAsLast && !blocked && !activeShipsTooClose && firstNavigableCandidate == null) {
                 firstNavigableCandidate = choice;
             }
             if (!sameAsLast && firstDifferentCandidate == null) {
@@ -2248,7 +2310,12 @@ public final class GameSession {
         return choice.position();
     }
 
-    private boolean activeShipsTooClose(Vector2 candidate) {
+    private boolean activeShipsTooClose(Vector2 candidate, Set<Vector2> reservedRespawnPositions) {
+        boolean reservedTooClose = reservedRespawnPositions.stream()
+                .anyMatch(position -> position.distanceTo(candidate) < RESPAWN_MIN_SHIP_DISTANCE);
+        if (reservedTooClose) {
+            return true;
+        }
         return allShips().stream()
                 .filter(ship -> "active".equals(ship.state()))
                 .anyMatch(ship -> ship.position().distanceTo(candidate) < RESPAWN_MIN_SHIP_DISTANCE);

@@ -275,6 +275,84 @@ class GameSessionTest {
     }
 
     @Test
+    void restingEscortBotShipDoesNotSleepForever() {
+        GameSession session = new GameSession(new GameSetup(
+                "resting-escort-wake-test",
+                new WorldMap(90311, List.of()),
+                List.of(new FleetSetup("red", List.of(
+                        ship("red-escort", "red", 0, 30, 0, "bot", ENGINE_STOP, 0, 99),
+                        ship("red-human", "red", 0, 0, 0, "player-BPB", ENGINE_STOP, 0, 99)
+                ))),
+                List.of(new Vector2(0, 30), new Vector2(0, 0))
+        ));
+
+        boolean woke = false;
+        for (double elapsed = 0; elapsed < 70; elapsed += 0.25) {
+            session.update(0.25, radarService, navigationService, session.worldMap());
+            ShipSnapshot escort = findShip(session.snapshot(), "red-escort");
+            if (escort != null && escort.engineOrder() > ENGINE_STOP) {
+                woke = true;
+                break;
+            }
+        }
+
+        assertTrue(woke, "resting escort bot should occasionally move instead of sleeping forever");
+    }
+
+    @Test
+    void idleBotShipPeriodicallyHuntsDistantHumanPlayer() {
+        GameSession session = new GameSession(new GameSetup(
+                "idle-bot-human-hunt-wake-test",
+                new WorldMap(90312, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-1", "red", 0, 0, 0, "bot", ENGINE_STOP, 0, 99)
+                        )),
+                        new FleetSetup("blue", List.of(
+                                ship("blue-human", "blue", 0, 13000, Math.PI, "player-BPB", ENGINE_STOP, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(0, 13000))
+        ));
+
+        boolean hunted = false;
+        for (double elapsed = 0; elapsed < 70; elapsed += 0.25) {
+            session.update(0.25, radarService, navigationService, session.worldMap());
+            ShipSnapshot bot = findShip(session.snapshot(), "red-1");
+            if (bot != null && bot.engineOrder() == ENGINE_FULL) {
+                hunted = true;
+                break;
+            }
+        }
+
+        assertTrue(hunted, "idle bot should periodically head toward a distant human player");
+    }
+
+    @Test
+    void idleBotShipPeriodicallyPatrolsWhenNoHumanPlayerExists() {
+        GameSession session = new GameSession(new GameSetup(
+                "idle-bot-patrol-wake-test",
+                new WorldMap(90313, List.of()),
+                List.of(new FleetSetup("red", List.of(
+                        ship("red-1", "red", 0, 0, 0, "bot", ENGINE_STOP, 0, 99)
+                ))),
+                List.of(new Vector2(0, 0))
+        ));
+
+        boolean patrolled = false;
+        for (double elapsed = 0; elapsed < 70; elapsed += 0.25) {
+            session.update(0.25, radarService, navigationService, session.worldMap());
+            ShipSnapshot bot = findShip(session.snapshot(), "red-1");
+            if (bot != null && bot.engineOrder() >= ENGINE_HALF) {
+                patrolled = true;
+                break;
+            }
+        }
+
+        assertTrue(patrolled, "idle bot without human targets should periodically patrol");
+    }
+
+    @Test
     void botDoesNotFireTorpedoThroughFriendlyShipOnStaticFiringLine() {
         GameSession session = new GameSession(new GameSetup(
                 "bot-friendly-fire-line-test",
@@ -2853,6 +2931,55 @@ class GameSessionTest {
 
         assertEquals(candidates.get(0), first);
         assertEquals(candidates.get(1), second);
+    }
+
+    @Test
+    void simultaneousRespawnsPreferHumanProximityOverStackingShips() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "simultaneous-respawn-spacing-test",
+                new WorldMap(9071, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-a", "red", -20, 0, 0, "bot", ENGINE_STOP, 0, 0),
+                                ship("red-b", "red", 20, 0, 0, "bot", ENGINE_STOP, 0, 0)
+                        )),
+                        new FleetSetup("blue", List.of(
+                                ship("blue-human", "blue", 5300, 0, Math.PI, "player-BPB", ENGINE_STOP, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(5000, 0))
+        ));
+        sinkShip(session, "red-a");
+        sinkShip(session, "red-b");
+
+        session.update(8.1, radarService, navigationService, session.worldMap());
+        GameSnapshot snapshot = session.snapshot();
+
+        assertEquals("active", findShip(snapshot, "red-a").state());
+        assertEquals("active", findShip(snapshot, "red-b").state());
+        assertTrue(distanceBetween(snapshot, "red-a", "red-b") >= 170);
+        assertEquals(0, findShip(snapshot, "red-a").x(), 0.001);
+        assertEquals(5000, findShip(snapshot, "red-b").x(), 0.001);
+    }
+
+    @Test
+    void respawnWaitsWhenEveryCandidateIsOccupied() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "occupied-respawn-waits-test",
+                new WorldMap(90711, List.of()),
+                List.of(new FleetSetup("red", List.of(
+                        ship("red-sunk", "red", 40, 0, 0, "bot", ENGINE_STOP, 0, 0),
+                        ship("red-active", "red", 0, 0, 0, "bot", ENGINE_STOP, 0, 99)
+                ))),
+                List.of(new Vector2(0, 0))
+        ));
+        sinkShip(session, "red-sunk");
+
+        session.update(8.1, radarService, navigationService, session.worldMap());
+        GameSnapshot snapshot = session.snapshot();
+
+        assertNull(findShip(snapshot, "red-sunk"));
+        assertEquals("active", findShip(snapshot, "red-active").state());
     }
 
     @Test
