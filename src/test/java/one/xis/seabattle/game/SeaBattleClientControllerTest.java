@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class SeaBattleClientControllerTest {
@@ -33,6 +34,25 @@ class SeaBattleClientControllerTest {
         assertEquals(200, activeResponse.getStatusCode());
         SeaBattleClientController.PlayerLogin login = (SeaBattleClientController.PlayerLogin) activeResponse.getBody();
         assertEquals("player-BPB-123456789abc", login.playerId());
+    }
+
+    @Test
+    void gameConfigExposesCurrentEngineSpeeds() {
+        SeaBattleClientController controller = new SeaBattleClientController(
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+
+        assertArrayEquals(
+                new double[]{-8.0, -2.2, 0, 0.9, 2.93, 6.18, 10.4, 12.0, 17.5},
+                controller.getGameConfig().engineSpeeds()
+        );
     }
 
     private record FixedAccountService(Account account) implements AccountService {
