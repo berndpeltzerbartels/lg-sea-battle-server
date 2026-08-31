@@ -2859,6 +2859,173 @@ class GameSessionTest {
         assertEquals("active", findShip(snapshot, "red-1").state());
         assertEquals("active", findShip(snapshot, "red-2").state());
         assertEquals(0, snapshot.destroyedShipsByTeam().get("red"));
+        assertEquals(ENGINE_FULL_ASTERN, findShip(snapshot, "red-1").engineOrder());
+        assertEquals(ENGINE_FULL_ASTERN, findShip(snapshot, "red-2").engineOrder());
+    }
+
+    @Test
+    void botAvoidsFriendlyHumanShipAhead() {
+        GameSession session = new GameSession(new GameSetup(
+                "friendly-human-blocking-course-test",
+                new WorldMap(9070, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-bot", "red", 0, -55, 0, "bot", ENGINE_FULL, 0, 99),
+                                ship("red-human", "red", 0, 0, 0, "player-BP-test", ENGINE_STOP, 0, 99)
+                        )),
+                        new FleetSetup("blue", List.of(
+                                ship("blue-target", "blue", 0, 260, Math.PI, "scenario", ENGINE_STOP, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, -55), new Vector2(0, 0), new Vector2(0, 260))
+        ));
+
+        session.update(0.05, radarService, navigationService, session.worldMap());
+
+        ShipSnapshot bot = findShip(session.snapshot(), "red-bot");
+        assertEquals("active", bot.state());
+        assertTrue(Math.abs(bot.rudderDegrees()) > 0);
+        assertTrue(bot.engineOrder() <= ENGINE_HALF);
+    }
+
+    @Test
+    void playerCanDamageHumanFleetMateByRamCollision() {
+        GameSession session = new GameSession(new GameSetup(
+                "player-fleet-mate-ram-damage-test",
+                new WorldMap(9071, List.of()),
+                List.of(new FleetSetup("red", List.of(
+                        ship("red-1", "red", 0, 11, 0, "bot", ENGINE_STOP, 0, 99),
+                        ship("red-2", "red", 0, -11, 0, "bot", ENGINE_STOP, 0, 99)
+                ))),
+                List.of(new Vector2(0, 11), new Vector2(0, -11))
+        ));
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-red-front", "red", 0, 11, 0, 5, 0, ENGINE_HALF, 0, 0, false),
+                navigationService,
+                session.worldMap()
+        );
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-red-rear", "red", 0, -11, 0, 10.3, 0, ENGINE_FULL, 0, 0, false),
+                navigationService,
+                session.worldMap()
+        );
+        session.update(0, radarService, navigationService, session.worldMap());
+
+        GameSnapshot snapshot = session.snapshot();
+        assertEquals(2, snapshot.destroyedShipsByTeam().get("red"));
+    }
+
+    @Test
+    void slowRamCollisionDoesNotSinkShips() {
+        GameSession session = new GameSession(new GameSetup(
+                "slow-ram-no-damage-test",
+                new WorldMap(9072, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, Math.PI / 2, "scenario", ENGINE_SLOW, 0, 99))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 18, 0, 0, "scenario", ENGINE_STOP, 0, 99)))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(18, 0))
+        ));
+
+        for (int index = 0; index < 50; index += 1) {
+            session.update(0.05, radarService, navigationService, session.worldMap());
+        }
+
+        GameSnapshot snapshot = session.snapshot();
+        assertEquals("active", findShip(snapshot, "red-1").state());
+        assertEquals("active", findShip(snapshot, "blue-1").state());
+        assertEquals(0, snapshot.destroyedShipsByTeam().get("red"));
+        assertEquals(0, snapshot.destroyedShipsByTeam().get("blue"));
+    }
+
+    @Test
+    void rearEndRamCollisionSinksBothShips() {
+        String playerId = "player-BP-test";
+        GameSession session = new GameSession(new GameSetup(
+                "rear-end-ram-test",
+                new WorldMap(9072, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, -40, 0, playerId, ENGINE_FULL, 0, 99))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 0, -8, 0, "scenario", ENGINE_STOP, 0, 99)))
+                ),
+                List.of(new Vector2(0, -40), new Vector2(0, -8))
+        ));
+
+        GameSnapshot snapshot = tickPlayerForwardUntilShipState(
+                session, playerId, "red", "red-1", "sunk", new Vector2(0, -40), 0, 4
+        );
+
+        assertEquals("sunk", findShip(snapshot, "red-1").state());
+        assertEquals("sunk", findShip(snapshot, "blue-1").state());
+        assertEquals(1, snapshot.destroyedShipsByTeam().get("red"));
+        assertEquals(1, snapshot.destroyedShipsByTeam().get("blue"));
+    }
+
+    @Test
+    void rearEndRamCollisionUsesRelativeImpactSpeedForDamage() {
+        GameSession session = playerRearEndRamSession("rear-end-relative-impact-damage-test");
+
+        setPlayerShipState(session, "player-red", "red", 0, -11, 0, 10.3);
+        setPlayerShipState(session, "player-blue", "blue", 0, 11, 0, 5.0);
+        session.update(0, radarService, navigationService, session.worldMap());
+
+        GameSnapshot snapshot = session.snapshot();
+        assertEquals("sunk", findShip(snapshot, "red-1").state());
+        assertEquals("sunk", findShip(snapshot, "blue-1").state());
+    }
+
+    @Test
+    void rearEndRamCollisionBelowFiveKnotsRelativeImpactDoesNotSinkShips() {
+        GameSession session = playerRearEndRamSession("rear-end-relative-impact-no-damage-test");
+
+        setPlayerShipState(session, "player-red", "red", 0, -11, 0, 10.0);
+        setPlayerShipState(session, "player-blue", "blue", 0, 11, 0, 5.2);
+        session.update(0, radarService, navigationService, session.worldMap());
+
+        GameSnapshot snapshot = session.snapshot();
+        assertEquals("active", findShip(snapshot, "red-1").state());
+        assertEquals("active", findShip(snapshot, "blue-1").state());
+    }
+
+    @Test
+    void cleanHeadOnRamCollisionSinksBothShips() {
+        GameSession session = new GameSession(new GameSetup(
+                "clean-head-on-ram-test",
+                new WorldMap(9073, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, -40, 0, "scenario", ENGINE_FULL, 0, 99))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 0, 40, Math.PI, "scenario", ENGINE_FULL, 0, 99)))
+                ),
+                List.of(new Vector2(0, -40), new Vector2(0, 40))
+        ));
+
+        GameSnapshot snapshot = tickUntilShipState(session, "red-1", "sunk", 6);
+
+        assertEquals("sunk", findShip(snapshot, "red-1").state());
+        assertEquals("sunk", findShip(snapshot, "blue-1").state());
+        assertEquals(1, snapshot.destroyedShipsByTeam().get("red"));
+        assertEquals(1, snapshot.destroyedShipsByTeam().get("blue"));
+    }
+
+    @Test
+    void offsetHeadOnRamCollisionGlancesWithoutSinkingShips() {
+        GameSession session = new GameSession(new GameSetup(
+                "offset-head-on-ram-test",
+                new WorldMap(9074, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", -4.2, -12, 0, "scenario", ENGINE_FULL, 0, 99))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 4.2, 12, Math.PI, "scenario", ENGINE_FULL, 0, 99)))
+                ),
+                List.of(new Vector2(-4.2, -12), new Vector2(4.2, 12))
+        ));
+
+        GameSnapshot snapshot = tickUntilShipsTouch(session, 4);
+
+        assertEquals("active", findShip(snapshot, "red-1").state());
+        assertEquals("active", findShip(snapshot, "blue-1").state());
+        assertEquals(0, snapshot.destroyedShipsByTeam().get("red"));
+        assertEquals(0, snapshot.destroyedShipsByTeam().get("blue"));
     }
 
     @Test
@@ -3403,6 +3570,27 @@ class GameSessionTest {
             }
         }
         return snapshot;
+    }
+
+    private GameSession playerRearEndRamSession(String setupId) {
+        return new GameSession(new GameSetup(
+                setupId,
+                new WorldMap(9075, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, -11, 0, "player-red", ENGINE_STOP, 0, 99))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 0, 11, 0, "player-blue", ENGINE_STOP, 0, 99)))
+                ),
+                List.of(new Vector2(0, -11), new Vector2(0, 11))
+        ));
+    }
+
+    private void setPlayerShipState(GameSession session, String playerId, String teamId,
+                                    double x, double z, double heading, double speed) {
+        session.updatePlayerState(
+                new PlayerStateUpdate(playerId, teamId, x, z, heading, speed, 0, ENGINE_FULL, 0, 0, false),
+                navigationService,
+                session.worldMap()
+        );
     }
 
     private ShipSnapshot findShip(GameSnapshot snapshot, String shipId) {

@@ -106,8 +106,12 @@ public final class GameSession {
     private static final double RAM_SIDE_FORWARD_MAX = 2.95;
     private static final double RAM_SIDE_MARGIN = 0.42;
     private static final double RAM_SIDE_ANGLE_TOLERANCE = Math.toRadians(45);
-    private static final double RAM_GLANCING_COLLISION_ANGLE = Math.toRadians(30);
+    private static final double RAM_GLANCING_COLLISION_ANGLE = Math.toRadians(40);
     private static final double RAM_GLANCING_HEADING_IMPULSE = Math.toRadians(9);
+    private static final double RAM_DAMAGE_MIN_CLOSING_SPEED = 5.0;
+    private static final double RAM_COLLISION_BROAD_PHASE_RADIUS = 10.2 * TORPEDO_BOAT_MODEL_SCALE;
+    private static final double BOT_SHIP_AVOID_RANGE = 86.0;
+    private static final double BOT_SHIP_AVOID_CORRIDOR = 3.15 * TORPEDO_BOAT_MODEL_SCALE;
     private static final double BOT_FIRE_ARC = 0.16;
     private static final double BOT_CLOSE_FIRE_ARC = 1.15;
     private static final double BOT_FIRE_MIN_RANGE = 65 * BOT_SHIP_TACTICAL_SCALE;
@@ -569,7 +573,7 @@ public final class GameSession {
                     if (ship.isScoutPlane()) {
                         commandScoutPlaneBot(ship, activeShips, worldMap, scoutPlaneTargetReservations);
                     } else {
-                        commandBot(ship, visibilityCache, navigationService, worldMap, humanSurfaceShips);
+                        commandBot(ship, visibilityCache, navigationService, worldMap, humanSurfaceShips, surfaceShips);
                     }
                 });
     }
@@ -936,7 +940,7 @@ public final class GameSession {
     }
 
     private void commandBot(Ship ship, RadarService.VisibilityCache visibilityCache, NavigationService navigationService,
-                            WorldMap worldMap, List<Ship> humanSurfaceShips) {
+                            WorldMap worldMap, List<Ship> humanSurfaceShips, List<Ship> surfaceShips) {
         if (escapeBlockedWater(ship, navigationService, worldMap)) {
             return;
         }
@@ -947,6 +951,9 @@ public final class GameSession {
             return;
         }
         if (ship.applyGlancingRamBackoff(nowSeconds)) {
+            return;
+        }
+        if (avoidShipAhead(ship, surfaceShips, navigationService, worldMap)) {
             return;
         }
 
@@ -1283,6 +1290,36 @@ public final class GameSession {
         return true;
     }
 
+    private boolean avoidShipAhead(Ship ship, List<Ship> surfaceShips, NavigationService navigationService, WorldMap worldMap) {
+        Optional<Ship> obstacle = surfaceShips.stream()
+                .filter(candidate -> !candidate.id().equals(ship.id()))
+                .filter(candidate -> "active".equals(candidate.state()))
+                .filter(candidate -> candidate.teamId().equals(ship.teamId()))
+                .filter(this::isHumanControlled)
+                .filter(candidate -> ship.position().distanceTo(candidate.position()) <= BOT_SHIP_AVOID_RANGE)
+                .filter(candidate -> isShipAheadInCollisionCorridor(ship, candidate))
+                .min(Comparator.comparingDouble(candidate -> ship.position().distanceTo(candidate.position())));
+        if (obstacle.isEmpty()) {
+            return false;
+        }
+
+        double distance = ship.position().distanceTo(obstacle.get().position());
+        int engineOrder = distance < 34 ? ENGINE_ONE_THIRD : ENGINE_HALF;
+        steerAwayFrom(ship, obstacle.get().position(), engineOrder, navigationService, worldMap);
+        return true;
+    }
+
+    private boolean isShipAheadInCollisionCorridor(Ship ship, Ship obstacle) {
+        Vector2 forward = Vector2.fromHeading(ship.heading());
+        Vector2 toObstacle = obstacle.position().subtract(ship.position());
+        double along = toObstacle.x() * forward.x() + toObstacle.z() * forward.z();
+        if (along <= 0 || along > BOT_SHIP_AVOID_RANGE) {
+            return false;
+        }
+        double lateral = Math.abs(toObstacle.x() * forward.z() - toObstacle.z() * forward.x());
+        return lateral <= BOT_SHIP_AVOID_CORRIDOR;
+    }
+
     private Optional<Ship> nearestHumanControlledEnemyShip(Ship ship, List<Ship> humanSurfaceShips) {
         return humanSurfaceShips.stream()
                 .filter(target -> !target.teamId().equals(ship.teamId()))
@@ -1389,26 +1426,31 @@ public final class GameSession {
             Ship left = activeShips.get(i);
             for (int j = i + 1; j < activeShips.size(); j += 1) {
                 Ship right = activeShips.get(j);
-                if (left.teamId().equals(right.teamId())) {
+                if (left.position().distanceTo(right.position()) > RAM_COLLISION_BROAD_PHASE_RADIUS) {
                     continue;
                 }
 
                 RamImpact leftImpact = ramImpact(left, right);
                 RamImpact rightImpact = ramImpact(right, left);
-                if (!leftImpact.hits() && !rightImpact.hits()
-                        && left.position().distanceTo(right.position()) > RAM_HIT_RADIUS * TORPEDO_BOAT_MODEL_SCALE) {
+                boolean hullsOverlap = hullsOverlap(left, right);
+                if (!leftImpact.hits() && !rightImpact.hits() && !hullsOverlap) {
                     continue;
                 }
 
-                if (left.isBotControlled() || right.isBotControlled()) {
+                if (left.isBotControlled() && right.isBotControlled()) {
                     resolveGlancingRam(left, right);
                     continue;
                 }
 
-                boolean headOnCollision = leftImpact.isBowHit() && rightImpact.isBowHit()
-                        && angularDistance(left.heading(), right.heading()) > Math.toRadians(135);
+                if (ramCollisionSpeed(left, right) < RAM_DAMAGE_MIN_CLOSING_SPEED) {
+                    resolveGlancingRam(left, right);
+                    continue;
+                }
+
+                boolean headOnCollision = isCleanHeadOnCollision(left, right, leftImpact, rightImpact);
+                boolean rearEndCollision = isRearEndCollision(left, right, leftImpact, rightImpact);
                 boolean glancingCollision = isGlancingCollision(left, right);
-                if (headOnCollision) {
+                if (headOnCollision || rearEndCollision) {
                     sinkShipByRam(left, right);
                     sinkShipByRam(right, left);
                 } else if (glancingCollision) {
@@ -1460,8 +1502,36 @@ public final class GameSession {
 
     private boolean isGlancingCollision(Ship left, Ship right) {
         double relativeHeading = angularDistance(left.heading(), right.heading());
-        double acuteHeading = Math.min(relativeHeading, Math.PI - relativeHeading);
-        return acuteHeading < RAM_GLANCING_COLLISION_ANGLE;
+        return relativeHeading < RAM_GLANCING_COLLISION_ANGLE;
+    }
+
+    private boolean isCleanHeadOnCollision(Ship left, Ship right, RamImpact leftImpact, RamImpact rightImpact) {
+        if (angularDistance(left.heading(), right.heading()) <= Math.toRadians(135)) {
+            return false;
+        }
+        if (leftImpact.isCleanBowHit() && rightImpact.isCleanBowHit()) {
+            return true;
+        }
+
+        LocalHullPoint rightCenterFromLeft = localHullPoint(right.position(), left);
+        LocalHullPoint leftCenterFromRight = localHullPoint(left.position(), right);
+        return rightCenterFromLeft.forward() > 0
+                && leftCenterFromRight.forward() > 0
+                && Math.abs(rightCenterFromLeft.right()) <= 0.55
+                && Math.abs(leftCenterFromRight.right()) <= 0.55;
+    }
+
+    private boolean isRearEndCollision(Ship left, Ship right, RamImpact leftImpact, RamImpact rightImpact) {
+        return angularDistance(left.heading(), right.heading()) < RAM_GLANCING_COLLISION_ANGLE
+                && (leftImpact.isSternHit() || rightImpact.isSternHit());
+    }
+
+    private double ramCollisionSpeed(Ship left, Ship right) {
+        Vector2 separation = right.position().subtract(left.position()).normalized();
+        Vector2 leftVelocity = Vector2.fromHeading(left.heading()).scale(left.speed());
+        Vector2 rightVelocity = Vector2.fromHeading(right.heading()).scale(right.speed());
+        Vector2 relativeVelocity = leftVelocity.subtract(rightVelocity);
+        return Math.max(0, relativeVelocity.x() * separation.x() + relativeVelocity.z() * separation.z());
     }
 
     private RamImpact ramImpact(Ship attacker, Ship target) {
@@ -1499,20 +1569,80 @@ public final class GameSession {
                 && hit.forward() <= RAM_SIDE_FORWARD_MAX
                 && sideAngle;
         boolean bowHit = hit.forward() > RAM_BOW_LENGTH - 1.15;
+        boolean cleanBowHit = hit.forward() > RAM_BOW_LENGTH - 0.78
+                && Math.abs(hit.right()) <= Math.max(0.16, halfWidth + RAM_SIDE_MARGIN * 0.22);
+        boolean sternHit = hit.forward() < RAM_STERN_LENGTH + 1.15
+                && Math.abs(hit.right()) <= Math.max(0.18, halfWidth * 0.65);
         double sideScore = sideHit
                 ? (1 - sideAngleError / RAM_SIDE_ANGLE_TOLERANCE)
                 + MathSupport.clamp((halfWidth + RAM_SIDE_MARGIN - Math.abs(hit.right())) / (halfWidth + RAM_SIDE_MARGIN), 0, 1) * 0.35
                 + MathSupport.clamp(attacker.speed() / 8.0, 0, 1) * 0.25
                 : 0;
-        return new RamImpact(true, sideHit, bowHit, sideScore);
+        return new RamImpact(true, sideHit, bowHit, cleanBowHit, sternHit, sideScore);
+    }
+
+    private boolean hullsOverlap(Ship left, Ship right) {
+        return hullSamplePoints(left).stream().anyMatch(point -> pointInsideShipHull(point, right, RAM_SIDE_MARGIN))
+                || hullSamplePoints(right).stream().anyMatch(point -> pointInsideShipHull(point, left, RAM_SIDE_MARGIN));
+    }
+
+    private boolean hullsOverlap(Vector2 position, double heading, Ship other) {
+        return hullSamplePoints(position, heading).stream().anyMatch(point -> pointInsideShipHull(point, other, RAM_SIDE_MARGIN))
+                || hullSamplePoints(other).stream().anyMatch(point -> pointInsideShipHull(point, position, heading, RAM_SIDE_MARGIN));
+    }
+
+    private List<Vector2> hullSamplePoints(Ship ship) {
+        return hullSamplePoints(ship.position(), ship.heading());
+    }
+
+    private List<Vector2> hullSamplePoints(Vector2 position, double heading) {
+        double[] forwards = {
+                TORPEDO_BOAT_STERN_Z + 0.25,
+                -3.0,
+                -1.45,
+                0.2,
+                1.7,
+                TORPEDO_BOAT_BOW_Z - 0.25
+        };
+        List<Vector2> points = new ArrayList<>(forwards.length * 3);
+        Vector2 forwardVector = Vector2.fromHeading(heading);
+        Vector2 rightVector = new Vector2(Math.cos(heading), -Math.sin(heading));
+        for (double forward : forwards) {
+            double halfWidth = enemyHullHalfWidthAt(forward);
+            points.add(position
+                    .add(forwardVector.scale(forward * TORPEDO_BOAT_MODEL_SCALE)));
+            points.add(position
+                    .add(forwardVector.scale(forward * TORPEDO_BOAT_MODEL_SCALE))
+                    .add(rightVector.scale(halfWidth * TORPEDO_BOAT_MODEL_SCALE)));
+            points.add(position
+                    .add(forwardVector.scale(forward * TORPEDO_BOAT_MODEL_SCALE))
+                    .add(rightVector.scale(-halfWidth * TORPEDO_BOAT_MODEL_SCALE)));
+        }
+        return points;
+    }
+
+    private boolean pointInsideShipHull(Vector2 point, Ship ship, double margin) {
+        LocalHullPoint hit = localHullPoint(point, ship);
+        return forwardInsideTorpedoBoatHull(hit.forward(), margin)
+                && Math.abs(hit.right()) <= enemyHullHalfWidthAt(hit.forward()) + margin;
+    }
+
+    private boolean pointInsideShipHull(Vector2 point, Vector2 position, double heading, double margin) {
+        LocalHullPoint hit = localHullPoint(point, position, heading);
+        return forwardInsideTorpedoBoatHull(hit.forward(), margin)
+                && Math.abs(hit.right()) <= enemyHullHalfWidthAt(hit.forward()) + margin;
     }
 
     private LocalHullPoint localHullPoint(Vector2 point, Ship ship) {
-        double dx = point.x() - ship.position().x();
-        double dz = point.z() - ship.position().z();
+        return localHullPoint(point, ship.position(), ship.heading());
+    }
+
+    private LocalHullPoint localHullPoint(Vector2 point, Vector2 position, double heading) {
+        double dx = point.x() - position.x();
+        double dz = point.z() - position.z();
         return new LocalHullPoint(
-                (dx * Math.cos(ship.heading()) - dz * Math.sin(ship.heading())) / TORPEDO_BOAT_MODEL_SCALE,
-                (dx * Math.sin(ship.heading()) + dz * Math.cos(ship.heading())) / TORPEDO_BOAT_MODEL_SCALE
+                (dx * Math.cos(heading) - dz * Math.sin(heading)) / TORPEDO_BOAT_MODEL_SCALE,
+                (dx * Math.sin(heading) + dz * Math.cos(heading)) / TORPEDO_BOAT_MODEL_SCALE
         );
     }
 
@@ -1551,9 +1681,10 @@ public final class GameSession {
     private record LocalHullPoint(double right, double forward) {
     }
 
-    private record RamImpact(boolean hits, boolean isCleanSideHit, boolean isBowHit, double sideScore) {
+    private record RamImpact(boolean hits, boolean isCleanSideHit, boolean isBowHit, boolean isCleanBowHit,
+                             boolean isSternHit, double sideScore) {
         static RamImpact miss() {
-            return new RamImpact(false, false, false, 0);
+            return new RamImpact(false, false, false, false, false, 0);
         }
     }
 
