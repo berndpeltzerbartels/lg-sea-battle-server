@@ -20,7 +20,7 @@ final class DefaultGameSetupFactory {
     private static final String TEAM_SAND = "sand";
     private static final String VEHICLE_TORPEDO_BOAT = "torpedo-boat";
     private static final String VEHICLE_SCOUT_PLANE = "scout-plane";
-    private static final double SCOUT_PLANE_START_Y = 220;
+    private static final double SCOUT_PLANE_START_Y = 170;
     private static final List<String> BASE_TEAMS = List.of(TEAM_DARK, TEAM_LIGHT);
     private static final List<String> TEAM_ORDER = List.of(TEAM_DARK, TEAM_LIGHT, TEAM_GREEN, TEAM_SAND);
     private static final String BOMB_DROP_SCENARIO = """
@@ -35,7 +35,7 @@ final class DefaultGameSetupFactory {
             ...........
             objects:
             1: ship, light, human [orientation: 90°, speed: 0knt]
-            2: plane, dark, bot [orientation: 270°, speed: 30knt, height: 220m]
+            2: plane, dark, bot [orientation: 270°, speed: 30knt, height: 170m]
             """;
 
     private final WorldMapService worldMapService;

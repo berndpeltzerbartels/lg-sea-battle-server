@@ -580,7 +580,7 @@ class GameSessionTest {
                                 ship("dark-1", "dark", 3, 47, 0, "bot", 5, 0, 0)
                         ))
                 ),
-                List.of(new Vector2(0, 0), new Vector2(3, 47), new Vector2(80, 80))
+                List.of(new Vector2(0, 0), new Vector2(3, 47), new Vector2(1400, 1400))
         ));
 
         session.updatePlayerState(
