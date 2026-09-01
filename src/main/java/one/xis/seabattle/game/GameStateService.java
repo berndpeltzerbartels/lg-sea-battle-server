@@ -89,6 +89,17 @@ public class GameStateService {
         }
     }
 
+    public GameSnapshot assignPlayerVehicle(String playerId, String teamId, String vehicleType) {
+        SessionView view;
+        activateTeam(teamId);
+        synchronized (this) {
+            session.assignPlayerVehicle(playerId, teamId, vehicleType);
+            view = captureSessionView();
+        }
+        publishModel(view);
+        return view.state();
+    }
+
     public GameSnapshot fireTorpedo(FireTorpedoRequest request) {
         SessionView view;
         activateTeam(request.teamId());

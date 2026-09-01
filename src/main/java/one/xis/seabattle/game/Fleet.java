@@ -40,8 +40,15 @@ final class Fleet {
     }
 
     Optional<Ship> assignNextShipToPlayer(String playerId) {
+        return assignNextShipToPlayer(playerId, null);
+    }
+
+    Optional<Ship> assignNextShipToPlayer(String playerId, String vehicleType) {
         Optional<Ship> assignedShip = assignedShip(playerId);
         if (assignedShip.isPresent()) {
+            if (vehicleType != null) {
+                assignedShip.get().vehicleType(vehicleType);
+            }
             return assignedShip;
         }
 
@@ -54,6 +61,9 @@ final class Fleet {
             availableShip = activeShips().stream().findFirst();
         }
         availableShip.ifPresent(ship -> {
+            if (vehicleType != null) {
+                ship.vehicleType(vehicleType);
+            }
             ship.controlledBy(playerId);
             ship.nextFireTime(0);
             activeShipIdByPlayerId.put(playerId, ship.id());

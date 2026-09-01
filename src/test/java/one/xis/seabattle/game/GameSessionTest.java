@@ -93,6 +93,46 @@ class GameSessionTest {
     }
 
     @Test
+    void playerCanJoinAsSubmarineWithBoatMovementRules() {
+        GameSession session = new GameSession(new GameSetup(
+                "player-submarine-assignment-test",
+                new WorldMap(90256, List.of()),
+                List.of(new FleetSetup("light", List.of(
+                        ship("light-S1", "light", 0, 0, 0, "bot", ENGINE_STOP, 0, 99)
+                ))),
+                List.of(new Vector2(0, 0))
+        ));
+
+        GameSnapshot snapshot = session.updatePlayerState(new PlayerStateUpdate(
+                "player-BP-test", "light", 12, 0, 0, 6, 0, ENGINE_FULL, 0, 0, false, "submarine", 80
+        ), navigationService, session.worldMap());
+
+        ShipSnapshot ship = findShip(snapshot, "light-S1");
+        assertEquals("player-BP-test", ship.controlledBy());
+        assertEquals("submarine", ship.vehicleType());
+        assertEquals(0, ship.y(), 0.001);
+    }
+
+    @Test
+    void playerVehicleAssignmentImmediatelyConvertsAvailableBoatSlotToSubmarine() {
+        GameSession session = new GameSession(new GameSetup(
+                "player-submarine-start-assignment-test",
+                new WorldMap(90257, List.of()),
+                List.of(new FleetSetup("light", List.of(
+                        ship("light-S1", "light", 0, 0, 0, "bot", ENGINE_STOP, 0, 99)
+                ))),
+                List.of(new Vector2(0, 0))
+        ));
+
+        session.assignPlayerVehicle("player-BP-test", "light", "submarine");
+
+        ShipSnapshot ship = findShip(session.snapshot(), "light-S1");
+        assertEquals("player-BP-test", ship.controlledBy());
+        assertEquals("submarine", ship.vehicleType());
+        assertEquals(0, ship.y(), 0.001);
+    }
+
+    @Test
     void scoutPlanePlayerCanFireAirTorpedo() {
         GameSession session = new GameSession(new GameSetup(
                 "scout-plane-fire-test",

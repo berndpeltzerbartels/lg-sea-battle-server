@@ -139,6 +139,7 @@ public final class GameSession {
     private static final double BOT_IDLE_WAKE_INTERVAL_SECONDS = 24.0;
     private static final double BOT_IDLE_WAKE_DURATION_SECONDS = 6.0;
     private static final boolean SCOUT_PLANE_EXPERIMENT_PEACEFUL_BOTS = false;
+    private static final boolean TEMPORARILY_DISABLE_BOTS = true;
     private static final double RESPAWN_DELAY_SECONDS = 8;
     private static final double RESPAWN_HUMAN_RADAR_MARGIN = 120;
     private static final double RESPAWN_MIN_SHIP_DISTANCE = 170;
@@ -262,6 +263,14 @@ public final class GameSession {
     public synchronized GameSnapshot updatePlayerState(PlayerStateUpdate update, NavigationService navigationService, WorldMap worldMap) {
         applyPlayerState(update, navigationService, worldMap);
         return snapshot();
+    }
+
+    public synchronized void assignPlayerVehicle(String playerId, String teamId, String vehicleType) {
+        Fleet fleet = fleets.get(teamId);
+        if (fleet == null) {
+            return;
+        }
+        fleet.assignNextShipToPlayer(playerId, vehicleType);
     }
 
     public synchronized void applyPlayerState(PlayerStateUpdate update, NavigationService navigationService, WorldMap worldMap) {
@@ -499,10 +508,12 @@ public final class GameSession {
             return;
         }
         nowSeconds += deltaSeconds;
-        commandBots(radarService, navigationService, worldMap);
-        allShips().stream()
-                .filter(Ship::isServerSimulated)
-                .forEach(ship -> ship.update(deltaSeconds, navigationService, worldMap));
+        if (!TEMPORARILY_DISABLE_BOTS) {
+            commandBots(radarService, navigationService, worldMap);
+            allShips().stream()
+                    .filter(Ship::isServerSimulated)
+                    .forEach(ship -> ship.update(deltaSeconds, navigationService, worldMap));
+        }
         updateTorpedoes(deltaSeconds, navigationService, worldMap);
         Set<String> releasedBombIds = releasePendingBombs();
         updateBombs(deltaSeconds, releasedBombIds);

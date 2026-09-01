@@ -14,6 +14,7 @@ final class Ship {
     private static final int ENGINE_FULL_ASTERN = 0;
     private static final int TORPEDO_STOCK = 12;
     private static final String VEHICLE_TORPEDO_BOAT = "torpedo-boat";
+    private static final String VEHICLE_SUBMARINE = "submarine";
     private static final String VEHICLE_SCOUT_PLANE = "scout-plane";
 
     private final String id;
@@ -384,6 +385,9 @@ final class Ship {
     private static String normalizeVehicleType(String vehicleType) {
         if (VEHICLE_SCOUT_PLANE.equals(vehicleType)) {
             return VEHICLE_SCOUT_PLANE;
+        }
+        if (VEHICLE_SUBMARINE.equals(vehicleType)) {
+            return VEHICLE_SUBMARINE;
         }
         return VEHICLE_TORPEDO_BOAT;
     }
