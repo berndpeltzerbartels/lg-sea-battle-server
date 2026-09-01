@@ -1476,6 +1476,43 @@ class GameSessionTest {
     }
 
     @Test
+    void sinkingAssignedScoutPlaneRevertsItsNonHumanAttackCounterContribution() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-scout-plane-sunk-reverts-counter-test",
+                new WorldMap(9064, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-plane-a", "light", 0, -500, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane"),
+                                ship("light-plane-b", "light", 90, -520, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane"),
+                                ship("light-plane-c", "light", 180, -540, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane")
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-player", "dark", 0, 0, 0, "player-BPB", ENGINE_HALF, 0, 99),
+                                ship("dark-bot-1", "dark", 200, 0, 0, "bot", ENGINE_HALF, 0, 99),
+                                ship("dark-bot-2", "dark", 260, 0, 0, "bot", ENGINE_HALF, 0, 99),
+                                ship("dark-bot-3", "dark", 320, 0, 0, "bot", ENGINE_HALF, 0, 99),
+                                ship("dark-bot-4", "dark", 380, 0, 0, "bot", ENGINE_HALF, 0, 99),
+                                ship("dark-bot-5", "dark", 440, 0, 0, "bot", ENGINE_HALF, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 0))
+        ));
+
+        recordBotScoutPlaneAttack(session, "light-plane-a", "dark-bot-1");
+        recordBotScoutPlaneAttack(session, "light-plane-b", "dark-bot-2");
+        recordBotScoutPlaneAttack(session, "light-plane-b", "dark-bot-3");
+        recordBotScoutPlaneAttack(session, "light-plane-b", "dark-bot-4");
+        recordBotScoutPlaneAttack(session, "light-plane-b", "dark-bot-5");
+
+        assertTrue(shouldForceHumanScoutPlaneTarget(session, "light-plane-a"));
+
+        sinkShip(session, "light-plane-a");
+
+        assertFalse(shouldForceHumanScoutPlaneTarget(session, "light-plane-b"),
+                "Destroying the assigned attacker should also undo its non-human attack counter contribution");
+    }
+
+    @Test
     void forcedHumanScoutPlaneAttackThresholdGrowsWithHumanTargets() throws Exception {
         GameSession session = new GameSession(new GameSetup(
                 "bot-scout-plane-many-human-target-counter-test",

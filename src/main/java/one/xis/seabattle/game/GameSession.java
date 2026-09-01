@@ -175,6 +175,7 @@ public final class GameSession {
     private final List<FlakImpactSnapshot> flakImpacts = new ArrayList<>();
     private final List<RamHitSnapshot> ramHits = new ArrayList<>();
     private final Map<String, Integer> botScoutPlaneNonHumanAttackStreakByHumanTarget = new LinkedHashMap<>();
+    private final Map<String, Map<String, Integer>> botScoutPlaneNonHumanAttackStreakByPlane = new LinkedHashMap<>();
     private final Map<String, Vector2> botScoutPlaneFlyThroughTargets = new LinkedHashMap<>();
     private final Map<String, Double> botScoutPlaneFlyThroughUntil = new LinkedHashMap<>();
     private int nextTorpedoId = 1;
@@ -914,16 +915,25 @@ public final class GameSession {
 
     private void recordBotScoutPlaneAttack(Ship plane, Ship target) {
         if (isHumanControlled(target)) {
-            botScoutPlaneNonHumanAttackStreakByHumanTarget.remove(scoutPlaneHumanAttackStreakKey(plane.teamId(), target.id()));
+            clearBotScoutPlaneNonHumanAttackStreakForHuman(plane.teamId(), target.id());
             return;
         }
-        activeHumanTargetsForScoutPlaneTeam(plane.teamId()).forEach(human ->
-                botScoutPlaneNonHumanAttackStreakByHumanTarget.merge(
-                        scoutPlaneHumanAttackStreakKey(plane.teamId(), human.id()),
-                        1,
-                        Integer::sum
-                )
-        );
+        activeHumanTargetsForScoutPlaneTeam(plane.teamId()).forEach(human -> {
+            String key = scoutPlaneHumanAttackStreakKey(plane.teamId(), human.id());
+            botScoutPlaneNonHumanAttackStreakByHumanTarget.merge(key, 1, Integer::sum);
+            botScoutPlaneNonHumanAttackStreakByPlane
+                    .computeIfAbsent(plane.id(), ignored -> new LinkedHashMap<>())
+                    .merge(key, 1, Integer::sum);
+        });
+    }
+
+    private void clearBotScoutPlaneNonHumanAttackStreakForHuman(String attackingTeamId, String humanShipId) {
+        String key = scoutPlaneHumanAttackStreakKey(attackingTeamId, humanShipId);
+        botScoutPlaneNonHumanAttackStreakByHumanTarget.remove(key);
+        botScoutPlaneNonHumanAttackStreakByPlane.values()
+                .forEach(streaks -> streaks.remove(key));
+        botScoutPlaneNonHumanAttackStreakByPlane.entrySet()
+                .removeIf(entry -> entry.getValue().isEmpty());
     }
 
     private List<Ship> activeHumanTargetsForScoutPlaneTeam(String teamId) {
@@ -2289,6 +2299,16 @@ public final class GameSession {
 
     private void clearBotScoutPlaneAttackState(Ship ship) {
         clearBotScoutPlaneFlyThrough(ship);
+        Map<String, Integer> countedAttacks = botScoutPlaneNonHumanAttackStreakByPlane.remove(ship.id());
+        if (countedAttacks == null) {
+            return;
+        }
+        countedAttacks.forEach((key, count) ->
+                botScoutPlaneNonHumanAttackStreakByHumanTarget.computeIfPresent(key, (ignored, value) -> {
+                    int nextValue = value - count;
+                    return nextValue > 0 ? nextValue : null;
+                })
+        );
     }
 
     private int scoreDeltaFor(String creditedPlayerId, String sunkTeamId) {
