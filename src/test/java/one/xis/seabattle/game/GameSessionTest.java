@@ -2149,6 +2149,130 @@ class GameSessionTest {
     }
 
     @Test
+    void surfaceShipCanRamPeriscopeDepthSubmarineOnlyAtPeriscope() {
+        GameSession session = new GameSession(new GameSetup(
+                "periscope-ram-test",
+                new WorldMap(9075, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, -11.04, 0, "player-red", ENGINE_FULL, 0, 99))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 0, 0, 0, "player-blue", ENGINE_STOP, 0, 99, "submarine")))
+                ),
+                List.of(new Vector2(0, -11.04), new Vector2(0, 0))
+        ));
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-red", "red", 0, -11.04, 0, 8, 0, ENGINE_FULL, 0, 0, true,
+                        "torpedo-boat"),
+                navigationService,
+                session.worldMap()
+        );
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-blue", "blue", 0, 0, 0, 0, 0, ENGINE_STOP, 0, 0, true,
+                        "submarine", 0, 0, null, null, null, null, "periscope"),
+                navigationService,
+                session.worldMap()
+        );
+
+        session.update(0, radarService, navigationService, session.worldMap());
+
+        GameSnapshot snapshot = session.snapshot();
+        assertEquals("active", findShip(snapshot, "red-1").state());
+        assertEquals("sunk", findShip(snapshot, "blue-1").state());
+    }
+
+    @Test
+    void surfaceShipCanPassOverPeriscopeDepthSubmarineHullAwayFromPeriscope() {
+        GameSession session = new GameSession(new GameSetup(
+                "periscope-hull-pass-over-test",
+                new WorldMap(9076, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, -11.04, 0, "player-red", ENGINE_FULL, 0, 99))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 1.2, 0, 0, "player-blue", ENGINE_STOP, 0, 99, "submarine")))
+                ),
+                List.of(new Vector2(0, -11.04), new Vector2(1.2, 0))
+        ));
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-red", "red", 0, -11.04, 0, 8, 0, ENGINE_FULL, 0, 0, true,
+                        "torpedo-boat"),
+                navigationService,
+                session.worldMap()
+        );
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-blue", "blue", 1.2, 0, 0, 0, 0, ENGINE_STOP, 0, 0, true,
+                        "submarine", 0, 0, null, null, null, null, "periscope"),
+                navigationService,
+                session.worldMap()
+        );
+
+        session.update(0, radarService, navigationService, session.worldMap());
+
+        GameSnapshot snapshot = session.snapshot();
+        assertEquals("active", findShip(snapshot, "red-1").state());
+        assertEquals("active", findShip(snapshot, "blue-1").state());
+    }
+
+    @Test
+    void surfaceShipDoesNotRamFullySubmergedSubmarine() {
+        GameSession session = new GameSession(new GameSetup(
+                "submerged-ram-ignore-test",
+                new WorldMap(9077, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, -11.04, 0, "player-red", ENGINE_FULL, 0, 99))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 0, 0, 0, "player-blue", ENGINE_STOP, 0, 99, "submarine")))
+                ),
+                List.of(new Vector2(0, -11.04), new Vector2(0, 0))
+        ));
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-red", "red", 0, -11.04, 0, 8, 0, ENGINE_FULL, 0, 0, true,
+                        "torpedo-boat"),
+                navigationService,
+                session.worldMap()
+        );
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-blue", "blue", 0, 0, 0, 0, 0, ENGINE_STOP, 0, 0, true,
+                        "submarine", 0, 0, null, null, null, null, "submerged"),
+                navigationService,
+                session.worldMap()
+        );
+
+        session.update(0, radarService, navigationService, session.worldMap());
+
+        GameSnapshot snapshot = session.snapshot();
+        assertEquals("active", findShip(snapshot, "red-1").state());
+        assertEquals("active", findShip(snapshot, "blue-1").state());
+    }
+
+    @Test
+    void fullySubmergedSubmarinesCanRamEachOther() {
+        GameSession session = new GameSession(new GameSetup(
+                "submerged-submarine-ram-test",
+                new WorldMap(9078, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, -11.04, 0, "player-red", ENGINE_FULL, 0, 99, "submarine"))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 0, 0, Math.PI, "player-blue", ENGINE_STOP, 0, 99, "submarine")))
+                ),
+                List.of(new Vector2(0, -11.04), new Vector2(0, 0))
+        ));
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-red", "red", 0, -11.04, 0, 8, 0, ENGINE_FULL, 0, 0, true,
+                        "submarine", 0, 0, null, null, null, null, "submerged"),
+                navigationService,
+                session.worldMap()
+        );
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-blue", "blue", 0, 0, Math.PI, 0, 0, ENGINE_STOP, 0, 0, true,
+                        "submarine", 0, 0, null, null, null, null, "submerged"),
+                navigationService,
+                session.worldMap()
+        );
+
+        session.update(0, radarService, navigationService, session.worldMap());
+
+        GameSnapshot snapshot = session.snapshot();
+        assertEquals("active", findShip(snapshot, "red-1").state());
+        assertEquals("sunk", findShip(snapshot, "blue-1").state());
+    }
+
+    @Test
     void diagonalSideRamSinksTargetOnly() {
         GameSession session = new GameSession(new GameSetup(
                 "diagonal-ram-test",

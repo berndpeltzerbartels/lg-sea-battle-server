@@ -2,7 +2,10 @@ package one.xis.seabattle.game;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GameStateServiceTest {
@@ -140,6 +143,33 @@ class GameStateServiceTest {
         ));
 
         assertEquals(0, after.torpedoes().size());
+    }
+
+    @Test
+    void submarineDepthControlsRadarVisibility() {
+        RadarService radarService = new RadarService();
+        NavigationService navigationService = new NavigationService();
+        WorldMap worldMap = new WorldMap(9020, List.of());
+        Ship surfaceShip = new Ship("red-1", "red", new Vector2(0, 0), 0, "scenario");
+        Ship scoutPlane = new Ship("red-plane", "red", new Vector2(0, 0), 0, "scenario");
+        scoutPlane.vehicleType("scout-plane");
+        Ship submarine = new Ship("blue-1", "blue", new Vector2(80, 0), 0, "player-blue");
+
+        submarine.applyPlayerState(new PlayerStateUpdate(
+                "player-blue", "blue", 80, 0, 0, 0, 0, 2, 0, 0, true,
+                "submarine", 0, 0, null, null, null, null, "periscope"
+        ), navigationService, worldMap);
+
+        assertFalse(radarService.isVisible(surfaceShip, submarine, worldMap));
+        assertTrue(radarService.isVisible(scoutPlane, submarine, worldMap));
+
+        submarine.applyPlayerState(new PlayerStateUpdate(
+                "player-blue", "blue", 80, 0, 0, 0, 0, 2, 0, 0, true,
+                "submarine", 0, 0, null, null, null, null, "submerged"
+        ), navigationService, worldMap);
+
+        assertFalse(radarService.isVisible(surfaceShip, submarine, worldMap));
+        assertFalse(radarService.isVisible(scoutPlane, submarine, worldMap));
     }
 
     @Test

@@ -85,6 +85,14 @@ final class Ship {
         return isSubmarine() && DEPTH_SUBMERGED.equals(depthState);
     }
 
+    boolean isAtPeriscopeDepth() {
+        return isSubmarine() && DEPTH_PERISCOPE.equals(depthState);
+    }
+
+    boolean isOnSurface() {
+        return !isSubmarine() || DEPTH_SURFACE.equals(depthState);
+    }
+
     boolean isBotControlled() {
         return "bot".equals(controlledBy);
     }

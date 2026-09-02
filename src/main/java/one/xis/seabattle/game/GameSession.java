@@ -110,6 +110,8 @@ public final class GameSession {
     private static final double RAM_GLANCING_HEADING_IMPULSE = Math.toRadians(9);
     private static final double RAM_DAMAGE_MIN_CLOSING_SPEED = 5.0;
     private static final double RAM_COLLISION_BROAD_PHASE_RADIUS = 10.2 * TORPEDO_BOAT_MODEL_SCALE;
+    private static final double SUBMARINE_PERISCOPE_RAM_RADIUS = 0.36 * TORPEDO_BOAT_MODEL_SCALE;
+    private static final double SUBMERGED_SUBMARINE_RAM_RADIUS = 1.25 * TORPEDO_BOAT_MODEL_SCALE;
     private static final double BOT_SHIP_AVOID_RANGE = 86.0;
     private static final double BOT_SHIP_AVOID_CORRIDOR = 3.15 * TORPEDO_BOAT_MODEL_SCALE;
     private static final double BOT_FIRE_ARC = 0.16;
@@ -139,7 +141,7 @@ public final class GameSession {
     private static final double BOT_IDLE_WAKE_INTERVAL_SECONDS = 24.0;
     private static final double BOT_IDLE_WAKE_DURATION_SECONDS = 6.0;
     private static final boolean SCOUT_PLANE_EXPERIMENT_PEACEFUL_BOTS = false;
-    private static final boolean TEMPORARILY_DISABLE_BOTS = true;
+    private static final boolean TEMPORARILY_DISABLE_BOTS = false;
     private static final double RESPAWN_DELAY_SECONDS = 8;
     private static final double RESPAWN_HUMAN_RADAR_MARGIN = 120;
     private static final double RESPAWN_MIN_SHIP_DISTANCE = 170;
@@ -1150,6 +1152,7 @@ public final class GameSession {
 
     private boolean isStrategicHumanContact(Ship observer, Ship target) {
         return isHumanControlled(target)
+                && target.isOnSurface()
                 && observer.position().distanceTo(target.position()) > RadarService.RADAR_RANGE;
     }
 
@@ -1454,6 +1457,19 @@ public final class GameSession {
                     continue;
                 }
 
+                RamDepthMode ramDepthMode = ramDepthMode(left, right);
+                if (ramDepthMode == RamDepthMode.NONE) {
+                    continue;
+                }
+                if (ramDepthMode == RamDepthMode.PERISCOPE) {
+                    resolvePeriscopeRamCollision(left, right);
+                    continue;
+                }
+                if (ramDepthMode == RamDepthMode.SUBMERGED_SUBMARINES) {
+                    resolveSubmergedSubmarineRamCollision(left, right);
+                    continue;
+                }
+
                 RamImpact leftImpact = ramImpact(left, right);
                 RamImpact rightImpact = ramImpact(right, left);
                 boolean hullsOverlap = hullsOverlap(left, right);
@@ -1486,6 +1502,80 @@ public final class GameSession {
                 }
             }
         }
+    }
+
+    private RamDepthMode ramDepthMode(Ship left, Ship right) {
+        if (left.isFullySubmerged() || right.isFullySubmerged()) {
+            return left.isFullySubmerged() && right.isFullySubmerged()
+                    ? RamDepthMode.SUBMERGED_SUBMARINES
+                    : RamDepthMode.NONE;
+        }
+        if (left.isAtPeriscopeDepth() || right.isAtPeriscopeDepth()) {
+            return RamDepthMode.PERISCOPE;
+        }
+        return RamDepthMode.HULL;
+    }
+
+    private void resolveSubmergedSubmarineRamCollision(Ship left, Ship right) {
+        if (ramCollisionSpeed(left, right) < RAM_DAMAGE_MIN_CLOSING_SPEED) {
+            resolveGlancingRam(left, right);
+            return;
+        }
+        boolean leftHits = submergedSubmarineRamHit(left, right);
+        boolean rightHits = submergedSubmarineRamHit(right, left);
+        if (!leftHits && !rightHits) {
+            return;
+        }
+        if (leftHits && rightHits) {
+            sinkShipByRam(left, right);
+            sinkShipByRam(right, left);
+        } else if (leftHits) {
+            sinkShipByRam(right, left);
+            left.stopAfterRamImpact();
+        } else {
+            sinkShipByRam(left, right);
+            right.stopAfterRamImpact();
+        }
+    }
+
+    private void resolvePeriscopeRamCollision(Ship left, Ship right) {
+        if (periscopeRamHit(left, right) && ramCollisionSpeed(left, right) >= RAM_DAMAGE_MIN_CLOSING_SPEED) {
+            sinkShipByRam(right, left);
+            left.stopAfterRamImpact();
+            return;
+        }
+        if (periscopeRamHit(right, left) && ramCollisionSpeed(right, left) >= RAM_DAMAGE_MIN_CLOSING_SPEED) {
+            sinkShipByRam(left, right);
+            right.stopAfterRamImpact();
+        }
+    }
+
+    private boolean periscopeRamHit(Ship attacker, Ship target) {
+        if (!target.isAtPeriscopeDepth() || !attacker.isOnSurface() || attacker.speed() < 1.8) {
+            return false;
+        }
+        for (double bowOffset : List.of(RAM_BOW_OFFSET, RAM_BOW_OFFSET - 1.15, RAM_BOW_OFFSET - 2.3)) {
+            Vector2 attackerBow = attacker.position()
+                    .add(Vector2.fromHeading(attacker.heading()).scale(bowOffset * TORPEDO_BOAT_MODEL_SCALE));
+            if (attackerBow.distanceTo(target.position()) <= SUBMARINE_PERISCOPE_RAM_RADIUS) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean submergedSubmarineRamHit(Ship attacker, Ship target) {
+        if (!attacker.isFullySubmerged() || !target.isFullySubmerged() || attacker.speed() < 1.8) {
+            return false;
+        }
+        for (double bowOffset : List.of(RAM_BOW_OFFSET, RAM_BOW_OFFSET - 1.15, RAM_BOW_OFFSET - 2.3)) {
+            Vector2 attackerBow = attacker.position()
+                    .add(Vector2.fromHeading(attacker.heading()).scale(bowOffset * TORPEDO_BOAT_MODEL_SCALE));
+            if (attackerBow.distanceTo(target.position()) <= SUBMERGED_SUBMARINE_RAM_RADIUS) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void resolveGlancingRam(Ship left, Ship right) {
@@ -1710,6 +1800,13 @@ public final class GameSession {
         static RamImpact miss() {
             return new RamImpact(false, false, false, false, false, 0);
         }
+    }
+
+    private enum RamDepthMode {
+        NONE,
+        HULL,
+        PERISCOPE,
+        SUBMERGED_SUBMARINES
     }
 
     private void updateTorpedoes(double deltaSeconds, NavigationService navigationService, WorldMap worldMap) {
