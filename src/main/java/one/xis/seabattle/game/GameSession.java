@@ -2012,6 +2012,7 @@ public final class GameSession {
                     .filter(ship -> "active".equals(ship.state()))
                     .filter(ship -> !ship.isScoutPlane())
                     .filter(ship -> !ship.id().equals(bomb.shipId()))
+                    .filter(ship -> bombCanDamageShip(ship))
                     .filter(ship -> bombHitsShip(bomb, ship))
                     .findFirst()
                     .ifPresentOrElse(ship -> {
@@ -2361,6 +2362,10 @@ public final class GameSession {
             return false;
         }
         return pointHitsShipHull(bomb.position(), ship, BOMB_HULL_MARGIN);
+    }
+
+    private boolean bombCanDamageShip(Ship target) {
+        return !target.isFullySubmerged();
     }
 
     private void recordBombImpact(Bomb bomb, String reason, String targetShipId) {

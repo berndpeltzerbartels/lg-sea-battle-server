@@ -1752,6 +1752,41 @@ class GameSessionTest {
     }
 
     @Test
+    void bombCannotSinkFullySubmergedSubmarine() {
+        GameSession session = new GameSession(new GameSetup(
+                "submerged-submarine-bomb-ignore-test",
+                new WorldMap(90335, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(ship("light-1", "light", 0, 0, 0, "bot", 5, 0, 0))),
+                        new FleetSetup("dark", List.of(ship("dark-U1", "dark", 0, 2.6, 0, "player-dark", 2, 0, 99, "submarine")))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(20, 0))
+        ));
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-BP-test", "light", 0, 0, 0, 8, 0, 7, 0, 0, false, "scout-plane"),
+                navigationService,
+                session.worldMap()
+        );
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-dark", "dark", 0, 2.6, 0, 0, 0, ENGINE_STOP, 0, 0,
+                        false, "submarine", 0, 0, null, null, null, null, "submerged"),
+                navigationService,
+                session.worldMap()
+        );
+        session.dropBomb(new BombDropRequest(
+                "player-BP-test", "light", 0, 1, 0, 0, 0, 0, "scout-plane"
+        ));
+        GameSnapshot snapshot = session.snapshot();
+        for (int index = 0; index < 12 && snapshot.bombImpacts().isEmpty(); index += 1) {
+            session.update(0.1, radarService, navigationService, session.worldMap());
+            snapshot = session.snapshot();
+        }
+
+        assertEquals("active", findShip(snapshot, "dark-U1").state());
+        assertEquals("sea-hit", snapshot.bombImpacts().get(0).reason());
+    }
+
+    @Test
     void bombNearMissDoesNotSinkShip() {
         GameSession session = new GameSession(new GameSetup(
                 "bomb-near-miss-test",
