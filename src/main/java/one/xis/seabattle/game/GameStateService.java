@@ -119,7 +119,12 @@ public class GameStateService {
                         false,
                         request.vehicleType(),
                         request.y(),
-                        request.verticalSpeed()
+                        request.verticalSpeed(),
+                        null,
+                        null,
+                        null,
+                        null,
+                        request.depthState()
                 ), navigationService, session.worldMap());
             }
             session.applyFireTorpedo(request);

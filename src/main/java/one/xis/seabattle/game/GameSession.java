@@ -331,6 +331,9 @@ public final class GameSession {
         if (ship.isScoutPlane()) {
             return;
         }
+        if (ship.isFullySubmerged()) {
+            return;
+        }
         fireTorpedo(ship, 2.4, 0, request.tubeSide());
     }
 

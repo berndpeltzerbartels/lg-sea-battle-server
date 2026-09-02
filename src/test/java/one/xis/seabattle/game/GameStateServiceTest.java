@@ -106,6 +106,43 @@ class GameStateServiceTest {
     }
 
     @Test
+    void submarineDepthStateIsPublishedInSnapshot() {
+        NavigationService navigationService = new NavigationService();
+        GameSession session = new GameSession(new DefaultGameSetupFactory(new WorldMapService()).defaultSetup());
+        session.assignPlayerVehicle("player-BP-test", "light", "submarine");
+
+        GameSnapshot snapshot = session.updatePlayerState(new PlayerStateUpdate(
+                "player-BP-test", "light", 12, 0, 0, 0, 0, 2, 0, 1, true,
+                "submarine", 0, 0, null, null, null, null, "periscope"
+        ), navigationService, session.worldMap());
+
+        ShipSnapshot submarine = snapshot.ships().stream()
+                .filter(ship -> "player-BP-test".equals(ship.controlledBy()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals("submarine", submarine.vehicleType());
+        assertEquals("periscope", submarine.depthState());
+    }
+
+    @Test
+    void fullySubmergedSubmarineCannotFireTorpedo() {
+        NavigationService navigationService = new NavigationService();
+        GameSession session = new GameSession(new DefaultGameSetupFactory(new WorldMapService()).defaultSetup());
+        session.assignPlayerVehicle("player-BP-test", "light", "submarine");
+        session.updatePlayerState(new PlayerStateUpdate(
+                "player-BP-test", "light", 12, 0, 0, 0, 0, 2, 0, 1, true,
+                "submarine", 0, 0, null, null, null, null, "submerged"
+        ), navigationService, session.worldMap());
+
+        GameSnapshot after = session.fireTorpedo(new FireTorpedoRequest(
+                "player-BP-test", "light", "submarine", 12, 0, 0, 0, 0, 2, 0,
+                0, 0, -1, 2, "submerged"
+        ));
+
+        assertEquals(0, after.torpedoes().size());
+    }
+
+    @Test
     void tickAdvancesIdleTimeWithoutConnectedPlayerWithoutMovingShips() {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),

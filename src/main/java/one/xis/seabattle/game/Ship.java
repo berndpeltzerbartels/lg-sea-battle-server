@@ -16,6 +16,9 @@ final class Ship {
     private static final String VEHICLE_TORPEDO_BOAT = "torpedo-boat";
     private static final String VEHICLE_SUBMARINE = "submarine";
     private static final String VEHICLE_SCOUT_PLANE = "scout-plane";
+    private static final String DEPTH_SURFACE = "surface";
+    private static final String DEPTH_PERISCOPE = "periscope";
+    private static final String DEPTH_SUBMERGED = "submerged";
 
     private final String id;
     private final String teamId;
@@ -40,6 +43,7 @@ final class Ship {
     private double flakPitch;
     private double cannonYaw;
     private double cannonPitch;
+    private String depthState = DEPTH_SURFACE;
 
     Ship(String id, String teamId, Vector2 position, double heading, String controlledBy) {
         this.id = id;
@@ -73,6 +77,14 @@ final class Ship {
         return VEHICLE_SCOUT_PLANE.equals(vehicleType);
     }
 
+    boolean isSubmarine() {
+        return VEHICLE_SUBMARINE.equals(vehicleType);
+    }
+
+    boolean isFullySubmerged() {
+        return isSubmarine() && DEPTH_SUBMERGED.equals(depthState);
+    }
+
     boolean isBotControlled() {
         return "bot".equals(controlledBy);
     }
@@ -92,6 +104,9 @@ final class Ship {
             botScoutPlaneTargetY = BOT_SCOUT_PLANE_Y;
             speed = Math.max(speed, BOT_SCOUT_PLANE_SPEED);
             engineOrder = 7;
+            depthState = DEPTH_SURFACE;
+        } else if (!isSubmarine()) {
+            depthState = DEPTH_SURFACE;
         }
     }
 
@@ -169,6 +184,7 @@ final class Ship {
         }
         Vector2 requestedPosition = new Vector2(update.x(), update.z());
         vehicleType = normalizeVehicleType(update.vehicleType());
+        depthState = isSubmarine() ? normalizeDepthState(update.depthState()) : DEPTH_SURFACE;
         boolean implausiblePosition = position.distanceTo(requestedPosition) > MAX_ACCEPTED_PLAYER_POSITION_DELTA;
         boolean blockedPosition = !isScoutPlane() && navigationService.isShipBlocked(requestedPosition, update.heading(), worldMap);
         if ((!update.debugTeleport() && implausiblePosition) || blockedPosition) {
@@ -351,6 +367,7 @@ final class Ship {
         y = isScoutPlane() ? BOT_SCOUT_PLANE_Y : 0;
         botScoutPlaneTargetY = isScoutPlane() ? BOT_SCOUT_PLANE_Y : 0;
         verticalSpeed = 0;
+        depthState = DEPTH_SURFACE;
         state = "active";
         torpedoesRemaining = TORPEDO_STOCK;
         nextFireTime = nowSeconds + 3;
@@ -378,7 +395,8 @@ final class Ship {
                 MathSupport.round(flakYaw),
                 MathSupport.round(flakPitch),
                 MathSupport.round(cannonYaw),
-                MathSupport.round(cannonPitch)
+                MathSupport.round(cannonPitch),
+                isSubmarine() ? depthState : DEPTH_SURFACE
         );
     }
 
@@ -390,5 +408,15 @@ final class Ship {
             return VEHICLE_SUBMARINE;
         }
         return VEHICLE_TORPEDO_BOAT;
+    }
+
+    private static String normalizeDepthState(String depthState) {
+        if (DEPTH_PERISCOPE.equals(depthState)) {
+            return DEPTH_PERISCOPE;
+        }
+        if (DEPTH_SUBMERGED.equals(depthState)) {
+            return DEPTH_SUBMERGED;
+        }
+        return DEPTH_SURFACE;
     }
 }
