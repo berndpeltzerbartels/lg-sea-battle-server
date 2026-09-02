@@ -1430,6 +1430,31 @@ class GameSessionTest {
     }
 
     @Test
+    void botScoutPlaneIgnoresFullySubmergedSubmarineTargets() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-scout-plane-submerged-target-ignore-test",
+                new WorldMap(90545, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-plane", "light", 0, 0, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane")
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-submerged", "dark", 0, 90, Math.PI, "player-dark", ENGINE_STOP, 0, 99, "submarine")
+                        ))
+                ),
+                List.of(new Vector2(0, 0))
+        ));
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-dark", "dark", 0, 90, Math.PI, 0, 0, ENGINE_STOP, 0, 0,
+                        false, "submarine", 0, 0, null, null, null, null, "submerged"),
+                navigationService,
+                session.worldMap()
+        );
+
+        assertTrue(selectBotScoutPlaneTargetId(session, "light-plane").isEmpty());
+    }
+
+    @Test
     void botScoutPlanePrefersCleanApproachOverCloserSideTarget() throws Exception {
         GameSession session = new GameSession(new GameSetup(
                 "bot-scout-plane-clean-approach-target-test",
@@ -1752,9 +1777,9 @@ class GameSessionTest {
     }
 
     @Test
-    void bombCannotSinkFullySubmergedSubmarine() {
+    void bombCanStillSinkFullySubmergedSubmarineOnDirectHit() {
         GameSession session = new GameSession(new GameSetup(
-                "submerged-submarine-bomb-ignore-test",
+                "submerged-submarine-bomb-direct-hit-test",
                 new WorldMap(90335, List.of()),
                 List.of(
                         new FleetSetup("light", List.of(ship("light-1", "light", 0, 0, 0, "bot", 5, 0, 0))),
@@ -1782,8 +1807,8 @@ class GameSessionTest {
             snapshot = session.snapshot();
         }
 
-        assertEquals("active", findShip(snapshot, "dark-U1").state());
-        assertEquals("sea-hit", snapshot.bombImpacts().get(0).reason());
+        assertEquals("sunk", findShip(snapshot, "dark-U1").state());
+        assertEquals("ship-hit", snapshot.bombImpacts().get(0).reason());
     }
 
     @Test
