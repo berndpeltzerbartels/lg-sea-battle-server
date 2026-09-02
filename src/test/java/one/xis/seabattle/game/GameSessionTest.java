@@ -229,6 +229,42 @@ class GameSessionTest {
     }
 
     @Test
+    void torpedoCannotSinkFullySubmergedSubmarine() {
+        GameSession session = new GameSession(new GameSetup(
+                "submerged-submarine-torpedo-ignore-test",
+                new WorldMap(9031, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-S1", "light", 0, -24, 0, "player-light", ENGINE_STOP, 0, 0)
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-U1", "dark", 0, 0, Math.PI, "player-dark", ENGINE_STOP, 0, 99, "submarine")
+                        ))
+                ),
+                List.of(new Vector2(0, -24), new Vector2(0, 0))
+        ));
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-light", "light", 0, -24, 0, 0, 0, ENGINE_STOP, 0, 0,
+                        false, "torpedo-boat"),
+                navigationService,
+                session.worldMap()
+        );
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-dark", "dark", 0, 0, Math.PI, 0, 0, ENGINE_STOP, 0, 0,
+                        false, "submarine", 0, 0, null, null, null, null, "submerged"),
+                navigationService,
+                session.worldMap()
+        );
+
+        session.fireTorpedo(new FireTorpedoRequest("player-light", "light"));
+        for (int i = 0; i < 30; i += 1) {
+            session.update(0.1, radarService, navigationService, session.worldMap());
+        }
+
+        assertEquals("active", findShip(session.snapshot(), "dark-U1").state());
+    }
+
+    @Test
     void scoutPlaneBombsStartBelowPlaneAndNearReleaseBay() throws Exception {
         double planeHeading = Math.PI / 2;
         double planeY = 140;
@@ -1211,6 +1247,49 @@ class GameSessionTest {
                 "Bot scout plane should use its torpedo in the shared bomb/torpedo attack range");
         assertTrue(session.snapshot().bombs().isEmpty(),
                 "Bombing should remain the fallback, not the preferred attack in torpedo range");
+    }
+
+    @Test
+    void botScoutPlaneDoesNotUseTorpedoesAgainstPeriscopeDepthSubmarine() {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-scout-plane-bombs-periscope-submarine-test",
+                new WorldMap(9047, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                new ShipSetup(
+                                        "light-plane-1",
+                                        "light",
+                                        new Vector2(0, -220),
+                                        0,
+                                        "bot",
+                                        ENGINE_FULL,
+                                        0,
+                                        0,
+                                        "scout-plane",
+                                        105
+                                )
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-human-1", "dark", 0, 0, Math.PI, "player-dark", ENGINE_HALF, 0, 99, "submarine")
+                        ))
+                ),
+                List.of(new Vector2(0, -260), new Vector2(0, 140))
+        ));
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-dark", "dark", 0, 0, Math.PI, 0, 0, ENGINE_STOP, 0, 0,
+                        true, "submarine", 0, 0, null, null, null, null, "periscope"),
+                navigationService,
+                session.worldMap()
+        );
+
+        for (int i = 0; i < 20; i += 1) {
+            session.update(0.1, radarService, navigationService, session.worldMap());
+        }
+
+        assertTrue(session.snapshot().torpedoes().isEmpty(),
+                "Bot scout plane should not use air torpedoes against a periscope-depth submarine");
+        assertTrue(findShip(session.snapshot(), "light-plane-1").y() > 105,
+                "Bot scout plane should switch to its bombing altitude instead of the torpedo approach");
     }
 
     @Test

@@ -616,7 +616,9 @@ public final class GameSession {
         boolean inBombWindow = distance >= BOT_SCOUT_PLANE_BOMB_MIN_RANGE && distance <= BOT_SCOUT_PLANE_BOMB_RANGE;
         boolean inTorpedoReleaseWindow = distance >= BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE
                 && distance <= BOT_SCOUT_PLANE_TORPEDO_RELEASE_RANGE;
-        boolean preferTorpedoAttack = distance >= BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE
+        boolean mayUseAirTorpedo = mayUseAirTorpedoAgainst(ship);
+        boolean preferTorpedoAttack = mayUseAirTorpedo
+                && distance >= BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE
                 && distance <= BOT_SCOUT_PLANE_TORPEDO_APPROACH_RANGE;
         Optional<Vector2> flyThroughTarget = botScoutPlaneFlyThroughTarget(plane, distance);
         if (flyThroughTarget.isPresent()) {
@@ -688,6 +690,10 @@ public final class GameSession {
                 && angularDistance(plane.heading(), heading) <= BOT_SCOUT_PLANE_TORPEDO_ARC
                 && Math.abs(plane.turnVelocity()) <= BOT_SCOUT_PLANE_STABLE_ATTACK_TURN_RATE;
         return new BotTorpedoSolution(targetPosition, heading, canRelease);
+    }
+
+    private boolean mayUseAirTorpedoAgainst(Ship target) {
+        return !target.isSubmarine() || target.isOnSurface();
     }
 
     private BotBombingSolution botScoutPlaneBombingSolution(Ship plane, Ship target) {
@@ -1870,6 +1876,7 @@ public final class GameSession {
                     .filter(ship -> "active".equals(ship.state()))
                     .filter(ship -> !ship.isScoutPlane())
                     .filter(ship -> !ship.id().equals(torpedo.shipId()))
+                    .filter(ship -> torpedoCanDamageShip(torpedo, ship))
                     .filter(ship -> torpedoHitsShip(torpedo, ship))
                     .findFirst()
                     .ifPresent(ship -> {
@@ -1878,6 +1885,20 @@ public final class GameSession {
                         recordTorpedoImpact(torpedo, "ship-hit", ship.id());
                     });
         }
+    }
+
+    private boolean torpedoCanDamageShip(Torpedo torpedo, Ship target) {
+        if (!target.isSubmarine() || target.isOnSurface()) {
+            return true;
+        }
+        if (target.isFullySubmerged()) {
+            return false;
+        }
+        return allShips().stream()
+                .filter(ship -> ship.id().equals(torpedo.shipId()))
+                .findFirst()
+                .map(shooter -> !shooter.isScoutPlane())
+                .orElse(true);
     }
 
     private Optional<Ship> airborneTorpedoHitsScoutPlane(Torpedo torpedo) {
