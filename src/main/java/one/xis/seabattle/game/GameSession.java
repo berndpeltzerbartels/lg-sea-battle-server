@@ -109,6 +109,8 @@ public final class GameSession {
     private static final double RAM_GLANCING_COLLISION_ANGLE = Math.toRadians(40);
     private static final double RAM_GLANCING_HEADING_IMPULSE = Math.toRadians(9);
     private static final double RAM_DAMAGE_MIN_CLOSING_SPEED = 5.0;
+    private static final double SUBMARINE_RAM_DAMAGE_MIN_CLOSING_SPEED = 0.65;
+    private static final double SUBMARINE_RAM_MIN_ATTACK_SPEED = 0.35;
     private static final double RAM_COLLISION_BROAD_PHASE_RADIUS = 10.2 * TORPEDO_BOAT_MODEL_SCALE;
     private static final double SUBMARINE_PERISCOPE_RAM_RADIUS = 0.36 * TORPEDO_BOAT_MODEL_SCALE;
     private static final double SUBMERGED_SUBMARINE_RAM_RADIUS = 1.25 * TORPEDO_BOAT_MODEL_SCALE;
@@ -1482,7 +1484,7 @@ public final class GameSession {
                     continue;
                 }
 
-                if (ramCollisionSpeed(left, right) < RAM_DAMAGE_MIN_CLOSING_SPEED) {
+                if (ramCollisionSpeed(left, right) < ramDamageMinClosingSpeed(left, right)) {
                     resolveGlancingRam(left, right);
                     continue;
                 }
@@ -1517,7 +1519,7 @@ public final class GameSession {
     }
 
     private void resolveSubmergedSubmarineRamCollision(Ship left, Ship right) {
-        if (ramCollisionSpeed(left, right) < RAM_DAMAGE_MIN_CLOSING_SPEED) {
+        if (ramCollisionSpeed(left, right) < ramDamageMinClosingSpeed(left, right)) {
             resolveGlancingRam(left, right);
             return;
         }
@@ -1539,19 +1541,19 @@ public final class GameSession {
     }
 
     private void resolvePeriscopeRamCollision(Ship left, Ship right) {
-        if (periscopeRamHit(left, right) && ramCollisionSpeed(left, right) >= RAM_DAMAGE_MIN_CLOSING_SPEED) {
+        if (periscopeRamHit(left, right) && ramCollisionSpeed(left, right) >= ramDamageMinClosingSpeed(left, right)) {
             sinkShipByRam(right, left);
             left.stopAfterRamImpact();
             return;
         }
-        if (periscopeRamHit(right, left) && ramCollisionSpeed(right, left) >= RAM_DAMAGE_MIN_CLOSING_SPEED) {
+        if (periscopeRamHit(right, left) && ramCollisionSpeed(right, left) >= ramDamageMinClosingSpeed(left, right)) {
             sinkShipByRam(left, right);
             right.stopAfterRamImpact();
         }
     }
 
     private boolean periscopeRamHit(Ship attacker, Ship target) {
-        if (!target.isAtPeriscopeDepth() || !attacker.isOnSurface() || attacker.speed() < 1.8) {
+        if (!target.isAtPeriscopeDepth() || !attacker.isOnSurface() || attacker.speed() < SUBMARINE_RAM_MIN_ATTACK_SPEED) {
             return false;
         }
         for (double bowOffset : List.of(RAM_BOW_OFFSET, RAM_BOW_OFFSET - 1.15, RAM_BOW_OFFSET - 2.3)) {
@@ -1565,7 +1567,7 @@ public final class GameSession {
     }
 
     private boolean submergedSubmarineRamHit(Ship attacker, Ship target) {
-        if (!attacker.isFullySubmerged() || !target.isFullySubmerged() || attacker.speed() < 1.8) {
+        if (!attacker.isFullySubmerged() || !target.isFullySubmerged() || attacker.speed() < SUBMARINE_RAM_MIN_ATTACK_SPEED) {
             return false;
         }
         for (double bowOffset : List.of(RAM_BOW_OFFSET, RAM_BOW_OFFSET - 1.15, RAM_BOW_OFFSET - 2.3)) {
@@ -1646,6 +1648,12 @@ public final class GameSession {
         Vector2 rightVelocity = Vector2.fromHeading(right.heading()).scale(right.speed());
         Vector2 relativeVelocity = leftVelocity.subtract(rightVelocity);
         return Math.max(0, relativeVelocity.x() * separation.x() + relativeVelocity.z() * separation.z());
+    }
+
+    private double ramDamageMinClosingSpeed(Ship left, Ship right) {
+        return left.isSubmarine() || right.isSubmarine()
+                ? SUBMARINE_RAM_DAMAGE_MIN_CLOSING_SPEED
+                : RAM_DAMAGE_MIN_CLOSING_SPEED;
     }
 
     private RamImpact ramImpact(Ship attacker, Ship target) {
