@@ -2695,6 +2695,10 @@ class GameSessionTest {
         assertFalse(twoShipDuel.worldMap().landmasses().isEmpty());
         assertEquals(List.of("light", "dark"), twoShipDuel.fleets().stream().map(FleetSetup::teamId).toList());
         assertEquals(List.of(1, 1), twoShipDuel.fleets().stream().map(fleet -> fleet.ships().size()).toList());
+        assertEquals(List.of("scenario", "scenario"), twoShipDuel.fleets().stream()
+                .flatMap(fleet -> fleet.ships().stream())
+                .map(ShipSetup::controlledBy)
+                .toList());
         assertEquals(0, countScoutPlanes(twoShipDuel));
     }
 
