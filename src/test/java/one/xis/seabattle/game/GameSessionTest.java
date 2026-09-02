@@ -2211,6 +2211,37 @@ class GameSessionTest {
     }
 
     @Test
+    void periscopeDepthSubmarineSinksWhenItsPeriscopeHitsSurfaceShip() {
+        GameSession session = new GameSession(new GameSetup(
+                "periscope-submarine-ram-test",
+                new WorldMap(9080, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, 0, "player-red", ENGINE_STOP, 0, 99))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 0, -1.0, 0, "player-blue", ENGINE_SLOW, 0, 99, "submarine")))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(0, -1.0))
+        ));
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-red", "red", 0, 0, 0, 0, 0, ENGINE_STOP, 0, 0, true,
+                        "torpedo-boat"),
+                navigationService,
+                session.worldMap()
+        );
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-blue", "blue", 0, -1.0, 0, 1.0, 0, ENGINE_SLOW, 0, 0, true,
+                        "submarine", 0, 0, null, null, null, null, "periscope"),
+                navigationService,
+                session.worldMap()
+        );
+
+        session.update(0, radarService, navigationService, session.worldMap());
+
+        GameSnapshot snapshot = session.snapshot();
+        assertEquals("active", findShip(snapshot, "red-1").state());
+        assertEquals("sunk", findShip(snapshot, "blue-1").state());
+    }
+
+    @Test
     void surfaceShipCanPassOverPeriscopeDepthSubmarineHullAwayFromPeriscope() {
         GameSession session = new GameSession(new GameSetup(
                 "periscope-hull-pass-over-test",

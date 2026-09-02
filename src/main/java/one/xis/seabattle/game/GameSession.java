@@ -1541,14 +1541,24 @@ public final class GameSession {
     }
 
     private void resolvePeriscopeRamCollision(Ship left, Ship right) {
-        if (periscopeRamHit(left, right) && ramCollisionSpeed(left, right) >= ramDamageMinClosingSpeed(left, right)) {
-            sinkShipByRam(right, left);
-            left.stopAfterRamImpact();
+        boolean leftSubmarineSinks = left.isAtPeriscopeDepth()
+                && (periscopeRamHit(right, left) || periscopeHitsSurfaceHull(left, right));
+        boolean rightSubmarineSinks = right.isAtPeriscopeDepth()
+                && (periscopeRamHit(left, right) || periscopeHitsSurfaceHull(right, left));
+        if (!leftSubmarineSinks && !rightSubmarineSinks) {
             return;
         }
-        if (periscopeRamHit(right, left) && ramCollisionSpeed(right, left) >= ramDamageMinClosingSpeed(left, right)) {
+        if (ramCollisionSpeed(left, right) < ramDamageMinClosingSpeed(left, right)) {
+            resolveGlancingRam(left, right);
+            return;
+        }
+        if (leftSubmarineSinks) {
             sinkShipByRam(left, right);
             right.stopAfterRamImpact();
+        }
+        if (rightSubmarineSinks) {
+            sinkShipByRam(right, left);
+            left.stopAfterRamImpact();
         }
     }
 
@@ -1564,6 +1574,19 @@ public final class GameSession {
             }
         }
         return false;
+    }
+
+    private boolean periscopeHitsSurfaceHull(Ship submarine, Ship surfaceShip) {
+        if (!submarine.isAtPeriscopeDepth()
+                || !surfaceShip.isOnSurface()
+                || submarine.speed() < SUBMARINE_RAM_MIN_ATTACK_SPEED) {
+            return false;
+        }
+        return pointInsideShipHull(
+                submarine.position(),
+                surfaceShip,
+                SUBMARINE_PERISCOPE_RAM_RADIUS / TORPEDO_BOAT_MODEL_SCALE
+        );
     }
 
     private boolean submergedSubmarineRamHit(Ship attacker, Ship target) {
