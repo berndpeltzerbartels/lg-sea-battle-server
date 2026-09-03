@@ -18,6 +18,7 @@ public record ShipSnapshot(
         double flakYaw,
         double flakPitch,
         double cannonYaw,
-        double cannonPitch
+        double cannonPitch,
+        String depthState
 ) {
 }

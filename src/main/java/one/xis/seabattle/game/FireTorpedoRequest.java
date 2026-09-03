@@ -14,21 +14,29 @@ public record FireTorpedoRequest(
         double y,
         double verticalSpeed,
         Integer tubeSide,
-        double clientTime
+        double clientTime,
+        String depthState
 ) {
     public FireTorpedoRequest(String playerId, String teamId) {
         this(playerId, teamId, "torpedo-boat");
     }
 
     public FireTorpedoRequest(String playerId, String teamId, String vehicleType) {
-        this(playerId, teamId, vehicleType, 0, 0, 0, 0, 0, 2, 0, 0, 0, null, 0);
+        this(playerId, teamId, vehicleType, 0, 0, 0, 0, 0, 2, 0, 0, 0, null, 0, "surface");
+    }
+
+    public FireTorpedoRequest(String playerId, String teamId, String vehicleType, double x, double z, double heading,
+                              double speed, double turnVelocity, int engineOrder, double rudderDegrees, double y,
+                              double verticalSpeed, Integer tubeSide, double clientTime) {
+        this(playerId, teamId, vehicleType, x, z, heading, speed, turnVelocity, engineOrder, rudderDegrees,
+                y, verticalSpeed, tubeSide, clientTime, "surface");
     }
 
     public FireTorpedoRequest(String playerId, String teamId, String vehicleType, double x, double z, double heading,
                               double speed, double turnVelocity, int engineOrder, double rudderDegrees,
                               Integer tubeSide, double clientTime) {
         this(playerId, teamId, vehicleType, x, z, heading, speed, turnVelocity, engineOrder, rudderDegrees,
-                0, 0, tubeSide, clientTime);
+                0, 0, tubeSide, clientTime, "surface");
     }
 
     boolean includesPlayerState() {

@@ -159,10 +159,10 @@ final class DefaultGameSetupFactory {
                 worldMapService.denseWorld(),
                 List.of(
                         new FleetSetup(TEAM_LIGHT, List.of(
-                                ship("light-S1", TEAM_LIGHT, -40, -480, Math.PI / 2, ENGINE_STOP, 0, 99)
+                                ship("light-S1", TEAM_LIGHT, -40, -480, Math.PI / 2, "scenario", ENGINE_STOP, 0, 99)
                         )),
                         new FleetSetup(TEAM_DARK, List.of(
-                                ship("dark-S1", TEAM_DARK, 195, -505, -Math.PI / 2, ENGINE_STOP, 0, 99)
+                                ship("dark-S1", TEAM_DARK, 195, -505, -Math.PI / 2, "scenario", ENGINE_STOP, 0, 99)
                         ))
                 ),
                 List.of(new Vector2(-40, -480), new Vector2(195, -505))

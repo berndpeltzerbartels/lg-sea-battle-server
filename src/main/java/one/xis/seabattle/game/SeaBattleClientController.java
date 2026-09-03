@@ -175,7 +175,8 @@ public class SeaBattleClientController {
                 update.flakYaw(),
                 update.flakPitch(),
                 update.cannonYaw(),
-                update.cannonPitch()
+                update.cannonPitch(),
+                update.depthState()
         )));
     }
 
@@ -202,7 +203,8 @@ public class SeaBattleClientController {
                 request.y(),
                 request.verticalSpeed(),
                 request.tubeSide(),
-                request.clientTime()
+                request.clientTime(),
+                request.depthState()
         ));
         diagnosticsService.logFireRequest(request.playerId(), teamId, before, after, "ok");
         return ResponseEntity.ok(after);
