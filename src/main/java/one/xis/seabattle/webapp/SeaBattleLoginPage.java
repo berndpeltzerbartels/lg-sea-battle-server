@@ -115,7 +115,6 @@ public class SeaBattleLoginPage {
         String vehicleType = normalizeVehicleType(form.vehicleType());
         startOrFindSession(savedAccount, vehicleType);
         String target = switch (vehicleType) {
-            case "scout-plane" -> "/app?vehicle=scout-plane";
             case "submarine" -> "/app?vehicle=submarine";
             default -> "/app";
         };
@@ -158,9 +157,6 @@ public class SeaBattleLoginPage {
     }
 
     private String normalizeVehicleType(String vehicleType) {
-        if ("scout-plane".equals(vehicleType)) {
-            return "scout-plane";
-        }
         if ("submarine".equals(vehicleType)) {
             return "submarine";
         }
@@ -232,7 +228,7 @@ public class SeaBattleLoginPage {
             String email,
 
             @Mandatory
-            @RegExpr("torpedo-boat|submarine|scout-plane")
+            @RegExpr("torpedo-boat|submarine")
             String vehicleType
     ) {
     }
