@@ -518,7 +518,7 @@ public final class GameSession {
         if (!TEMPORARILY_DISABLE_BOTS) {
             commandBots(radarService, navigationService, worldMap);
             allShips().stream()
-                    .filter(Ship::isServerSimulated)
+                    .filter(this::isMotionIntegratedOnServer)
                     .forEach(ship -> ship.update(deltaSeconds, navigationService, worldMap));
         }
         updateTorpedoes(deltaSeconds, navigationService, worldMap);
@@ -565,6 +565,10 @@ public final class GameSession {
 
     public synchronized void update(double deltaSeconds) {
         throw new IllegalStateException("World navigation is required for server simulation");
+    }
+
+    private boolean isMotionIntegratedOnServer(Ship ship) {
+        return ship.isServerSimulated() || (!ship.isScoutPlane() && isHumanController(ship.controlledBy()));
     }
 
     private void commandBots(RadarService radarService, NavigationService navigationService, WorldMap worldMap) {

@@ -116,7 +116,7 @@ class GameStateServiceTest {
 
         GameSnapshot snapshot = session.updatePlayerState(new PlayerStateUpdate(
                 "player-BP-test", "light", 12, 0, 0, 0, 0, 2, 0, 1, true,
-                "submarine", 0, 0, null, null, null, null, "periscope"
+                "submarine", -0.72, 0, null, null, null, null, "periscope"
         ), navigationService, session.worldMap());
 
         ShipSnapshot submarine = snapshot.ships().stream()
@@ -125,6 +125,7 @@ class GameStateServiceTest {
                 .orElseThrow();
         assertEquals("submarine", submarine.vehicleType());
         assertEquals("periscope", submarine.depthState());
+        assertEquals(-0.72, submarine.y(), 0.001);
     }
 
     @Test
@@ -213,5 +214,31 @@ class GameStateServiceTest {
         assertTrue(after.t() > before.t());
         assertEquals(beforeShip.x(), afterShip.x());
         assertEquals(beforeShip.z(), afterShip.z());
+    }
+
+    @Test
+    void tickContinuesHumanShipFromLastCommand() {
+        GameStateService service = new GameStateService(
+                new DefaultGameSetupFactory(new WorldMapService()),
+                new RadarService(),
+                new NavigationService()
+        );
+        String playerId = "player-BP-test";
+        service.connectPlayer(playerId);
+        service.assignPlayerVehicle(playerId, "light", "submarine");
+        service.updatePlayerState(new PlayerStateUpdate(
+                playerId, "light", 0, 0, 0, 6, 0, 7, 0, 1, true,
+                "submarine", -0.6, 0, null, null, null, null, "periscope"
+        ));
+
+        GameSnapshot after = service.tick(1);
+        ShipSnapshot afterShip = after.ships().stream()
+                .filter(ship -> playerId.equals(ship.controlledBy()))
+                .findFirst()
+                .orElseThrow();
+
+        assertTrue(afterShip.z() > 0);
+        assertEquals("periscope", afterShip.depthState());
+        assertEquals(-0.6, afterShip.y(), 0.001);
     }
 }

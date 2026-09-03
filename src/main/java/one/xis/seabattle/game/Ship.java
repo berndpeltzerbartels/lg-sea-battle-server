@@ -201,7 +201,9 @@ final class Ship {
         }
 
         position = requestedPosition;
-        y = isScoutPlane() ? MathSupport.clamp(update.y(), SCOUT_PLANE_MIN_Y, SCOUT_PLANE_MAX_Y) : 0;
+        y = isScoutPlane()
+                ? MathSupport.clamp(update.y(), SCOUT_PLANE_MIN_Y, SCOUT_PLANE_MAX_Y)
+                : (isSubmarine() && Double.isFinite(update.y()) ? update.y() : 0);
         verticalSpeed = isScoutPlane() ? MathSupport.clamp(update.verticalSpeed(), -34, 20) : 0;
         heading = MathSupport.normalizeAngle(update.heading());
         speed = MathSupport.clamp(update.speed(), -MAX_ACCEPTED_PLAYER_SPEED, MAX_ACCEPTED_PLAYER_SPEED);
@@ -399,7 +401,7 @@ final class Ship {
                 controlledBy,
                 torpedoesRemaining,
                 vehicleType,
-                MathSupport.round(isScoutPlane() ? y : 0),
+                MathSupport.round(isScoutPlane() || isSubmarine() ? y : 0),
                 MathSupport.round(flakYaw),
                 MathSupport.round(flakPitch),
                 MathSupport.round(cannonYaw),
