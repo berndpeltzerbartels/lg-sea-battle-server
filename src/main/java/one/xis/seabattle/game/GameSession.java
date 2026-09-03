@@ -494,7 +494,7 @@ public final class GameSession {
     }
 
     private boolean canFireFlak(Ship ship) {
-        return nowSeconds >= nextFlakFireTimeByShipId.getOrDefault(ship.id(), 0.0);
+        return ship.isOnSurface() && nowSeconds >= nextFlakFireTimeByShipId.getOrDefault(ship.id(), 0.0);
     }
 
     private boolean canFireCannon(Ship ship) {
@@ -1548,15 +1548,14 @@ public final class GameSession {
     }
 
     private void resolvePeriscopeRamCollision(Ship left, Ship right) {
+        if (left.isBotControlled() && right.isBotControlled()) {
+            return;
+        }
         boolean leftSubmarineSinks = left.isAtPeriscopeDepth()
                 && (periscopeRamHit(right, left) || periscopeHitsSurfaceHull(left, right));
         boolean rightSubmarineSinks = right.isAtPeriscopeDepth()
                 && (periscopeRamHit(left, right) || periscopeHitsSurfaceHull(right, left));
         if (!leftSubmarineSinks && !rightSubmarineSinks) {
-            return;
-        }
-        if (ramCollisionSpeed(left, right) < ramDamageMinClosingSpeed(left, right)) {
-            resolveGlancingRam(left, right);
             return;
         }
         if (leftSubmarineSinks) {
@@ -1892,14 +1891,7 @@ public final class GameSession {
         if (!target.isSubmarine() || target.isOnSurface()) {
             return true;
         }
-        if (target.isFullySubmerged()) {
-            return false;
-        }
-        return allShips().stream()
-                .filter(ship -> ship.id().equals(torpedo.shipId()))
-                .findFirst()
-                .map(shooter -> !shooter.isScoutPlane())
-                .orElse(true);
+        return false;
     }
 
     private Optional<Ship> airborneTorpedoHitsScoutPlane(Torpedo torpedo) {
@@ -2676,8 +2668,8 @@ public final class GameSession {
         Vector2 forward = Vector2.fromHeading(heading);
         Vector2 right = new Vector2(Math.cos(heading), -Math.sin(heading));
         Vector2 muzzlePosition = ship.position()
-                .add(forward.scale(5.0 * TORPEDO_BOAT_MODEL_SCALE))
-                .add(right.scale(tubeSide * 0.56 * TORPEDO_BOAT_MODEL_SCALE));
+                .add(forward.scale(torpedoMuzzleForwardOffset(ship) * TORPEDO_BOAT_MODEL_SCALE))
+                .add(right.scale(tubeSide * torpedoMuzzleSideOffset(ship) * TORPEDO_BOAT_MODEL_SCALE));
         if (target != null && !torpedoLineHitsShip(muzzlePosition, forward, target, BOT_FIRE_MAX_RANGE, TORPEDO_HULL_MARGIN)) {
             return false;
         }
@@ -2697,6 +2689,14 @@ public final class GameSession {
                 tubeSide
         ));
         return true;
+    }
+
+    private double torpedoMuzzleForwardOffset(Ship ship) {
+        return ship.isSubmarine() ? 5.45 : 5.0;
+    }
+
+    private double torpedoMuzzleSideOffset(Ship ship) {
+        return ship.isSubmarine() ? 0.24 : 0.56;
     }
 
     private boolean torpedoLaunchWouldHitFriendlyShip(Ship shooter, Vector2 muzzlePosition, double heading) {
