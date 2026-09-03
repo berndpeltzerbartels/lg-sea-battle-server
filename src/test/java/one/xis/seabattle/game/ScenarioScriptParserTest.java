@@ -64,6 +64,25 @@ final class ScenarioScriptParserTest {
     }
 
     @Test
+    void parsesSubmarineScenarioVehicle() {
+        GameSetup setup = ScenarioScriptParser.parse("""
+                scenario: submarine-test
+                cell: 50
+                map:
+                ...
+                .1.
+                ...
+                objects:
+                1: submarine light human
+                """);
+
+        ShipSetup submarine = setup.fleets().get(0).ships().get(0);
+        assertEquals("light-U1", submarine.id());
+        assertEquals("submarine", submarine.vehicleType());
+        assertEquals(0, submarine.y(), 0.001);
+    }
+
+    @Test
     void parsesCannonActionWithAimPointForRealScenarioVehicle() {
         ScenarioDefinition scenario = ScenarioScriptParser.parseDefinition("""
                 scenario: cannon-action-test

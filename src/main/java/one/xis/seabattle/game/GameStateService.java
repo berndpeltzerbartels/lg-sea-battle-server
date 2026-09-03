@@ -89,6 +89,17 @@ public class GameStateService {
         }
     }
 
+    public GameSnapshot assignPlayerVehicle(String playerId, String teamId, String vehicleType) {
+        SessionView view;
+        activateTeam(teamId);
+        synchronized (this) {
+            session.assignPlayerVehicle(playerId, teamId, vehicleType);
+            view = captureSessionView();
+        }
+        publishModel(view);
+        return view.state();
+    }
+
     public GameSnapshot fireTorpedo(FireTorpedoRequest request) {
         SessionView view;
         activateTeam(request.teamId());
@@ -108,7 +119,12 @@ public class GameStateService {
                         false,
                         request.vehicleType(),
                         request.y(),
-                        request.verticalSpeed()
+                        request.verticalSpeed(),
+                        null,
+                        null,
+                        null,
+                        null,
+                        request.depthState()
                 ), navigationService, session.worldMap());
             }
             session.applyFireTorpedo(request);

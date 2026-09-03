@@ -32,6 +32,10 @@ final class RadarService {
                 result = "inactive";
                 return false;
             }
+            if (!canObserveByDepth(observer, contact)) {
+                result = "depth";
+                return false;
+            }
             if (observer.position().distanceTo(contact.position()) > range) {
                 result = "range";
                 return false;
@@ -44,11 +48,27 @@ final class RadarService {
         }
     }
 
+    private boolean canObserveByDepth(Ship observer, Ship contact) {
+        if (observer.isFullySubmerged()) {
+            return false;
+        }
+        if (contact.isFullySubmerged()) {
+            return false;
+        }
+        if (contact.isAtPeriscopeDepth()) {
+            return observer.isScoutPlane();
+        }
+        return true;
+    }
+
     boolean isVisible(ShipSnapshot observer, ShipSnapshot contact, WorldMap worldMap) {
         if (observer.id().equals(contact.id())) {
             return false;
         }
         if (!"active".equals(observer.state()) || !"active".equals(contact.state())) {
+            return false;
+        }
+        if (!canObserveByDepth(observer, contact)) {
             return false;
         }
         Vector2 observerPosition = new Vector2(observer.x(), observer.z());
@@ -57,6 +77,31 @@ final class RadarService {
             return false;
         }
         return true;
+    }
+
+    private boolean canObserveByDepth(ShipSnapshot observer, ShipSnapshot contact) {
+        if (isFullySubmerged(observer)) {
+            return false;
+        }
+        if (isFullySubmerged(contact)) {
+            return false;
+        }
+        if (isAtPeriscopeDepth(contact)) {
+            return "scout-plane".equals(observer.vehicleType());
+        }
+        return true;
+    }
+
+    private boolean isFullySubmerged(ShipSnapshot ship) {
+        return isSubmarine(ship) && "submerged".equals(ship.depthState());
+    }
+
+    private boolean isAtPeriscopeDepth(ShipSnapshot ship) {
+        return isSubmarine(ship) && "periscope".equals(ship.depthState());
+    }
+
+    private boolean isSubmarine(ShipSnapshot ship) {
+        return "submarine".equals(ship.vehicleType());
     }
 
     VisibilityCache visibilityCache(WorldMap worldMap, List<Ship> activeShips) {
@@ -82,6 +127,7 @@ final class RadarService {
         private long cacheMisses;
         private long self;
         private long inactive;
+        private long depth;
         private long range;
         private long visible;
 
@@ -91,6 +137,7 @@ final class RadarService {
             switch (result) {
                 case "self" -> self += 1;
                 case "inactive" -> inactive += 1;
+                case "depth" -> depth += 1;
                 case "range" -> range += 1;
                 case "visible" -> visible += 1;
                 default -> throw new IllegalArgumentException("Unknown visibility result: " + result);
@@ -133,6 +180,10 @@ final class RadarService {
 
         long range() {
             return range;
+        }
+
+        long depth() {
+            return depth;
         }
 
         long visible() {
@@ -188,9 +239,7 @@ final class RadarService {
     private record VisibilityKey(String left, String right, double range) {
 
         static VisibilityKey of(String first, String second, double range) {
-            return first.compareTo(second) <= 0
-                    ? new VisibilityKey(first, second, range)
-                    : new VisibilityKey(second, first, range);
+            return new VisibilityKey(first, second, range);
         }
     }
 }

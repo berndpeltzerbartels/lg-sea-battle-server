@@ -11,6 +11,7 @@ final class ScenarioScriptParser {
     private static final String TEAM_DARK = "dark";
     private static final String TEAM_LIGHT = "light";
     private static final String VEHICLE_TORPEDO_BOAT = "torpedo-boat";
+    private static final String VEHICLE_SUBMARINE = "submarine";
     private static final String VEHICLE_SCOUT_PLANE = "scout-plane";
     private static final int ENGINE_STOP = 2;
     private static final int ENGINE_SLOW = 3;
@@ -149,6 +150,7 @@ final class ScenarioScriptParser {
         String normalized = vehicleType.toLowerCase(Locale.ROOT);
         return switch (normalized) {
             case "ship", "boat", "boot", "torpedo-boat" -> VEHICLE_TORPEDO_BOAT;
+            case "submarine", "u-boat", "uboat", "u-boot", "unterseeboot" -> VEHICLE_SUBMARINE;
             case "plane", "aircraft", "flieger", "flugzeug", "scout-plane" -> VEHICLE_SCOUT_PLANE;
             default -> throw new IllegalArgumentException("Unknown scenario vehicle: " + vehicleType);
         };
@@ -165,6 +167,9 @@ final class ScenarioScriptParser {
     }
 
     private static String vehiclePrefix(String vehicleType) {
+        if (VEHICLE_SUBMARINE.equals(vehicleType)) {
+            return "U";
+        }
         return VEHICLE_SCOUT_PLANE.equals(vehicleType) ? "F" : "S";
     }
 

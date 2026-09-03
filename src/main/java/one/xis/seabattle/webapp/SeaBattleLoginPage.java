@@ -59,7 +59,7 @@ public class SeaBattleLoginPage {
                 account.alias(),
                 account.team(),
                 account.email(),
-                "torpedo-boat"
+                normalizeVehicleType(vehicleType)
         );
     }
 
@@ -112,15 +112,19 @@ public class SeaBattleLoginPage {
             throw new ValidationFailedException("/login/alias", "seaBattle.aliasTaken");
         }
         Account savedAccount = accountService.saveAccount(account);
-        startOrFindSession(savedAccount);
         String vehicleType = normalizeVehicleType(form.vehicleType());
-        String target = "scout-plane".equals(vehicleType) ? "/app?vehicle=scout-plane" : "/app";
+        startOrFindSession(savedAccount, vehicleType);
+        String target = switch (vehicleType) {
+            case "scout-plane" -> "/app?vehicle=scout-plane";
+            case "submarine" -> "/app?vehicle=submarine";
+            default -> "/app";
+        };
         return new PageUrlResponse(target)
                 .localStorage("accountId", savedAccount.id())
                 .localStorage("vehicleType", vehicleType);
     }
 
-    private void startOrFindSession(Account account) {
+    private void startOrFindSession(Account account, String vehicleType) {
         String initials = account.alias() == null ? "" : account.alias().trim().toUpperCase(Locale.ROOT);
         String teamId = account.team() == null ? "" : account.team().trim().toLowerCase(Locale.ROOT);
         String playerId = playerRegistry.activePlayerIdForAccountAlias(account.id(), initials);
@@ -133,6 +137,7 @@ public class SeaBattleLoginPage {
             gameStateService.resetCurrentSetup();
         }
         gameStateService.activateTeam(teamId);
+        gameStateService.assignPlayerVehicle(playerId, teamId, vehicleType);
     }
 
     private String createPlayerId(String initials) {
@@ -153,7 +158,13 @@ public class SeaBattleLoginPage {
     }
 
     private String normalizeVehicleType(String vehicleType) {
-        return "scout-plane".equals(vehicleType) ? "scout-plane" : "torpedo-boat";
+        if ("scout-plane".equals(vehicleType)) {
+            return "scout-plane";
+        }
+        if ("submarine".equals(vehicleType)) {
+            return "submarine";
+        }
+        return "torpedo-boat";
     }
 
     private boolean isAliasActive(String initials, String accountId) {
@@ -221,7 +232,7 @@ public class SeaBattleLoginPage {
             String email,
 
             @Mandatory
-            @RegExpr("torpedo-boat|scout-plane")
+            @RegExpr("torpedo-boat|submarine|scout-plane")
             String vehicleType
     ) {
     }

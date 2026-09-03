@@ -2,7 +2,10 @@ package one.xis.seabattle.game;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GameStateServiceTest {
@@ -103,6 +106,70 @@ class GameStateServiceTest {
 
         TorpedoSnapshot torpedo = after.torpedoes().get(after.torpedoes().size() - 1);
         assertEquals(-1, torpedo.tubeSide());
+    }
+
+    @Test
+    void submarineDepthStateIsPublishedInSnapshot() {
+        NavigationService navigationService = new NavigationService();
+        GameSession session = new GameSession(new DefaultGameSetupFactory(new WorldMapService()).defaultSetup());
+        session.assignPlayerVehicle("player-BP-test", "light", "submarine");
+
+        GameSnapshot snapshot = session.updatePlayerState(new PlayerStateUpdate(
+                "player-BP-test", "light", 12, 0, 0, 0, 0, 2, 0, 1, true,
+                "submarine", 0, 0, null, null, null, null, "periscope"
+        ), navigationService, session.worldMap());
+
+        ShipSnapshot submarine = snapshot.ships().stream()
+                .filter(ship -> "player-BP-test".equals(ship.controlledBy()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals("submarine", submarine.vehicleType());
+        assertEquals("periscope", submarine.depthState());
+    }
+
+    @Test
+    void fullySubmergedSubmarineCannotFireTorpedo() {
+        NavigationService navigationService = new NavigationService();
+        GameSession session = new GameSession(new DefaultGameSetupFactory(new WorldMapService()).defaultSetup());
+        session.assignPlayerVehicle("player-BP-test", "light", "submarine");
+        session.updatePlayerState(new PlayerStateUpdate(
+                "player-BP-test", "light", 12, 0, 0, 0, 0, 2, 0, 1, true,
+                "submarine", 0, 0, null, null, null, null, "submerged"
+        ), navigationService, session.worldMap());
+
+        GameSnapshot after = session.fireTorpedo(new FireTorpedoRequest(
+                "player-BP-test", "light", "submarine", 12, 0, 0, 0, 0, 2, 0,
+                0, 0, -1, 2, "submerged"
+        ));
+
+        assertEquals(0, after.torpedoes().size());
+    }
+
+    @Test
+    void submarineDepthControlsRadarVisibility() {
+        RadarService radarService = new RadarService();
+        NavigationService navigationService = new NavigationService();
+        WorldMap worldMap = new WorldMap(9020, List.of());
+        Ship surfaceShip = new Ship("red-1", "red", new Vector2(0, 0), 0, "scenario");
+        Ship scoutPlane = new Ship("red-plane", "red", new Vector2(0, 0), 0, "scenario");
+        scoutPlane.vehicleType("scout-plane");
+        Ship submarine = new Ship("blue-1", "blue", new Vector2(80, 0), 0, "player-blue");
+
+        submarine.applyPlayerState(new PlayerStateUpdate(
+                "player-blue", "blue", 80, 0, 0, 0, 0, 2, 0, 0, true,
+                "submarine", 0, 0, null, null, null, null, "periscope"
+        ), navigationService, worldMap);
+
+        assertFalse(radarService.isVisible(surfaceShip, submarine, worldMap));
+        assertTrue(radarService.isVisible(scoutPlane, submarine, worldMap));
+
+        submarine.applyPlayerState(new PlayerStateUpdate(
+                "player-blue", "blue", 80, 0, 0, 0, 0, 2, 0, 0, true,
+                "submarine", 0, 0, null, null, null, null, "submerged"
+        ), navigationService, worldMap);
+
+        assertFalse(radarService.isVisible(surfaceShip, submarine, worldMap));
+        assertFalse(radarService.isVisible(scoutPlane, submarine, worldMap));
     }
 
     @Test

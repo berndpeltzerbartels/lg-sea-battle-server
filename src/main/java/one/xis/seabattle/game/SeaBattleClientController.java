@@ -134,6 +134,7 @@ public class SeaBattleClientController {
                 request.team() == null ? "" : request.team().trim().toLowerCase(Locale.ROOT),
                 request.email() == null || request.email().isBlank() ? null : request.email().trim()
         );
+        String vehicleType = normalizeVehicleType(request.vehicleType());
         if (account.nickname().length() < 2 || account.alias().isBlank() || account.alias().length() > 5
                 || (!"light".equals(account.team()) && !"dark".equals(account.team()))) {
             return ResponseEntity.status(400, "Invalid player registration");
@@ -143,7 +144,9 @@ public class SeaBattleClientController {
         if (response.getStatusCode() >= 400) {
             return response;
         }
-        return ResponseEntity.ok(new StartGameResponse(accountId, (PlayerLogin) response.getBody()));
+        PlayerLogin player = (PlayerLogin) response.getBody();
+        gameStateService.assignPlayerVehicle(player.playerId(), player.teamId(), vehicleType);
+        return ResponseEntity.ok(new StartGameResponse(accountId, player));
     }
 
     @Post("/game/player-state")
@@ -172,7 +175,8 @@ public class SeaBattleClientController {
                 update.flakYaw(),
                 update.flakPitch(),
                 update.cannonYaw(),
-                update.cannonPitch()
+                update.cannonPitch(),
+                update.depthState()
         )));
     }
 
@@ -199,7 +203,8 @@ public class SeaBattleClientController {
                 request.y(),
                 request.verticalSpeed(),
                 request.tubeSide(),
-                request.clientTime()
+                request.clientTime(),
+                request.depthState()
         ));
         diagnosticsService.logFireRequest(request.playerId(), teamId, before, after, "ok");
         return ResponseEntity.ok(after);
@@ -437,6 +442,16 @@ public class SeaBattleClientController {
         return value == null ? "" : value.trim().replaceAll("\\s+", " ");
     }
 
+    private String normalizeVehicleType(String vehicleType) {
+        if ("scout-plane".equals(vehicleType)) {
+            return "scout-plane";
+        }
+        if ("submarine".equals(vehicleType)) {
+            return "submarine";
+        }
+        return "torpedo-boat";
+    }
+
     private static String safe(String value) {
         if (value == null || value.isBlank()) {
             return "-";
@@ -472,7 +487,8 @@ public class SeaBattleClientController {
     public record PlayerLogin(String playerId, String initials, String teamId) {
     }
 
-    public record StartGameRequest(String accountId, String nickname, String alias, String team, String email) {
+    public record StartGameRequest(String accountId, String nickname, String alias, String team, String email,
+                                   String vehicleType) {
     }
 
     public record StartGameResponse(String accountId, PlayerLogin player) {
