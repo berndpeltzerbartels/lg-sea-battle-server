@@ -109,8 +109,7 @@ public final class GameSession {
     private static final double RAM_GLANCING_COLLISION_ANGLE = Math.toRadians(40);
     private static final double RAM_GLANCING_HEADING_IMPULSE = Math.toRadians(9);
     private static final double RAM_DAMAGE_MIN_CLOSING_SPEED = 5.0;
-    private static final double SUBMARINE_RAM_DAMAGE_MIN_CLOSING_SPEED = 0.65;
-    private static final double SUBMARINE_RAM_MIN_ATTACK_SPEED = 0.35;
+    private static final double SUBMARINE_RAM_DAMAGE_MIN_CLOSING_SPEED = 2.4;
     private static final double RAM_COLLISION_BROAD_PHASE_RADIUS = 10.2 * TORPEDO_BOAT_MODEL_SCALE;
     private static final double SUBMARINE_PERISCOPE_RAM_RADIUS = 0.36 * TORPEDO_BOAT_MODEL_SCALE;
     private static final double SUBMERGED_SUBMARINE_RAM_RADIUS = 1.25 * TORPEDO_BOAT_MODEL_SCALE;
@@ -1495,7 +1494,13 @@ public final class GameSession {
                     continue;
                 }
 
-                if (ramCollisionSpeed(left, right) < ramDamageMinClosingSpeed(left, right)) {
+                double collisionSpeed = ramCollisionSpeed(left, right);
+                if (left.isSubmarine() || right.isSubmarine()) {
+                    resolveSubmarineHullRamCollision(left, right, collisionSpeed);
+                    continue;
+                }
+
+                if (collisionSpeed < ramDamageMinClosingSpeed(left, right)) {
                     resolveGlancingRam(left, right);
                     continue;
                 }
@@ -1530,8 +1535,7 @@ public final class GameSession {
     }
 
     private void resolveSubmergedSubmarineRamCollision(Ship left, Ship right) {
-        if (ramCollisionSpeed(left, right) < ramDamageMinClosingSpeed(left, right)) {
-            resolveGlancingRam(left, right);
+        if (left.isBotControlled() && right.isBotControlled()) {
             return;
         }
         boolean leftHits = submergedSubmarineRamHit(left, right);
@@ -1539,16 +1543,13 @@ public final class GameSession {
         if (!leftHits && !rightHits) {
             return;
         }
-        if (leftHits && rightHits) {
-            sinkShipByRam(left, right);
-            sinkShipByRam(right, left);
-        } else if (leftHits) {
-            sinkShipByRam(right, left);
+        if (ramCollisionSpeed(left, right) < SUBMARINE_RAM_DAMAGE_MIN_CLOSING_SPEED) {
             left.stopAfterRamImpact();
-        } else {
-            sinkShipByRam(left, right);
             right.stopAfterRamImpact();
+            return;
         }
+        sinkShipByRam(left, right);
+        sinkShipByRam(right, left);
     }
 
     private void resolvePeriscopeRamCollision(Ship left, Ship right) {
@@ -1573,7 +1574,7 @@ public final class GameSession {
     }
 
     private boolean periscopeRamHit(Ship attacker, Ship target) {
-        if (!target.isAtPeriscopeDepth() || !attacker.isOnSurface() || attacker.speed() < SUBMARINE_RAM_MIN_ATTACK_SPEED) {
+        if (!target.isAtPeriscopeDepth() || !attacker.isOnSurface()) {
             return false;
         }
         for (double bowOffset : List.of(RAM_BOW_OFFSET, RAM_BOW_OFFSET - 1.15, RAM_BOW_OFFSET - 2.3)) {
@@ -1588,8 +1589,7 @@ public final class GameSession {
 
     private boolean periscopeHitsSurfaceHull(Ship submarine, Ship surfaceShip) {
         if (!submarine.isAtPeriscopeDepth()
-                || !surfaceShip.isOnSurface()
-                || submarine.speed() < SUBMARINE_RAM_MIN_ATTACK_SPEED) {
+                || !surfaceShip.isOnSurface()) {
             return false;
         }
         return pointInsideShipHull(
@@ -1600,7 +1600,7 @@ public final class GameSession {
     }
 
     private boolean submergedSubmarineRamHit(Ship attacker, Ship target) {
-        if (!attacker.isFullySubmerged() || !target.isFullySubmerged() || attacker.speed() < SUBMARINE_RAM_MIN_ATTACK_SPEED) {
+        if (!attacker.isFullySubmerged() || !target.isFullySubmerged()) {
             return false;
         }
         for (double bowOffset : List.of(RAM_BOW_OFFSET, RAM_BOW_OFFSET - 1.15, RAM_BOW_OFFSET - 2.3)) {
@@ -1611,6 +1611,26 @@ public final class GameSession {
             }
         }
         return false;
+    }
+
+    private void resolveSubmarineHullRamCollision(Ship left, Ship right, double collisionSpeed) {
+        if (collisionSpeed < SUBMARINE_RAM_DAMAGE_MIN_CLOSING_SPEED) {
+            left.stopAfterRamImpact();
+            right.stopAfterRamImpact();
+            return;
+        }
+        if (left.isSubmarine() && right.isSubmarine()) {
+            sinkShipByRam(left, right);
+            sinkShipByRam(right, left);
+            return;
+        }
+        if (left.isSubmarine()) {
+            sinkShipByRam(left, right);
+            right.stopAfterRamImpact();
+            return;
+        }
+        sinkShipByRam(right, left);
+        left.stopAfterRamImpact();
     }
 
     private void resolveGlancingRam(Ship left, Ship right) {

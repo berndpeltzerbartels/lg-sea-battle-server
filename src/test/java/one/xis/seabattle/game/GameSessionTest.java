@@ -15,6 +15,7 @@ class GameSessionTest {
     private static final double TORPEDO_BOAT_MODEL_SCALE = SeaBattleGameConfig.TORPEDO_BOAT_SCALE;
     private static final double SCOUT_PLANE_START_Y = 220;
     private static final double TORPEDO_BOAT_MODEL_WATERLINE_Y = -0.2;
+    private static final double RAM_BOW_OFFSET = 3.68;
     private static final int ENGINE_FULL_ASTERN = 0;
     private static final int ENGINE_STOP = 2;
     private static final int ENGINE_SLOW = 3;
@@ -2493,6 +2494,37 @@ class GameSessionTest {
     }
 
     @Test
+    void periscopeDepthSubmarineHullCannotSideRamSurfaceShip() {
+        GameSession session = new GameSession(new GameSetup(
+                "periscope-submarine-side-hull-ignore-test",
+                new WorldMap(9084, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, Math.PI / 2, "player-red", ENGINE_FULL, 0, 99, "submarine"))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", RAM_BOW_OFFSET * TORPEDO_BOAT_MODEL_SCALE, 0, 0, "player-blue", ENGINE_STOP, 0, 99)))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(RAM_BOW_OFFSET * TORPEDO_BOAT_MODEL_SCALE, 0))
+        ));
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-red", "red", 0, 0, Math.PI / 2, 8, 0, ENGINE_FULL, 0, 0, true,
+                        "submarine", 0, 0, null, null, null, null, "periscope"),
+                navigationService,
+                session.worldMap()
+        );
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-blue", "blue", RAM_BOW_OFFSET * TORPEDO_BOAT_MODEL_SCALE, 0, 0, 0, 0,
+                        ENGINE_STOP, 0, 0, true, "torpedo-boat"),
+                navigationService,
+                session.worldMap()
+        );
+
+        session.update(0, radarService, navigationService, session.worldMap());
+
+        GameSnapshot snapshot = session.snapshot();
+        assertEquals("active", findShip(snapshot, "red-1").state());
+        assertEquals("active", findShip(snapshot, "blue-1").state());
+    }
+
+    @Test
     void surfacedSubmarineSinksPeriscopeDepthSubmarineWhenRammingPeriscope() {
         GameSession session = new GameSession(new GameSetup(
                 "surface-submarine-periscope-ram-test",
@@ -2586,6 +2618,156 @@ class GameSessionTest {
     }
 
     @Test
+    void slowSurfacedSubmarineHullRamStopsWithoutDamage() {
+        GameSession session = new GameSession(new GameSetup(
+                "slow-surfaced-submarine-hull-ram-test",
+                new WorldMap(9085, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, Math.PI / 2, "player-red", ENGINE_SLOW, 0, 99, "submarine"))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", RAM_BOW_OFFSET * TORPEDO_BOAT_MODEL_SCALE, 0, 0, "player-blue", ENGINE_STOP, 0, 99)))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(RAM_BOW_OFFSET * TORPEDO_BOAT_MODEL_SCALE, 0))
+        ));
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-red", "red", 0, 0, Math.PI / 2, 1.0, 0, ENGINE_SLOW, 0, 0, true,
+                        "submarine", 0, 0, null, null, null, null, "surface"),
+                navigationService,
+                session.worldMap()
+        );
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-blue", "blue", RAM_BOW_OFFSET * TORPEDO_BOAT_MODEL_SCALE, 0, 0, 0, 0,
+                        ENGINE_STOP, 0, 0, true, "torpedo-boat"),
+                navigationService,
+                session.worldMap()
+        );
+
+        session.update(0, radarService, navigationService, session.worldMap());
+
+        GameSnapshot snapshot = session.snapshot();
+        ShipSnapshot submarine = findShip(snapshot, "red-1");
+        ShipSnapshot torpedoBoat = findShip(snapshot, "blue-1");
+        assertEquals("active", submarine.state());
+        assertEquals("active", torpedoBoat.state());
+        assertEquals(0.0, submarine.speed(), 0.001);
+        assertEquals(0.0, torpedoBoat.speed(), 0.001);
+    }
+
+    @Test
+    void surfacedSubmarineHullRamSinksSubmarineAndLeavesTorpedoBoat() {
+        GameSession session = new GameSession(new GameSetup(
+                "surfaced-submarine-hull-ram-test",
+                new WorldMap(9086, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, Math.PI / 2, "player-red", ENGINE_FULL, 0, 99, "submarine"))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", RAM_BOW_OFFSET * TORPEDO_BOAT_MODEL_SCALE, 0, 0, "player-blue", ENGINE_STOP, 0, 99)))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(RAM_BOW_OFFSET * TORPEDO_BOAT_MODEL_SCALE, 0))
+        ));
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-red", "red", 0, 0, Math.PI / 2, 8, 0, ENGINE_FULL, 0, 0, true,
+                        "submarine", 0, 0, null, null, null, null, "surface"),
+                navigationService,
+                session.worldMap()
+        );
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-blue", "blue", RAM_BOW_OFFSET * TORPEDO_BOAT_MODEL_SCALE, 0, 0, 0, 0,
+                        ENGINE_STOP, 0, 0, true, "torpedo-boat"),
+                navigationService,
+                session.worldMap()
+        );
+
+        session.update(0, radarService, navigationService, session.worldMap());
+
+        GameSnapshot snapshot = session.snapshot();
+        assertEquals("sunk", findShip(snapshot, "red-1").state());
+        assertEquals("active", findShip(snapshot, "blue-1").state());
+        assertEquals(0.0, findShip(snapshot, "blue-1").speed(), 0.001);
+    }
+
+    @Test
+    void slowSurfacedSubmarinesStopWithoutDamage() {
+        GameSession session = new GameSession(new GameSetup(
+                "slow-surfaced-submarine-submarine-ram-test",
+                new WorldMap(9087, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, Math.PI / 2, "player-red", ENGINE_SLOW, 0, 99, "submarine"))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", RAM_BOW_OFFSET * TORPEDO_BOAT_MODEL_SCALE, 0, 0, "player-blue", ENGINE_STOP, 0, 99, "submarine")))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(RAM_BOW_OFFSET * TORPEDO_BOAT_MODEL_SCALE, 0))
+        ));
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-red", "red", 0, 0, Math.PI / 2, 1.0, 0, ENGINE_SLOW, 0, 0, true,
+                        "submarine", 0, 0, null, null, null, null, "surface"),
+                navigationService,
+                session.worldMap()
+        );
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-blue", "blue", RAM_BOW_OFFSET * TORPEDO_BOAT_MODEL_SCALE, 0, 0, 0, 0,
+                        ENGINE_STOP, 0, 0, true, "submarine", 0, 0, null, null, null, null, "surface"),
+                navigationService,
+                session.worldMap()
+        );
+
+        session.update(0, radarService, navigationService, session.worldMap());
+
+        GameSnapshot snapshot = session.snapshot();
+        assertEquals("active", findShip(snapshot, "red-1").state());
+        assertEquals("active", findShip(snapshot, "blue-1").state());
+        assertEquals(0.0, findShip(snapshot, "red-1").speed(), 0.001);
+        assertEquals(0.0, findShip(snapshot, "blue-1").speed(), 0.001);
+    }
+
+    @Test
+    void fastSurfacedSubmarinesBothSinkOnHullRam() {
+        GameSession session = new GameSession(new GameSetup(
+                "fast-surfaced-submarine-submarine-ram-test",
+                new WorldMap(9088, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, Math.PI / 2, "player-red", ENGINE_FULL, 0, 99, "submarine"))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", RAM_BOW_OFFSET * TORPEDO_BOAT_MODEL_SCALE, 0, 0, "player-blue", ENGINE_STOP, 0, 99, "submarine")))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(RAM_BOW_OFFSET * TORPEDO_BOAT_MODEL_SCALE, 0))
+        ));
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-red", "red", 0, 0, Math.PI / 2, 8, 0, ENGINE_FULL, 0, 0, true,
+                        "submarine", 0, 0, null, null, null, null, "surface"),
+                navigationService,
+                session.worldMap()
+        );
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-blue", "blue", RAM_BOW_OFFSET * TORPEDO_BOAT_MODEL_SCALE, 0, 0, 0, 0,
+                        ENGINE_STOP, 0, 0, true, "submarine", 0, 0, null, null, null, null, "surface"),
+                navigationService,
+                session.worldMap()
+        );
+
+        session.update(0, radarService, navigationService, session.worldMap());
+
+        GameSnapshot snapshot = session.snapshot();
+        assertEquals("sunk", findShip(snapshot, "red-1").state());
+        assertEquals("sunk", findShip(snapshot, "blue-1").state());
+    }
+
+    @Test
+    void botOnlySubmarineHullRamsDoNotSinkShips() {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-only-submarine-hull-ram-test",
+                new WorldMap(9089, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, Math.PI / 2, "bot", ENGINE_FULL, 0, 99, "submarine"))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", RAM_BOW_OFFSET * TORPEDO_BOAT_MODEL_SCALE, 0, 0, "bot", ENGINE_STOP, 0, 99)))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(RAM_BOW_OFFSET * TORPEDO_BOAT_MODEL_SCALE, 0))
+        ));
+
+        session.update(0, radarService, navigationService, session.worldMap());
+
+        GameSnapshot snapshot = session.snapshot();
+        assertEquals("active", findShip(snapshot, "red-1").state());
+        assertEquals("active", findShip(snapshot, "blue-1").state());
+    }
+
+    @Test
     void surfaceShipDoesNotRamFullySubmergedSubmarine() {
         GameSession session = new GameSession(new GameSetup(
                 "submerged-ram-ignore-test",
@@ -2643,8 +2825,41 @@ class GameSessionTest {
         session.update(0, radarService, navigationService, session.worldMap());
 
         GameSnapshot snapshot = session.snapshot();
-        assertEquals("active", findShip(snapshot, "red-1").state());
+        assertEquals("sunk", findShip(snapshot, "red-1").state());
         assertEquals("sunk", findShip(snapshot, "blue-1").state());
+    }
+
+    @Test
+    void slowFullySubmergedSubmarinesStopWithoutDamage() {
+        GameSession session = new GameSession(new GameSetup(
+                "slow-submerged-submarine-ram-test",
+                new WorldMap(9090, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, -11.04, 0, "player-red", ENGINE_SLOW, 0, 99, "submarine"))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", 0, 0, Math.PI, "player-blue", ENGINE_STOP, 0, 99, "submarine")))
+                ),
+                List.of(new Vector2(0, -11.04), new Vector2(0, 0))
+        ));
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-red", "red", 0, -11.04, 0, 1.0, 0, ENGINE_SLOW, 0, 0, true,
+                        "submarine", 0, 0, null, null, null, null, "submerged"),
+                navigationService,
+                session.worldMap()
+        );
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-blue", "blue", 0, 0, Math.PI, 0, 0, ENGINE_STOP, 0, 0, true,
+                        "submarine", 0, 0, null, null, null, null, "submerged"),
+                navigationService,
+                session.worldMap()
+        );
+
+        session.update(0, radarService, navigationService, session.worldMap());
+
+        GameSnapshot snapshot = session.snapshot();
+        assertEquals("active", findShip(snapshot, "red-1").state());
+        assertEquals("active", findShip(snapshot, "blue-1").state());
+        assertEquals(0.0, findShip(snapshot, "red-1").speed(), 0.001);
+        assertEquals(0.0, findShip(snapshot, "blue-1").speed(), 0.001);
     }
 
     @Test
