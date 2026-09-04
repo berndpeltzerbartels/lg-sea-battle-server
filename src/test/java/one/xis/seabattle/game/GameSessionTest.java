@@ -1931,6 +1931,52 @@ class GameSessionTest {
     }
 
     @Test
+    void playerTorpedoCanSinkFriendlyShip() {
+        GameSession session = new GameSession(new GameSetup(
+                "player-friendly-torpedo-hit-test",
+                new WorldMap(9028, List.of()),
+                List.of(new FleetSetup("light", List.of(
+                        ship("light-1", "light", 0, 0, 0, "bot", ENGINE_HALF, 0, 0),
+                        ship("light-2", "light", 0, 90, 0, "friendly-target", ENGINE_STOP, 0, 0)
+                ))),
+                List.of(new Vector2(0, 0), new Vector2(0, 90))
+        ));
+
+        GameSnapshot fired = session.fireTorpedo(new FireTorpedoRequest("player-BP-test", "light"));
+
+        assertEquals(1, fired.torpedoes().size(), "player torpedo launch must not be blocked by friendly fire");
+        GameSnapshot snapshot = tickUntilShipState(session, "light-2", "sunk", 2);
+
+        assertEquals("active", findShip(snapshot, "light-1").state());
+        assertEquals("sunk", findShip(snapshot, "light-2").state());
+        assertTrue(snapshot.torpedoImpacts().stream()
+                .anyMatch(impact -> "ship-hit".equals(impact.reason()) && "light-2".equals(impact.targetShipId())));
+    }
+
+    @Test
+    void botTorpedoStillAvoidsFriendlyShipInLine() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-friendly-torpedo-line-block-test",
+                new WorldMap(9029, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-1", "red", 0, 0, 0, "bot", ENGINE_HALF, 0, 0),
+                                ship("red-2", "red", 0, 90, 0, "bot", ENGINE_STOP, 0, 0)
+                        )),
+                        new FleetSetup("blue", List.of(
+                                ship("blue-1", "blue", 0, 160, Math.PI, "bot", ENGINE_STOP, 0, 0)
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(0, 90), new Vector2(0, 160))
+        ));
+
+        boolean fired = fireTorpedoAtTargetForTest(session, "red-1", "blue-1");
+
+        assertFalse(fired, "bot torpedo fire should still avoid shooting through a friendly ship");
+        assertTrue(session.snapshot().torpedoes().isEmpty());
+    }
+
+    @Test
     void unknownClientTeamRequestsAreIgnored() {
         GameSession session = new GameSession(new GameSetup(
                 "unknown-client-team-test",
@@ -4432,6 +4478,24 @@ class GameSessionTest {
                 .filter(candidate -> shipId.equals(candidate.id()))
                 .findFirst()
                 .orElseThrow();
+    }
+
+    private boolean fireTorpedoAtTargetForTest(GameSession session, String shooterId, String targetId) throws Exception {
+        Method fireTorpedoAtTarget = GameSession.class.getDeclaredMethod(
+                "fireTorpedoAtTarget",
+                Ship.class,
+                Ship.class,
+                double.class,
+                double.class
+        );
+        fireTorpedoAtTarget.setAccessible(true);
+        return (boolean) fireTorpedoAtTarget.invoke(
+                session,
+                shipEntity(session, shooterId),
+                shipEntity(session, targetId),
+                2.4,
+                0.0
+        );
     }
 
     private void dropBombsFromScoutPlane(GameSession session, Ship plane, double cooldownSeconds) throws Exception {

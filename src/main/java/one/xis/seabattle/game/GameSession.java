@@ -2697,7 +2697,7 @@ public final class GameSession {
         if (target != null && !torpedoLineHitsShip(muzzlePosition, forward, target, BOT_FIRE_MAX_RANGE, TORPEDO_HULL_MARGIN)) {
             return false;
         }
-        if (torpedoLaunchWouldHitFriendlyShip(ship, muzzlePosition, heading)) {
+        if (target != null && torpedoLaunchWouldHitFriendlyShip(ship, muzzlePosition, heading)) {
             return false;
         }
         ship.markFired(nowSeconds, cooldownSeconds);
