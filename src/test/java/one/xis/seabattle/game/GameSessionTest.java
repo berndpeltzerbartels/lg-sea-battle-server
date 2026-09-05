@@ -2825,6 +2825,46 @@ class GameSessionTest {
     }
 
     @Test
+    void torpedoBoatRamStopSurvivesStalePlayerStateAfterSinkingSubmarine() {
+        GameSession session = new GameSession(new GameSetup(
+                "torpedo-boat-ram-stop-survives-stale-player-state-test",
+                new WorldMap(90931, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, Math.PI / 2, "player-red", ENGINE_FULL, 0, 99))),
+                        new FleetSetup("blue", List.of(ship("blue-1", "blue", RAM_BOW_OFFSET * TORPEDO_BOAT_MODEL_SCALE, 0, 0, "player-blue", ENGINE_STOP, 0, 99, "submarine")))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(RAM_BOW_OFFSET * TORPEDO_BOAT_MODEL_SCALE, 0))
+        ));
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-red", "red", 0, 0, Math.PI / 2, 8, 0, ENGINE_FULL, 0, 0, true,
+                        "torpedo-boat"),
+                navigationService,
+                session.worldMap()
+        );
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-blue", "blue", RAM_BOW_OFFSET * TORPEDO_BOAT_MODEL_SCALE, 0, 0, 0, 0,
+                        ENGINE_STOP, 0, 0, true, "submarine", 0, 0, null, null, null, null, "surface"),
+                navigationService,
+                session.worldMap()
+        );
+
+        session.update(0, radarService, navigationService, session.worldMap());
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-red", "red", 0, 0, Math.PI / 2, 8, 0, ENGINE_FULL, 0, 0.05, true,
+                        "torpedo-boat"),
+                navigationService,
+                session.worldMap()
+        );
+
+        GameSnapshot snapshot = session.snapshot();
+        ShipSnapshot torpedoBoat = findShip(snapshot, "red-1");
+        assertEquals("active", torpedoBoat.state());
+        assertEquals("sunk", findShip(snapshot, "blue-1").state());
+        assertEquals(0.0, torpedoBoat.speed(), 0.001);
+        assertEquals(ENGINE_STOP, torpedoBoat.engineOrder());
+    }
+
+    @Test
     void surfacedSubmarineAndTorpedoBoatCanScrapePastWithoutDamage() {
         GameSession session = new GameSession(new GameSetup(
                 "surfaced-submarine-torpedo-boat-scrape-test",
@@ -3585,6 +3625,13 @@ class GameSessionTest {
                 .map(ShipSetup::controlledBy)
                 .toList());
         assertEquals(0, countScoutPlanes(twoShipDuel));
+
+        GameSetup twoShipDuelAir = factory.setup("two-ship-duel-air");
+        assertEquals("two-ship-duel-air", twoShipDuelAir.id());
+        assertEquals(16, twoShipDuelAir.worldMap().version());
+        assertEquals(List.of("light", "dark"), twoShipDuelAir.fleets().stream().map(FleetSetup::teamId).toList());
+        assertEquals(List.of(2, 2), twoShipDuelAir.fleets().stream().map(fleet -> fleet.ships().size()).toList());
+        assertEquals(2, countScoutPlanes(twoShipDuelAir));
     }
 
     @Test
@@ -3598,6 +3645,7 @@ class GameSessionTest {
                 "landmark-tour",
                 "dense-land-crowded",
                 "dense-land-crowded-reverse",
+                "two-ship-duel-air",
                 "scout-plane"
         );
 
@@ -3605,6 +3653,7 @@ class GameSessionTest {
             assertTrue(countScoutPlanes(factory.setup(setupId)) > 0, setupId);
         }
         assertEquals(0, countScoutPlanes(factory.setup("side-view-sandbox")));
+        assertEquals(0, countScoutPlanes(factory.setup("two-ship-duel")));
     }
 
     @Test
@@ -4150,6 +4199,31 @@ class GameSessionTest {
                         new FleetSetup("light", List.of(
                                 ship("light-plane-a", "light", -300, 0, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane"),
                                 ship("light-plane-b", "light", -340, 0, 0, "bot", ENGINE_FULL, 0, 99, "scout-plane"),
+                                ship("light-boat", "light", 0, 0, 0, "bot", ENGINE_HALF, 0, 99, "torpedo-boat")
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-human", "dark", 320, 0, Math.PI, "player-BPB", ENGINE_HALF, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 360))
+        ));
+
+        sinkShip(session, "light-boat");
+        session.update(8.05, radarService, navigationService, session.worldMap());
+
+        ShipSnapshot respawned = findShip(session.snapshot(), "light-boat");
+        assertEquals("active", respawned.state());
+        assertEquals("torpedo-boat", respawned.vehicleType());
+        assertEquals(0, respawned.y());
+    }
+
+    @Test
+    void twoShipDuelDoesNotTurnRespawningBotsIntoScoutPlanes() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "two-ship-duel",
+                new WorldMap(9066, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
                                 ship("light-boat", "light", 0, 0, 0, "bot", ENGINE_HALF, 0, 99, "torpedo-boat")
                         )),
                         new FleetSetup("dark", List.of(

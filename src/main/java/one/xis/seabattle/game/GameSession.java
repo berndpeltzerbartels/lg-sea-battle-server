@@ -113,6 +113,7 @@ public final class GameSession {
     private static final double RAM_COLLISION_BROAD_PHASE_RADIUS = 10.2 * TORPEDO_BOAT_MODEL_SCALE;
     private static final double SUBMARINE_PERISCOPE_RAM_RADIUS = 0.36 * TORPEDO_BOAT_MODEL_SCALE;
     private static final double SUBMERGED_SUBMARINE_RAM_RADIUS = 1.25 * TORPEDO_BOAT_MODEL_SCALE;
+    private static final double RAM_IMPACT_STOP_HOLD_SECONDS = 0.65;
     private static final double BOT_SHIP_AVOID_RANGE = 86.0;
     private static final double BOT_SHIP_AVOID_CORRIDOR = 3.15 * TORPEDO_BOAT_MODEL_SCALE;
     private static final double BOT_FIRE_ARC = 0.16;
@@ -178,6 +179,7 @@ public final class GameSession {
     private final List<ProjectileHitSnapshot> projectileHits = new ArrayList<>();
     private final List<FlakImpactSnapshot> flakImpacts = new ArrayList<>();
     private final List<RamHitSnapshot> ramHits = new ArrayList<>();
+    private final Map<String, Double> ramImpactStopUntilSecondsByShipId = new LinkedHashMap<>();
     private final Map<String, Integer> botScoutPlaneNonHumanAttackStreakByHumanTarget = new LinkedHashMap<>();
     private final Map<String, Map<String, Integer>> botScoutPlaneNonHumanAttackStreakByPlane = new LinkedHashMap<>();
     private final Map<String, Vector2> botScoutPlaneFlyThroughTargets = new LinkedHashMap<>();
@@ -293,6 +295,7 @@ public final class GameSession {
                         update.y()
                 ));
         ship.applyPlayerState(update, navigationService, worldMap);
+        applyPendingRamImpactStop(ship);
     }
 
     public synchronized GameSnapshot fireTorpedo(FireTorpedoRequest request) {
@@ -1544,8 +1547,8 @@ public final class GameSession {
             return;
         }
         if (ramCollisionSpeed(left, right) < SUBMARINE_RAM_DAMAGE_MIN_CLOSING_SPEED) {
-            left.stopAfterRamImpact();
-            right.stopAfterRamImpact();
+            stopAfterRamImpact(left);
+            stopAfterRamImpact(right);
             return;
         }
         sinkShipByRam(left, right);
@@ -1565,11 +1568,11 @@ public final class GameSession {
         }
         if (leftSubmarineSinks) {
             sinkShipByRam(left, right);
-            right.stopAfterRamImpact();
+            stopAfterRamImpact(right);
         }
         if (rightSubmarineSinks) {
             sinkShipByRam(right, left);
-            left.stopAfterRamImpact();
+            stopAfterRamImpact(left);
         }
     }
 
@@ -1615,8 +1618,8 @@ public final class GameSession {
 
     private void resolveSubmarineHullRamCollision(Ship left, Ship right, double collisionSpeed) {
         if (collisionSpeed < SUBMARINE_RAM_DAMAGE_MIN_CLOSING_SPEED) {
-            left.stopAfterRamImpact();
-            right.stopAfterRamImpact();
+            stopAfterRamImpact(left);
+            stopAfterRamImpact(right);
             return;
         }
         if (left.isSubmarine() && right.isSubmarine()) {
@@ -1626,11 +1629,11 @@ public final class GameSession {
         }
         if (left.isSubmarine()) {
             sinkShipByRam(left, right);
-            right.stopAfterRamImpact();
+            stopAfterRamImpact(right);
             return;
         }
         sinkShipByRam(right, left);
-        left.stopAfterRamImpact();
+        stopAfterRamImpact(left);
     }
 
     private void resolveGlancingRam(Ship left, Ship right) {
@@ -1655,11 +1658,32 @@ public final class GameSession {
         double rightSpeed = Math.max(0, right.speed());
         if (leftSpeed >= rightSpeed) {
             sinkShipByRam(right, left);
-            left.stopAfterRamImpact();
+            stopAfterRamImpact(left);
         } else {
             sinkShipByRam(left, right);
-            right.stopAfterRamImpact();
+            stopAfterRamImpact(right);
         }
+    }
+
+    private void stopAfterRamImpact(Ship ship) {
+        ship.stopAfterRamImpact();
+        if ("active".equals(ship.state())) {
+            ramImpactStopUntilSecondsByShipId.put(ship.id(), nowSeconds + RAM_IMPACT_STOP_HOLD_SECONDS);
+        } else {
+            ramImpactStopUntilSecondsByShipId.remove(ship.id());
+        }
+    }
+
+    private void applyPendingRamImpactStop(Ship ship) {
+        Double stopUntilSeconds = ramImpactStopUntilSecondsByShipId.get(ship.id());
+        if (stopUntilSeconds == null) {
+            return;
+        }
+        if (!"active".equals(ship.state()) || nowSeconds > stopUntilSeconds) {
+            ramImpactStopUntilSecondsByShipId.remove(ship.id());
+            return;
+        }
+        ship.stopAfterRamImpact();
     }
 
     private void sinkShipByRam(Ship target, Ship attacker) {
@@ -2543,6 +2567,10 @@ public final class GameSession {
         if (!ship.isBotControlled()) {
             return;
         }
+        if (!allowsDynamicScoutPlanes()) {
+            ship.vehicleType(VEHICLE_TORPEDO_BOAT);
+            return;
+        }
         int desiredScoutPlanes = desiredBotScoutPlaneCount(ship.teamId());
         long currentScoutPlanesWithoutRespawningShip = teamShips(ship.teamId()).stream()
                 .filter(candidate -> !candidate.id().equals(ship.id()))
@@ -2552,6 +2580,10 @@ public final class GameSession {
         ship.vehicleType(currentScoutPlanesWithoutRespawningShip < desiredScoutPlanes
                 ? VEHICLE_SCOUT_PLANE
                 : VEHICLE_TORPEDO_BOAT);
+    }
+
+    private boolean allowsDynamicScoutPlanes() {
+        return !"side-view-sandbox".equals(id) && !"two-ship-duel".equals(id);
     }
 
     private int desiredBotScoutPlaneCount(String teamId) {

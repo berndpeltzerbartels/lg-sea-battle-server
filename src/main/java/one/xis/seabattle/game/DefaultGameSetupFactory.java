@@ -58,6 +58,7 @@ final class DefaultGameSetupFactory {
             case "ram-side" -> ramSideSetup();
             case "side-view-sandbox" -> sideViewSandboxSetup();
             case "two-ship-duel" -> twoShipDuelSetup();
+            case "two-ship-duel-air" -> twoShipDuelAirSetup();
             case "explosion-demo" -> explosionDemoSetup();
             case "escort-debug" -> escortDebugSetup();
             case "landmark-tour" -> landmarkTourSetup();
@@ -163,6 +164,24 @@ final class DefaultGameSetupFactory {
                         )),
                         new FleetSetup(TEAM_DARK, List.of(
                                 ship("dark-S1", TEAM_DARK, 195, -505, -Math.PI / 2, "scenario", ENGINE_STOP, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(-40, -480), new Vector2(195, -505))
+        );
+    }
+
+    private GameSetup twoShipDuelAirSetup() {
+        return new GameSetup(
+                "two-ship-duel-air",
+                worldMapService.denseWorld(),
+                List.of(
+                        new FleetSetup(TEAM_LIGHT, List.of(
+                                ship("light-S1", TEAM_LIGHT, -40, -480, Math.PI / 2, "scenario", ENGINE_STOP, 0, 99),
+                                scoutPlane("light-F1", TEAM_LIGHT, -413, -620, Math.PI / 2, ENGINE_HALF, 0, 2)
+                        )),
+                        new FleetSetup(TEAM_DARK, List.of(
+                                ship("dark-S1", TEAM_DARK, 195, -505, -Math.PI / 2, "scenario", ENGINE_STOP, 0, 99),
+                                scoutPlane("dark-F1", TEAM_DARK, 543, -365, -Math.PI / 2, ENGINE_HALF, 0, 2)
                         ))
                 ),
                 List.of(new Vector2(-40, -480), new Vector2(195, -505))
