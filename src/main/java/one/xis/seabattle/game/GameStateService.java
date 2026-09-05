@@ -83,10 +83,13 @@ public class GameStateService {
 
     public GameSnapshot updatePlayerState(PlayerStateUpdate update) {
         activateTeam(update.teamId());
+        SessionView view;
         synchronized (this) {
             session.applyPlayerState(update, navigationService, session.worldMap());
-            return publishedModel.state();
+            view = captureSessionView();
         }
+        publishModel(view);
+        return view.state();
     }
 
     public GameSnapshot assignPlayerVehicle(String playerId, String teamId, String vehicleType) {

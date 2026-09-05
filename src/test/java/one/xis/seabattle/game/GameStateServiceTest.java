@@ -93,6 +93,52 @@ class GameStateServiceTest {
     }
 
     @Test
+    void playerStateUpdateIsPublishedImmediatelyForReload() {
+        GameStateService service = new GameStateService(
+                new DefaultGameSetupFactory(new WorldMapService()),
+                new RadarService(),
+                new NavigationService()
+        );
+        GameSnapshot setup = service.resetToScenario(new ScenarioGameRequest("bernd", """
+                scenario: reload-submarine-sync-test
+                map:
+                .....
+                ..1..
+                .....
+                objects:
+                1: submarine light human [orientation: 90°, speed: 0knt]
+                """));
+        String playerId = setup.ships().get(0).controlledBy();
+
+        GameSnapshot afterUpdate = service.updatePlayerState(new PlayerStateUpdate(
+                playerId, "light", 48, 12, Math.PI / 2, 6, 0.08, 7, 4, 1, false,
+                "submarine", -0.6, 0, null, null, null, null, "periscope"
+        ));
+        GameSnapshot afterImmediateReloadRead = service.snapshot();
+
+        ShipSnapshot returnedSubmarine = afterUpdate.ships().stream()
+                .filter(ship -> playerId.equals(ship.controlledBy()))
+                .findFirst()
+                .orElseThrow();
+        ShipSnapshot reloadedSubmarine = afterImmediateReloadRead.ships().stream()
+                .filter(ship -> playerId.equals(ship.controlledBy()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(48, returnedSubmarine.x(), 0.001);
+        assertEquals(12, returnedSubmarine.z(), 0.001);
+        assertEquals(6, returnedSubmarine.speed(), 0.001);
+        assertEquals(7, returnedSubmarine.engineOrder());
+        assertEquals(4, returnedSubmarine.rudderDegrees());
+        assertEquals("submarine", returnedSubmarine.vehicleType());
+        assertEquals("periscope", returnedSubmarine.depthState());
+        assertEquals(returnedSubmarine.x(), reloadedSubmarine.x(), 0.001);
+        assertEquals(returnedSubmarine.z(), reloadedSubmarine.z(), 0.001);
+        assertEquals(returnedSubmarine.speed(), reloadedSubmarine.speed(), 0.001);
+        assertEquals(returnedSubmarine.engineOrder(), reloadedSubmarine.engineOrder());
+        assertEquals(returnedSubmarine.depthState(), reloadedSubmarine.depthState());
+    }
+
+    @Test
     void fireTorpedoPublishesAcceptedTubeSide() {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
