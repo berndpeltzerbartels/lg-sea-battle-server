@@ -1332,9 +1332,9 @@ class GameSessionTest {
     }
 
     @Test
-    void botScoutPlaneDoesNotUseTorpedoesAgainstPeriscopeDepthSubmarine() {
+    void botScoutPlaneIgnoresPeriscopeDepthSubmarineTargets() throws Exception {
         GameSession session = new GameSession(new GameSetup(
-                "bot-scout-plane-bombs-periscope-submarine-test",
+                "bot-scout-plane-periscope-target-ignore-test",
                 new WorldMap(9047, List.of()),
                 List.of(
                         new FleetSetup("light", List.of(
@@ -1370,8 +1370,10 @@ class GameSessionTest {
 
         assertTrue(session.snapshot().torpedoes().isEmpty(),
                 "Bot scout plane should not use air torpedoes against a periscope-depth submarine");
-        assertTrue(findShip(session.snapshot(), "light-plane-1").y() > 105,
-                "Bot scout plane should switch to its bombing altitude instead of the torpedo approach");
+        assertTrue(session.snapshot().bombs().isEmpty(),
+                "Bot scout plane should not bomb a periscope-depth submarine it cannot currently see");
+        assertTrue(selectBotScoutPlaneTargetId(session, "light-plane-1").isEmpty(),
+                "Bot scout plane should not acquire a periscope-depth submarine as target");
     }
 
     @Test
@@ -2167,6 +2169,62 @@ class GameSessionTest {
         ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
         assertEquals(ENGINE_TWO_THIRDS, attacker.engineOrder());
         assertTrue(attacker.rudderDegrees() > 0);
+    }
+
+    @Test
+    void botShipSelectsNearbyEnemyPeriscopeDepthSubmarineThroughNormalTargetChoice() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-near-periscope-ram-test",
+                new WorldMap(9096, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-1", "red", 0, -240, 0, "bot", ENGINE_STOP, 0)
+                        )),
+                        new FleetSetup("blue", List.of(
+                                ship("blue-sub", "blue", 0, 0, 0, "player-blue", ENGINE_TWO_THIRDS, 0, 99, "submarine")
+                        ))
+                ),
+                List.of(new Vector2(0, -240), new Vector2(0, 0))
+        ));
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-blue", "blue", 0, 0, 0, 10.4, 0, ENGINE_TWO_THIRDS, 0, 0, true,
+                        "submarine", 0, 0, null, null, null, null, "periscope"),
+                navigationService,
+                session.worldMap()
+        );
+
+        assertEquals("blue-sub", selectBotTargetId(session, "red-1").orElse(null));
+
+        session.update(0.05, radarService, navigationService, session.worldMap());
+
+        ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
+        assertEquals(ENGINE_FULL, attacker.engineOrder());
+        assertTrue(session.snapshot().torpedoes().isEmpty());
+    }
+
+    @Test
+    void botShipIgnoresDistantEnemyPeriscopeDepthSubmarine() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-distant-periscope-ignore-test",
+                new WorldMap(9097, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-1", "red", 0, -260, 0, "bot", ENGINE_STOP, 0)
+                        )),
+                        new FleetSetup("blue", List.of(
+                                ship("blue-sub", "blue", 0, 0, 0, "player-blue", ENGINE_TWO_THIRDS, 0, 99, "submarine")
+                        ))
+                ),
+                List.of(new Vector2(0, -260), new Vector2(0, 0))
+        ));
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-blue", "blue", 0, 0, 0, 10.4, 0, ENGINE_TWO_THIRDS, 0, 0, true,
+                        "submarine", 0, 0, null, null, null, null, "periscope"),
+                navigationService,
+                session.worldMap()
+        );
+
+        assertTrue(selectBotTargetId(session, "red-1").isEmpty());
     }
 
     @Test
@@ -3199,6 +3257,50 @@ class GameSessionTest {
     }
 
     @Test
+    void friendlyBotDeadlockGivesOneBotRightOfWay() {
+        GameSession session = new GameSession(new GameSetup(
+                "friendly-bot-deadlock-right-of-way-test",
+                new WorldMap(9098, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-a", "red", 0, 0, 0, "bot", ENGINE_FULL, 0),
+                                ship("red-b", "red", 0, 48, Math.PI, "bot", ENGINE_FULL, 0)
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(0, 48))
+        ));
+
+        session.update(0.05, radarService, navigationService, session.worldMap());
+
+        ShipSnapshot rightOfWay = findShip(session.snapshot(), "red-a");
+        ShipSnapshot yielding = findShip(session.snapshot(), "red-b");
+        assertNotEquals(ENGINE_FULL_ASTERN, rightOfWay.engineOrder());
+        assertTrue(yielding.engineOrder() <= ENGINE_SLOW);
+        assertTrue(Math.abs(yielding.rudderDegrees()) == 35);
+    }
+
+    @Test
+    void friendlyBotDeadlockBacksOffWhenAlreadyVeryClose() {
+        GameSession session = new GameSession(new GameSetup(
+                "friendly-bot-deadlock-close-backoff-test",
+                new WorldMap(9099, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-a", "red", 0, 0, 0, "bot", ENGINE_FULL, 0),
+                                ship("red-b", "red", 0, 36, Math.PI, "bot", ENGINE_FULL, 0)
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(0, 36))
+        ));
+
+        session.update(0.05, radarService, navigationService, session.worldMap());
+
+        ShipSnapshot yielding = findShip(session.snapshot(), "red-b");
+        assertEquals(ENGINE_FULL_ASTERN, yielding.engineOrder());
+        assertTrue(Math.abs(yielding.rudderDegrees()) == 35);
+    }
+
+    @Test
     void botRamCollisionDoesNotSinkEnemyShip() {
         GameSession session = new GameSession(new GameSetup(
                 "bot-ram-no-sink-test",
@@ -3900,6 +4002,85 @@ class GameSessionTest {
         ShipSnapshot bot = findShip(session.snapshot(), "red-bot");
         assertEquals("active", bot.state());
         assertTrue(Math.abs(bot.rudderDegrees()) > 0);
+        assertTrue(bot.engineOrder() <= ENGINE_HALF);
+    }
+
+    @Test
+    void botDoesNotSelectFriendlyPeriscopeDepthSubmarineAsTarget() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "friendly-periscope-no-target-test",
+                new WorldMap(9100, List.of()),
+                List.of(new FleetSetup("red", List.of(
+                        ship("red-bot", "red", 0, -42, 0, "bot", ENGINE_FULL, 0, 99),
+                        ship("red-sub", "red", 0, 0, 0, "player-BP-test", ENGINE_STOP, 0, 99, "submarine")
+                ))),
+                List.of(new Vector2(0, -42), new Vector2(0, 0))
+        ));
+        shipEntity(session, "red-sub").applyPlayerState(
+                new PlayerStateUpdate("player-BP-test", "red", 0, 0, 0, 0, 0, ENGINE_STOP, 0, 0, true,
+                        "submarine", 0, 0, null, null, null, null, "periscope"),
+                navigationService,
+                session.worldMap()
+        );
+
+        assertTrue(selectBotTargetId(session, "red-bot").isEmpty(),
+                "Ein eigener Bot darf das Sehrohr eines freundlichen U-Boots nicht als Angriffsziel wählen.");
+    }
+
+    @Test
+    void botDoesNotEscortFriendlyPeriscopeDepthHumanSubmarine() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "friendly-periscope-no-escort-test",
+                new WorldMap(9101, List.of()),
+                List.of(new FleetSetup("red", List.of(
+                        ship("red-bot", "red", 82, 0, 0, "bot", ENGINE_STOP, 0, 99),
+                        ship("red-sub", "red", 0, 0, 0, "player-BP-test", ENGINE_STOP, 0, 99, "submarine")
+                ))),
+                List.of(new Vector2(82, 0), new Vector2(0, 0))
+        ));
+        shipEntity(session, "red-sub").applyPlayerState(
+                new PlayerStateUpdate("player-BP-test", "red", 0, 0, 0, 0, 0, ENGINE_STOP, 0, 0, true,
+                        "submarine", 0, 0, null, null, null, null, "periscope"),
+                navigationService,
+                session.worldMap()
+        );
+
+        session.update(0.05, radarService, navigationService, session.worldMap());
+
+        ShipSnapshot bot = findShip(session.snapshot(), "red-bot");
+        assertEquals(ENGINE_HALF, bot.engineOrder(),
+                "Ein eigener Bot soll ein U-Boot auf Sehrohrtiefe nicht wie einen aufgetauchten Flottenführer eskortieren.");
+    }
+
+    @Test
+    void botAvoidsFriendlyPeriscopeDepthHumanSubmarineAhead() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "friendly-periscope-blocking-course-test",
+                new WorldMap(9102, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-bot", "red", 0, -55, 0, "bot", ENGINE_FULL, 0, 99),
+                                ship("red-sub", "red", 0, 0, 0, "player-BP-test", ENGINE_STOP, 0, 99, "submarine")
+                        )),
+                        new FleetSetup("blue", List.of(
+                                ship("blue-target", "blue", 0, 260, Math.PI, "scenario", ENGINE_STOP, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, -55), new Vector2(0, 0), new Vector2(0, 260))
+        ));
+        shipEntity(session, "red-sub").applyPlayerState(
+                new PlayerStateUpdate("player-BP-test", "red", 0, 0, 0, 0, 0, ENGINE_STOP, 0, 0, true,
+                        "submarine", 0, 0, null, null, null, null, "periscope"),
+                navigationService,
+                session.worldMap()
+        );
+
+        session.update(0.05, radarService, navigationService, session.worldMap());
+
+        ShipSnapshot bot = findShip(session.snapshot(), "red-bot");
+        assertEquals("active", bot.state());
+        assertTrue(Math.abs(bot.rudderDegrees()) > 0,
+                "Ein eigener Bot muss weiterhin ausweichen, wenn das freundliche Sehrohr direkt voraus liegt.");
         assertTrue(bot.engineOrder() <= ENGINE_HALF);
     }
 
@@ -4694,6 +4875,28 @@ class GameSessionTest {
         );
         selectBotScoutPlaneTarget.setAccessible(true);
         return ((Optional<Ship>) selectBotScoutPlaneTarget.invoke(session, shipEntity(session, planeId), activeShips, Map.of()))
+                .map(Ship::id);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Optional<String> selectBotTargetId(GameSession session, String shipId) throws Exception {
+        Method allShips = GameSession.class.getDeclaredMethod("allShips");
+        allShips.setAccessible(true);
+        List<Ship> activeShips = ((List<Ship>) allShips.invoke(session)).stream()
+                .filter(ship -> "active".equals(ship.state()))
+                .filter(ship -> !ship.isScoutPlane())
+                .toList();
+        RadarService.VisibilityCache visibilityCache = radarService.visibilityCache(session.worldMap(), activeShips);
+        Method visibleTargets = GameSession.class.getDeclaredMethod(
+                "visibleTargets",
+                Ship.class,
+                RadarService.VisibilityCache.class
+        );
+        visibleTargets.setAccessible(true);
+        List<Ship> targets = (List<Ship>) visibleTargets.invoke(session, shipEntity(session, shipId), visibilityCache);
+        Method chooseBotTarget = GameSession.class.getDeclaredMethod("chooseBotTarget", Ship.class, List.class);
+        chooseBotTarget.setAccessible(true);
+        return ((Optional<Ship>) chooseBotTarget.invoke(session, shipEntity(session, shipId), targets))
                 .map(Ship::id);
     }
 

@@ -56,7 +56,7 @@ final class RadarService {
             return false;
         }
         if (contact.isAtPeriscopeDepth()) {
-            return observer.isScoutPlane();
+            return false;
         }
         return true;
     }
@@ -87,7 +87,7 @@ final class RadarService {
             return false;
         }
         if (isAtPeriscopeDepth(contact)) {
-            return "scout-plane".equals(observer.vehicleType());
+            return false;
         }
         return true;
     }

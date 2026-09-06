@@ -208,7 +208,7 @@ class GameStateServiceTest {
         ), navigationService, worldMap);
 
         assertFalse(radarService.isVisible(surfaceShip, submarine, worldMap));
-        assertTrue(radarService.isVisible(scoutPlane, submarine, worldMap));
+        assertFalse(radarService.isVisible(scoutPlane, submarine, worldMap));
 
         submarine.applyPlayerState(new PlayerStateUpdate(
                 "player-blue", "blue", 80, 0, 0, 0, 0, 2, 0, 0, true,
