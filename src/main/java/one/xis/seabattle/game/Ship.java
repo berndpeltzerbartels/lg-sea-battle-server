@@ -13,6 +13,8 @@ final class Ship {
     private static final double MAX_ACCEPTED_PLAYER_TURN_VELOCITY = 1.2;
     private static final int ENGINE_FULL_ASTERN = 0;
     private static final int TORPEDO_STOCK = 12;
+    private static final int TORPEDO_BOAT_MAX_RUDDER_DEGREES = 35;
+    private static final int SUBMARINE_MAX_RUDDER_DEGREES = 45;
     private static final String VEHICLE_TORPEDO_BOAT = "torpedo-boat";
     private static final String VEHICLE_SUBMARINE = "submarine";
     private static final String VEHICLE_SCOUT_PLANE = "scout-plane";
@@ -174,7 +176,8 @@ final class Ship {
             return;
         }
         this.engineOrder = MathSupport.clamp(engineOrder, 0, 8);
-        this.rudderDegrees = MathSupport.clamp(rudderDegrees, -35, 35);
+        int maxRudder = maxRudderDegrees();
+        this.rudderDegrees = MathSupport.clamp(rudderDegrees, -maxRudder, maxRudder);
     }
 
     boolean applyGlancingRamBackoff(double nowSeconds) {
@@ -213,7 +216,8 @@ final class Ship {
                 MAX_ACCEPTED_PLAYER_TURN_VELOCITY
         );
         engineOrder = MathSupport.clamp(update.engineOrder(), 0, 8);
-        rudderDegrees = MathSupport.clamp(update.rudderDegrees(), -35, 35);
+        int maxRudder = maxRudderDegrees();
+        rudderDegrees = MathSupport.clamp(update.rudderDegrees(), -maxRudder, maxRudder);
         if (isFinite(update.flakYaw()) && isFinite(update.flakPitch())) {
             flakAim(update.flakYaw(), update.flakPitch());
         }
@@ -252,7 +256,7 @@ final class Ship {
         double speedResponse = Math.abs(targetSpeed) > Math.abs(speed) ? 0.45 : 0.42;
         speed += (targetSpeed - speed) * Math.min(1, deltaSeconds * speedResponse);
 
-        double rudderRatio = rudderDegrees / 35.0;
+        double rudderRatio = rudderDegrees / (double) TORPEDO_BOAT_MAX_RUDDER_DEGREES;
         double turnStrength = speed >= 0 ? 0.24 : -0.16;
         double rudderGrip = MathSupport.clamp(Math.abs(speed) / 4.2, 0, 1);
         double targetTurnVelocity = rudderRatio * turnStrength * rudderGrip;
@@ -272,7 +276,7 @@ final class Ship {
         double targetSpeed = BOT_SCOUT_PLANE_SPEED;
         speed += (targetSpeed - speed) * Math.min(1, deltaSeconds * 0.55);
 
-        double rudderRatio = rudderDegrees / 35.0;
+        double rudderRatio = rudderDegrees / (double) TORPEDO_BOAT_MAX_RUDDER_DEGREES;
         double targetTurnVelocity = rudderRatio * 0.18;
         turnVelocity += (targetTurnVelocity - turnVelocity) * Math.min(1, deltaSeconds * 1.2);
         heading = MathSupport.normalizeAngle(heading + turnVelocity * deltaSeconds);
@@ -340,7 +344,11 @@ final class Ship {
                 glancingRamBackoffTarget.z() - position.z()
         );
         double targetBearing = MathSupport.normalizeAngle(desiredHeading - heading);
-        return (int) Math.round(MathSupport.clamp(-targetBearing / 0.58, -1, 1) * 35);
+        return (int) Math.round(MathSupport.clamp(-targetBearing / 0.58, -1, 1) * maxRudderDegrees());
+    }
+
+    private int maxRudderDegrees() {
+        return isSubmarine() ? SUBMARINE_MAX_RUDDER_DEGREES : TORPEDO_BOAT_MAX_RUDDER_DEGREES;
     }
 
     boolean sink(double respawnAtSeconds) {

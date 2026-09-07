@@ -193,6 +193,26 @@ class GameStateServiceTest {
     }
 
     @Test
+    void submarineAcceptsWiderRudderAngleThanTorpedoBoat() {
+        NavigationService navigationService = new NavigationService();
+        WorldMap worldMap = new WorldMap(9021, List.of());
+        Ship submarine = new Ship("blue-sub", "blue", new Vector2(0, 0), 0, "player-blue");
+        submarine.applyPlayerState(new PlayerStateUpdate(
+                "player-blue", "blue", 0, 0, 0, 0, 0, 2, 45, 0, true,
+                "submarine", 0, 0, null, null, null, null, "surface"
+        ), navigationService, worldMap);
+
+        Ship torpedoBoat = new Ship("red-boat", "red", new Vector2(0, 0), 0, "player-red");
+        torpedoBoat.applyPlayerState(new PlayerStateUpdate(
+                "player-red", "red", 0, 0, 0, 0, 0, 2, 45, 0, true,
+                "torpedo-boat"
+        ), navigationService, worldMap);
+
+        assertEquals(45, submarine.snapshot().rudderDegrees());
+        assertEquals(35, torpedoBoat.snapshot().rudderDegrees());
+    }
+
+    @Test
     void submarineDepthControlsRadarVisibility() {
         RadarService radarService = new RadarService();
         NavigationService navigationService = new NavigationService();
