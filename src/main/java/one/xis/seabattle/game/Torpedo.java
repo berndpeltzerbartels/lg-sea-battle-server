@@ -133,6 +133,10 @@ final class Torpedo {
         return verticalSpeed;
     }
 
+    double runDistance() {
+        return runDistance;
+    }
+
     void hit() {
         state = "hit";
     }
