@@ -125,7 +125,7 @@ public final class GameSession {
     private static final double BOT_CLOSE_FIRE_RANGE = 145 * BOT_SHIP_TACTICAL_SCALE;
     private static final double BOT_CLOSE_MANEUVER_RANGE = 130;
     private static final double BOT_APPROACH_SLOW_RANGE = 230;
-    private static final double BOT_AIM_ERROR = 0.055;
+    private static final double BOT_AIM_ERROR = 0.025;
     private static final double BOT_RAM_RANGE = 34 * BOT_SHIP_TACTICAL_SCALE;
     private static final double BOT_TORPEDO_EVADE_RANGE = 115 * BOT_SHIP_TACTICAL_SCALE;
     private static final double BOT_TORPEDO_LOOKOUT_FORWARD_OFFSET = 4.5 * TORPEDO_BOAT_MODEL_SCALE;
@@ -1316,7 +1316,7 @@ public final class GameSession {
     }
 
     private void patrol(Ship ship, NavigationService navigationService, WorldMap worldMap) {
-        double wander = Math.sin(nowSeconds * 0.13 + stablePhase(ship.id())) * 18;
+        double wander = Math.sin(nowSeconds * 0.055 + stablePhase(ship.id())) * 8;
         applyBotCommand(ship, ENGINE_HALF, (int) Math.round(wander), navigationService, worldMap);
     }
 
@@ -1501,9 +1501,11 @@ public final class GameSession {
     private void aimAtTarget(Ship ship, Ship target, NavigationService navigationService, WorldMap worldMap) {
         double distance = ship.position().distanceTo(target.position());
         double targetBearing = relativeBearing(ship, target.position());
-        double aimError = Math.sin(nowSeconds * 0.31 + stablePhase(ship.id())) * BOT_AIM_ERROR;
+        double aimError = Math.sin(nowSeconds * 0.11 + stablePhase(ship.id())) * BOT_AIM_ERROR;
         double steerError = MathSupport.normalizeAngle(targetBearing + aimError);
-        int rudder = (int) Math.round(MathSupport.clamp(steerError / 0.58, -1, 1) * 35);
+        double rudderScale = distance < BOT_CLOSE_MANEUVER_RANGE ? 0.58 : 0.82;
+        int maxRudder = distance < BOT_CLOSE_MANEUVER_RANGE ? 35 : 26;
+        int rudder = (int) Math.round(MathSupport.clamp(steerError / rudderScale, -1, 1) * maxRudder);
         int engineOrder = botAttackEngineOrder(ship, target, distance, targetBearing);
         applyBotCommand(ship, engineOrder, rudder, navigationService, worldMap);
 
@@ -1520,18 +1522,21 @@ public final class GameSession {
         }
         double absoluteBearing = Math.abs(targetBearing);
         if (distance < BOT_RAM_RANGE) {
-            return absoluteBearing <= Math.toRadians(30) ? ENGINE_ONE_THIRD : ENGINE_FULL;
+            return absoluteBearing <= Math.toRadians(30) ? ENGINE_HALF : ENGINE_FULL;
         }
         if (isHumanControlled(target) && Math.abs(ship.speed()) < 0.8 && distance <= BOT_APPROACH_SLOW_RANGE) {
             return ENGINE_FULL;
         }
         if (distance < BOT_CLOSE_MANEUVER_RANGE) {
             if (absoluteBearing <= Math.toRadians(30)) {
-                return ENGINE_ONE_THIRD;
+                return ENGINE_HALF;
             }
             if (absoluteBearing <= BOT_CLOSE_FIRE_ARC) {
                 return ENGINE_HALF;
             }
+            return ENGINE_FULL;
+        }
+        if (!isHumanControlled(target) && distance <= BOT_RADAR_INTERCEPT_RANGE) {
             return ENGINE_FULL;
         }
         if (distance > BOT_RADAR_INTERCEPT_RANGE) {

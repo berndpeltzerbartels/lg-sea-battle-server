@@ -487,6 +487,74 @@ class GameSessionTest {
     }
 
     @Test
+    void idleBotPatrolKeepsHalfSpeedAndOnlyUsesSmallCourseCorrections() {
+        GameSession session = new GameSession(new GameSetup(
+                "idle-bot-calm-patrol-test",
+                new WorldMap(90314, List.of()),
+                List.of(new FleetSetup("red", List.of(
+                        ship("red-1", "red", 0, 0, 0, "bot", ENGINE_STOP, 0, 99)
+                ))),
+                List.of(new Vector2(0, 0))
+        ));
+
+        boolean checkedDuringPatrol = false;
+        for (double elapsed = 0; elapsed < 70; elapsed += 0.25) {
+            session.update(0.25, radarService, navigationService, session.worldMap());
+            ShipSnapshot bot = findShip(session.snapshot(), "red-1");
+            if (bot != null && bot.engineOrder() >= ENGINE_HALF) {
+                checkedDuringPatrol = true;
+                assertEquals(ENGINE_HALF, bot.engineOrder(),
+                        "Patrouille soll in Bewegung bleiben, aber nicht staendig die Fahrstufe wechseln.");
+                assertTrue(Math.abs(bot.rudderDegrees()) <= 8,
+                        "Patrouille soll nur leichte Kurskorrekturen fahren, keine dauernden Haken.");
+                break;
+            }
+        }
+
+        assertTrue(checkedDuringPatrol, "Bot should enter a patrol window during the observed interval");
+    }
+
+    @Test
+    void botKeepsFullSpeedWhenAttackingDistantTargets() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-distant-attack-cruise-test",
+                new WorldMap(90315, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-1", "red", 0, 0, 0, "bot", ENGINE_HALF, 0, 99)
+                        )),
+                        new FleetSetup("blue", List.of(
+                                ship("blue-1", "blue", 0, 520, Math.PI, "player-BP-test", ENGINE_HALF, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(0, 520))
+        ));
+
+        assertEquals(ENGINE_FULL, botAttackEngineOrder(session, "red-1", "blue-1", 520, 0),
+                "Auf Distanz sollen Bots im Angriff weiter Vollgas fahren duerfen.");
+    }
+
+    @Test
+    void botDoesNotDropToOneThirdSpeedWhenCloseTargetIsAlreadyAhead() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "bot-close-attack-steady-speed-test",
+                new WorldMap(90316, List.of()),
+                List.of(
+                        new FleetSetup("red", List.of(
+                                ship("red-1", "red", 0, 0, 0, "bot", ENGINE_HALF, 0, 99)
+                        )),
+                        new FleetSetup("blue", List.of(
+                                ship("blue-1", "blue", 0, 100, Math.PI, "bot", ENGINE_HALF, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(0, 100))
+        ));
+
+        assertEquals(ENGINE_HALF, botAttackEngineOrder(session, "red-1", "blue-1", 100, 0),
+                "Im Nahkampf soll ein sauber ausgerichteter Bot nicht ohne Not auf Drittelfahrt fallen.");
+    }
+
+    @Test
     void botDoesNotFireTorpedoThroughFriendlyShipOnStaticFiringLine() {
         GameSession session = new GameSession(new GameSetup(
                 "bot-friendly-fire-line-test",
@@ -2167,7 +2235,7 @@ class GameSessionTest {
         session.update(0.05, radarService, navigationService, session.worldMap());
 
         ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
-        assertEquals(ENGINE_TWO_THIRDS, attacker.engineOrder());
+        assertEquals(ENGINE_FULL, attacker.engineOrder());
         assertTrue(attacker.rudderDegrees() > 0);
     }
 
@@ -2392,7 +2460,7 @@ class GameSessionTest {
         session.update(0.05, radarService, navigationService, session.worldMap());
 
         ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
-        assertEquals(7, attacker.engineOrder());
+        assertEquals(ENGINE_FULL, attacker.engineOrder());
         assertTrue(attacker.rudderDegrees() > 0);
     }
 
@@ -4898,6 +4966,25 @@ class GameSessionTest {
         chooseBotTarget.setAccessible(true);
         return ((Optional<Ship>) chooseBotTarget.invoke(session, shipEntity(session, shipId), targets))
                 .map(Ship::id);
+    }
+
+    private int botAttackEngineOrder(GameSession session, String shipId, String targetId,
+                                     double distance, double targetBearing) throws Exception {
+        Method botAttackEngineOrder = GameSession.class.getDeclaredMethod(
+                "botAttackEngineOrder",
+                Ship.class,
+                Ship.class,
+                double.class,
+                double.class
+        );
+        botAttackEngineOrder.setAccessible(true);
+        return (int) botAttackEngineOrder.invoke(
+                session,
+                shipEntity(session, shipId),
+                shipEntity(session, targetId),
+                distance,
+                targetBearing
+        );
     }
 
     @SuppressWarnings("unchecked")
