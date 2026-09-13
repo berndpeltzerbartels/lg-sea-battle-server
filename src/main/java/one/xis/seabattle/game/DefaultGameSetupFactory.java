@@ -81,14 +81,20 @@ final class DefaultGameSetupFactory {
     }
 
     GameSetup customLandscapeSetup(String landscapeId, WorldMap worldMap, List<String> requestedTeamIds) {
+        return customLandscapeSetup("default", landscapeId, worldMap, requestedTeamIds);
+    }
+
+    GameSetup customLandscapeSetup(String setupId, String landscapeId, WorldMap worldMap, List<String> requestedTeamIds) {
         if (worldMap == null) {
             return defaultSetup(requestedTeamIds);
         }
+        GameSetup baseSetup = setup(setupId, requestedTeamIds);
         return new GameSetup(
-                "landscape-" + (landscapeId == null || landscapeId.isBlank() ? "custom" : landscapeId),
+                "landscape-" + (landscapeId == null || landscapeId.isBlank() ? "custom" : landscapeId)
+                        + "-" + (setupId == null || setupId.isBlank() ? "default" : setupId),
                 worldMap,
-                createDenseFleets(activeTeamIds(requestedTeamIds)),
-                denseRespawnCandidates()
+                baseSetup.fleets(),
+                baseSetup.respawnCandidates()
         );
     }
 

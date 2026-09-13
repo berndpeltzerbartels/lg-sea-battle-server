@@ -27,6 +27,7 @@ public class GameStateService {
     private volatile GameSession session;
     private final DefaultGameSetupFactory setupFactory;
     private final LandscapeModelService landscapeModelService;
+    private final GameSelectionService gameSelectionService;
     private final RadarService radarService;
     private final NavigationService navigationService;
     private final Set<String> requestedTeamIds = new LinkedHashSet<>();
@@ -51,14 +52,33 @@ public class GameStateService {
     private boolean scenarioSetupActive;
 
     public GameStateService(DefaultGameSetupFactory setupFactory, LandscapeModelService landscapeModelService,
+                            GameSelectionService gameSelectionService,
                             RadarService radarService, NavigationService navigationService) {
         this.setupFactory = setupFactory;
         this.landscapeModelService = landscapeModelService;
+        this.gameSelectionService = gameSelectionService;
         this.radarService = radarService;
         this.navigationService = navigationService;
-        this.session = new GameSession(setupFactory.defaultSetup());
+        this.setupId = gameSelectionService.selectedSetupId();
+        this.session = createInitialSession();
         this.publishedModel = publishCurrentModel();
         executor.execute(this::runTickLoop);
+    }
+
+    private GameSession createInitialSession() {
+        if (landscapeModelService != null) {
+            var selectedLandscape = gameSelectionService.selectedLandscapeModelId()
+                    .flatMap(landscapeModelService::find);
+            if (selectedLandscape.isPresent()) {
+                LandscapeModelService.StoredLandscapeModel model = selectedLandscape.get();
+                landscapeModelId = model.id();
+                landscapeModelName = model.name();
+                landscapeWorldMap = model.worldMap();
+                return new GameSession(setupFactory.customLandscapeSetup(setupId, model.id(), model.worldMap(), List.copyOf(requestedTeamIds)));
+            }
+            gameSelectionService.clearLandscapeModelId();
+        }
+        return new GameSession(setupFactory.setup(setupId, List.copyOf(requestedTeamIds)));
     }
 
     public WorldMap worldMap() {
@@ -244,15 +264,19 @@ public class GameStateService {
     }
 
     public GameSnapshot resetToSetup(String nextSetupId) {
+        return resetToSetup(nextSetupId, true);
+    }
+
+    private GameSnapshot resetToSetup(String nextSetupId, boolean rememberSelection) {
         SessionView view;
         synchronized (this) {
-            setupId = nextSetupId;
-            landscapeModelId = null;
-            landscapeModelName = null;
-            landscapeWorldMap = null;
+            setupId = nextSetupId == null || nextSetupId.isBlank() ? "default" : nextSetupId;
             scenarioSetupActive = false;
             requestedTeamIds.clear();
-            session = new GameSession(setupFactory.setup(setupId, List.copyOf(requestedTeamIds)));
+            if (rememberSelection) {
+                gameSelectionService.rememberSetupId(setupId);
+            }
+            session = new GameSession(currentSelectedSetup());
             view = captureSessionView();
         }
         publishModel(view);
@@ -271,13 +295,29 @@ public class GameStateService {
     private GameSnapshot resetToLandscapeModel(LandscapeModelService.StoredLandscapeModel model) {
         SessionView view;
         synchronized (this) {
-            setupId = "landscape-" + model.id();
             landscapeModelId = model.id();
             landscapeModelName = model.name();
             landscapeWorldMap = model.worldMap();
             scenarioSetupActive = false;
             requestedTeamIds.clear();
-            session = new GameSession(setupFactory.customLandscapeSetup(model.id(), model.worldMap(), List.copyOf(requestedTeamIds)));
+            gameSelectionService.rememberLandscapeModelId(model.id());
+            session = new GameSession(currentSelectedSetup());
+            view = captureSessionView();
+        }
+        publishModel(view);
+        return view.state();
+    }
+
+    public GameSnapshot clearLandscapeModel() {
+        SessionView view;
+        synchronized (this) {
+            landscapeModelId = null;
+            landscapeModelName = null;
+            landscapeWorldMap = null;
+            scenarioSetupActive = false;
+            requestedTeamIds.clear();
+            gameSelectionService.clearLandscapeModelId();
+            session = new GameSession(setupFactory.setup(setupId, List.copyOf(requestedTeamIds)));
             view = captureSessionView();
         }
         publishModel(view);
@@ -290,13 +330,13 @@ public class GameStateService {
         }
         if (landscapeWorldMap != null) {
             synchronized (this) {
-                session = new GameSession(setupFactory.customLandscapeSetup(landscapeModelId, landscapeWorldMap, List.copyOf(requestedTeamIds)));
+                session = new GameSession(currentSelectedSetup());
                 SessionView view = captureSessionView();
                 publishModel(view);
                 return view.state();
             }
         }
-        return resetToSetup(setupId);
+        return resetToSetup(setupId, false);
     }
 
     public void activateTeam(String teamId) {
@@ -309,13 +349,16 @@ public class GameStateService {
                 return;
             }
             requestedTeamIds.add(teamId);
-            GameSetup setup = landscapeWorldMap == null
-                    ? setupFactory.setup(setupId, List.copyOf(requestedTeamIds))
-                    : setupFactory.customLandscapeSetup(landscapeModelId, landscapeWorldMap, List.copyOf(requestedTeamIds));
-            session = new GameSession(setup);
+            session = new GameSession(currentSelectedSetup());
             view = captureSessionView();
         }
         publishModel(view);
+    }
+
+    private GameSetup currentSelectedSetup() {
+        return landscapeWorldMap == null
+                ? setupFactory.setup(setupId, List.copyOf(requestedTeamIds))
+                : setupFactory.customLandscapeSetup(setupId, landscapeModelId, landscapeWorldMap, List.copyOf(requestedTeamIds));
     }
 
     private SessionView captureSessionView() {

@@ -169,11 +169,27 @@
         }
 
         .tile h3 {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            justify-content: space-between;
             margin: 0;
             color: #f7fbff;
             font-size: 17px;
             line-height: 1.2;
             letter-spacing: 0;
+        }
+
+        .selected-badge {
+            flex: 0 0 auto;
+            border-radius: 999px;
+            background: rgb(168 238 237 / 18%);
+            color: #a8eeed;
+            font-size: 10px;
+            font-weight: 950;
+            line-height: 1;
+            padding: 5px 7px;
+            text-transform: uppercase;
         }
 
         .tile dl {
@@ -276,7 +292,10 @@
         </div>
         <div class="tile-grid">
             <article class="tile" xis:foreach="model:${landscapes}">
-                <h3>${model.name}</h3>
+                <h3>
+                    <span>${model.name}</span>
+                    <span class="selected-badge" xis:if="${model.selected}">Aktuell</span>
+                </h3>
                 <dl>
                     <div class="tile-row">
                         <dt class="meta-label">ID</dt>
@@ -315,7 +334,10 @@
         <h2>Spielsets</h2>
         <div class="tile-grid">
             <article class="tile" xis:foreach="setup:${setups}">
-                <h3>${setup.label}</h3>
+                <h3>
+                    <span>${setup.label}</span>
+                    <span class="selected-badge" xis:if="${setup.selected}">Aktuell</span>
+                </h3>
                 <dl>
                     <div class="tile-row">
                         <dt class="meta-label">ID</dt>

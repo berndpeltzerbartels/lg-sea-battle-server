@@ -69,6 +69,7 @@ class LandscapeModelServiceTest {
         GameStateService gameStateService = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
                 service,
+                new GameSelectionService(new MemoryGamePropertyRepository()),
                 new RadarService(),
                 new NavigationService()
         );
@@ -149,6 +150,56 @@ class LandscapeModelServiceTest {
 
         assertEquals(1, worldMap.mapObjects().size());
         assertEquals(360, worldMap.mapObjects().get(0).y());
+    }
+
+    @Test
+    void storedAdminSelectionIsRestoredWhenGameStateServiceStarts() {
+        MemoryLandscapeRepository landscapeRepository = new MemoryLandscapeRepository();
+        LandscapeModelService landscapeModelService = new LandscapeModelService(landscapeRepository);
+        LandscapeModelService.LandscapeModelSummary summary = landscapeModelService.saveUpload(new UploadedFile(
+                "landscapeFile",
+                "persisted.json",
+                "application/json",
+                """
+                        {
+                          "format": "game-landscape-designer.v1",
+                          "name": "Persisted Test",
+                          "islands": [
+                            {
+                              "id": "persisted",
+                              "name": "Persisted",
+                              "seaFloorHeight": -80,
+                              "polygon": [
+                                { "x": -100, "z": -100 },
+                                { "x": 100, "z": -100 },
+                                { "x": 100, "z": 100 },
+                                { "x": -100, "z": 100 }
+                              ],
+                              "heights": [
+                                { "x": 0, "z": 0, "h": 220, "radius": 180, "falloff": "hill" }
+                              ]
+                            }
+                          ]
+                        }
+                        """.getBytes(StandardCharsets.UTF_8)
+        ));
+        GameSelectionService selectionService = new GameSelectionService(new MemoryGamePropertyRepository());
+        selectionService.rememberSetupId("two-ship-duel");
+        selectionService.rememberLandscapeModelId(summary.id());
+
+        GameStateService gameStateService = new GameStateService(
+                new DefaultGameSetupFactory(new WorldMapService()),
+                landscapeModelService,
+                selectionService,
+                new RadarService(),
+                new NavigationService()
+        );
+
+        assertEquals("two-ship-duel", gameStateService.setupId());
+        assertEquals(summary.id(), gameStateService.landscapeModelId());
+        assertEquals("Persisted Test", gameStateService.landscapeModelName());
+        assertEquals(1, gameStateService.landmassCount());
+        assertEquals(2, gameStateService.snapshot().ships().size());
     }
 
     @Test

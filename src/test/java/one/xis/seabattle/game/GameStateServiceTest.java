@@ -15,6 +15,7 @@ class GameStateServiceTest {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
                 null,
+                new GameSelectionService(new MemoryGamePropertyRepository()),
                 new RadarService(),
                 new NavigationService()
         );
@@ -33,6 +34,7 @@ class GameStateServiceTest {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
                 null,
+                new GameSelectionService(new MemoryGamePropertyRepository()),
                 new RadarService(),
                 new NavigationService()
         );
@@ -49,6 +51,7 @@ class GameStateServiceTest {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
                 null,
+                new GameSelectionService(new MemoryGamePropertyRepository()),
                 new RadarService(),
                 new NavigationService()
         );
@@ -73,6 +76,7 @@ class GameStateServiceTest {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
                 null,
+                new GameSelectionService(new MemoryGamePropertyRepository()),
                 new RadarService(),
                 new NavigationService()
         );
@@ -101,6 +105,7 @@ class GameStateServiceTest {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
                 null,
+                new GameSelectionService(new MemoryGamePropertyRepository()),
                 new RadarService(),
                 new NavigationService()
         );
@@ -148,6 +153,7 @@ class GameStateServiceTest {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
                 null,
+                new GameSelectionService(new MemoryGamePropertyRepository()),
                 new RadarService(),
                 new NavigationService()
         );
@@ -250,6 +256,7 @@ class GameStateServiceTest {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
                 null,
+                new GameSelectionService(new MemoryGamePropertyRepository()),
                 new RadarService(),
                 new NavigationService()
         );
@@ -272,6 +279,7 @@ class GameStateServiceTest {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
                 null,
+                new GameSelectionService(new MemoryGamePropertyRepository()),
                 new RadarService(),
                 new NavigationService()
         );
@@ -295,6 +303,7 @@ class GameStateServiceTest {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
                 null,
+                new GameSelectionService(new MemoryGamePropertyRepository()),
                 new RadarService(),
                 new NavigationService()
         );

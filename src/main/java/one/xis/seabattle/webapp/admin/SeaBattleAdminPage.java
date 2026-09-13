@@ -29,23 +29,34 @@ public class SeaBattleAdminPage {
     }
 
     @ModelData("landscapes")
-    List<LandscapeModelService.LandscapeModelSummary> landscapes() {
-        return landscapeModelService.summaries();
+    List<LandscapeOption> landscapes() {
+        String activeLandscapeId = gameStateService.landscapeModelId();
+        return landscapeModelService.summaries().stream()
+                .map(model -> new LandscapeOption(
+                        model.id(),
+                        model.name(),
+                        model.sourceFormat(),
+                        model.landmassCount(),
+                        model.createdAt(),
+                        model.id().equals(activeLandscapeId)
+                ))
+                .toList();
     }
 
     @ModelData("setups")
     List<GameSetupOption> setups() {
+        String activeSetupId = gameStateService.setupId();
         return List.of(
-                new GameSetupOption("default", "Standardspiel"),
-                new GameSetupOption("dense-land", "Dichte Landschaft"),
-                new GameSetupOption("islands", "Offene Inseln"),
-                new GameSetupOption("single-island", "Eine Insel"),
-                new GameSetupOption("scout-plane", "Aufklärer"),
-                new GameSetupOption("two-ship-duel", "Zwei-Schiff-Duell"),
-                new GameSetupOption("two-ship-duel-air", "Duell mit Flugzeugen"),
-                new GameSetupOption("landmark-tour", "Landmark-Tour"),
-                new GameSetupOption("fleet-clash", "Flottenkollision"),
-                new GameSetupOption("scenario-bomb-drop", "Bomben-Test")
+                setupOption("default", "Standardspiel", activeSetupId),
+                setupOption("dense-land", "Dichte Landschaft", activeSetupId),
+                setupOption("islands", "Offene Inseln", activeSetupId),
+                setupOption("single-island", "Eine Insel", activeSetupId),
+                setupOption("scout-plane", "Aufklärer", activeSetupId),
+                setupOption("two-ship-duel", "Zwei-Schiff-Duell", activeSetupId),
+                setupOption("two-ship-duel-air", "Duell mit Flugzeugen", activeSetupId),
+                setupOption("landmark-tour", "Landmark-Tour", activeSetupId),
+                setupOption("fleet-clash", "Flottenkollision", activeSetupId),
+                setupOption("scenario-bomb-drop", "Bomben-Test", activeSetupId)
         );
     }
 
@@ -74,7 +85,7 @@ public class SeaBattleAdminPage {
         boolean wasActiveLandscape = modelId != null && modelId.equals(gameStateService.landscapeModelId());
         boolean deleted = landscapeModelService.delete(modelId);
         if (deleted && wasActiveLandscape) {
-            gameStateService.resetToSetup("default");
+            gameStateService.clearLandscapeModel();
         }
         if (deleted) {
             return currentStatus("Landschaft gelöscht.");
@@ -99,9 +110,17 @@ public class SeaBattleAdminPage {
         );
     }
 
+    private GameSetupOption setupOption(String id, String label, String activeSetupId) {
+        return new GameSetupOption(id, label, id.equals(activeSetupId));
+    }
+
     public record AdminStatus(String setupId, String landscapeName, int shipCount, int landmassCount, String message) {
     }
 
-    public record GameSetupOption(String id, String label) {
+    public record LandscapeOption(String id, String name, String sourceFormat, int landmassCount,
+                                  java.time.LocalDateTime createdAt, boolean selected) {
+    }
+
+    public record GameSetupOption(String id, String label, boolean selected) {
     }
 }

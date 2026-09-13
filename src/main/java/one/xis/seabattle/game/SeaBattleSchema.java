@@ -100,4 +100,11 @@ class SeaBattleSchema {
         models.addColumn("world_map_json").text().notNull();
         models.addColumn("created_at").timestamp().notNull().index("ix_landscape_models_created_at");
     }
+
+    @Change("010-create-game-properties")
+    void createGameProperties(DDL ddl) {
+        var properties = ddl.createTableIfNotExists("game_properties");
+        properties.addColumn("id").varchar(80).notNull().primaryKey();
+        properties.addColumn("property_value").text();
+    }
 }
