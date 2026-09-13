@@ -175,6 +175,7 @@
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(238px, 1fr));
             gap: 14px;
+            align-items: stretch;
         }
 
         .tile {
@@ -189,6 +190,10 @@
             background:
                     linear-gradient(180deg, rgb(20 61 72 / 74%), rgb(6 30 41 / 82%)),
                     rgb(8 35 45 / 74%);
+        }
+
+        .landscape-tile {
+            min-height: 142px;
         }
 
         .selection-tile {
@@ -297,6 +302,57 @@
             gap: 10px;
         }
 
+        .setup-table-wrap {
+            overflow-x: auto;
+            border: 1px solid rgb(191 231 238 / 20%);
+            border-radius: 8px;
+            background: rgb(8 35 45 / 74%);
+        }
+
+        .setup-table {
+            width: 100%;
+        }
+
+        .setup-table-header,
+        .setup-row {
+            display: grid;
+            grid-template-columns: 96px minmax(180px, 1fr) 120px;
+            align-items: center;
+        }
+
+        .setup-table-header > span,
+        .setup-row > span {
+            padding: 12px 14px;
+            border-bottom: 1px solid rgb(191 231 238 / 12%);
+        }
+
+        .setup-table-header {
+            color: #a8eeed;
+            font-size: 12px;
+            font-weight: 950;
+            text-transform: uppercase;
+        }
+
+        .setup-row:last-child > span {
+            border-bottom: 0;
+        }
+
+        .setup-row {
+            background: rgb(8 35 45 / 52%);
+            cursor: pointer;
+        }
+
+        .setup-row:has(input[type="radio"]:checked) {
+            background: rgb(20 72 82 / 78%);
+            box-shadow: inset 3px 0 0 #a8eeed;
+        }
+
+        .setup-name {
+            color: #f7fbff;
+            font-size: 15px;
+            font-weight: 900;
+        }
+
         button.danger {
             border: 1px solid rgb(255 178 151 / 30%);
             background: rgb(132 44 30 / 45%);
@@ -371,7 +427,7 @@
         <section>
             <h2>Landschaft wählen</h2>
             <div class="tile-grid">
-                <label class="tile selection-tile">
+                <label class="tile landscape-tile selection-tile" title="ID: default">
                     <h3>
                         <span>Standardlandschaft</span>
                         <span class="selected-badge" xis:if="${status.standardLandscape}">Aktuell</span>
@@ -380,99 +436,94 @@
                            aria-label="Standardlandschaft"/>
                     <dl>
                         <div class="tile-row">
-                            <dt class="meta-label">ID</dt>
-                            <dd>default</dd>
-                        </div>
-                        <div class="tile-row">
                             <dt class="meta-label">Name</dt>
                             <dd>Standardlandschaft</dd>
                         </div>
                     </dl>
                 </label>
-                <article class="tile selection-tile" xis:foreach="model:${landscapes}">
-                    <label class="tile-choice">
-                        <h3>
-                            <span>${model.name}</span>
-                            <span class="selected-badge" xis:if="${model.selected}">Aktuell</span>
-                        </h3>
-                        <input type="radio" xis:binding="landscapeModelId" name="landscapeModelId"
-                               value="${model.id}" aria-label="${model.name}"/>
-                    </label>
-                    <dl>
-                        <div class="tile-row">
-                            <dt class="meta-label">ID</dt>
-                            <dd>${model.id}</dd>
+                <xis:foreach var="model" array="landscapes">
+                    <article class="tile landscape-tile selection-tile" title="ID: ${model.id}">
+                        <label class="tile-choice">
+                            <h3>
+                                <span>${model.name}</span>
+                                <span class="selected-badge" xis:if="${model.selected}">Aktuell</span>
+                            </h3>
+                            <input type="radio" xis:binding="landscapeModelId" name="landscapeModelId"
+                                   value="${model.id}" aria-label="${model.name}"/>
+                        </label>
+                        <dl>
+                            <div class="tile-row">
+                                <dt class="meta-label">Name</dt>
+                                <dd>${model.name}</dd>
+                            </div>
+                            <div class="tile-row">
+                                <dt class="meta-label">Format</dt>
+                                <dd>${model.sourceFormat}</dd>
+                            </div>
+                            <div class="tile-row">
+                                <dt class="meta-label">Landmassen</dt>
+                                <dd>${model.landmassCount}</dd>
+                            </div>
+                        </dl>
+                        <div class="tile-actions">
+                            <button class="danger icon-button" type="button"
+                                    xis:if="${model.selected}"
+                                    disabled
+                                    aria-label="Landschaft ${model.name} löschen"
+                                    title="Aktive Landschaft kann nicht gelöscht werden">
+                                <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke-width="2"
+                                     stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M3 6h18"/>
+                                    <path d="M8 6V4h8v2"/>
+                                    <path d="M19 6l-1 14H6L5 6"/>
+                                    <path d="M10 11v5"/>
+                                    <path d="M14 11v5"/>
+                                </svg>
+                            </button>
+                            <button class="danger icon-button" type="button" xis:action="deleteLandscape"
+                                    xis:if="${model.deletable}"
+                                    aria-label="Landschaft ${model.name} löschen"
+                                    title="Landschaft löschen"
+                                    onclick="if (!confirm('Diese Landschaft wirklich löschen?')) return false; this.classList.add('is-busy'); return true;">
+                                <xis:parameter name="modelId" value="${model.id}"/>
+                                <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke-width="2"
+                                     stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M3 6h18"/>
+                                    <path d="M8 6V4h8v2"/>
+                                    <path d="M19 6l-1 14H6L5 6"/>
+                                    <path d="M10 11v5"/>
+                                    <path d="M14 11v5"/>
+                                </svg>
+                            </button>
                         </div>
-                        <div class="tile-row">
-                            <dt class="meta-label">Name</dt>
-                            <dd>${model.name}</dd>
-                        </div>
-                        <div class="tile-row">
-                            <dt class="meta-label">Format</dt>
-                            <dd>${model.sourceFormat}</dd>
-                        </div>
-                        <div class="tile-row">
-                            <dt class="meta-label">Landmassen</dt>
-                            <dd>${model.landmassCount}</dd>
-                        </div>
-                    </dl>
-                    <div class="tile-actions">
-                        <button class="danger icon-button" type="button"
-                                xis:if="${model.selected}"
-                                disabled
-                                aria-label="Landschaft ${model.name} löschen"
-                                title="Aktive Landschaft kann nicht gelöscht werden">
-                            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke-width="2"
-                                 stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M3 6h18"/>
-                                <path d="M8 6V4h8v2"/>
-                                <path d="M19 6l-1 14H6L5 6"/>
-                                <path d="M10 11v5"/>
-                                <path d="M14 11v5"/>
-                            </svg>
-                        </button>
-                        <button class="danger icon-button" type="button" xis:action="deleteLandscape"
-                                xis:if="${model.deletable}"
-                                aria-label="Landschaft ${model.name} löschen"
-                                title="Landschaft löschen"
-                                onclick="if (!confirm('Diese Landschaft wirklich löschen?')) return false; this.classList.add('is-busy'); return true;">
-                            <xis:parameter name="modelId" value="${model.id}"/>
-                            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke-width="2"
-                                 stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M3 6h18"/>
-                                <path d="M8 6V4h8v2"/>
-                                <path d="M19 6l-1 14H6L5 6"/>
-                                <path d="M10 11v5"/>
-                                <path d="M14 11v5"/>
-                            </svg>
-                        </button>
-                    </div>
-                </article>
+                    </article>
+                </xis:foreach>
             </div>
             <div class="empty" xis:if="${empty(landscapes)}">Noch keine Landschaft hochgeladen.</div>
         </section>
 
         <section>
             <h2>Spielsituation wählen</h2>
-            <div class="tile-grid">
-                <label class="tile selection-tile" xis:foreach="setup:${setups}">
-                    <h3>
-                        <span>${setup.label}</span>
-                        <span class="selected-badge" xis:if="${setup.selected}">Aktuell</span>
-                    </h3>
-                    <input type="radio" xis:binding="setupId" name="setupId" value="${setup.id}"
-                           aria-label="${setup.label}"/>
-                    <dl>
-                        <div class="tile-row">
-                            <dt class="meta-label">ID</dt>
-                            <dd>${setup.id}</dd>
-                        </div>
-                        <div class="tile-row">
-                            <dt class="meta-label">Name</dt>
-                            <dd>${setup.label}</dd>
-                        </div>
-                    </dl>
-                </label>
+            <div class="setup-table-wrap">
+                <div class="setup-table">
+                    <div class="setup-table-header">
+                        <span>Auswahl</span>
+                        <span>Name</span>
+                        <span>Status</span>
+                    </div>
+                    <xis:foreach var="setup" array="setups">
+                        <label class="setup-row" title="ID: ${setup.id}">
+                            <span>
+                                <input type="radio" xis:binding="setupId" name="setupId" value="${setup.id}"
+                                       aria-label="${setup.label}"/>
+                            </span>
+                            <span class="setup-name">${setup.label}</span>
+                            <span>
+                                <span class="selected-badge" xis:if="${setup.selected}">Aktuell</span>
+                            </span>
+                        </label>
+                    </xis:foreach>
+                </div>
             </div>
         </section>
 
