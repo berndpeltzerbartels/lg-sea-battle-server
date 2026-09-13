@@ -28,6 +28,11 @@ public class SeaBattleAdminPage {
         return new LandscapeUploadForm();
     }
 
+    @FormData("selection")
+    GameSelectionForm selection() {
+        return new GameSelectionForm(gameStateService.setupId(), gameStateService.landscapeModelId());
+    }
+
     @ModelData("landscapes")
     List<LandscapeOption> landscapes() {
         String activeLandscapeId = gameStateService.landscapeModelId();
@@ -38,7 +43,8 @@ public class SeaBattleAdminPage {
                         model.sourceFormat(),
                         model.landmassCount(),
                         model.createdAt(),
-                        model.id().equals(activeLandscapeId)
+                        model.id().equals(activeLandscapeId),
+                        !model.id().equals(activeLandscapeId)
                 ))
                 .toList();
     }
@@ -72,38 +78,32 @@ public class SeaBattleAdminPage {
         return currentStatus("Landschaft gespeichert: " + model.name());
     }
 
-    @Action("restartLandscape")
+    @Action("startSelection")
     @ModelData("status")
-    AdminStatus restartLandscape(@ActionParameter("modelId") String modelId) {
-        gameStateService.resetToLandscapeModel(modelId);
-        return currentStatus("Spiel mit Landschaft gestartet.");
+    AdminStatus startSelection(@FormData("selection") GameSelectionForm form) {
+        gameStateService.resetToSelection(form.getSetupId(), form.selectedLandscapeModelId());
+        return currentStatus("Spiel gestartet.");
     }
 
     @Action("deleteLandscape")
     @ModelData("status")
     AdminStatus deleteLandscape(@ActionParameter("modelId") String modelId) {
         boolean wasActiveLandscape = modelId != null && modelId.equals(gameStateService.landscapeModelId());
-        boolean deleted = landscapeModelService.delete(modelId);
-        if (deleted && wasActiveLandscape) {
-            gameStateService.clearLandscapeModel();
+        if (wasActiveLandscape) {
+            return currentStatus("Aktive Landschaft kann nicht gelöscht werden.");
         }
+        boolean deleted = landscapeModelService.delete(modelId);
         if (deleted) {
             return currentStatus("Landschaft gelöscht.");
         }
         return currentStatus("Landschaft nicht gefunden.");
     }
 
-    @Action("restartSetup")
-    @ModelData("status")
-    AdminStatus restartSetup(@ActionParameter("setupId") String setupId) {
-        gameStateService.resetToSetup(setupId);
-        return currentStatus("Spielset gestartet: " + setupId);
-    }
-
     private AdminStatus currentStatus(String message) {
         return new AdminStatus(
                 gameStateService.setupId(),
                 gameStateService.landscapeModelName(),
+                gameStateService.landscapeModelId() == null,
                 gameStateService.snapshot().ships().size(),
                 gameStateService.landmassCount(),
                 message
@@ -114,11 +114,12 @@ public class SeaBattleAdminPage {
         return new GameSetupOption(id, label, id.equals(activeSetupId));
     }
 
-    public record AdminStatus(String setupId, String landscapeName, int shipCount, int landmassCount, String message) {
+    public record AdminStatus(String setupId, String landscapeName, boolean standardLandscape,
+                              int shipCount, int landmassCount, String message) {
     }
 
     public record LandscapeOption(String id, String name, String sourceFormat, int landmassCount,
-                                  java.time.LocalDateTime createdAt, boolean selected) {
+                                  java.time.LocalDateTime createdAt, boolean selected, boolean deletable) {
     }
 
     public record GameSetupOption(String id, String label, boolean selected) {

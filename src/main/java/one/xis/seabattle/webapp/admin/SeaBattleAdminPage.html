@@ -118,6 +118,13 @@
             padding: 8px;
         }
 
+        input[type="radio"] {
+            width: 18px;
+            height: 18px;
+            margin: 0;
+            accent-color: #a8eeed;
+        }
+
         button,
         .link-button {
             min-height: 40px;
@@ -166,6 +173,16 @@
             border: 1px solid rgb(191 231 238 / 20%);
             border-radius: 8px;
             background: rgb(8 35 45 / 74%);
+        }
+
+        .selection-tile {
+            cursor: pointer;
+        }
+
+        .selection-tile:has(input[type="radio"]:checked) {
+            border-color: rgb(168 238 237 / 72%);
+            background: rgb(20 72 82 / 78%);
+            box-shadow: 0 0 0 1px rgb(168 238 237 / 18%);
         }
 
         .tile h3 {
@@ -218,10 +235,37 @@
             width: 100%;
         }
 
+        .icon-button {
+            justify-self: end;
+            display: inline-grid;
+            place-items: center;
+            width: 34px;
+            min-width: 34px;
+            min-height: 34px;
+            padding: 0;
+        }
+
+        .icon-button svg {
+            width: 16px;
+            height: 16px;
+            stroke: currentColor;
+        }
+
+        .icon-button:disabled {
+            cursor: not-allowed;
+            opacity: 0.35;
+        }
+
         .tile-actions {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr;
             gap: 8px;
+        }
+
+        .selection-actions {
+            display: flex;
+            justify-content: end;
+            gap: 10px;
         }
 
         button.danger {
@@ -290,71 +334,121 @@
                 <button type="submit" xis:action="uploadLandscape">Hochladen</button>
             </xis:form>
         </div>
-        <div class="tile-grid">
-            <article class="tile" xis:foreach="model:${landscapes}">
-                <h3>
-                    <span>${model.name}</span>
-                    <span class="selected-badge" xis:if="${model.selected}">Aktuell</span>
-                </h3>
-                <dl>
-                    <div class="tile-row">
-                        <dt class="meta-label">ID</dt>
-                        <dd>${model.id}</dd>
-                    </div>
-                    <div class="tile-row">
-                        <dt class="meta-label">Name</dt>
-                        <dd>${model.name}</dd>
-                    </div>
-                    <div class="tile-row">
-                        <dt class="meta-label">Format</dt>
-                        <dd>${model.sourceFormat}</dd>
-                    </div>
-                    <div class="tile-row">
-                        <dt class="meta-label">Landmassen</dt>
-                        <dd>${model.landmassCount}</dd>
-                    </div>
-                </dl>
-                <div class="tile-actions">
-                    <button type="button" xis:action="restartLandscape">
-                        <xis:parameter name="modelId" value="${model.id}"/>
-                        Starten
-                    </button>
-                    <button class="danger" type="button" xis:action="deleteLandscape"
-                            onclick="return confirm('Diese Landschaft wirklich löschen?');">
-                        <xis:parameter name="modelId" value="${model.id}"/>
-                        Löschen
-                    </button>
-                </div>
-            </article>
-        </div>
-        <div class="empty" xis:if="${empty(landscapes)}">Noch keine Landschaft hochgeladen.</div>
     </section>
 
-    <section>
-        <h2>Spielsets</h2>
-        <div class="tile-grid">
-            <article class="tile" xis:foreach="setup:${setups}">
-                <h3>
-                    <span>${setup.label}</span>
-                    <span class="selected-badge" xis:if="${setup.selected}">Aktuell</span>
-                </h3>
-                <dl>
-                    <div class="tile-row">
-                        <dt class="meta-label">ID</dt>
-                        <dd>${setup.id}</dd>
+    <xis:form binding="selection">
+        <section>
+            <h2>Landschaft wählen</h2>
+            <div class="tile-grid">
+                <label class="tile selection-tile">
+                    <h3>
+                        <span>Standardlandschaft</span>
+                        <span class="selected-badge" xis:if="${status.standardLandscape}">Aktuell</span>
+                    </h3>
+                    <input type="radio" xis:binding="landscapeModelId" name="landscapeModelId" value="__standard__"
+                           aria-label="Standardlandschaft"/>
+                    <dl>
+                        <div class="tile-row">
+                            <dt class="meta-label">ID</dt>
+                            <dd>default</dd>
+                        </div>
+                        <div class="tile-row">
+                            <dt class="meta-label">Name</dt>
+                            <dd>Standardlandschaft</dd>
+                        </div>
+                    </dl>
+                </label>
+                <article class="tile selection-tile" xis:foreach="model:${landscapes}">
+                    <label>
+                        <h3>
+                            <span>${model.name}</span>
+                            <span class="selected-badge" xis:if="${model.selected}">Aktuell</span>
+                        </h3>
+                        <input type="radio" xis:binding="landscapeModelId" name="landscapeModelId"
+                               value="${model.id}" aria-label="${model.name}"/>
+                    </label>
+                    <dl>
+                        <div class="tile-row">
+                            <dt class="meta-label">ID</dt>
+                            <dd>${model.id}</dd>
+                        </div>
+                        <div class="tile-row">
+                            <dt class="meta-label">Name</dt>
+                            <dd>${model.name}</dd>
+                        </div>
+                        <div class="tile-row">
+                            <dt class="meta-label">Format</dt>
+                            <dd>${model.sourceFormat}</dd>
+                        </div>
+                        <div class="tile-row">
+                            <dt class="meta-label">Landmassen</dt>
+                            <dd>${model.landmassCount}</dd>
+                        </div>
+                    </dl>
+                    <div class="tile-actions">
+                        <button class="danger icon-button" type="button"
+                                xis:if="${model.selected}"
+                                disabled
+                                aria-label="Landschaft ${model.name} löschen"
+                                title="Aktive Landschaft kann nicht gelöscht werden">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke-width="2"
+                                 stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 6h18"/>
+                                <path d="M8 6V4h8v2"/>
+                                <path d="M19 6l-1 14H6L5 6"/>
+                                <path d="M10 11v5"/>
+                                <path d="M14 11v5"/>
+                            </svg>
+                        </button>
+                        <button class="danger icon-button" type="button" xis:action="deleteLandscape"
+                                xis:if="${model.deletable}"
+                                aria-label="Landschaft ${model.name} löschen"
+                                title="Landschaft löschen"
+                                onclick="return confirm('Diese Landschaft wirklich löschen?');">
+                            <xis:parameter name="modelId" value="${model.id}"/>
+                            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke-width="2"
+                                 stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 6h18"/>
+                                <path d="M8 6V4h8v2"/>
+                                <path d="M19 6l-1 14H6L5 6"/>
+                                <path d="M10 11v5"/>
+                                <path d="M14 11v5"/>
+                            </svg>
+                        </button>
                     </div>
-                    <div class="tile-row">
-                        <dt class="meta-label">Name</dt>
-                        <dd>${setup.label}</dd>
-                    </div>
-                </dl>
-                <button class="secondary" type="button" xis:action="restartSetup">
-                    <xis:parameter name="setupId" value="${setup.id}"/>
-                    Starten
-                </button>
-            </article>
+                </article>
+            </div>
+            <div class="empty" xis:if="${empty(landscapes)}">Noch keine Landschaft hochgeladen.</div>
+        </section>
+
+        <section>
+            <h2>Spielsituation wählen</h2>
+            <div class="tile-grid">
+                <label class="tile selection-tile" xis:foreach="setup:${setups}">
+                    <h3>
+                        <span>${setup.label}</span>
+                        <span class="selected-badge" xis:if="${setup.selected}">Aktuell</span>
+                    </h3>
+                    <input type="radio" xis:binding="setupId" name="setupId" value="${setup.id}"
+                           aria-label="${setup.label}"/>
+                    <dl>
+                        <div class="tile-row">
+                            <dt class="meta-label">ID</dt>
+                            <dd>${setup.id}</dd>
+                        </div>
+                        <div class="tile-row">
+                            <dt class="meta-label">Name</dt>
+                            <dd>${setup.label}</dd>
+                        </div>
+                    </dl>
+                </label>
+            </div>
+        </section>
+
+        <div class="selection-actions">
+            <button type="submit" xis:action="startSelection">Starten</button>
         </div>
-    </section>
+    </xis:form>
 
     <a class="link-button secondary" xis:page="/portal.html">Zurück zum Portal</a>
 </main>

@@ -292,6 +292,35 @@ public class GameStateService {
         return resetToLandscapeModel(model);
     }
 
+    public GameSnapshot resetToSelection(String nextSetupId, String nextLandscapeModelId) {
+        if (landscapeModelService == null && nextLandscapeModelId != null && !nextLandscapeModelId.isBlank()) {
+            throw new IllegalStateException("Landscape model storage is not available.");
+        }
+        LandscapeModelService.StoredLandscapeModel model = nextLandscapeModelId == null || nextLandscapeModelId.isBlank()
+                ? null
+                : landscapeModelService.find(nextLandscapeModelId)
+                .orElseThrow(() -> new IllegalArgumentException("Unknown landscape model: " + nextLandscapeModelId));
+        SessionView view;
+        synchronized (this) {
+            setupId = nextSetupId == null || nextSetupId.isBlank() ? "default" : nextSetupId;
+            landscapeModelId = model == null ? null : model.id();
+            landscapeModelName = model == null ? null : model.name();
+            landscapeWorldMap = model == null ? null : model.worldMap();
+            scenarioSetupActive = false;
+            requestedTeamIds.clear();
+            gameSelectionService.rememberSetupId(setupId);
+            if (model == null) {
+                gameSelectionService.clearLandscapeModelId();
+            } else {
+                gameSelectionService.rememberLandscapeModelId(model.id());
+            }
+            session = new GameSession(currentSelectedSetup());
+            view = captureSessionView();
+        }
+        publishModel(view);
+        return view.state();
+    }
+
     private GameSnapshot resetToLandscapeModel(LandscapeModelService.StoredLandscapeModel model) {
         SessionView view;
         synchronized (this) {
