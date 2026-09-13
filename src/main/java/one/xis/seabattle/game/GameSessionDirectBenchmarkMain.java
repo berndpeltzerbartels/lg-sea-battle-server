@@ -160,7 +160,7 @@ public class GameSessionDirectBenchmarkMain {
                     session.worldMap()
             )));
 
-            metrics.measure("game-tick", () -> session.update(1.0 / hz, radarService, navigationService, session.worldMap()));
+            measureGameTick(session, 1.0 / hz, metrics);
 
             metrics.measure("shadow-state", session::snapshot);
 
@@ -205,12 +205,15 @@ public class GameSessionDirectBenchmarkMain {
                 ));
                 RadarService.VisibilityMetrics visibilityMetrics = new RadarService.VisibilityMetrics();
                 RadarService.collectVisibilityMetrics(visibilityMetrics);
+                GameSession.TickMetrics tickMetrics = startTickMetrics();
                 try {
                     session.update(tickSeconds, radarService, navigationService, session.worldMap());
                 } finally {
                     RadarService.clearVisibilityMetrics();
+                    GameSession.clearTickMetrics();
                 }
                 session.snapshot();
+                copyTickMetrics(tickMetrics, metrics);
 
                 long completed = System.nanoTime();
                 metrics.add("publisher-build", (completed - started) / 1_000_000.0);
@@ -287,6 +290,32 @@ public class GameSessionDirectBenchmarkMain {
         for (BenchmarkClient client : clients) {
             session.updatePlayerState(playerUpdate(client, 0), navigationService, session.worldMap());
         }
+    }
+
+    private void measureGameTick(GameSession session, double tickSeconds, BenchmarkMetrics metrics) {
+        GameSession.TickMetrics tickMetrics = startTickMetrics();
+        try {
+            metrics.measure("game-tick", () -> session.update(tickSeconds, radarService, navigationService, session.worldMap()));
+        } finally {
+            GameSession.clearTickMetrics();
+        }
+        copyTickMetrics(tickMetrics, metrics);
+    }
+
+    private GameSession.TickMetrics startTickMetrics() {
+        if (!Boolean.getBoolean("seaBattle.tickMetrics")) {
+            return null;
+        }
+        GameSession.TickMetrics tickMetrics = new GameSession.TickMetrics();
+        GameSession.collectTickMetrics(tickMetrics);
+        return tickMetrics;
+    }
+
+    private void copyTickMetrics(GameSession.TickMetrics tickMetrics, BenchmarkMetrics metrics) {
+        if (tickMetrics == null) {
+            return;
+        }
+        tickMetrics.values().forEach((name, values) -> values.forEach(value -> metrics.add(name, value)));
     }
 
     private GameSetup benchmarkSetup(int shipsPerTeam, String distribution) {

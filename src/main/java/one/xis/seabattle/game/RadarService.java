@@ -217,7 +217,7 @@ final class RadarService {
 
         boolean isVisible(Ship observer, Ship contact, double range) {
             long started = System.nanoTime();
-            VisibilityKey key = VisibilityKey.of(observer.id(), contact.id(), range);
+            VisibilityKey key = VisibilityKey.of(observer, contact, range);
             Boolean cached = visibleByPair.get(key);
             if (cached != null) {
                 VisibilityMetrics metrics = VISIBILITY_METRICS.get();
@@ -238,8 +238,18 @@ final class RadarService {
 
     private record VisibilityKey(String left, String right, double range) {
 
-        static VisibilityKey of(String first, String second, double range) {
-            return new VisibilityKey(first, second, range);
+        static VisibilityKey of(Ship observer, Ship contact, double range) {
+            if (visibilityIsDirectional(observer, contact)) {
+                return new VisibilityKey(observer.id(), contact.id(), range);
+            }
+            return observer.id().compareTo(contact.id()) <= 0
+                    ? new VisibilityKey(observer.id(), contact.id(), range)
+                    : new VisibilityKey(contact.id(), observer.id(), range);
+        }
+
+        private static boolean visibilityIsDirectional(Ship observer, Ship contact) {
+            return observer.isSubmarine()
+                    || contact.isSubmarine();
         }
     }
 }

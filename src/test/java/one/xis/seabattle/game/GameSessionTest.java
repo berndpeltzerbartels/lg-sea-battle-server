@@ -2055,6 +2055,37 @@ class GameSessionTest {
     }
 
     @Test
+    void submarineVeryCloseTorpedoHitStillSinksTargetAndShooter() {
+        double submarineHeading = 0;
+        double targetZ = 41.5;
+        GameSession session = new GameSession(new GameSetup(
+                "submarine-close-torpedo-danger-test",
+                new WorldMap(90341, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-U1", "light", 0, 0, submarineHeading, "player-light", ENGINE_STOP, 0, 0, "submarine")
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-S1", "dark", 0, targetZ, submarineHeading, "player-dark", ENGINE_STOP, 0, 99)
+                        ))
+                ),
+                List.of(new Vector2(0, 0), new Vector2(0, targetZ))
+        ));
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-light", "light", 0, 0, submarineHeading, 0, 0, ENGINE_STOP, 0, 0,
+                        false, "submarine", 0, 0, null, null, null, null, "surface"),
+                navigationService,
+                session.worldMap()
+        );
+
+        session.fireTorpedo(new FireTorpedoRequest("player-light", "light"));
+        GameSnapshot snapshot = tickUntilShipState(session, "dark-S1", "sunk", 2);
+
+        assertEquals("sunk", findShip(snapshot, "dark-S1").state());
+        assertEquals("sunk", findShip(snapshot, "light-U1").state());
+    }
+
+    @Test
     void sinkingSurfaceShipCrushesSubmergedSubmarineUnderHull() throws Exception {
         GameSession session = new GameSession(new GameSetup(
                 "sinking-surface-ship-crushes-submarine-test",
@@ -2085,6 +2116,36 @@ class GameSessionTest {
     }
 
     @Test
+    void sinkingSurfaceShipCrushesSubmergedSubmarineWithHullPartlyUnderHull() throws Exception {
+        GameSession session = new GameSession(new GameSetup(
+                "sinking-surface-ship-crushes-partly-covered-submarine-test",
+                new WorldMap(90351, List.of()),
+                List.of(
+                        new FleetSetup("light", List.of(
+                                ship("light-S1", "light", 0, -40, 0, "player-light", ENGINE_STOP, 0, 0)
+                        )),
+                        new FleetSetup("dark", List.of(
+                                ship("dark-S1", "dark", 0, 0, 0, "player-dark", ENGINE_STOP, 0, 99),
+                                ship("dark-U1", "dark", 7.0, 0, 0, "player-dark-sub", ENGINE_STOP, 0, 99, "submarine")
+                        ))
+                ),
+                List.of(new Vector2(0, -40), new Vector2(0, 0))
+        ));
+        shipEntity(session, "dark-U1").applyPlayerState(
+                new PlayerStateUpdate("player-dark-sub", "dark", 7.0, 0, 0, 0, 0, ENGINE_STOP, 0, 0,
+                        false, "submarine", 0, 0, null, null, null, null, "submerged"),
+                navigationService,
+                session.worldMap()
+        );
+
+        session.fireTorpedo(new FireTorpedoRequest("player-light", "light"));
+        GameSnapshot snapshot = tickUntilShipState(session, "dark-S1", "sunk", 2);
+
+        assertEquals("sunk", findShip(snapshot, "dark-S1").state());
+        assertEquals("sunk", findShip(snapshot, "dark-U1").state());
+    }
+
+    @Test
     void sinkingSurfaceShipDoesNotCrushSubmergedSubmarineBesideHull() throws Exception {
         GameSession session = new GameSession(new GameSetup(
                 "sinking-surface-ship-misses-beside-submarine-test",
@@ -2095,13 +2156,13 @@ class GameSessionTest {
                         )),
                         new FleetSetup("dark", List.of(
                                 ship("dark-S1", "dark", 0, 0, 0, "player-dark", ENGINE_STOP, 0, 99),
-                                ship("dark-U1", "dark", 8.5, 0, 0, "player-dark-sub", ENGINE_STOP, 0, 99, "submarine")
+                                ship("dark-U1", "dark", 11.5, 0, 0, "player-dark-sub", ENGINE_STOP, 0, 99, "submarine")
                         ))
                 ),
                 List.of(new Vector2(0, -40), new Vector2(0, 0))
         ));
         shipEntity(session, "dark-U1").applyPlayerState(
-                new PlayerStateUpdate("player-dark-sub", "dark", 8.5, 0, 0, 0, 0, ENGINE_STOP, 0, 0,
+                new PlayerStateUpdate("player-dark-sub", "dark", 11.5, 0, 0, 0, 0, ENGINE_STOP, 0, 0,
                         false, "submarine", 0, 0, null, null, null, null, "submerged"),
                 navigationService,
                 session.worldMap()

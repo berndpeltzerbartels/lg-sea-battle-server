@@ -95,6 +95,10 @@ final class Ship {
         return !isSubmarine() || DEPTH_SURFACE.equals(depthState);
     }
 
+    String depthState() {
+        return depthState;
+    }
+
     boolean isBotControlled() {
         return "bot".equals(controlledBy);
     }
@@ -189,7 +193,8 @@ final class Ship {
         return true;
     }
 
-    void applyPlayerState(PlayerStateUpdate update, NavigationService navigationService, WorldMap worldMap) {
+    void applyPlayerState(PlayerStateUpdate update, NavigationService navigationService,
+                          LandGeometry.CollisionModel collisionModel) {
         if (!"active".equals(state)) {
             return;
         }
@@ -197,7 +202,8 @@ final class Ship {
         vehicleType = normalizeVehicleType(update.vehicleType());
         depthState = isSubmarine() ? normalizeDepthState(update.depthState()) : DEPTH_SURFACE;
         boolean implausiblePosition = position.distanceTo(requestedPosition) > MAX_ACCEPTED_PLAYER_POSITION_DELTA;
-        boolean blockedPosition = !isScoutPlane() && navigationService.isShipBlocked(requestedPosition, update.heading(), worldMap);
+        boolean blockedPosition = !isScoutPlane()
+                && navigationService.isShipBlocked(requestedPosition, update.heading(), collisionModel, depthState);
         if ((!update.debugTeleport() && implausiblePosition) || blockedPosition) {
             applyCommand(update.engineOrder(), update.rudderDegrees());
             return;
@@ -226,6 +232,10 @@ final class Ship {
         }
     }
 
+    void applyPlayerState(PlayerStateUpdate update, NavigationService navigationService, WorldMap worldMap) {
+        applyPlayerState(update, navigationService, LandGeometry.collisionModel(worldMap));
+    }
+
     private static boolean isFinite(Double value) {
         return value != null && Double.isFinite(value);
     }
@@ -241,7 +251,7 @@ final class Ship {
         this.verticalSpeed = MathSupport.clamp(verticalSpeed, -34, 20);
     }
 
-    void update(double deltaSeconds, NavigationService navigationService, WorldMap worldMap) {
+    void update(double deltaSeconds, NavigationService navigationService, LandGeometry.CollisionModel collisionModel) {
         if (!"active".equals(state)) {
             return;
         }
@@ -264,12 +274,16 @@ final class Ship {
         heading = MathSupport.normalizeAngle(heading + turnVelocity * deltaSeconds);
 
         position = position.add(Vector2.fromHeading(heading).scale(speed * deltaSeconds));
-        if (navigationService.isShipBlocked(position, heading, worldMap)
-                && navigationService.isShipMovementBlocked(position, heading, speed, worldMap)) {
+        if (navigationService.isShipBlocked(position, heading, collisionModel, depthState)
+                && navigationService.isShipMovementBlocked(position, heading, speed, collisionModel, depthState)) {
             position = previousPosition;
             speed = Math.min(0, previousSpeed * 0.15);
             turnVelocity *= 0.35;
         }
+    }
+
+    void update(double deltaSeconds, NavigationService navigationService, WorldMap worldMap) {
+        update(deltaSeconds, navigationService, LandGeometry.collisionModel(worldMap));
     }
 
     private void updateScoutPlane(double deltaSeconds) {

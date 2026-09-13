@@ -26,6 +26,7 @@ public class GameStateService {
 
     private volatile GameSession session;
     private final DefaultGameSetupFactory setupFactory;
+    private final LandscapeModelService landscapeModelService;
     private final RadarService radarService;
     private final NavigationService navigationService;
     private final Set<String> requestedTeamIds = new LinkedHashSet<>();
@@ -37,6 +38,9 @@ public class GameStateService {
     });
     private volatile PublishedGameModel publishedModel;
     private String setupId = "default";
+    private String landscapeModelId;
+    private String landscapeModelName;
+    private WorldMap landscapeWorldMap;
     private long tickMetricsStartedAtNanos = System.nanoTime();
     private long measuredTicks;
     private double measuredTickMillisTotal;
@@ -46,8 +50,10 @@ public class GameStateService {
     private long suppressedSlowTickLogs;
     private boolean scenarioSetupActive;
 
-    public GameStateService(DefaultGameSetupFactory setupFactory, RadarService radarService, NavigationService navigationService) {
+    public GameStateService(DefaultGameSetupFactory setupFactory, LandscapeModelService landscapeModelService,
+                            RadarService radarService, NavigationService navigationService) {
         this.setupFactory = setupFactory;
+        this.landscapeModelService = landscapeModelService;
         this.radarService = radarService;
         this.navigationService = navigationService;
         this.session = new GameSession(setupFactory.defaultSetup());
@@ -61,6 +67,22 @@ public class GameStateService {
 
     public List<Vector2> respawnCandidates() {
         return session.respawnCandidates();
+    }
+
+    public String setupId() {
+        return setupId;
+    }
+
+    public String landscapeModelId() {
+        return landscapeModelId;
+    }
+
+    public String landscapeModelName() {
+        return landscapeModelName == null ? "Standardlandschaft" : landscapeModelName;
+    }
+
+    public int landmassCount() {
+        return session.worldMap().landmasses().size();
     }
 
     public GameSnapshot snapshot() {
@@ -225,6 +247,9 @@ public class GameStateService {
         SessionView view;
         synchronized (this) {
             setupId = nextSetupId;
+            landscapeModelId = null;
+            landscapeModelName = null;
+            landscapeWorldMap = null;
             scenarioSetupActive = false;
             requestedTeamIds.clear();
             session = new GameSession(setupFactory.setup(setupId, List.copyOf(requestedTeamIds)));
@@ -234,9 +259,42 @@ public class GameStateService {
         return view.state();
     }
 
+    public GameSnapshot resetToLandscapeModel(String modelId) {
+        if (landscapeModelService == null) {
+            throw new IllegalStateException("Landscape model storage is not available.");
+        }
+        LandscapeModelService.StoredLandscapeModel model = landscapeModelService.find(modelId)
+                .orElseThrow(() -> new IllegalArgumentException("Unknown landscape model: " + modelId));
+        return resetToLandscapeModel(model);
+    }
+
+    private GameSnapshot resetToLandscapeModel(LandscapeModelService.StoredLandscapeModel model) {
+        SessionView view;
+        synchronized (this) {
+            setupId = "landscape-" + model.id();
+            landscapeModelId = model.id();
+            landscapeModelName = model.name();
+            landscapeWorldMap = model.worldMap();
+            scenarioSetupActive = false;
+            requestedTeamIds.clear();
+            session = new GameSession(setupFactory.customLandscapeSetup(model.id(), model.worldMap(), List.copyOf(requestedTeamIds)));
+            view = captureSessionView();
+        }
+        publishModel(view);
+        return view.state();
+    }
+
     public GameSnapshot resetCurrentSetup() {
         if (scenarioSetupActive) {
             return snapshot();
+        }
+        if (landscapeWorldMap != null) {
+            synchronized (this) {
+                session = new GameSession(setupFactory.customLandscapeSetup(landscapeModelId, landscapeWorldMap, List.copyOf(requestedTeamIds)));
+                SessionView view = captureSessionView();
+                publishModel(view);
+                return view.state();
+            }
         }
         return resetToSetup(setupId);
     }
@@ -251,7 +309,10 @@ public class GameStateService {
                 return;
             }
             requestedTeamIds.add(teamId);
-            session = new GameSession(setupFactory.setup(setupId, List.copyOf(requestedTeamIds)));
+            GameSetup setup = landscapeWorldMap == null
+                    ? setupFactory.setup(setupId, List.copyOf(requestedTeamIds))
+                    : setupFactory.customLandscapeSetup(landscapeModelId, landscapeWorldMap, List.copyOf(requestedTeamIds));
+            session = new GameSession(setup);
             view = captureSessionView();
         }
         publishModel(view);

@@ -89,4 +89,15 @@ class SeaBattleSchema {
         preferences.addColumn("invite_to_play").bool().notNull();
         preferences.addColumn("invite_weekdays").varchar(120);
     }
+
+    @Change("009-create-landscape-models")
+    void createLandscapeModels(DDL ddl) {
+        var models = ddl.createTableIfNotExists("landscape_models");
+        models.addColumn("id").varchar(50).notNull().primaryKey();
+        models.addColumn("name").varchar(255).notNull();
+        models.addColumn("source_format").varchar(80).notNull();
+        models.addColumn("original_json").text().notNull();
+        models.addColumn("world_map_json").text().notNull();
+        models.addColumn("created_at").timestamp().notNull().index("ix_landscape_models_created_at");
+    }
 }

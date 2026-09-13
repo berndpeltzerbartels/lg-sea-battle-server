@@ -80,6 +80,18 @@ final class DefaultGameSetupFactory {
         return denseLandSetup(activeTeamIds(requestedTeamIds));
     }
 
+    GameSetup customLandscapeSetup(String landscapeId, WorldMap worldMap, List<String> requestedTeamIds) {
+        if (worldMap == null) {
+            return defaultSetup(requestedTeamIds);
+        }
+        return new GameSetup(
+                "landscape-" + (landscapeId == null || landscapeId.isBlank() ? "custom" : landscapeId),
+                worldMap,
+                createDenseFleets(activeTeamIds(requestedTeamIds)),
+                denseRespawnCandidates()
+        );
+    }
+
     private GameSetup openIslandsSetup() {
         return new GameSetup(
                 "islands",

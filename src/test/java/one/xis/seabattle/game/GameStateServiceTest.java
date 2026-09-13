@@ -14,6 +14,7 @@ class GameStateServiceTest {
     void fireTorpedoReturnsFreshSnapshot() {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
+                null,
                 new RadarService(),
                 new NavigationService()
         );
@@ -31,6 +32,7 @@ class GameStateServiceTest {
     void freshServiceStartPublishesScoutPlanes() {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
+                null,
                 new RadarService(),
                 new NavigationService()
         );
@@ -46,6 +48,7 @@ class GameStateServiceTest {
     void canResetToInlineScenarioForBrowserTests() {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
+                null,
                 new RadarService(),
                 new NavigationService()
         );
@@ -69,6 +72,7 @@ class GameStateServiceTest {
     void fireTorpedoUsesNavigationStateFromFireRequest() {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
+                null,
                 new RadarService(),
                 new NavigationService()
         );
@@ -96,6 +100,7 @@ class GameStateServiceTest {
     void playerStateUpdateIsPublishedImmediatelyForReload() {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
+                null,
                 new RadarService(),
                 new NavigationService()
         );
@@ -142,6 +147,7 @@ class GameStateServiceTest {
     void fireTorpedoPublishesAcceptedTubeSide() {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
+                null,
                 new RadarService(),
                 new NavigationService()
         );
@@ -243,6 +249,7 @@ class GameStateServiceTest {
     void tickAdvancesIdleTimeWithoutConnectedPlayerWithoutMovingShips() {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
+                null,
                 new RadarService(),
                 new NavigationService()
         );
@@ -264,6 +271,7 @@ class GameStateServiceTest {
     void tickAdvancesIdleTimeForConnectedPlayerWithoutMovingShips() {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
+                null,
                 new RadarService(),
                 new NavigationService()
         );
@@ -286,6 +294,7 @@ class GameStateServiceTest {
     void tickContinuesHumanShipFromLastCommand() {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
+                null,
                 new RadarService(),
                 new NavigationService()
         );

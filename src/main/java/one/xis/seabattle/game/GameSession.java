@@ -133,7 +133,7 @@ public final class GameSession {
     private static final double BOT_TORPEDO_INCOMING_ARC = 0.34;
     private static final double BOT_TORPEDO_THREAT_CORRIDOR = 8.0 * TORPEDO_BOAT_MODEL_SCALE;
     private static final double BOT_PERISCOPE_RAM_SHIP_LENGTH = (TORPEDO_BOAT_BOW_Z - TORPEDO_BOAT_STERN_Z) * TORPEDO_BOAT_MODEL_SCALE;
-    private static final double SUBMARINE_POINT_BLANK_TORPEDO_DANGER_RANGE = BOT_PERISCOPE_RAM_SHIP_LENGTH * 0.2;
+    private static final double SUBMARINE_POINT_BLANK_TORPEDO_DANGER_RANGE = BOT_PERISCOPE_RAM_SHIP_LENGTH * 0.7;
     private static final double BOT_PERISCOPE_RAM_HALF_SPEED_RANGE = 150.0;
     private static final double BOT_PERISCOPE_RAM_TWO_THIRDS_SPEED_RANGE = 250.0;
     private static final double BOT_PERISCOPE_RAM_FULL_SPEED_RANGE = 300.0;
@@ -154,6 +154,7 @@ public final class GameSession {
     private static final double RESPAWN_DELAY_SECONDS = 8;
     private static final double RESPAWN_HUMAN_RADAR_MARGIN = 120;
     private static final double RESPAWN_MIN_SHIP_DISTANCE = 170;
+    private static final ThreadLocal<TickMetrics> TICK_METRICS = new ThreadLocal<>();
     private static final double TORPEDO_IMPACT_VISIBILITY_SECONDS = 3.0;
     private static final int ENGINE_FULL_ASTERN = 0;
     private static final int ENGINE_ASTERN = 1;
@@ -170,7 +171,9 @@ public final class GameSession {
 
     private final String id;
     private final WorldMap worldMap;
+    private final LandGeometry.CollisionModel collisionModel;
     private final WorldMap scoutPlaneObstacleMap;
+    private final LandGeometry.CollisionModel scoutPlaneObstacleCollisionModel;
     private final Map<String, Fleet> fleets;
     private final List<Vector2> respawnCandidates;
     private final Map<String, Integer> destroyedShipsByTeam = new LinkedHashMap<>();
@@ -203,10 +206,12 @@ public final class GameSession {
     GameSession(GameSetup setup) {
         this.id = setup.id();
         this.worldMap = setup.worldMap();
+        this.collisionModel = LandGeometry.collisionModel(worldMap);
         this.scoutPlaneObstacleMap = LandGeometry.obstacleMapForMinimumTerrainHeight(
                 worldMap,
                 Math.min(BOT_SCOUT_PLANE_TORPEDO_ATTACK_Y, BOT_SCOUT_PLANE_BOMB_ATTACK_Y) - BOT_SCOUT_PLANE_TERRAIN_CLEARANCE
         );
+        this.scoutPlaneObstacleCollisionModel = LandGeometry.collisionModel(scoutPlaneObstacleMap);
         this.fleets = createFleets(setup.fleets());
         this.respawnCandidates = List.copyOf(setup.respawnCandidates());
         this.fleets.keySet().forEach(teamId -> destroyedShipsByTeam.put(teamId, 0));
@@ -301,7 +306,7 @@ public final class GameSession {
                         update.vehicleType(),
                         update.y()
                 ));
-        ship.applyPlayerState(update, navigationService, worldMap);
+        ship.applyPlayerState(update, navigationService, collisionModel);
         applyPendingRamImpactStop(ship);
     }
 
@@ -525,19 +530,34 @@ public final class GameSession {
         }
         nowSeconds += deltaSeconds;
         if (!TEMPORARILY_DISABLE_BOTS) {
+            long phaseStarted = startTickPhase();
             commandBots(radarService, navigationService, worldMap);
+            recordTickPhase("tick-bots", phaseStarted);
+            phaseStarted = startTickPhase();
             allShips().stream()
                     .filter(this::isMotionIntegratedOnServer)
-                    .forEach(ship -> ship.update(deltaSeconds, navigationService, worldMap));
+                    .forEach(ship -> ship.update(deltaSeconds, navigationService, collisionModel));
+            recordTickPhase("tick-ship-motion", phaseStarted);
         }
+        long phaseStarted = startTickPhase();
         updateTorpedoes(deltaSeconds, navigationService, worldMap);
+        recordTickPhase("tick-torpedoes", phaseStarted);
+        phaseStarted = startTickPhase();
         Set<String> releasedBombIds = releasePendingBombs();
         updateBombs(deltaSeconds, releasedBombIds);
+        recordTickPhase("tick-bombs", phaseStarted);
+        phaseStarted = startTickPhase();
         updateFlakProjectiles(deltaSeconds);
         updateFlakHits();
         updateFlakTerrainImpacts(worldMap);
+        recordTickPhase("tick-flak", phaseStarted);
+        phaseStarted = startTickPhase();
         updateRamCollisions();
+        recordTickPhase("tick-rams", phaseStarted);
+        phaseStarted = startTickPhase();
         respawnSunkShips(navigationService, worldMap, radarService);
+        recordTickPhase("tick-respawn", phaseStarted);
+        phaseStarted = startTickPhase();
         torpedoes.removeIf(torpedo -> !torpedoVisibleInWorld(torpedo));
         torpedoImpacts.removeIf(impact -> nowSeconds - impact.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
         bombs.removeIf(bomb -> !"falling".equals(bomb.state()));
@@ -547,6 +567,26 @@ public final class GameSession {
         flakImpacts.removeIf(impact -> nowSeconds - impact.t() > FLAK_HIT_VISIBILITY_SECONDS);
         ramHits.removeIf(hit -> nowSeconds - hit.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
         checkGameOver();
+        recordTickPhase("tick-cleanup", phaseStarted);
+    }
+
+    static void collectTickMetrics(TickMetrics metrics) {
+        TICK_METRICS.set(metrics);
+    }
+
+    static void clearTickMetrics() {
+        TICK_METRICS.remove();
+    }
+
+    private static long startTickPhase() {
+        return TICK_METRICS.get() == null ? 0 : System.nanoTime();
+    }
+
+    private static void recordTickPhase(String name, long started) {
+        TickMetrics metrics = TICK_METRICS.get();
+        if (metrics != null) {
+            metrics.add(name, (System.nanoTime() - started) / 1_000_000.0);
+        }
     }
 
     public synchronized void updateIdle(double deltaSeconds, RadarService radarService, NavigationService navigationService, WorldMap worldMap) {
@@ -603,9 +643,13 @@ public final class GameSession {
                 .filter(ship -> "bot".equals(ship.controlledBy()))
                 .forEach(ship -> {
                     if (ship.isScoutPlane()) {
+                        long phaseStarted = startTickPhase();
                         commandScoutPlaneBot(ship, activeShips, worldMap, scoutPlaneTargetReservations);
+                        recordTickPhase("tick-bot-scout-plane", phaseStarted);
                     } else {
+                        long phaseStarted = startTickPhase();
                         commandBot(ship, visibilityCache, navigationService, worldMap, humanSurfaceShips, surfaceShips);
+                        recordTickPhase("tick-bot-ship", phaseStarted);
                     }
                 });
     }
@@ -824,7 +868,7 @@ public final class GameSession {
     }
 
     private boolean isScoutPlaneTerrainObstacle(Vector2 position) {
-        return LandGeometry.isBlocked(position, scoutPlaneObstacleMap);
+        return LandGeometry.isBlockedAtOrAbove(position, scoutPlaneObstacleCollisionModel, 0);
     }
 
     private Optional<Ship> selectBotScoutPlaneTarget(Ship plane, List<Ship> activeShips,
@@ -990,32 +1034,49 @@ public final class GameSession {
 
     private void commandBot(Ship ship, RadarService.VisibilityCache visibilityCache, NavigationService navigationService,
                             WorldMap worldMap, List<Ship> humanSurfaceShips, List<Ship> surfaceShips) {
+        long phaseStarted = startTickPhase();
         if (escapeBlockedWater(ship, navigationService, worldMap)) {
+            recordTickPhase("tick-bot-escape", phaseStarted);
             return;
         }
+        recordTickPhase("tick-bot-escape", phaseStarted);
 
+        phaseStarted = startTickPhase();
         Optional<Torpedo> threat = visibleIncomingTorpedo(ship);
         if (threat.isPresent()) {
             evadeTorpedo(ship, threat.get(), navigationService, worldMap);
+            recordTickPhase("tick-bot-threat", phaseStarted);
             return;
         }
+        recordTickPhase("tick-bot-threat", phaseStarted);
+        phaseStarted = startTickPhase();
         if (ship.applyGlancingRamBackoff(nowSeconds)) {
+            recordTickPhase("tick-bot-avoid-ships", phaseStarted);
             return;
         }
         if (avoidFriendlyBotDeadlock(ship, surfaceShips)) {
+            recordTickPhase("tick-bot-avoid-ships", phaseStarted);
             return;
         }
         if (avoidShipAhead(ship, surfaceShips, navigationService, worldMap)) {
+            recordTickPhase("tick-bot-avoid-ships", phaseStarted);
             return;
         }
+        recordTickPhase("tick-bot-avoid-ships", phaseStarted);
 
+        phaseStarted = startTickPhase();
         Optional<Ship> target = chooseBotTarget(ship, visibleTargets(ship, visibilityCache));
+        recordTickPhase("tick-bot-target", phaseStarted);
         if (target.isEmpty()) {
+            phaseStarted = startTickPhase();
             moveWithoutTarget(ship, navigationService, worldMap, humanSurfaceShips);
+            recordTickPhase("tick-bot-no-target", phaseStarted);
             return;
         }
 
+        phaseStarted = startTickPhase();
         aimAtTarget(ship, target.get(), navigationService, worldMap);
+        recordTickPhase("tick-bot-aim", phaseStarted);
     }
 
     private double botPeriscopeRamDetectionRange(Ship target) {
@@ -1081,22 +1142,24 @@ public final class GameSession {
         double lookAheadDistance = MathSupport.clamp(Math.abs(ship.speed()) * 6.0 + 22.0, 24.0, 78.0);
         Vector2 nearLookAhead = ship.position().add(forward.scale(14));
         Vector2 farLookAhead = ship.position().add(forward.scale(lookAheadDistance));
-        boolean blockedHere = navigationService.isShipBlocked(ship.position(), ship.heading(), worldMap);
-        boolean blockedAhead = navigationService.isShipBlocked(nearLookAhead, ship.heading(), worldMap)
-                || navigationService.isShipBlocked(farLookAhead, ship.heading(), worldMap);
+        boolean blockedHere = navigationService.isShipBlocked(ship.position(), ship.heading(), collisionModel, ship.depthState());
+        boolean blockedAhead = navigationService.isShipBlocked(nearLookAhead, ship.heading(), collisionModel, ship.depthState())
+                || navigationService.isShipBlocked(farLookAhead, ship.heading(), collisionModel, ship.depthState());
 
         if (blockedHere) {
             boolean forwardClear = !navigationService.isShipMovementBlocked(
                     ship.position(),
                     ship.heading(),
                     EngineOrders.speedFor(ENGINE_SLOW),
-                    worldMap
+                    collisionModel,
+                    ship.depthState()
             );
             boolean asternClear = !navigationService.isShipMovementBlocked(
                     ship.position(),
                     ship.heading(),
                     EngineOrders.speedFor(ENGINE_FULL_ASTERN),
-                    worldMap
+                    collisionModel,
+                    ship.depthState()
             );
             if (ship.speed() >= 0 && forwardClear) {
                 ship.applyCommand(ENGINE_SLOW, 0);
@@ -1146,7 +1209,7 @@ public final class GameSession {
         double[] distances = {18, 34, 58, 88, 128, 170};
         for (int index = 0; index < distances.length; index += 1) {
             Vector2 sample = ship.position().add(forward.scale(distances[index]));
-            if (navigationService.isShipBlocked(sample, heading, worldMap)) {
+            if (navigationService.isShipBlocked(sample, heading, collisionModel, ship.depthState())) {
                 score -= 5000 - index * 250;
                 continue;
             }
@@ -1194,7 +1257,7 @@ public final class GameSession {
         double[] distances = {28, 55, 92, 138};
         for (double distance : distances) {
             Vector2 sample = ship.position().add(forward.scale(distance));
-            if (navigationService.isShipBlocked(sample, heading, worldMap)) {
+            if (navigationService.isShipBlocked(sample, heading, collisionModel, ship.depthState())) {
                 return false;
             }
         }
@@ -2603,9 +2666,15 @@ public final class GameSession {
                 .filter(ship -> "active".equals(ship.state()))
                 .filter(Ship::isSubmarine)
                 .filter(ship -> !ship.isOnSurface())
-                .filter(ship -> pointInsideShipHull(ship.position(), sinkingShip, SUBMERGED_SUBMARINE_RAM_RADIUS / TORPEDO_BOAT_MODEL_SCALE))
+                .filter(ship -> submergedSubmarineUnderSinkingHull(ship, sinkingShip))
                 .toList()
                 .forEach(this::sinkShip);
+    }
+
+    private boolean submergedSubmarineUnderSinkingHull(Ship submarine, Ship sinkingShip) {
+        double crushMargin = SUBMERGED_SUBMARINE_RAM_RADIUS / TORPEDO_BOAT_MODEL_SCALE;
+        return hullSamplePoints(submarine).stream()
+                .anyMatch(point -> pointInsideShipHull(point, sinkingShip, crushMargin));
     }
 
     private void recordRamHit(Ship attacker, Ship target) {
@@ -2977,6 +3046,19 @@ public final class GameSession {
 
     private void checkGameOver() {
         state = "running";
+    }
+
+    static final class TickMetrics {
+
+        private final Map<String, List<Double>> millisByName = new LinkedHashMap<>();
+
+        void add(String name, double millis) {
+            millisByName.computeIfAbsent(name, ignored -> new ArrayList<>()).add(millis);
+        }
+
+        Map<String, List<Double>> values() {
+            return millisByName;
+        }
     }
 
     private List<Ship> allShips() {

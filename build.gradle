@@ -22,6 +22,7 @@ sourceSets {
 
 dependencies {
     implementation project.hasProperty('seaBattleNative') ? 'one.xis:xis-boot-native' : 'one.xis:xis-boot-http'
+    implementation 'one.xis:xis-authentication'
     implementation 'one.xis:xis-sql'
     implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'org.mapstruct:mapstruct:1.6.3'
@@ -149,6 +150,7 @@ tasks.register('runDirectBenchmark', JavaExec) {
     if (project.hasProperty('publisher')) {
         args += ['--publisher']
     }
+    systemProperties System.getProperties().findAll { key, _ -> key.toString().startsWith('seaBattle.') }
     dependsOn classes
 }
 

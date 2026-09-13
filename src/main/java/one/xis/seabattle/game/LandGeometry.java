@@ -1,6 +1,6 @@
 package one.xis.seabattle.game;
 
-import java.util.List;
+import java.util.*;
 
 final class LandGeometry {
 
@@ -8,17 +8,33 @@ final class LandGeometry {
     private static final double COASTLINE_NAVIGATION_BLOCK_DISTANCE = 1.06;
     private static final double ISLAND_NAVIGATION_BLOCK_DISTANCE = 1.02;
     private static final double STEEP_ROCK_BLOCK_DISTANCE = 1.0;
+    private static final int AUTHORED_COASTLINE_SMOOTHING_ITERATIONS = 2;
+    private static final double AUTHORED_HEIGHT_FIELD_CELL_SIZE = 16.0;
+    private static final int AUTHORED_HEIGHT_FIELD_MAX_CELLS = 2_000_000;
 
     private LandGeometry() {
     }
 
     static boolean isBlocked(Vector2 position, WorldMap worldMap) {
-        return isBlockedExact(position, worldMap);
+        return isBlockedAtOrAbove(position, worldMap, 0);
+    }
+
+    static CollisionModel collisionModel(WorldMap worldMap) {
+        return new CollisionModel(worldMap);
+    }
+
+    static boolean isBlockedAtOrAbove(Vector2 position, WorldMap worldMap, double minimumTerrainHeight) {
+        return worldMap.landmasses().stream()
+                .anyMatch(landmass -> isBlockedAtOrAbove(position, landmass, minimumTerrainHeight));
+    }
+
+    static boolean isBlockedAtOrAbove(Vector2 position, CollisionModel collisionModel, double minimumTerrainHeight) {
+        return collisionModel.landmasses().stream()
+                .anyMatch(landmass -> isBlockedAtOrAbove(position, landmass, minimumTerrainHeight));
     }
 
     static boolean isBlockedByLandmass(Vector2 position, Landmass landmass) {
-        double distance = shapeDistance(position, landmass);
-        return distance < navigationBlockDistance(landmass) && !isInLandWater(position, landmass);
+        return isBlockedAtOrAbove(position, landmass, 0);
     }
 
     static boolean lineIntersectsBlockedLand(Vector2 from, Vector2 to, WorldMap worldMap) {
@@ -65,18 +81,40 @@ final class LandGeometry {
                     from.x() + (to.x() - from.x()) * t,
                     from.z() + (to.z() - from.z()) * t
             );
-            if (isBlockedExact(sample, worldMap)) {
+            if (isBlocked(sample, worldMap)) {
                 return true;
             }
         }
         return false;
     }
 
-    private static boolean isBlockedExact(Vector2 position, WorldMap worldMap) {
-        return worldMap.landmasses().stream().anyMatch(landmass -> {
-            double distance = shapeDistance(position, landmass);
-            return distance < navigationBlockDistance(landmass) && !isInLandWater(position, landmass);
-        });
+    private static boolean isBlockedAtOrAbove(Vector2 position, Landmass landmass, double minimumTerrainHeight) {
+        if (hasAuthoredGeometry(landmass)) {
+            return pointInAuthoredCoastline(position, landmass)
+                    && authoredTerrainHeightAt(position, landmass) >= minimumTerrainHeight
+                    && !isInLandWater(position, landmass);
+        }
+        if (minimumTerrainHeight <= 0) {
+            return shapeDistance(position, landmass) < navigationBlockDistance(landmass)
+                    && !isInLandWater(position, landmass);
+        }
+        return terrainHeightAt(position, landmass) >= minimumTerrainHeight
+                && !isInLandWater(position, landmass);
+    }
+
+    private static boolean isBlockedAtOrAbove(Vector2 position, CollisionLandmass collisionLandmass,
+                                              double minimumTerrainHeight) {
+        Landmass landmass = collisionLandmass.landmass();
+        if (hasAuthoredGeometry(landmass)) {
+            return authoredTerrainHeightAt(position, collisionLandmass) >= minimumTerrainHeight
+                    && !isInLandWater(position, landmass);
+        }
+        if (minimumTerrainHeight <= 0) {
+            return shapeDistance(position, landmass) < navigationBlockDistance(landmass)
+                    && !isInLandWater(position, landmass);
+        }
+        return terrainHeightAt(position, landmass) >= minimumTerrainHeight
+                && !isInLandWater(position, landmass);
     }
 
     static double shapeDistance(Vector2 position, Landmass landmass) {
@@ -107,6 +145,9 @@ final class LandGeometry {
     }
 
     private static double terrainHeightAt(Vector2 position, Landmass landmass) {
+        if (hasAuthoredGeometry(landmass)) {
+            return authoredTerrainHeightAt(position, landmass);
+        }
         double localX = position.x() - landmass.x();
         double localZ = position.z() - landmass.z();
         double distance = shapeDistance(position, landmass);
@@ -124,6 +165,12 @@ final class LandGeometry {
     }
 
     private static double maxTerrainHeight(Landmass landmass) {
+        if (hasAuthoredGeometry(landmass)) {
+            return landmass.heightPoints().stream()
+                    .mapToDouble(HeightPoint::h)
+                    .max()
+                    .orElse(0);
+        }
         if (isSteepRock(landmass)) {
             double radius = landmass.radius() == null ? Math.min(landmass.rx(), landmass.rz()) : landmass.radius();
             return Math.max(0.6, radius * 0.42 * landmass.heightScale());
@@ -133,6 +180,137 @@ final class LandGeometry {
             return 0.48 + 5.5 + 24 * landmass.heightScale() + peakBoost + 3.2;
         }
         return 0.34 + Math.max(1.1, Math.min(4.2, Math.min(landmass.rx(), landmass.rz()) * 0.15 * landmass.heightScale()));
+    }
+
+    private static boolean hasAuthoredGeometry(Landmass landmass) {
+        return landmass.polygon().size() >= 3;
+    }
+
+    private static double authoredTerrainHeightAt(Vector2 position, Landmass landmass) {
+        return authoredTerrainHeightAt(position, landmass, authoredCoastline(landmass));
+    }
+
+    private static double authoredTerrainHeightAt(Vector2 position, CollisionLandmass collisionLandmass) {
+        HeightField heightField = collisionLandmass.heightField();
+        if (heightField != null) {
+            return heightField.heightAt(position);
+        }
+        return authoredTerrainHeightAt(position, collisionLandmass.landmass(), collisionLandmass.authoredCoastline());
+    }
+
+    private static double authoredTerrainHeightAt(Vector2 position, Landmass landmass, List<Point2> coastline) {
+        if (!pointInPolygon(position, coastline)) {
+            return seaFloorHeight(landmass);
+        }
+        List<HeightPoint> heightPoints = landmass.heightPoints();
+        if (heightPoints.isEmpty()) {
+            return seaFloorHeight(landmass);
+        }
+        if (heightPoints.size() == 1) {
+            HeightPoint peak = heightPoints.get(0);
+            double floor = seaFloorHeight(landmass);
+            double distance = Math.hypot(position.x() - peak.x(), position.z() - peak.z());
+            if (distance >= peak.radius()) {
+                return floor;
+            }
+            return floor + (peak.h() - floor) * falloffHeightMultiplier(distance / peak.radius(), peak.falloff());
+        }
+
+        double total = 0;
+        double weightTotal = 0;
+        double floor = seaFloorHeight(landmass);
+        for (Point2 point : coastline) {
+            double distance = Math.hypot(position.x() - point.x(), position.z() - point.z());
+            if (distance < 0.001) {
+                return floor;
+            }
+            double d = Math.max(24, distance);
+            double weight = 3 / (d * d);
+            total += floor * weight;
+            weightTotal += weight;
+        }
+        for (HeightPoint point : heightPoints) {
+            double distance = Math.hypot(position.x() - point.x(), position.z() - point.z());
+            if (distance < 0.001) {
+                return point.h();
+            }
+            double radius = Math.max(20, point.radius());
+            double d = Math.max(radius * 0.16, distance);
+            double shape = falloffWeightMultiplier(distance / radius, point.falloff());
+            double weight = shape * Math.max(0.25, radius / 160.0) / (d * d);
+            total += point.h() * weight;
+            weightTotal += weight;
+        }
+        return weightTotal == 0 ? floor : total / weightTotal;
+    }
+
+    private static boolean pointInAuthoredCoastline(Vector2 position, Landmass landmass) {
+        return pointInPolygon(position, authoredCoastline(landmass));
+    }
+
+    private static List<Point2> authoredCoastline(Landmass landmass) {
+        return smoothClosedPolygon(landmass.polygon(), AUTHORED_COASTLINE_SMOOTHING_ITERATIONS);
+    }
+
+    private static List<Point2> smoothClosedPolygon(List<Point2> points, int iterations) {
+        if (points.size() < 3 || iterations <= 0) {
+            return points;
+        }
+        List<Point2> smoothed = List.copyOf(points);
+        for (int iteration = 0; iteration < iterations; iteration += 1) {
+            java.util.ArrayList<Point2> next = new java.util.ArrayList<>(smoothed.size() * 2);
+            for (int index = 0; index < smoothed.size(); index += 1) {
+                Point2 current = smoothed.get(index);
+                Point2 following = smoothed.get((index + 1) % smoothed.size());
+                next.add(new Point2(
+                        current.x() * 0.75 + following.x() * 0.25,
+                        current.z() * 0.75 + following.z() * 0.25
+                ));
+                next.add(new Point2(
+                        current.x() * 0.25 + following.x() * 0.75,
+                        current.z() * 0.25 + following.z() * 0.75
+                ));
+            }
+            smoothed = List.copyOf(next);
+        }
+        return smoothed;
+    }
+
+    private static double seaFloorHeight(Landmass landmass) {
+        return Math.min(-1, Math.max(-2000, Math.round(landmass.seaFloorHeight())));
+    }
+
+    private static double falloffHeightMultiplier(double normalizedDistance, String falloff) {
+        double t = MathSupport.clamp(1 - normalizedDistance, 0, 1);
+        if ("hill".equals(falloff)) {
+            return t * t * (3 - 2 * t);
+        }
+        if ("plateau".equals(falloff)) {
+            return 1 - MathSupport.smoothstep(0.38, 1, normalizedDistance);
+        }
+        return t * t;
+    }
+
+    private static double falloffWeightMultiplier(double normalizedDistance, String falloff) {
+        if (normalizedDistance >= 1) {
+            return 0.08;
+        }
+        return 0.18 + falloffHeightMultiplier(normalizedDistance, falloff) * 1.82;
+    }
+
+    private static boolean pointInPolygon(Vector2 point, List<Point2> polygon) {
+        boolean inside = false;
+        for (int index = 0, previous = polygon.size() - 1; index < polygon.size(); previous = index, index += 1) {
+            Point2 current = polygon.get(index);
+            Point2 previousPoint = polygon.get(previous);
+            boolean crosses = current.z() > point.z() != previousPoint.z() > point.z()
+                    && point.x() < ((previousPoint.x() - current.x()) * (point.z() - current.z()))
+                    / (previousPoint.z() - current.z()) + current.x();
+            if (crosses) {
+                inside = !inside;
+            }
+        }
+        return inside;
     }
 
     private static double coastlineTerrainHeight(double localX, double localZ, double ring, Landmass landmass) {
@@ -256,5 +434,60 @@ final class LandGeometry {
                 || name.contains("needle")
                 || name.contains("skerry")
                 || name.contains("skerries"));
+    }
+
+    record CollisionModel(WorldMap worldMap, List<CollisionLandmass> landmasses) {
+        CollisionModel(WorldMap worldMap) {
+            this(worldMap, worldMap.landmasses().stream()
+                    .map(CollisionLandmass::from)
+                    .toList());
+        }
+    }
+
+    private record CollisionLandmass(Landmass landmass, List<Point2> authoredCoastline, HeightField heightField) {
+        static CollisionLandmass from(Landmass landmass) {
+            List<Point2> coastline = hasAuthoredGeometry(landmass)
+                    ? LandGeometry.authoredCoastline(landmass)
+                    : List.of();
+            return new CollisionLandmass(landmass, coastline, HeightField.from(landmass, coastline));
+        }
+    }
+
+    private record HeightField(double minX, double minZ, int columns, int rows, double[] heights) {
+        static HeightField from(Landmass landmass, List<Point2> coastline) {
+            if (coastline.isEmpty()) {
+                return null;
+            }
+            double minX = coastline.stream().mapToDouble(Point2::x).min().orElse(0);
+            double maxX = coastline.stream().mapToDouble(Point2::x).max().orElse(0);
+            double minZ = coastline.stream().mapToDouble(Point2::z).min().orElse(0);
+            double maxZ = coastline.stream().mapToDouble(Point2::z).max().orElse(0);
+            int columns = Math.max(1, (int) Math.ceil((maxX - minX) / AUTHORED_HEIGHT_FIELD_CELL_SIZE) + 1);
+            int rows = Math.max(1, (int) Math.ceil((maxZ - minZ) / AUTHORED_HEIGHT_FIELD_CELL_SIZE) + 1);
+            if ((long) columns * rows > AUTHORED_HEIGHT_FIELD_MAX_CELLS) {
+                return null;
+            }
+
+            double[] heights = new double[columns * rows];
+            for (int row = 0; row < rows; row += 1) {
+                double z = minZ + row * AUTHORED_HEIGHT_FIELD_CELL_SIZE;
+                for (int column = 0; column < columns; column += 1) {
+                    double x = minX + column * AUTHORED_HEIGHT_FIELD_CELL_SIZE;
+                    Vector2 position = new Vector2(x, z);
+                    heights[row * columns + column] = pointInPolygon(position, coastline)
+                            ? authoredTerrainHeightAt(position, landmass, coastline)
+                            : Double.NEGATIVE_INFINITY;
+                }
+            }
+            return new HeightField(minX, minZ, columns, rows, heights);
+        }
+
+        double heightAt(Vector2 position) {
+            int column = (int) Math.round((position.x() - minX) / AUTHORED_HEIGHT_FIELD_CELL_SIZE);
+            int row = (int) Math.round((position.z() - minZ) / AUTHORED_HEIGHT_FIELD_CELL_SIZE);
+            column = Math.max(0, Math.min(columns - 1, column));
+            row = Math.max(0, Math.min(rows - 1, row));
+            return heights[row * columns + column];
+        }
     }
 }
