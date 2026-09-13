@@ -34,7 +34,8 @@
         section {
             border: 1px solid rgb(191 231 238 / 22%);
             border-radius: 8px;
-            background: rgb(3 23 33 / 72%);
+            background: rgb(3 23 33 / 78%);
+            box-shadow: 0 18px 45px rgb(0 0 0 / 18%);
         }
 
         header {
@@ -63,7 +64,7 @@
         }
 
         .kicker,
-        label,
+        .field-label,
         .stat span,
         .meta-label {
             color: #a8eeed;
@@ -137,6 +138,17 @@
             text-transform: uppercase;
             cursor: pointer;
             padding: 0 14px;
+            transition: background 120ms ease, border-color 120ms ease, opacity 120ms ease, transform 80ms ease;
+        }
+
+        button:active,
+        .link-button:active {
+            transform: translateY(1px);
+        }
+
+        button.is-busy {
+            opacity: 0.72;
+            cursor: wait;
         }
 
         .link-button {
@@ -151,6 +163,7 @@
             color: #d9f4f5;
         }
 
+        #system-messages,
         .message {
             min-height: 18px;
             color: #f2d990;
@@ -160,29 +173,41 @@
 
         .tile-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 12px;
+            grid-template-columns: repeat(auto-fit, minmax(238px, 1fr));
+            gap: 14px;
         }
 
         .tile {
+            position: relative;
             display: grid;
             grid-template-rows: auto 1fr auto;
             gap: 12px;
-            min-height: 150px;
+            min-height: 168px;
             padding: 14px;
             border: 1px solid rgb(191 231 238 / 20%);
             border-radius: 8px;
-            background: rgb(8 35 45 / 74%);
+            background:
+                    linear-gradient(180deg, rgb(20 61 72 / 74%), rgb(6 30 41 / 82%)),
+                    rgb(8 35 45 / 74%);
         }
 
         .selection-tile {
             cursor: pointer;
+            min-width: 0;
         }
 
         .selection-tile:has(input[type="radio"]:checked) {
             border-color: rgb(168 238 237 / 72%);
             background: rgb(20 72 82 / 78%);
             box-shadow: 0 0 0 1px rgb(168 238 237 / 18%);
+        }
+
+        .tile-choice {
+            display: grid;
+            gap: 12px;
+            min-width: 0;
+            color: inherit;
+            cursor: pointer;
         }
 
         .tile h3 {
@@ -195,6 +220,7 @@
             font-size: 17px;
             line-height: 1.2;
             letter-spacing: 0;
+            overflow-wrap: anywhere;
         }
 
         .selected-badge {
@@ -231,7 +257,7 @@
             overflow-wrap: anywhere;
         }
 
-        .tile button {
+        .tile button:not(.icon-button) {
             width: 100%;
         }
 
@@ -241,7 +267,9 @@
             place-items: center;
             width: 34px;
             min-width: 34px;
+            max-width: 34px;
             min-height: 34px;
+            height: 34px;
             padding: 0;
         }
 
@@ -260,6 +288,7 @@
             display: grid;
             grid-template-columns: 1fr;
             gap: 8px;
+            justify-items: end;
         }
 
         .selection-actions {
@@ -326,12 +355,14 @@
 
     <section>
         <h2>Landschaften</h2>
+        <div id="system-messages"></div>
         <p class="message">${status.message}</p>
         <div class="toolbar">
             <xis:form binding="upload">
-                <label for="landscapeFile">Editor-JSON hochladen</label>
+                <label class="field-label" for="landscapeFile">Editor-JSON hochladen</label>
                 <input id="landscapeFile" type="file" accept="application/json,.json" xis:binding="landscapeFile"/>
-                <button type="submit" xis:action="uploadLandscape">Hochladen</button>
+                <button type="submit" xis:action="uploadLandscape"
+                        onclick="this.classList.add('is-busy'); this.textContent='Lädt...';">Hochladen</button>
             </xis:form>
         </div>
     </section>
@@ -359,7 +390,7 @@
                     </dl>
                 </label>
                 <article class="tile selection-tile" xis:foreach="model:${landscapes}">
-                    <label>
+                    <label class="tile-choice">
                         <h3>
                             <span>${model.name}</span>
                             <span class="selected-badge" xis:if="${model.selected}">Aktuell</span>
@@ -404,7 +435,7 @@
                                 xis:if="${model.deletable}"
                                 aria-label="Landschaft ${model.name} löschen"
                                 title="Landschaft löschen"
-                                onclick="return confirm('Diese Landschaft wirklich löschen?');">
+                                onclick="if (!confirm('Diese Landschaft wirklich löschen?')) return false; this.classList.add('is-busy'); return true;">
                             <xis:parameter name="modelId" value="${model.id}"/>
                             <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke-width="2"
                                  stroke-linecap="round" stroke-linejoin="round">
@@ -446,7 +477,8 @@
         </section>
 
         <div class="selection-actions">
-            <button type="submit" xis:action="startSelection">Starten</button>
+            <button type="submit" xis:action="startSelection"
+                    onclick="this.classList.add('is-busy'); this.textContent='Startet...';">Starten</button>
         </div>
     </xis:form>
 

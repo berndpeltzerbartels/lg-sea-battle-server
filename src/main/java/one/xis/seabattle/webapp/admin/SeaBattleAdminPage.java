@@ -6,6 +6,8 @@ import one.xis.FormData;
 import one.xis.ModelData;
 import one.xis.Page;
 import one.xis.Roles;
+import one.xis.ToastLevel;
+import one.xis.ToastMessages;
 import one.xis.seabattle.game.GameStateService;
 import one.xis.seabattle.game.LandscapeModelService;
 
@@ -72,31 +74,33 @@ public class SeaBattleAdminPage {
     }
 
     @Action("uploadLandscape")
-    @ModelData("status")
-    AdminStatus uploadLandscape(@FormData("upload") LandscapeUploadForm form) {
+    Class<?> uploadLandscape(@FormData("upload") LandscapeUploadForm form, ToastMessages toastMessages) {
         LandscapeModelService.LandscapeModelSummary model = landscapeModelService.saveUpload(form.getLandscapeFile());
-        return currentStatus("Landschaft gespeichert: " + model.name());
+        toastMessages.show("Landschaft gespeichert: " + model.name(), ToastLevel.SUCCESS);
+        return SeaBattleAdminPage.class;
     }
 
     @Action("startSelection")
-    @ModelData("status")
-    AdminStatus startSelection(@FormData("selection") GameSelectionForm form) {
+    Class<?> startSelection(@FormData("selection") GameSelectionForm form, ToastMessages toastMessages) {
         gameStateService.resetToSelection(form.getSetupId(), form.selectedLandscapeModelId());
-        return currentStatus("Spiel gestartet.");
+        toastMessages.show("Spiel gestartet.", ToastLevel.SUCCESS);
+        return SeaBattleAdminPage.class;
     }
 
     @Action("deleteLandscape")
-    @ModelData("status")
-    AdminStatus deleteLandscape(@ActionParameter("modelId") String modelId) {
+    Class<?> deleteLandscape(@ActionParameter("modelId") String modelId, ToastMessages toastMessages) {
         boolean wasActiveLandscape = modelId != null && modelId.equals(gameStateService.landscapeModelId());
         if (wasActiveLandscape) {
-            return currentStatus("Aktive Landschaft kann nicht gelöscht werden.");
+            toastMessages.show("Aktive Landschaft kann nicht gelöscht werden.", ToastLevel.WARNING);
+            return SeaBattleAdminPage.class;
         }
         boolean deleted = landscapeModelService.delete(modelId);
         if (deleted) {
-            return currentStatus("Landschaft gelöscht.");
+            toastMessages.show("Landschaft gelöscht.", ToastLevel.SUCCESS);
+        } else {
+            toastMessages.show("Landschaft nicht gefunden.", ToastLevel.WARNING);
         }
-        return currentStatus("Landschaft nicht gefunden.");
+        return SeaBattleAdminPage.class;
     }
 
     private AdminStatus currentStatus(String message) {
