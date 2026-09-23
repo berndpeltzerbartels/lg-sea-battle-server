@@ -42,6 +42,7 @@ public class GameStateService {
     private String landscapeModelId;
     private String landscapeModelName;
     private WorldMap landscapeWorldMap;
+    private List<Vector2> landscapeRespawnCandidates = List.of();
     private long tickMetricsStartedAtNanos = System.nanoTime();
     private long measuredTicks;
     private double measuredTickMillisTotal;
@@ -74,7 +75,9 @@ public class GameStateService {
                 landscapeModelId = model.id();
                 landscapeModelName = model.name();
                 landscapeWorldMap = model.worldMap();
-                return new GameSession(setupFactory.customLandscapeSetup(setupId, model.id(), model.worldMap(), List.copyOf(requestedTeamIds)));
+                landscapeRespawnCandidates = model.respawnCandidates();
+                return new GameSession(setupFactory.customLandscapeSetup(setupId, model.id(), model.worldMap(),
+                        landscapeRespawnCandidates, List.copyOf(requestedTeamIds)));
             }
             gameSelectionService.clearLandscapeModelId();
         }
@@ -306,6 +309,7 @@ public class GameStateService {
             landscapeModelId = model == null ? null : model.id();
             landscapeModelName = model == null ? null : model.name();
             landscapeWorldMap = model == null ? null : model.worldMap();
+            landscapeRespawnCandidates = model == null ? List.of() : model.respawnCandidates();
             scenarioSetupActive = false;
             requestedTeamIds.clear();
             gameSelectionService.rememberSetupId(setupId);
@@ -327,6 +331,7 @@ public class GameStateService {
             landscapeModelId = model.id();
             landscapeModelName = model.name();
             landscapeWorldMap = model.worldMap();
+            landscapeRespawnCandidates = model.respawnCandidates();
             scenarioSetupActive = false;
             requestedTeamIds.clear();
             gameSelectionService.rememberLandscapeModelId(model.id());
@@ -343,6 +348,7 @@ public class GameStateService {
             landscapeModelId = null;
             landscapeModelName = null;
             landscapeWorldMap = null;
+            landscapeRespawnCandidates = List.of();
             scenarioSetupActive = false;
             requestedTeamIds.clear();
             gameSelectionService.clearLandscapeModelId();
@@ -387,7 +393,8 @@ public class GameStateService {
     private GameSetup currentSelectedSetup() {
         return landscapeWorldMap == null
                 ? setupFactory.setup(setupId, List.copyOf(requestedTeamIds))
-                : setupFactory.customLandscapeSetup(setupId, landscapeModelId, landscapeWorldMap, List.copyOf(requestedTeamIds));
+                : setupFactory.customLandscapeSetup(setupId, landscapeModelId, landscapeWorldMap,
+                landscapeRespawnCandidates, List.copyOf(requestedTeamIds));
     }
 
     private SessionView captureSessionView() {

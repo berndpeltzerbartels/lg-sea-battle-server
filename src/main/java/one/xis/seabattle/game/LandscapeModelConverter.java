@@ -5,8 +5,10 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 class LandscapeModelConverter {
@@ -19,10 +21,13 @@ class LandscapeModelConverter {
         if (islands.isEmpty()) {
             throw new IllegalArgumentException("Die Landschaft enthält keine Inseln.");
         }
-        List<Landmass> landmasses = islands.asList().stream()
+        List<JsonObject> islandObjects = islands.asList().stream()
                 .filter(JsonElement::isJsonObject)
                 .map(JsonElement::getAsJsonObject)
-                .map(this::convertIsland)
+                .toList();
+        Map<String, Map<String, Double>> plateauHeights = plateauHeightsByIslandId(islandObjects);
+        List<Landmass> landmasses = islandObjects.stream()
+                .map(island -> convertIsland(island, plateauHeights))
                 .toList();
         List<MapObject> mapObjects = mapObjects(root, islands);
         int version = Math.max(10_000, Math.floorMod(root.toString().hashCode(), 90_000));
@@ -83,7 +88,7 @@ class LandscapeModelConverter {
         };
     }
 
-    private Landmass convertIsland(JsonObject island) {
+    private Landmass convertIsland(JsonObject island, Map<String, Map<String, Double>> plateauHeights) {
         JsonArray polygon = arrayValue(island, "polygon");
         Bounds bounds = bounds(polygon);
         double centerX = bounds.centerX();
@@ -92,6 +97,10 @@ class LandscapeModelConverter {
         double rz = Math.max(MIN_LAND_RADIUS, bounds.depth() * 0.5);
         double authoredPeak = peakHeight(island);
         double seaFloorHeight = numberValue(island, "seaFloorHeight").orElse(DEFAULT_SEA_FLOOR_HEIGHT);
+        String baseLevel = normalizedBaseLevel(stringValue(island, "baseLevel").orElse("seaFloor"));
+        String baseLandmassId = stringValue(island, "baseLandmassId").orElse(null);
+        String basePlateauGroupId = stringValue(island, "basePlateauGroupId").orElse(null);
+        double baseHeight = terrainBaseHeight(baseLevel, baseLandmassId, basePlateauGroupId, seaFloorHeight, plateauHeights);
         double aboveSeaHeight = Math.max(0, authoredPeak);
         double heightScale = clamp(0.55, 3.0, 0.7 + aboveSeaHeight / 2200.0);
         Double peakBoost = aboveSeaHeight > 90 ? clamp(0, 220, aboveSeaHeight / 26.0) : null;
@@ -127,9 +136,57 @@ class LandscapeModelConverter {
                 authoredPolygon,
                 authoredHeightPoints,
                 seaFloorHeight,
+                baseHeight,
+                baseLevel,
+                baseLandmassId,
+                basePlateauGroupId,
                 material,
                 materialZones
         );
+    }
+
+    private Map<String, Map<String, Double>> plateauHeightsByIslandId(List<JsonObject> islands) {
+        Map<String, Map<String, DoubleAccumulator>> accumulators = new LinkedHashMap<>();
+        for (JsonObject island : islands) {
+            String id = stringValue(island, "id").orElse(null);
+            if (id == null || id.isBlank()) {
+                continue;
+            }
+            Map<String, DoubleAccumulator> islandAccumulators = accumulators.computeIfAbsent(id, ignored -> new LinkedHashMap<>());
+            for (JsonElement element : arrayValue(island, "heights")) {
+                if (!element.isJsonObject()) {
+                    continue;
+                }
+                JsonObject point = element.getAsJsonObject();
+                String plateauGroupId = stringValue(point, "plateauGroupId").orElse(null);
+                if (plateauGroupId == null || plateauGroupId.isBlank()) {
+                    continue;
+                }
+                islandAccumulators
+                        .computeIfAbsent(plateauGroupId, ignored -> new DoubleAccumulator())
+                        .add(clamp(-500, 8000, numberValue(point, "h").orElse(0.0)));
+            }
+        }
+        Map<String, Map<String, Double>> result = new LinkedHashMap<>();
+        accumulators.forEach((islandId, groups) -> {
+            Map<String, Double> heights = new LinkedHashMap<>();
+            groups.forEach((groupId, accumulator) -> heights.put(groupId, accumulator.average()));
+            result.put(islandId, heights);
+        });
+        return result;
+    }
+
+    private double terrainBaseHeight(String baseLevel, String baseLandmassId, String basePlateauGroupId,
+                                     double seaFloorHeight, Map<String, Map<String, Double>> plateauHeights) {
+        if ("plateau".equals(baseLevel)) {
+            return Optional.ofNullable(plateauHeights.get(baseLandmassId))
+                    .map(groups -> groups.get(basePlateauGroupId))
+                    .orElse(0.1);
+        }
+        if ("beach".equals(baseLevel)) {
+            return 0.1;
+        }
+        return seaFloorHeight;
     }
 
     private boolean touchesWorldEdge(JsonObject island) {
@@ -192,8 +249,22 @@ class LandscapeModelConverter {
                         numberValue(point, "z").orElse(0.0),
                         clamp(-500, 8000, numberValue(point, "h").orElse(0.0)),
                         clamp(20, 5000, numberValue(point, "radius").orElse(160.0)),
-                        normalizedFalloff(stringValue(point, "falloff").orElse("spike"))
+                        normalizedFalloff(stringValue(point, "falloff").orElse("spike")),
+                        basePointIndexes(arrayValue(point, "basePointIndexes")),
+                        stringValue(point, "plateauGroupId").orElse(null),
+                        stringValue(point, "basePlateauGroupId").orElse(null),
+                        integerValue(point.get("plateauOrder")).orElse(null)
                 ))
+                .toList();
+    }
+
+    private List<Integer> basePointIndexes(JsonArray indexes) {
+        return indexes.asList().stream()
+                .map(this::integerValue)
+                .flatMap(Optional::stream)
+                .filter(index -> index >= 0)
+                .distinct()
+                .sorted()
                 .toList();
     }
 
@@ -226,6 +297,14 @@ class LandscapeModelConverter {
         };
     }
 
+    private String normalizedBaseLevel(String value) {
+        String baseLevel = value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+        return switch (baseLevel) {
+            case "beach", "plateau" -> baseLevel;
+            default -> "seaFloor";
+        };
+    }
+
     private JsonArray arrayValue(JsonObject object, String property) {
         JsonElement element = object.get(property);
         return element != null && element.isJsonArray() ? element.getAsJsonArray() : new JsonArray();
@@ -246,6 +325,17 @@ class LandscapeModelConverter {
         }
         try {
             return Optional.of(element.getAsDouble());
+        } catch (RuntimeException ignored) {
+            return Optional.empty();
+        }
+    }
+
+    private Optional<Integer> integerValue(JsonElement element) {
+        if (element == null || element.isJsonNull()) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(element.getAsInt());
         } catch (RuntimeException ignored) {
             return Optional.empty();
         }
@@ -277,6 +367,20 @@ class LandscapeModelConverter {
 
         double depth() {
             return maxZ - minZ;
+        }
+    }
+
+    private static final class DoubleAccumulator {
+        private double sum;
+        private int count;
+
+        void add(double value) {
+            sum += value;
+            count += 1;
+        }
+
+        double average() {
+            return count == 0 ? 0 : sum / count;
         }
     }
 }

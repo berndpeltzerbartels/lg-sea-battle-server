@@ -146,11 +146,6 @@
             transform: translateY(1px);
         }
 
-        button.is-busy {
-            opacity: 0.72;
-            cursor: wait;
-        }
-
         .link-button {
             display: inline-grid;
             place-items: center;
@@ -417,8 +412,7 @@
             <xis:form binding="upload">
                 <label class="field-label" for="landscapeFile">Editor-JSON hochladen</label>
                 <input id="landscapeFile" type="file" accept="application/json,.json" xis:binding="landscapeFile"/>
-                <button type="submit" xis:action="uploadLandscape"
-                        onclick="this.classList.add('is-busy'); this.textContent='Lädt...';">Hochladen</button>
+                <button type="submit" xis:action="uploadLandscape">Hochladen</button>
             </xis:form>
         </div>
     </section>
@@ -463,6 +457,10 @@
                             <div class="tile-row">
                                 <dt class="meta-label">Landmassen</dt>
                                 <dd>${model.landmassCount}</dd>
+                            </div>
+                            <div class="tile-row">
+                                <dt class="meta-label">Exportiert</dt>
+                                <dd>${model.createdAtDisplay}</dd>
                             </div>
                         </dl>
                         <div class="tile-actions">
@@ -528,8 +526,7 @@
         </section>
 
         <div class="selection-actions">
-            <button type="submit" xis:action="startSelection"
-                    onclick="this.classList.add('is-busy'); this.textContent='Startet...';">Starten</button>
+            <button type="submit" xis:action="startSelection">Starten</button>
         </div>
     </xis:form>
 

@@ -12,10 +12,13 @@ import one.xis.seabattle.game.GameStateService;
 import one.xis.seabattle.game.LandscapeModelService;
 
 import java.util.List;
+import java.time.format.DateTimeFormatter;
 
 @Page("/admin.html")
 @Roles({"ADMIN", "admin"})
 public class SeaBattleAdminPage {
+
+    private static final DateTimeFormatter LANDSCAPE_DATE_FORMAT = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
 
     private final LandscapeModelService landscapeModelService;
     private final GameStateService gameStateService;
@@ -45,6 +48,7 @@ public class SeaBattleAdminPage {
                         model.sourceFormat(),
                         model.landmassCount(),
                         model.createdAt(),
+                        model.createdAt().format(LANDSCAPE_DATE_FORMAT),
                         model.id().equals(activeLandscapeId),
                         !model.id().equals(activeLandscapeId)
                 ))
@@ -123,7 +127,8 @@ public class SeaBattleAdminPage {
     }
 
     public record LandscapeOption(String id, String name, String sourceFormat, int landmassCount,
-                                  java.time.LocalDateTime createdAt, boolean selected, boolean deletable) {
+                                  java.time.LocalDateTime createdAt, String createdAtDisplay,
+                                  boolean selected, boolean deletable) {
     }
 
     public record GameSetupOption(String id, String label, boolean selected) {

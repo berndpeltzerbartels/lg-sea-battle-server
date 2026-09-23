@@ -4,6 +4,8 @@ import one.xis.UploadedFile;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -21,15 +23,17 @@ class LandscapeModelServiceTest {
 
     @Test
     void uploadedEditorLandscapeCanRestartGameSession() {
-        LandscapeModelService service = new LandscapeModelService(new MemoryLandscapeRepository());
+        MemoryLandscapeRepository repository = new MemoryLandscapeRepository();
+        LandscapeModelService service = new LandscapeModelService(repository);
         LandscapeModelService.LandscapeModelSummary summary = service.saveUpload(new UploadedFile(
                 "landscapeFile",
                 "fjord.json",
                 "application/json",
                 """
                         {
-                          "format": "game-landscape-designer.v1",
+                          "format": "game-landscape-designer.v2",
                           "name": "Test Fjord",
+                          "createdAt": "2026-09-22T18:30:00.000Z",
                           "islands": [
                             {
                               "id": "north",
@@ -77,6 +81,8 @@ class LandscapeModelServiceTest {
         gameStateService.resetToLandscapeModel(summary.id());
 
         assertEquals("Test Fjord", summary.name());
+        assertEquals(OffsetDateTime.parse("2026-09-22T18:30:00.000Z")
+                .atZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime(), summary.createdAt());
         assertEquals(1, summary.landmassCount());
         assertEquals(summary.id(), gameStateService.landscapeModelId());
         assertEquals("Test Fjord", gameStateService.landscapeModelName());
@@ -94,6 +100,12 @@ class LandscapeModelServiceTest {
         assertEquals(4500, worldMap.landmasses().get(0).heightPoints().get(0).h());
         assertEquals(1800, worldMap.landmasses().get(0).heightPoints().get(0).radius());
         assertEquals("plateau", worldMap.landmasses().get(0).heightPoints().get(0).falloff());
+        LandscapeModelEntity entity = repository.findById(summary.id()).orElseThrow();
+        assertNotNull(entity.getRespawnCandidatesJson());
+        assertTrue(entity.getRespawnCandidatesJson().contains("\"x\""));
+        assertFalse(service.find(summary.id()).orElseThrow().respawnCandidates().isEmpty());
+        assertEquals(service.find(summary.id()), new LandscapeModelService(repository).find(summary.id()));
+        assertEquals(1, repository.saveCount);
         assertTrue(LandGeometry.maxTerrainHeight(worldMap) >= 4500);
         assertTrue(LandGeometry.terrainHeightAt(new Vector2(20, 10), worldMap) >= 4500);
         assertNotNull(gameStateService.snapshot());
@@ -102,16 +114,16 @@ class LandscapeModelServiceTest {
     }
 
     @Test
-    void storedLandscapeIsReconvertedFromOriginalJsonSoLandmarkYStaysAuthoritative() {
+    void legacyLandscapeIsPreparedAndPersistedOnce() {
         MemoryLandscapeRepository repository = new MemoryLandscapeRepository();
         LandscapeModelService service = new LandscapeModelService(repository);
         repository.save(new LandscapeModelEntity(
                 "stale-world-map",
                 "Reconvert Me",
-                "game-landscape-designer.v1",
+                "game-landscape-designer.v2",
                 """
                         {
-                          "format": "game-landscape-designer.v1",
+                          "format": "game-landscape-designer.v2",
                           "name": "Reconvert Me",
                           "islands": [
                             {
@@ -143,13 +155,67 @@ class LandscapeModelServiceTest {
                           ]
                         }
                         """,
+                null,
                 LocalDateTime.now()
         ));
 
-        WorldMap worldMap = service.find("stale-world-map").orElseThrow().worldMap();
+        var model = service.find("stale-world-map").orElseThrow();
+        assertEquals(1, model.worldMap().landmasses().size());
+        assertFalse(model.respawnCandidates().isEmpty());
+        assertEquals(2, repository.saveCount);
+        var reloaded = new LandscapeModelService(repository).find("stale-world-map").orElseThrow();
+        assertEquals(model, reloaded);
+        assertEquals(2, repository.saveCount);
+    }
 
-        assertEquals(1, worldMap.mapObjects().size());
-        assertEquals(360, worldMap.mapObjects().get(0).y());
+    @Test
+    void persistedPreparationSurvivesRestartAndListingWithoutRebuilding() {
+        MemoryLandscapeRepository repository = preparedRepository();
+        var before = new LandscapeModelService(repository).find("fixture").orElseThrow();
+        assertEquals(2, repository.saveCount);
+        var restarted = new LandscapeModelService(repository);
+        assertEquals(1, restarted.summaries().get(0).landmassCount());
+        assertEquals(before, restarted.find("fixture").orElseThrow());
+        assertEquals(2, repository.saveCount);
+    }
+
+    @Test
+    void outdatedOrDamagedPreparationIsRebuiltFromOriginal() {
+        for (String damage : List.of("version", "source", "map", "respawn", "invalid-json")) {
+            MemoryLandscapeRepository repository = preparedRepository();
+            var expected = new LandscapeModelService(repository).find("fixture").orElseThrow();
+            var row = repository.findById("fixture").orElseThrow();
+            var stored = com.google.gson.JsonParser.parseString(row.getWorldMapJson()).getAsJsonObject();
+            switch (damage) {
+                case "version" -> stored.getAsJsonObject("preparation").addProperty("version", -1);
+                case "source" -> row.setOriginalJson(row.getOriginalJson().replace("120", "180"));
+                case "map" -> stored.add("landmasses", new com.google.gson.JsonArray());
+                case "respawn" -> row.setRespawnCandidatesJson("[]");
+                default -> { }
+            }
+            row.setWorldMapJson(damage.equals("invalid-json") ? "broken" : stored.toString());
+            var rebuilt = new LandscapeModelService(repository).find("fixture").orElseThrow();
+            assertEquals(3, repository.saveCount, damage);
+            if (damage.equals("source")) {
+                assertEquals(180, rebuilt.worldMap().landmasses().get(0).heightPoints().get(0).h());
+            } else {
+                assertEquals(expected, rebuilt, damage);
+            }
+            assertEquals(rebuilt, new LandscapeModelService(repository).find("fixture").orElseThrow());
+            assertEquals(3, repository.saveCount, damage);
+        }
+    }
+
+    private MemoryLandscapeRepository preparedRepository() {
+        MemoryLandscapeRepository repository = new MemoryLandscapeRepository();
+        repository.save(new LandscapeModelEntity("fixture", "Fixture", "game-landscape-designer.v2", """
+                {"format":"game-landscape-designer.v2","islands":[{
+                  "id":"hill","polygon":[{"x":-100,"z":-100},{"x":100,"z":-100},
+                    {"x":100,"z":100},{"x":-100,"z":100}],
+                  "heights":[{"x":0,"z":0,"h":120}]
+                }]}
+                """, "{}", null, LocalDateTime.now()));
+        return repository;
     }
 
     @Test
@@ -162,7 +228,7 @@ class LandscapeModelServiceTest {
                 "application/json",
                 """
                         {
-                          "format": "game-landscape-designer.v1",
+                          "format": "game-landscape-designer.v2",
                           "name": "Persisted Test",
                           "islands": [
                             {
@@ -279,6 +345,92 @@ class LandscapeModelServiceTest {
     }
 
     @Test
+    void multipleAuthoredPeaksKeepTheirOwnFootprintsWithoutInventingAnotherPeak() {
+        Landmass landmass = new Landmass(
+                "island",
+                "two_peaks",
+                0,
+                0,
+                600,
+                600,
+                600,
+                600,
+                600,
+                600,
+                null,
+                1,
+                null,
+                null,
+                null,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(
+                        new Point2(-600, -600),
+                        new Point2(600, -600),
+                        new Point2(600, 600),
+                        new Point2(-600, 600)
+                ),
+                List.of(
+                        new HeightPoint(-220, 0, 120, 300, "hill"),
+                        new HeightPoint(220, 0, 120, 300, "hill")
+                ),
+                -80
+        );
+        WorldMap worldMap = new WorldMap(1, List.of(landmass));
+
+        assertEquals(120, LandGeometry.terrainHeightAt(new Vector2(-220, 0), worldMap), 0.001);
+        assertEquals(120, LandGeometry.terrainHeightAt(new Vector2(220, 0), worldMap), 0.001);
+        assertTrue(LandGeometry.terrainHeightAt(new Vector2(0, 0), worldMap) < 120);
+        for (int x = -550; x <= 550; x += 25) {
+            assertTrue(LandGeometry.terrainHeightAt(new Vector2(x, 0), worldMap) <= 120.001);
+        }
+    }
+
+    @Test
+    void authoredPeakOnPlateauUsesPlateauFootprintForCollisionHeight() {
+        Landmass landmass = new Landmass(
+                "island",
+                "plateau_peak",
+                0,
+                0,
+                500,
+                500,
+                500,
+                500,
+                500,
+                500,
+                null,
+                1,
+                null,
+                null,
+                null,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(
+                        new Point2(-500, -500),
+                        new Point2(500, -500),
+                        new Point2(500, 500),
+                        new Point2(-500, 500)
+                ),
+                List.of(
+                        new HeightPoint(-260, -220, 10, 260, "plateau", List.of(), "beach-flat", null),
+                        new HeightPoint(260, -220, 10, 260, "plateau", List.of(), "beach-flat", null),
+                        new HeightPoint(260, 220, 10, 260, "plateau", List.of(), "beach-flat", null),
+                        new HeightPoint(-260, 220, 10, 260, "plateau", List.of(), "beach-flat", null),
+                        new HeightPoint(0, 0, 160, 40, "hill", List.of(), null, "beach-flat")
+                ),
+                -90
+        );
+        WorldMap worldMap = new WorldMap(1, List.of(landmass));
+
+        assertEquals(160, LandGeometry.terrainHeightAt(new Vector2(0, 0), worldMap), 0.001);
+        assertTrue(LandGeometry.terrainHeightAt(new Vector2(200, 0), worldMap) > 20);
+        assertTrue(LandGeometry.isBlocked(new Vector2(200, 0), worldMap));
+    }
+
+    @Test
     void authoredTerrainOnlyBlocksWhereItRisesAboveSeaLevel() {
         Landmass landmass = new Landmass(
                 "island",
@@ -352,8 +504,77 @@ class LandscapeModelServiceTest {
         assertFalse(LandGeometry.isBlocked(new Vector2(485, 485), worldMap));
     }
 
+    @Test
+    void uploadedEditorLandscapeKeepsPlateauAsIslandBase() {
+        LandscapeModelService service = new LandscapeModelService(new MemoryLandscapeRepository());
+        LandscapeModelService.LandscapeModelSummary summary = service.saveUpload(new UploadedFile(
+                "landscapeFile",
+                "plateau-island.json",
+                "application/json",
+                """
+                        {
+                          "format": "game-landscape-designer.v2",
+                          "name": "Plateau Island",
+                          "islands": [
+                            {
+                              "id": "sandbank",
+                              "name": "Sandbank",
+                              "material": "sand",
+                              "seaFloorHeight": -80,
+                              "polygon": [
+                                { "x": -400, "z": -360 },
+                                { "x": 420, "z": -340 },
+                                { "x": 430, "z": 360 },
+                                { "x": -390, "z": 380 }
+                              ],
+                              "heights": [
+                                { "x": -220, "z": -180, "h": 10, "radius": 260, "falloff": "plateau", "plateauGroupId": "beach-flat", "plateauOrder": 0 },
+                                { "x": 240, "z": -170, "h": 10, "radius": 260, "falloff": "plateau", "plateauGroupId": "beach-flat", "plateauOrder": 1 },
+                                { "x": 230, "z": 210, "h": 10, "radius": 260, "falloff": "plateau", "plateauGroupId": "beach-flat", "plateauOrder": 2 },
+                                { "x": -230, "z": 190, "h": 10, "radius": 260, "falloff": "plateau", "plateauGroupId": "beach-flat", "plateauOrder": 3 }
+                              ]
+                            },
+                            {
+                              "id": "hill",
+                              "name": "Hill",
+                              "baseLevel": "plateau",
+                              "baseLandmassId": "sandbank",
+                              "basePlateauGroupId": "beach-flat",
+                              "seaFloorHeight": -80,
+                              "polygon": [
+                                { "x": -120, "z": -110 },
+                                { "x": 130, "z": -100 },
+                                { "x": 140, "z": 120 },
+                                { "x": -130, "z": 110 }
+                              ],
+                              "heights": [
+                                { "x": 0, "z": 0, "h": 160, "radius": 180, "falloff": "hill" }
+                              ]
+                            }
+                          ]
+                        }
+                        """.getBytes(StandardCharsets.UTF_8)
+        ));
+
+        WorldMap worldMap = service.find(summary.id()).orElseThrow().worldMap();
+        Landmass sandbank = worldMap.landmasses().get(0);
+        Landmass hill = worldMap.landmasses().get(1);
+
+        assertEquals("sand", sandbank.material());
+        assertEquals("beach-flat", sandbank.heightPoints().get(0).plateauGroupId());
+        assertEquals(0, sandbank.heightPoints().get(0).plateauOrder());
+        assertEquals(3, sandbank.heightPoints().get(3).plateauOrder());
+        assertEquals("plateau", hill.baseLevel());
+        assertEquals("sandbank", hill.baseLandmassId());
+        assertEquals("beach-flat", hill.basePlateauGroupId());
+        assertEquals(10, hill.baseHeight(), 0.001);
+        assertTrue(LandGeometry.terrainHeightAt(new Vector2(0, 0), worldMap) >= 150);
+        assertEquals(10, LandGeometry.terrainHeightAt(new Vector2(125, 105), worldMap), 1.5);
+    }
+
     private static class MemoryLandscapeRepository implements LandscapeModelRepository {
         private final Map<String, LandscapeModelEntity> rows = new LinkedHashMap<>();
+        private int saveCount;
 
         @Override
         public List<LandscapeModelEntity> findAllNewestFirst() {
@@ -374,6 +595,7 @@ class LandscapeModelServiceTest {
 
         @Override
         public LandscapeModelEntity save(LandscapeModelEntity entity) {
+            saveCount++;
             rows.put(entity.getId(), entity);
             return entity;
         }

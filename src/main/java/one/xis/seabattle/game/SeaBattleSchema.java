@@ -107,4 +107,10 @@ class SeaBattleSchema {
         properties.addColumn("id").varchar(80).notNull().primaryKey();
         properties.addColumn("property_value").text();
     }
+
+    @Change("011-add-landscape-respawn-candidates")
+    void addLandscapeRespawnCandidates(DDL ddl) {
+        ddl.alterTable("landscape_models")
+                .addColumn("respawn_candidates_json").text();
+    }
 }

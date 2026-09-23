@@ -17,5 +17,6 @@ class LandscapeModelEntity {
     String sourceFormat;
     String originalJson;
     String worldMapJson;
+    String respawnCandidatesJson;
     LocalDateTime createdAt;
 }

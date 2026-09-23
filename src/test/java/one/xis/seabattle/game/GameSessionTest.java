@@ -3999,6 +3999,64 @@ class GameSessionTest {
     }
 
     @Test
+    void customLandscapeGeneratesRespawnCandidatesAndStartPositionsFromNavigableWater() {
+        WorldMap worldMap = new WorldMap(9042, List.of(
+                rectangularTestLandmass("west", -700, -240, -360, 240),
+                rectangularTestLandmass("east", 360, -240, 700, 240)
+        ));
+
+        GameSetup setup = new DefaultGameSetupFactory(new WorldMapService())
+                .customLandscapeSetup("default", "generated-respawns-test", worldMap, List.of());
+
+        assertTrue(setup.respawnCandidates().size() >= 64);
+        assertTrue(setup.respawnCandidates().stream()
+                .allMatch(candidate -> candidate.x() >= -1500 && candidate.x() <= 1500
+                        && candidate.z() >= -1500 && candidate.z() <= 1500));
+        assertSetupPlacesShipsAndRespawnsInNavigableWater(setup);
+        assertTrue(setup.fleets().stream()
+                        .flatMap(fleet -> fleet.ships().stream())
+                        .map(ShipSetup::position)
+                        .allMatch(position -> setup.respawnCandidates().contains(position)),
+                "Custom landscape start positions should come from generated water candidates");
+    }
+
+    @Test
+    void customLandscapeWithoutLandStillGeneratesRespawnCandidatesAndStartPositions() {
+        GameSetup setup = new DefaultGameSetupFactory(new WorldMapService())
+                .customLandscapeSetup("default", "open-water-generated-respawns-test",
+                        new WorldMap(9043, List.of()), List.of());
+
+        assertTrue(setup.respawnCandidates().size() >= 64);
+        assertTrue(coordinateSpan(setup.respawnCandidates(), true) >= 1800);
+        assertTrue(coordinateSpan(setup.respawnCandidates(), false) >= 1800);
+        assertSetupPlacesShipsAndRespawnsInNavigableWater(setup);
+        assertTrue(setup.fleets().stream()
+                        .flatMap(fleet -> fleet.ships().stream())
+                        .map(ShipSetup::position)
+                        .allMatch(position -> setup.respawnCandidates().contains(position)),
+                "Open-water custom landscape start positions should come from generated water candidates");
+    }
+
+    @Test
+    void customLandscapeWithOneSmallIslandGrowsRespawnAreaAroundThatIsland() {
+        WorldMap worldMap = new WorldMap(9044, List.of(
+                rectangularTestLandmass("tiny", 2420, -80, 2580, 80)
+        ));
+
+        GameSetup setup = new DefaultGameSetupFactory(new WorldMapService())
+                .customLandscapeSetup("default", "single-small-island-generated-respawns-test", worldMap, List.of());
+
+        assertTrue(setup.respawnCandidates().size() >= 64);
+        assertTrue(coordinateSpan(setup.respawnCandidates(), true) >= 1800);
+        assertTrue(coordinateSpan(setup.respawnCandidates(), false) >= 1800);
+        assertTrue(setup.respawnCandidates().stream()
+                .allMatch(candidate -> candidate.x() > 1000 && candidate.x() < 4000));
+        assertTrue(setup.respawnCandidates().stream()
+                .anyMatch(candidate -> Math.abs(candidate.x() - 2500) < 700));
+        assertSetupPlacesShipsAndRespawnsInNavigableWater(setup);
+    }
+
+    @Test
     void denseLandBotBoatsKeepMovingAndFiringAfterScaleChange() {
         GameSession session = new GameSession(new DefaultGameSetupFactory(new WorldMapService()).setup("dense-land"));
 
@@ -4687,6 +4745,49 @@ class GameSessionTest {
                 .forEach(blockedPositions::add);
 
         assertTrue(blockedPositions.isEmpty(), String.join("\n", blockedPositions));
+    }
+
+    private double coordinateSpan(List<Vector2> positions, boolean xAxis) {
+        double minimum = positions.stream()
+                .mapToDouble(position -> xAxis ? position.x() : position.z())
+                .min()
+                .orElse(0);
+        double maximum = positions.stream()
+                .mapToDouble(position -> xAxis ? position.x() : position.z())
+                .max()
+                .orElse(0);
+        return maximum - minimum;
+    }
+
+    private static Landmass rectangularTestLandmass(String name, double minX, double minZ, double maxX, double maxZ) {
+        return new Landmass(
+                "island",
+                name,
+                0,
+                0,
+                (maxX - minX) * 0.5,
+                (maxZ - minZ) * 0.5,
+                (maxX - minX) * 0.5,
+                (maxZ - minZ) * 0.5,
+                (maxX - minX) * 0.5,
+                (maxZ - minZ) * 0.5,
+                null,
+                1,
+                null,
+                null,
+                null,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(
+                        new Point2(minX, minZ),
+                        new Point2(maxX, minZ),
+                        new Point2(maxX, maxZ),
+                        new Point2(minX, maxZ)
+                ),
+                List.of(new HeightPoint((minX + maxX) * 0.5, (minZ + maxZ) * 0.5, 120, 420, "smooth")),
+                -80
+        );
     }
 
     private void assertActiveShipsNavigable(String label, GameSnapshot snapshot, WorldMap worldMap) {

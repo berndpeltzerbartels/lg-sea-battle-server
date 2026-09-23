@@ -9,8 +9,10 @@ final class LandGeometry {
     private static final double ISLAND_NAVIGATION_BLOCK_DISTANCE = 1.02;
     private static final double STEEP_ROCK_BLOCK_DISTANCE = 1.0;
     private static final int AUTHORED_COASTLINE_SMOOTHING_ITERATIONS = 2;
+    private static final int AUTHORED_PLATEAU_SMOOTHING_ITERATIONS = 1;
     private static final double AUTHORED_HEIGHT_FIELD_CELL_SIZE = 16.0;
     private static final int AUTHORED_HEIGHT_FIELD_MAX_CELLS = 2_000_000;
+    private static final double AUTHORED_HEIGHT_FIELD_EXACT_CHECK_MARGIN = 80.0;
 
     private LandGeometry() {
     }
@@ -106,7 +108,17 @@ final class LandGeometry {
                                               double minimumTerrainHeight) {
         Landmass landmass = collisionLandmass.landmass();
         if (hasAuthoredGeometry(landmass)) {
-            return authoredTerrainHeightAt(position, collisionLandmass) >= minimumTerrainHeight
+            if (!pointInPolygon(position, collisionLandmass.authoredCoastline())) {
+                return false;
+            }
+            double sampledHeight = authoredTerrainHeightAt(position, collisionLandmass);
+            if (sampledHeight >= minimumTerrainHeight + AUTHORED_HEIGHT_FIELD_EXACT_CHECK_MARGIN) {
+                return !isInLandWater(position, landmass);
+            }
+            if (sampledHeight < minimumTerrainHeight - AUTHORED_HEIGHT_FIELD_EXACT_CHECK_MARGIN) {
+                return false;
+            }
+            return authoredTerrainHeightAt(position, landmass, collisionLandmass.authoredCoastline()) >= minimumTerrainHeight
                     && !isInLandWater(position, landmass);
         }
         if (minimumTerrainHeight <= 0) {
@@ -204,44 +216,193 @@ final class LandGeometry {
         }
         List<HeightPoint> heightPoints = landmass.heightPoints();
         if (heightPoints.isEmpty()) {
-            return seaFloorHeight(landmass);
+            return terrainBaseHeight(landmass);
         }
-        if (heightPoints.size() == 1) {
-            HeightPoint peak = heightPoints.get(0);
-            double floor = seaFloorHeight(landmass);
-            double distance = Math.hypot(position.x() - peak.x(), position.z() - peak.z());
-            if (distance >= peak.radius()) {
-                return floor;
-            }
-            return floor + (peak.h() - floor) * falloffHeightMultiplier(distance / peak.radius(), peak.falloff());
+        Plateau plateau = plateauAt(position, landmass);
+        if (plateau != null) {
+            return stackedPlateauHeightAt(position, landmass, plateau);
         }
-
-        double total = 0;
-        double weightTotal = 0;
-        double floor = seaFloorHeight(landmass);
-        for (Point2 point : coastline) {
-            double distance = Math.hypot(position.x() - point.x(), position.z() - point.z());
-            if (distance < 0.001) {
-                return floor;
-            }
-            double d = Math.max(24, distance);
-            double weight = 3 / (d * d);
-            total += floor * weight;
-            weightTotal += weight;
-        }
+        double height = terrainBaseHeight(landmass);
         for (HeightPoint point : heightPoints) {
-            double distance = Math.hypot(position.x() - point.x(), position.z() - point.z());
-            if (distance < 0.001) {
-                return point.h();
+            if (point.plateauGroupId() != null) {
+                continue;
             }
-            double radius = Math.max(20, point.radius());
-            double d = Math.max(radius * 0.16, distance);
-            double shape = falloffWeightMultiplier(distance / radius, point.falloff());
-            double weight = shape * Math.max(0.25, radius / 160.0) / (d * d);
-            total += point.h() * weight;
-            weightTotal += weight;
+            HeightBase base = heightPointBase(landmass, point, landmass.polygon());
+            Double contribution = heightFromBasePolygon(position, point, base);
+            if (contribution != null) {
+                height = Math.max(height, contribution);
+            }
         }
-        return weightTotal == 0 ? floor : total / weightTotal;
+        return height;
+    }
+
+    private static double terrainBaseHeight(Landmass landmass) {
+        return Math.max(seaFloorHeight(landmass), Math.min(8000, landmass.baseHeight()));
+    }
+
+    private static double stackedPlateauHeightAt(Vector2 position, Landmass landmass, Plateau plateau) {
+        double height = plateau.height();
+        for (HeightPoint point : landmass.heightPoints()) {
+            if (!plateau.id().equals(point.basePlateauGroupId())) {
+                continue;
+            }
+            HeightBase base = heightPointBase(landmass, point, plateau.polygon());
+            Double contribution = heightFromBasePolygon(position, point, base);
+            if (contribution != null) {
+                height = Math.max(height, contribution);
+            }
+        }
+        return height;
+    }
+
+    private static HeightBase heightPointBase(Landmass landmass, HeightPoint point, List<Point2> defaultBoundary) {
+        List<Integer> baseIndexes = point.basePointIndexes().stream()
+                .filter(index -> index >= 0 && index < landmass.polygon().size())
+                .toList();
+        if (baseIndexes.size() >= 3) {
+            return new HeightBase(
+                    baseIndexes.stream().map(landmass.polygon()::get).toList(),
+                    terrainBaseHeight(landmass)
+            );
+        }
+        if (point.basePlateauGroupId() != null) {
+            for (Plateau plateau : plateausForLandmass(landmass)) {
+                if (point.basePlateauGroupId().equals(plateau.id())) {
+                    return new HeightBase(plateau.polygon(), plateau.height());
+                }
+            }
+        }
+        return new HeightBase(defaultBoundary, terrainBaseHeight(landmass));
+    }
+
+    private static Double heightFromBasePolygon(Vector2 position, HeightPoint point, HeightBase base) {
+        if (base.polygon().size() < 3 || !pointInPolygon(position, base.polygon())) {
+            return null;
+        }
+        for (int index = 0; index < base.polygon().size(); index += 1) {
+            Point2 a = base.polygon().get(index);
+            Point2 b = base.polygon().get((index + 1) % base.polygon().size());
+            Double peakWeight = barycentricWeightForPoint(position, a, b, point);
+            if (peakWeight != null) {
+                double shapedWeight = heightProfileWeight(peakWeight, point.falloff());
+                return base.floor() + (point.h() - base.floor()) * shapedWeight;
+            }
+        }
+        return base.floor();
+    }
+
+    private static double heightProfileWeight(double linearWeight, String falloff) {
+        double weight = MathSupport.clamp(linearWeight, 0, 1);
+        if ("plateau".equals(falloff)) {
+            return MathSupport.smoothstep(0, 0.58, weight);
+        }
+        if ("spike".equals(falloff)) {
+            return weight;
+        }
+        return weight * weight * (3 - 2 * weight);
+    }
+
+    private static Double barycentricWeightForPoint(Vector2 position, Point2 a, Point2 b, HeightPoint peak) {
+        double denominator = (b.z() - peak.z()) * (a.x() - peak.x())
+                + (peak.x() - b.x()) * (a.z() - peak.z());
+        if (Math.abs(denominator) < 0.000001) {
+            return null;
+        }
+        double w1 = ((b.z() - peak.z()) * (position.x() - peak.x())
+                + (peak.x() - b.x()) * (position.z() - peak.z())) / denominator;
+        double w2 = ((peak.z() - a.z()) * (position.x() - peak.x())
+                + (a.x() - peak.x()) * (position.z() - peak.z())) / denominator;
+        double w3 = 1 - w1 - w2;
+        double tolerance = -0.00001;
+        if (w1 < tolerance || w2 < tolerance || w3 < tolerance) {
+            return null;
+        }
+        return MathSupport.clamp(w3, 0, 1);
+    }
+
+    private static Plateau plateauAt(Vector2 position, Landmass landmass) {
+        for (Plateau plateau : plateausForLandmass(landmass)) {
+            if (pointInPolygon(position, plateau.polygon())) {
+                return plateau;
+            }
+        }
+        return null;
+    }
+
+    private static List<Plateau> plateausForLandmass(Landmass landmass) {
+        Map<String, List<HeightPoint>> groups = new LinkedHashMap<>();
+        for (HeightPoint point : landmass.heightPoints()) {
+            if (point.plateauGroupId() == null) {
+                continue;
+            }
+            groups.computeIfAbsent(point.plateauGroupId(), ignored -> new ArrayList<>()).add(point);
+        }
+        List<Plateau> plateaus = new ArrayList<>();
+        for (Map.Entry<String, List<HeightPoint>> entry : groups.entrySet()) {
+            if (entry.getValue().size() < 3) {
+                continue;
+            }
+            List<Point2> polygon = orderedPlateauPoints(entry.getValue()).stream()
+                    .map(point -> new Point2(point.x(), point.z()))
+                    .toList();
+            polygon = smoothClosedPolygon(polygon, AUTHORED_PLATEAU_SMOOTHING_ITERATIONS);
+            double height = entry.getValue().stream().mapToDouble(HeightPoint::h).average().orElse(0);
+            plateaus.add(new Plateau(entry.getKey(), polygon, height));
+        }
+        return plateaus;
+    }
+
+    private static List<HeightPoint> sortPointsAroundCenter(List<HeightPoint> points) {
+        double centerX = points.stream().mapToDouble(HeightPoint::x).average().orElse(0);
+        double centerZ = points.stream().mapToDouble(HeightPoint::z).average().orElse(0);
+        return points.stream()
+                .sorted(Comparator.comparingDouble(point -> Math.atan2(point.z() - centerZ, point.x() - centerX)))
+                .toList();
+    }
+
+    private static List<HeightPoint> orderedPlateauPoints(List<HeightPoint> points) {
+        List<HeightPoint> ordered = points.stream()
+                .sorted(Comparator.comparing(point -> point.plateauOrder() == null ? Integer.MAX_VALUE : point.plateauOrder()))
+                .toList();
+        for (int index = 0; index < ordered.size(); index += 1) {
+            if (ordered.get(index).plateauOrder() == null || ordered.get(index).plateauOrder() != index) {
+                return sortPointsAroundCenter(points);
+            }
+        }
+        return isSimplePolygon(ordered) ? ordered : sortPointsAroundCenter(points);
+    }
+
+    private static boolean isSimplePolygon(List<HeightPoint> points) {
+        if (points.size() < 4) {
+            return points.size() >= 3;
+        }
+        for (int index = 0; index < points.size(); index += 1) {
+            HeightPoint a = points.get(index);
+            HeightPoint b = points.get((index + 1) % points.size());
+            for (int other = index + 1; other < points.size(); other += 1) {
+                if (other == index || other == (index + 1) % points.size() || (other + 1) % points.size() == index) {
+                    continue;
+                }
+                HeightPoint c = points.get(other);
+                HeightPoint d = points.get((other + 1) % points.size());
+                if (segmentsIntersect(a, b, c, d)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private static boolean segmentsIntersect(HeightPoint a, HeightPoint b, HeightPoint c, HeightPoint d) {
+        double o1 = triangleOrientation(a, b, c);
+        double o2 = triangleOrientation(a, b, d);
+        double o3 = triangleOrientation(c, d, a);
+        double o4 = triangleOrientation(c, d, b);
+        return o1 * o2 < 0 && o3 * o4 < 0;
+    }
+
+    private static double triangleOrientation(HeightPoint a, HeightPoint b, HeightPoint c) {
+        return (b.x() - a.x()) * (c.z() - a.z()) - (b.z() - a.z()) * (c.x() - a.x());
     }
 
     private static boolean pointInAuthoredCoastline(Vector2 position, Landmass landmass) {
@@ -489,5 +650,11 @@ final class LandGeometry {
             row = Math.max(0, Math.min(rows - 1, row));
             return heights[row * columns + column];
         }
+    }
+
+    private record Plateau(String id, List<Point2> polygon, double height) {
+    }
+
+    private record HeightBase(List<Point2> polygon, double floor) {
     }
 }

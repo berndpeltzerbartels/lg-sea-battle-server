@@ -24,6 +24,10 @@ record Landmass(
         List<Point2> polygon,
         List<HeightPoint> heightPoints,
         double seaFloorHeight,
+        double baseHeight,
+        String baseLevel,
+        String baseLandmassId,
+        String basePlateauGroupId,
         String material,
         List<MaterialZone> materialZones
 ) {
@@ -72,6 +76,10 @@ record Landmass(
                 polygon,
                 heightPoints,
                 seaFloorHeight,
+                seaFloorHeight,
+                "seaFloor",
+                null,
+                null,
                 "grass",
                 List.of()
         );
@@ -119,6 +127,10 @@ record Landmass(
                 List.of(),
                 List.of(),
                 0,
+                0,
+                "seaFloor",
+                null,
+                null,
                 "grass",
                 List.of()
         );
@@ -130,6 +142,9 @@ record Landmass(
         lakes = lakes == null ? List.of() : List.copyOf(lakes);
         polygon = polygon == null ? List.of() : List.copyOf(polygon);
         heightPoints = heightPoints == null ? List.of() : List.copyOf(heightPoints);
+        baseLevel = baseLevel == null || baseLevel.isBlank() ? "seaFloor" : baseLevel;
+        baseLandmassId = baseLandmassId == null || baseLandmassId.isBlank() ? null : baseLandmassId;
+        basePlateauGroupId = basePlateauGroupId == null || basePlateauGroupId.isBlank() ? null : basePlateauGroupId;
         material = material == null || material.isBlank() ? "grass" : material;
         materialZones = materialZones == null ? List.of() : List.copyOf(materialZones);
     }

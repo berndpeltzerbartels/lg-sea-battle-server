@@ -3,13 +3,25 @@ package one.xis.seabattle.game;
 import one.xis.context.Service;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.logging.Logger;
 
 @Service
 final class DefaultGameSetupFactory {
 
+    private static final Logger LOGGER = Logger.getLogger(DefaultGameSetupFactory.class.getName());
+    private static final double CUSTOM_RESPAWN_BOUNDS_PADDING_RATIO = 0.05;
+    private static final double CUSTOM_RESPAWN_GRID_STEP = 180;
+    private static final double CUSTOM_RESPAWN_OPEN_WATER_HALF_SIZE = 1000;
+    private static final double CUSTOM_RESPAWN_MIN_BOUNDS_SIZE = CUSTOM_RESPAWN_OPEN_WATER_HALF_SIZE * 2;
+    private static final double CUSTOM_RESPAWN_MIN_BOUNDS_PADDING = CUSTOM_RESPAWN_GRID_STEP * 2;
+    private static final double CUSTOM_RESPAWN_MIN_CANDIDATE_DISTANCE = 150;
+    private static final double CUSTOM_RESPAWN_MIN_LAND_DISTANCE = 80;
+    private static final int CUSTOM_RESPAWN_MIN_CANDIDATES = 64;
     private static final int ENGINE_STOP = 2;
     private static final int ENGINE_SLOW = 3;
     private static final int ENGINE_HALF = 5;
@@ -85,17 +97,250 @@ final class DefaultGameSetupFactory {
     }
 
     GameSetup customLandscapeSetup(String setupId, String landscapeId, WorldMap worldMap, List<String> requestedTeamIds) {
+        return customLandscapeSetup(setupId, landscapeId, worldMap, generatedWaterRespawnCandidates(worldMap), requestedTeamIds);
+    }
+
+    GameSetup customLandscapeSetup(String setupId, String landscapeId, WorldMap worldMap, List<Vector2> preparedRespawnCandidates,
+                                   List<String> requestedTeamIds) {
         if (worldMap == null) {
             return defaultSetup(requestedTeamIds);
         }
         GameSetup baseSetup = setup(setupId, requestedTeamIds);
+        List<Vector2> respawnCandidates = preparedRespawnCandidates == null
+                ? List.of()
+                : List.copyOf(preparedRespawnCandidates);
+        if (respawnCandidates.isEmpty()) {
+            respawnCandidates = baseSetup.respawnCandidates();
+        }
         return new GameSetup(
                 "landscape-" + (landscapeId == null || landscapeId.isBlank() ? "custom" : landscapeId)
                         + "-" + (setupId == null || setupId.isBlank() ? "default" : setupId),
                 worldMap,
-                baseSetup.fleets(),
-                baseSetup.respawnCandidates()
+                placeFleetsOnCandidates(baseSetup.fleets(), respawnCandidates, worldMap),
+                respawnCandidates
         );
+    }
+
+    static List<Vector2> generatedWaterRespawnCandidates(WorldMap worldMap) {
+        long startedAtNanos = System.nanoTime();
+        Bounds bounds = worldMapBounds(worldMap);
+        double width = Math.max(1, bounds.maxX() - bounds.minX());
+        double height = Math.max(1, bounds.maxZ() - bounds.minZ());
+        double basePadding = Math.max(CUSTOM_RESPAWN_MIN_BOUNDS_PADDING,
+                Math.max(width, height) * CUSTOM_RESPAWN_BOUNDS_PADDING_RATIO);
+        List<RespawnLandDistance> landDistances = respawnLandDistances(worldMap);
+        List<Vector2> bestCandidates = List.of();
+        int testedPoints = 0;
+        for (int attempt = 1; attempt <= 5; attempt += 1) {
+            CandidateScan scan = generatedWaterRespawnCandidates(bounds, basePadding * attempt, landDistances);
+            testedPoints += scan.testedPoints();
+            List<Vector2> candidates = scan.candidates();
+            if (candidates.size() >= CUSTOM_RESPAWN_MIN_CANDIDATES) {
+                return logGeneratedWaterRespawnCandidates(worldMap, stableSpread(candidates), testedPoints, startedAtNanos);
+            }
+            if (candidates.size() > bestCandidates.size()) {
+                bestCandidates = candidates;
+            }
+        }
+        List<Vector2> candidates = bestCandidates.isEmpty() ? List.of() : stableSpread(bestCandidates);
+        return logGeneratedWaterRespawnCandidates(worldMap, candidates, testedPoints, startedAtNanos);
+    }
+
+    private static CandidateScan generatedWaterRespawnCandidates(Bounds bounds, double padding,
+                                                                 List<RespawnLandDistance> landDistances) {
+        double minX = bounds.minX() - padding;
+        double maxX = bounds.maxX() + padding;
+        double minZ = bounds.minZ() - padding;
+        double maxZ = bounds.maxZ() + padding;
+        List<Vector2> candidates = new ArrayList<>();
+        int testedPoints = 0;
+        for (double z = minZ; z <= maxZ; z += CUSTOM_RESPAWN_GRID_STEP) {
+            for (double x = minX; x <= maxX; x += CUSTOM_RESPAWN_GRID_STEP) {
+                testedPoints += 1;
+                Vector2 candidate = new Vector2(Math.round(x), Math.round(z));
+                if (!hasMinimumLandDistance(candidate, landDistances)) {
+                    continue;
+                }
+                if (tooCloseToGeneratedCandidate(candidate, candidates)) {
+                    continue;
+                }
+                candidates.add(candidate);
+            }
+        }
+        return new CandidateScan(candidates, testedPoints);
+    }
+
+    private static List<Vector2> logGeneratedWaterRespawnCandidates(WorldMap worldMap, List<Vector2> candidates,
+                                                                    int testedPoints, long startedAtNanos) {
+        double elapsedMillis = (System.nanoTime() - startedAtNanos) / 1_000_000.0;
+        LOGGER.info(() -> "Prepared " + candidates.size() + " respawn candidates for "
+                + worldMap.landmasses().size() + " landmasses from " + testedPoints + " scanned points in "
+                + MathSupport.round(elapsedMillis) + " ms");
+        return candidates;
+    }
+
+    private static boolean hasMinimumLandDistance(Vector2 candidate, List<RespawnLandDistance> landDistances) {
+        for (RespawnLandDistance landDistance : landDistances) {
+            if (landDistance.distanceFromLand(candidate) < CUSTOM_RESPAWN_MIN_LAND_DISTANCE) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static List<RespawnLandDistance> respawnLandDistances(WorldMap worldMap) {
+        return worldMap.landmasses().stream()
+                .map(DefaultGameSetupFactory::respawnLandDistance)
+                .toList();
+    }
+
+    private static RespawnLandDistance respawnLandDistance(Landmass landmass) {
+        if (landmass.polygon().size() >= 3) {
+            return new PolygonRespawnLandDistance(landmass.polygon());
+        }
+        return new EllipseRespawnLandDistance(landmass);
+    }
+
+    private static boolean tooCloseToGeneratedCandidate(Vector2 candidate, List<Vector2> candidates) {
+        return candidates.stream().anyMatch(existing -> existing.distanceTo(candidate) < CUSTOM_RESPAWN_MIN_CANDIDATE_DISTANCE);
+    }
+
+    private static List<Vector2> stableSpread(List<Vector2> candidates) {
+        return candidates.stream()
+                .sorted((left, right) -> Double.compare(stableRespawnOrder(left), stableRespawnOrder(right)))
+                .toList();
+    }
+
+    private static double stableRespawnOrder(Vector2 position) {
+        return Math.sin(position.x() * 12.9898 + position.z() * 78.233) * 43758.5453
+                - Math.floor(Math.sin(position.x() * 12.9898 + position.z() * 78.233) * 43758.5453);
+    }
+
+    private static Bounds worldMapBounds(WorldMap worldMap) {
+        double minX = Double.POSITIVE_INFINITY;
+        double maxX = Double.NEGATIVE_INFINITY;
+        double minZ = Double.POSITIVE_INFINITY;
+        double maxZ = Double.NEGATIVE_INFINITY;
+        for (Landmass landmass : worldMap.landmasses()) {
+            if (!landmass.polygon().isEmpty()) {
+                for (Point2 point : landmass.polygon()) {
+                    minX = Math.min(minX, point.x());
+                    maxX = Math.max(maxX, point.x());
+                    minZ = Math.min(minZ, point.z());
+                    maxZ = Math.max(maxZ, point.z());
+                }
+            } else {
+                double rx = Math.max(landmass.rx(), landmass.navigationRx());
+                double rz = Math.max(landmass.rz(), landmass.navigationRz());
+                minX = Math.min(minX, landmass.x() - rx);
+                maxX = Math.max(maxX, landmass.x() + rx);
+                minZ = Math.min(minZ, landmass.z() - rz);
+                maxZ = Math.max(maxZ, landmass.z() + rz);
+            }
+        }
+        if (!Double.isFinite(minX)) {
+            return new Bounds(
+                    -CUSTOM_RESPAWN_OPEN_WATER_HALF_SIZE,
+                    -CUSTOM_RESPAWN_OPEN_WATER_HALF_SIZE,
+                    CUSTOM_RESPAWN_OPEN_WATER_HALF_SIZE,
+                    CUSTOM_RESPAWN_OPEN_WATER_HALF_SIZE
+            );
+        }
+        double centerX = (minX + maxX) * 0.5;
+        double centerZ = (minZ + maxZ) * 0.5;
+        double halfWidth = Math.max(CUSTOM_RESPAWN_MIN_BOUNDS_SIZE * 0.5, (maxX - minX) * 0.5);
+        double halfHeight = Math.max(CUSTOM_RESPAWN_MIN_BOUNDS_SIZE * 0.5, (maxZ - minZ) * 0.5);
+        return new Bounds(
+                centerX - halfWidth,
+                centerZ - halfHeight,
+                centerX + halfWidth,
+                centerZ + halfHeight
+        );
+    }
+
+    private static List<FleetSetup> placeFleetsOnCandidates(List<FleetSetup> fleets, List<Vector2> candidates, WorldMap worldMap) {
+        if (candidates.isEmpty()) {
+            return fleets;
+        }
+        Vector2 center = worldCenter(worldMap);
+        List<Vector2> shuffledCandidates = new ArrayList<>(candidates);
+        Collections.shuffle(shuffledCandidates);
+        int totalShips = fleets.stream().mapToInt(fleet -> fleet.ships().size()).sum();
+        int spacing = Math.max(1, shuffledCandidates.size() / Math.max(1, totalShips));
+        int cursor = ThreadLocalRandom.current().nextInt(Math.max(1, shuffledCandidates.size()));
+        List<FleetSetup> placedFleets = new ArrayList<>();
+        for (FleetSetup fleet : fleets) {
+            List<ShipSetup> ships = new ArrayList<>();
+            for (ShipSetup ship : fleet.ships()) {
+                Vector2 position = shuffledCandidates.get(Math.floorMod(cursor, shuffledCandidates.size()));
+                cursor += spacing;
+                double heading = MathSupport.normalizeAngle(angleTo(center, position) + Math.PI
+                        + ThreadLocalRandom.current().nextDouble(-0.35, 0.35));
+                ships.add(new ShipSetup(
+                        ship.id(),
+                        ship.teamId(),
+                        position,
+                        heading,
+                        ship.controlledBy(),
+                        ship.engineOrder(),
+                        ship.rudderDegrees(),
+                        ship.nextFireDelaySeconds(),
+                        ship.vehicleType(),
+                        ship.y()
+                ));
+            }
+            placedFleets.add(new FleetSetup(fleet.teamId(), ships));
+        }
+        return placedFleets;
+    }
+
+    private static Vector2 worldCenter(WorldMap worldMap) {
+        Bounds bounds = worldMapBounds(worldMap);
+        return new Vector2((bounds.minX() + bounds.maxX()) * 0.5, (bounds.minZ() + bounds.maxZ()) * 0.5);
+    }
+
+    private static double angleTo(Vector2 target, Vector2 origin) {
+        return Math.atan2(target.x() - origin.x(), target.z() - origin.z());
+    }
+
+    private static double polygonDistance(Vector2 position, List<Point2> polygon) {
+        if (polygon.size() < 3) {
+            return Double.POSITIVE_INFINITY;
+        }
+        double distance = Double.POSITIVE_INFINITY;
+        for (int index = 0; index < polygon.size(); index += 1) {
+            Point2 a = polygon.get(index);
+            Point2 b = polygon.get((index + 1) % polygon.size());
+            distance = Math.min(distance, distanceToSegment(position.x(), position.z(), a.x(), a.z(), b.x(), b.z()));
+        }
+        return pointInPolygon(position, polygon) ? -distance : distance;
+    }
+
+    private static boolean pointInPolygon(Vector2 point, List<Point2> polygon) {
+        boolean inside = false;
+        for (int index = 0, previous = polygon.size() - 1; index < polygon.size(); previous = index, index += 1) {
+            Point2 current = polygon.get(index);
+            Point2 previousPoint = polygon.get(previous);
+            boolean crosses = current.z() > point.z() != previousPoint.z() > point.z()
+                    && point.x() < ((previousPoint.x() - current.x()) * (point.z() - current.z()))
+                    / (previousPoint.z() - current.z()) + current.x();
+            if (crosses) {
+                inside = !inside;
+            }
+        }
+        return inside;
+    }
+
+    private static double distanceToSegment(double px, double pz, double ax, double az, double bx, double bz) {
+        double dx = bx - ax;
+        double dz = bz - az;
+        double lengthSquared = dx * dx + dz * dz;
+        double t = lengthSquared == 0
+                ? 0
+                : MathSupport.clamp(((px - ax) * dx + (pz - az) * dz) / lengthSquared, 0, 1);
+        double nearestX = ax + dx * t;
+        double nearestZ = az + dz * t;
+        return Math.hypot(px - nearestX, pz - nearestZ);
     }
 
     private GameSetup openIslandsSetup() {
@@ -730,5 +975,41 @@ final class DefaultGameSetupFactory {
                 new Vector2(429, 216),
                 new Vector2(-720, -360)
         );
+    }
+
+    private interface RespawnLandDistance {
+        double distanceFromLand(Vector2 position);
+    }
+
+    private record PolygonRespawnLandDistance(List<Point2> polygon) implements RespawnLandDistance {
+        private PolygonRespawnLandDistance {
+            polygon = List.copyOf(polygon);
+        }
+
+        @Override
+        public double distanceFromLand(Vector2 position) {
+            return polygonDistance(position, polygon);
+        }
+    }
+
+    private record EllipseRespawnLandDistance(Landmass landmass) implements RespawnLandDistance {
+        @Override
+        public double distanceFromLand(Vector2 position) {
+            if (LandGeometry.isInLandWater(position, landmass)) {
+                return 0;
+            }
+            double normalizedWaterDistance = LandGeometry.shapeDistance(position, landmass)
+                    - LandGeometry.navigationBlockDistance(landmass);
+            return normalizedWaterDistance * Math.max(1, Math.min(landmass.rx(), landmass.rz()));
+        }
+    }
+
+    private record CandidateScan(List<Vector2> candidates, int testedPoints) {
+        private CandidateScan {
+            candidates = List.copyOf(candidates);
+        }
+    }
+
+    private record Bounds(double minX, double minZ, double maxX, double maxZ) {
     }
 }
