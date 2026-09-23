@@ -11,8 +11,13 @@ record HeightPoint(
         List<Integer> basePointIndexes,
         String plateauGroupId,
         String basePlateauGroupId,
-        Integer plateauOrder
+        Integer plateauOrder,
+        String plateauBoundaryPointId
 ) {
+    HeightPoint(double x, double z, double h, double radius, String falloff,
+                List<Integer> basePointIndexes, String plateauGroupId, String basePlateauGroupId, Integer plateauOrder) {
+        this(x, z, h, radius, falloff, basePointIndexes, plateauGroupId, basePlateauGroupId, plateauOrder, null);
+    }
     HeightPoint(double x, double z, double h, double radius, String falloff) {
         this(x, z, h, radius, falloff, List.of(), null, null, null);
     }

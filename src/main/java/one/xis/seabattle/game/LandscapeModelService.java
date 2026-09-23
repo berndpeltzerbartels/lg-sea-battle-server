@@ -28,7 +28,7 @@ public class LandscapeModelService {
 
     private static final String SUPPORTED_SOURCE_FORMAT = "game-landscape-designer.v2";
     // Bump when conversion, collision preparation or respawn generation changes.
-    private static final int PREPARATION_VERSION = 1;
+    private static final int PREPARATION_VERSION = 2;
 
     private final LandscapeModelRepository repository;
     private final LandscapeModelConverter converter = new LandscapeModelConverter();

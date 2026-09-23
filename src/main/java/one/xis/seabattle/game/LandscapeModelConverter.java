@@ -235,7 +235,8 @@ class LandscapeModelConverter {
                 .map(JsonElement::getAsJsonObject)
                 .map(point -> new Point2(
                         numberValue(point, "x").orElse(0.0),
-                        numberValue(point, "z").orElse(0.0)
+                        numberValue(point, "z").orElse(0.0),
+                        stringValue(point, "boundaryPointId").orElse(null)
                 ))
                 .toList();
     }
@@ -253,7 +254,8 @@ class LandscapeModelConverter {
                         basePointIndexes(arrayValue(point, "basePointIndexes")),
                         stringValue(point, "plateauGroupId").orElse(null),
                         stringValue(point, "basePlateauGroupId").orElse(null),
-                        integerValue(point.get("plateauOrder")).orElse(null)
+                        integerValue(point.get("plateauOrder")).orElse(null),
+                        stringValue(point, "plateauBoundaryPointId").orElse(null)
                 ))
                 .toList();
     }

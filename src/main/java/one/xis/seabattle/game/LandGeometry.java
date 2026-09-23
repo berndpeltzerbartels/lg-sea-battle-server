@@ -218,11 +218,12 @@ final class LandGeometry {
         if (heightPoints.isEmpty()) {
             return terrainBaseHeight(landmass);
         }
-        Plateau plateau = plateauAt(position, landmass);
+        boolean mapped = MappedPlateauGeometry.complete(landmass);
+        Plateau plateau = mapped ? null : plateauAt(position, landmass);
         if (plateau != null) {
             return stackedPlateauHeightAt(position, landmass, plateau);
         }
-        double height = terrainBaseHeight(landmass);
+        double height = mapped ? MappedPlateauGeometry.height(position, landmass) : terrainBaseHeight(landmass);
         for (HeightPoint point : heightPoints) {
             if (point.plateauGroupId() != null) {
                 continue;
@@ -345,7 +346,7 @@ final class LandGeometry {
             List<Point2> polygon = orderedPlateauPoints(entry.getValue()).stream()
                     .map(point -> new Point2(point.x(), point.z()))
                     .toList();
-            polygon = smoothClosedPolygon(polygon, AUTHORED_PLATEAU_SMOOTHING_ITERATIONS);
+            polygon = smoothClosedPolygon(polygon, MappedPlateauGeometry.complete(landmass) ? 0 : AUTHORED_PLATEAU_SMOOTHING_ITERATIONS);
             double height = entry.getValue().stream().mapToDouble(HeightPoint::h).average().orElse(0);
             plateaus.add(new Plateau(entry.getKey(), polygon, height));
         }
@@ -360,7 +361,7 @@ final class LandGeometry {
                 .toList();
     }
 
-    private static List<HeightPoint> orderedPlateauPoints(List<HeightPoint> points) {
+    static List<HeightPoint> orderedPlateauPoints(List<HeightPoint> points) {
         List<HeightPoint> ordered = points.stream()
                 .sorted(Comparator.comparing(point -> point.plateauOrder() == null ? Integer.MAX_VALUE : point.plateauOrder()))
                 .toList();
@@ -410,6 +411,7 @@ final class LandGeometry {
     }
 
     private static List<Point2> authoredCoastline(Landmass landmass) {
+        if (MappedPlateauGeometry.complete(landmass)) return landmass.polygon();
         return smoothClosedPolygon(landmass.polygon(), AUTHORED_COASTLINE_SMOOTHING_ITERATIONS);
     }
 
