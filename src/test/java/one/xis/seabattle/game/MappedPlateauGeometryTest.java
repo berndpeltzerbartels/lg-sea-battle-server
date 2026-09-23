@@ -7,6 +7,46 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class MappedPlateauGeometryTest {
     @Test
+    void externalMappedPerformanceFixturePassesProductionConverter() throws Exception {
+        String path = System.getenv("MAPPED_LANDSCAPE_TEST_FILE");
+        org.junit.jupiter.api.Assumptions.assumeTrue(path != null);
+        var root = JsonParser.parseString(java.nio.file.Files.readString(java.nio.file.Path.of(path))).getAsJsonObject();
+        var map = new LandscapeModelConverter().convertEditorLandscape(root);
+        assertEquals(100, map.landmasses().size());
+        for (var land : map.landmasses()) {
+            assertTrue(MappedPlateauGeometry.complete(land), land.name());
+            assertTrue(Double.isFinite(MappedPlateauGeometry.height(new Vector2(land.x(), land.z()), land)));
+        }
+    }
+
+    @Test
+    void incompleteAndInvalidMappingsAreRejectedDuringImport() {
+        var root = JsonParser.parseString("""
+                {"islands":[{"name":"Testbank","polygon":[
+                {"x":-100,"z":-100,"boundaryPointId":"a"},
+                {"x":100,"z":-100,"boundaryPointId":"b"},
+                {"x":0,"z":100,"boundaryPointId":"c"}],
+                "heights":[
+                {"x":-10,"z":-10,"h":2,"plateauGroupId":"p","plateauOrder":0,"plateauBoundaryPointId":"a"},
+                {"x":10,"z":-10,"h":2,"plateauGroupId":"p","plateauOrder":1,"plateauBoundaryPointId":"b"},
+                {"x":0,"z":10,"h":2,"plateauGroupId":"p","plateauOrder":2,"plateauBoundaryPointId":"c"}]}]}
+                """).getAsJsonObject();
+        var converter = new LandscapeModelConverter();
+        assertDoesNotThrow(() -> converter.convertEditorLandscape(root));
+        var heights = root.getAsJsonArray("islands").get(0).getAsJsonObject().getAsJsonArray("heights");
+        var point = heights.get(0).getAsJsonObject();
+        point.remove("plateauBoundaryPointId");
+        assertTrue(assertThrows(IllegalArgumentException.class, () -> converter.convertEditorLandscape(root)).getMessage().contains("Randzuordnung"));
+        for (String invalid : new String[]{"", "unknown", "b"}) {
+            point.addProperty("plateauBoundaryPointId", invalid);
+            assertThrows(IllegalArgumentException.class, () -> converter.convertEditorLandscape(root));
+        }
+        point.addProperty("plateauBoundaryPointId", "a");
+        heights.remove(2);
+        assertThrows(IllegalArgumentException.class, () -> converter.convertEditorLandscape(root));
+    }
+
+    @Test
     void mappingsSurviveConversionAndSerializationAndDriveServerHeights() {
         var root = JsonParser.parseString("""
                 {"islands":[{"id":"bank","material":"sand","seaFloorHeight":-80,

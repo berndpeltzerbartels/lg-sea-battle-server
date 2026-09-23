@@ -22,6 +22,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class LandscapeModelServiceTest {
 
     @Test
+    void unmappedPlateausCannotBeUploadedOrLoadedFromLegacyStorage() {
+        var repository = new MemoryLandscapeRepository();
+        var service = new LandscapeModelService(repository);
+        String source = """
+                {"format":"game-landscape-designer.v2","islands":[{"id":"invalid",
+                "polygon":[{"x":-100,"z":-100},{"x":100,"z":-100},{"x":0,"z":100}],
+                "heights":[{"x":-10,"z":-10,"h":2,"plateauGroupId":"p"},
+                {"x":10,"z":-10,"h":2,"plateauGroupId":"p"},
+                {"x":0,"z":10,"h":2,"plateauGroupId":"p"}]}]}
+                """;
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () ->
+                service.saveUpload(new UploadedFile("landscapeFile", "invalid.json", "application/json", source.getBytes(StandardCharsets.UTF_8))));
+        assertEquals(0, repository.saveCount);
+        repository.save(new LandscapeModelEntity("old", "Old", "game-landscape-designer.v2", source, "{}", "[]", LocalDateTime.now()));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> service.find("old"));
+        assertEquals(1, repository.saveCount);
+    }
+
+    @Test
     void uploadedEditorLandscapeCanRestartGameSession() {
         MemoryLandscapeRepository repository = new MemoryLandscapeRepository();
         LandscapeModelService service = new LandscapeModelService(repository);
@@ -522,16 +541,16 @@ class LandscapeModelServiceTest {
                               "material": "sand",
                               "seaFloorHeight": -80,
                               "polygon": [
-                                { "x": -400, "z": -360 },
-                                { "x": 420, "z": -340 },
-                                { "x": 430, "z": 360 },
-                                { "x": -390, "z": 380 }
+                                { "x": -400, "z": -360, "boundaryPointId": "a" },
+                                { "x": 420, "z": -340, "boundaryPointId": "b" },
+                                { "x": 430, "z": 360, "boundaryPointId": "c" },
+                                { "x": -390, "z": 380, "boundaryPointId": "d" }
                               ],
                               "heights": [
-                                { "x": -220, "z": -180, "h": 10, "radius": 260, "falloff": "plateau", "plateauGroupId": "beach-flat", "plateauOrder": 0 },
-                                { "x": 240, "z": -170, "h": 10, "radius": 260, "falloff": "plateau", "plateauGroupId": "beach-flat", "plateauOrder": 1 },
-                                { "x": 230, "z": 210, "h": 10, "radius": 260, "falloff": "plateau", "plateauGroupId": "beach-flat", "plateauOrder": 2 },
-                                { "x": -230, "z": 190, "h": 10, "radius": 260, "falloff": "plateau", "plateauGroupId": "beach-flat", "plateauOrder": 3 }
+                                { "x": -220, "z": -180, "h": 10, "radius": 260, "falloff": "plateau", "plateauGroupId": "beach-flat", "plateauOrder": 0, "plateauBoundaryPointId": "a" },
+                                { "x": 240, "z": -170, "h": 10, "radius": 260, "falloff": "plateau", "plateauGroupId": "beach-flat", "plateauOrder": 1, "plateauBoundaryPointId": "b" },
+                                { "x": 230, "z": 210, "h": 10, "radius": 260, "falloff": "plateau", "plateauGroupId": "beach-flat", "plateauOrder": 2, "plateauBoundaryPointId": "c" },
+                                { "x": -230, "z": 190, "h": 10, "radius": 260, "falloff": "plateau", "plateauGroupId": "beach-flat", "plateauOrder": 3, "plateauBoundaryPointId": "d" }
                               ]
                             },
                             {

@@ -7,6 +7,45 @@ final class MappedPlateauGeometry {
     private static final Map<Landmass, List<List<Vertex>>> CACHE = Collections.synchronizedMap(new WeakHashMap<>());
     record Vertex(double x, double z, double h) {}
 
+    static void validate(Landmass land) {
+        var groups = new LinkedHashMap<String, List<HeightPoint>>();
+        for (var p : land.heightPoints()) {
+            if (p.plateauGroupId() != null) {
+                if (p.plateauGroupId().isBlank()) throw invalid(land, "Leere Plateau-Kennung.");
+                groups.computeIfAbsent(p.plateauGroupId(), key -> new ArrayList<>()).add(p);
+            } else if (p.plateauBoundaryPointId() != null) {
+                throw invalid(land, "Randzuordnung ohne Plateau.");
+            }
+        }
+        if (groups.isEmpty()) return;
+        var boundaryIds = new HashSet<String>();
+        for (var p : land.polygon()) {
+            if (p.boundaryPointId() != null && (p.boundaryPointId().isBlank() || !boundaryIds.add(p.boundaryPointId()))) {
+                throw invalid(land, "Leere oder doppelte Randpunkt-Kennung.");
+            }
+        }
+        for (var entry : groups.entrySet()) {
+            if (entry.getValue().size() < 3) throw invalid(land, "Plateau " + entry.getKey() + " braucht mindestens drei Punkte.");
+            var used = new HashSet<String>();
+            for (var p : entry.getValue()) {
+                String target = p.plateauBoundaryPointId();
+                if (target == null || target.isBlank() || !boundaryIds.contains(target)) {
+                    throw invalid(land, "Plateau " + entry.getKey() + ": Jeder Punkt braucht eine gueltige Randzuordnung.");
+                }
+                if (!used.add(target)) throw invalid(land, "Plateau " + entry.getKey() + ": Randpunkt mehrfach zugeordnet.");
+            }
+        }
+        try {
+            CACHE.computeIfAbsent(land, MappedPlateauGeometry::prepare);
+        } catch (IllegalArgumentException e) {
+            throw invalid(land, "Ungueltige Plateau-Geometrie: " + e.getMessage());
+        }
+    }
+
+    private static IllegalArgumentException invalid(Landmass land, String reason) {
+        return new IllegalArgumentException("Landschaft " + land.name() + ": " + reason);
+    }
+
     static boolean complete(Landmass land) {
         var counts = new HashMap<String, Integer>();
         for (var point : land.heightPoints()) if (point.plateauGroupId() != null) counts.merge(point.plateauGroupId(), 1, Integer::sum);
@@ -43,6 +82,7 @@ final class MappedPlateauGeometry {
             }).toArray();
             if (Arrays.stream(targets).distinct().count() != targets.length) throw new IllegalArgumentException("Duplicate plateau boundary point");
             int direction = area(ring) * area(boundary) > 0 ? 1 : -1, steps = 0;
+            int start = triangles.size();
             triangles.addAll(triangulate(ring));
             for (int i = 0; i < ring.size(); i++) {
                 int j = (i + 1) % ring.size(), cursor = targets[i];
@@ -55,6 +95,11 @@ final class MappedPlateauGeometry {
                 }
                 sector.add(ring.get(j));
                 triangles.addAll(triangulate(sector));
+            }
+            double covered = triangles.subList(start, triangles.size()).stream().mapToDouble(t -> Math.abs(area(t))).sum();
+            double expected = Math.abs(area(boundary));
+            if (steps != boundary.size() || expected <= 0 || Math.abs(covered - expected) > expected * 1e-7) {
+                throw new IllegalArgumentException("Mapped sectors do not cover the boundary exactly");
             }
         }
         return triangles;

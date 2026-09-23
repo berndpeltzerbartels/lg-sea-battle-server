@@ -29,6 +29,7 @@ class LandscapeModelConverter {
         List<Landmass> landmasses = islandObjects.stream()
                 .map(island -> convertIsland(island, plateauHeights))
                 .toList();
+        landmasses.forEach(MappedPlateauGeometry::validate);
         List<MapObject> mapObjects = mapObjects(root, islands);
         int version = Math.max(10_000, Math.floorMod(root.toString().hashCode(), 90_000));
         return new WorldMap(version, landmasses, mapObjects);
