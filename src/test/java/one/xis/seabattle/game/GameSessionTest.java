@@ -94,7 +94,7 @@ class GameSessionTest {
     }
 
     @Test
-    void playerCanJoinAsSubmarineWithBoatMovementRules() {
+    void playerCanJoinAsSubmarineAndRetainsReportedDepth() {
         GameSession session = new GameSession(new GameSetup(
                 "player-submarine-assignment-test",
                 new WorldMap(90256, List.of()),
@@ -105,13 +105,19 @@ class GameSessionTest {
         ));
 
         GameSnapshot snapshot = session.updatePlayerState(new PlayerStateUpdate(
-                "player-BP-test", "light", 12, 0, 0, 6, 0, ENGINE_FULL, 0, 0, false, "submarine", 80
+                "player-BP-test", "light", 12, 0, 0, 6, 0, ENGINE_FULL, 0, 0, false,
+                "submarine", -8, 0, null, null, null, null, "submerged"
         ), navigationService, session.worldMap());
 
         ShipSnapshot ship = findShip(snapshot, "light-S1");
         assertEquals("player-BP-test", ship.controlledBy());
         assertEquals("submarine", ship.vehicleType());
-        assertEquals(0, ship.y(), 0.001);
+        assertEquals(-8, ship.y(), 0.001);
+        session.update(0.5, radarService, navigationService, session.worldMap());
+        ShipSnapshot afterTick = findShip(session.snapshot(), "light-S1");
+        assertEquals(-8, afterTick.y(), 0.001);
+        assertEquals("submerged", afterTick.depthState());
+        assertTrue(afterTick.z() > ship.z());
     }
 
     @Test
@@ -1076,7 +1082,7 @@ class GameSessionTest {
                 session.worldMap()
         );
         session.fireFlak(new FlakFireRequest(
-                "player-gunner", "light", "light-1", 3, 1.14, -40, 0, 2.25, 95
+                "player-gunner", "light", "light-1", 3, 1.14, -40, 3, 6.2, 95
         ));
 
         session.update(0.5, radarService, navigationService, session.worldMap());
@@ -1086,7 +1092,7 @@ class GameSessionTest {
         assertEquals("sunk", findShip(snapshot, "light-2").state());
         assertEquals(1, snapshot.flakHits().size());
         assertEquals(1, snapshot.flakImpacts().size());
-        assertEquals("ship-hit", snapshot.flakImpacts().get(0).reason());
+        assertEquals("ship-critical-hit", snapshot.flakImpacts().get(0).reason());
     }
 
     @Test
@@ -1121,9 +1127,11 @@ class GameSessionTest {
         List<String> misses = new java.util.ArrayList<>();
 
         for (int forwardIndex = 0; forwardIndex < 10; forwardIndex += 1) {
-            double forward = -3.75 + forwardIndex * (7.5 / 9.0);
+            // The visible bow ends at model z=3.68.
+            double forward = -3.75 + forwardIndex * (7.35 / 9.0);
             for (int heightIndex = 0; heightIndex < 10; heightIndex += 1) {
-                double y = 0.02 + heightIndex * (0.62 / 9.0);
+                // Model y=0.2 is the waterline; submerged starts are already expired.
+                double y = 0.22 + heightIndex * (0.42 / 9.0);
                 FlakProjectile projectile = cannonSideShotProjectile(-0.7, 0.7, y, y, forward);
                 Optional<Object> hit = projectileHit(session, "dark-1", projectile);
                 if (hit.isEmpty() || !"ship-critical-hit".equals(flakTargetHitReason(hit.get()))) {
@@ -1517,7 +1525,7 @@ class GameSessionTest {
     }
 
     @Test
-    void botScoutPlaneAvoidsBackToBackHumanAttacksWhenBotTargetsExist() {
+    void botScoutPlaneAvoidsBackToBackHumanAttacksWhenBotTargetsExist() throws Exception {
         GameSession session = new GameSession(new GameSetup(
                 "bot-scout-plane-human-cooldown-target-test",
                 new WorldMap(9041, List.of()),
@@ -1533,10 +1541,11 @@ class GameSessionTest {
                 List.of(new Vector2(0, 0))
         ));
 
+        // Steering can legitimately fly straight through before returning to the selected target.
+        recordBotScoutPlaneAttack(session, "light-plane", "dark-player");
+        assertEquals("dark-bot", selectBotScoutPlaneTargetId(session, "light-plane").orElseThrow());
         session.update(0.05, radarService, navigationService, session.worldMap());
-
-        assertTrue(findShip(session.snapshot(), "light-plane").rudderDegrees() > 0,
-                "Bot scout plane should not choose a human again before enough non-human attacks happened");
+        assertEquals("dark-bot", selectBotScoutPlaneTargetId(session, "light-plane").orElseThrow());
     }
 
     @Test
@@ -3774,7 +3783,7 @@ class GameSessionTest {
     }
 
     @Test
-    void playerStateUsesClientPositionWithoutServerAdvancingHumanShip() {
+    void playerStateCorrectsPositionAndServerContinuesHumanShipMotion() {
         GameSession session = new GameSession(new GameSetup(
                 "client-authority-test",
                 new WorldMap(9006, List.of()),
@@ -3800,9 +3809,17 @@ class GameSessionTest {
         session.update(0.5, new RadarService(), navigationService, session.worldMap());
 
         ShipSnapshot afterServerTick = findShip(session.snapshot(), "red-1");
-        assertEquals(15, afterServerTick.x(), 0.001);
-        assertEquals(25, afterServerTick.z(), 0.001);
-        assertEquals(0.7, afterServerTick.heading(), 0.001);
+        assertTrue(afterServerTick.x() > afterClientUpdate.x());
+        assertTrue(afterServerTick.z() > afterClientUpdate.z());
+        assertTrue(afterServerTick.heading() > afterClientUpdate.heading());
+
+        session.updatePlayerState(new PlayerStateUpdate(
+                "player-BP-test", "red", 16, 26, 0.72, 9.6, 0.12, 7, 14, 124, false),
+                navigationService, session.worldMap());
+        ShipSnapshot corrected = findShip(session.snapshot(), "red-1");
+        assertEquals(16, corrected.x(), 0.001);
+        assertEquals(26, corrected.z(), 0.001);
+        assertEquals(0.72, corrected.heading(), 0.001);
     }
 
     @Test
@@ -5007,11 +5024,13 @@ class GameSessionTest {
                 torpedoBoatModelYToWorldY(fromY),
                 forward * TORPEDO_BOAT_MODEL_SCALE,
                 (toRight - fromRight) * TORPEDO_BOAT_MODEL_SCALE / deltaSeconds,
-                (torpedoBoatModelYToWorldY(toY) - torpedoBoatModelYToWorldY(fromY)) / deltaSeconds + 9.0 * deltaSeconds,
+                (torpedoBoatModelYToWorldY(toY) - torpedoBoatModelYToWorldY(fromY)) / deltaSeconds + 0.5 * 9.8 * deltaSeconds,
                 0,
                 0
         );
         projectile.update(deltaSeconds);
+        assertEquals(toRight * TORPEDO_BOAT_MODEL_SCALE, projectile.x(), 0.000001);
+        assertEquals(torpedoBoatModelYToWorldY(toY), projectile.y(), 0.000001);
         return projectile;
     }
 
