@@ -66,6 +66,10 @@ final class MappedPlateauGeometry {
         return height;
     }
 
+    static List<List<Vertex>> triangles(Landmass land) {
+        return CACHE.computeIfAbsent(land, MappedPlateauGeometry::prepare);
+    }
+
     private static List<List<Vertex>> prepare(Landmass land) {
         var boundary = land.polygon().stream().map(p -> new Vertex(p.x(), p.z(), land.baseHeight())).toList();
         var groups = new LinkedHashMap<String, List<HeightPoint>>();

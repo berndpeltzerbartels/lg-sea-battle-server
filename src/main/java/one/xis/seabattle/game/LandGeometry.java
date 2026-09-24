@@ -303,6 +303,23 @@ final class LandGeometry {
         return weight * weight * (3 - 2 * weight);
     }
 
+    static List<Point2> peakContour(Landmass land, HeightPoint peak, double level) {
+        HeightBase base = heightPointBase(land, peak, land.polygon());
+        if (level > peak.h()) return List.of();
+        if (level <= base.floor()) return base.polygon();
+        double target = (level - base.floor()) / (peak.h() - base.floor());
+        double low = 0, high = 1;
+        for (int i = 0; i < 48; i++) {
+            double mid = (low + high) / 2;
+            if (heightProfileWeight(mid, peak.falloff()) < target) low = mid;
+            else high = mid;
+        }
+        double weight = (low + high) / 2;
+        return base.polygon().stream().map(p -> new Point2(
+                p.x() + (peak.x() - p.x()) * weight,
+                p.z() + (peak.z() - p.z()) * weight)).toList();
+    }
+
     private static Double barycentricWeightForPoint(Vector2 position, Point2 a, Point2 b, HeightPoint peak) {
         double denominator = (b.z() - peak.z()) * (a.x() - peak.x())
                 + (peak.x() - b.x()) * (a.z() - peak.z());

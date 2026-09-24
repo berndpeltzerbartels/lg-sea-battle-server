@@ -17,6 +17,11 @@ class MappedPlateauGeometryTest {
             assertTrue(MappedPlateauGeometry.complete(land), land.name());
             assertTrue(Double.isFinite(MappedPlateauGeometry.height(new Vector2(land.x(), land.z()), land)));
         }
+        var prepared = InstrumentMap.prepare(map);
+        assertEquals(3, prepared.layers().size());
+        assertFalse(prepared.layers().get(0).contours().isEmpty());
+        String output = System.getenv("MAPPED_LANDSCAPE_TEST_OUTPUT");
+        if (output != null) java.nio.file.Files.writeString(java.nio.file.Path.of(output), new Gson().toJson(map.withInstrumentMap(prepared)));
     }
 
     @Test

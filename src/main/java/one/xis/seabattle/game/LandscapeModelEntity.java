@@ -19,4 +19,10 @@ class LandscapeModelEntity {
     String worldMapJson;
     String respawnCandidatesJson;
     LocalDateTime createdAt;
+    String instrumentMapJson;
+
+    LandscapeModelEntity(String id, String name, String sourceFormat, String originalJson,
+                         String worldMapJson, String respawnCandidatesJson, LocalDateTime createdAt) {
+        this(id, name, sourceFormat, originalJson, worldMapJson, respawnCandidatesJson, createdAt, null);
+    }
 }

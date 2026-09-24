@@ -84,9 +84,17 @@ public class GameStateService {
         return new GameSession(setupFactory.setup(setupId, List.copyOf(requestedTeamIds)));
     }
 
-    public WorldMap worldMap() {
-        return session.worldMap();
+    public synchronized WorldMap worldMap() {
+        WorldMap current = session.worldMap();
+        if (instrumentSource != current) {
+            instrumentWorld = current.instrumentMap() != null ? current : current.withInstrumentMap(InstrumentMap.prepare(current));
+            instrumentSource = current;
+        }
+        return instrumentWorld;
     }
+
+    private WorldMap instrumentSource;
+    private WorldMap instrumentWorld;
 
     public List<Vector2> respawnCandidates() {
         return session.respawnCandidates();

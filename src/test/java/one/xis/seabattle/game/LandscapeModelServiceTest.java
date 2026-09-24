@@ -121,6 +121,9 @@ class LandscapeModelServiceTest {
         assertEquals("plateau", worldMap.landmasses().get(0).heightPoints().get(0).falloff());
         LandscapeModelEntity entity = repository.findById(summary.id()).orElseThrow();
         assertNotNull(entity.getRespawnCandidatesJson());
+        assertNotNull(entity.getInstrumentMapJson());
+        assertEquals(worldMap.instrumentMap(), new com.google.gson.Gson().fromJson(entity.getInstrumentMapJson(), InstrumentMap.class));
+        assertFalse(entity.getWorldMapJson().contains("\"instrumentMap\":"));
         assertTrue(entity.getRespawnCandidatesJson().contains("\"x\""));
         assertFalse(service.find(summary.id()).orElseThrow().respawnCandidates().isEmpty());
         assertEquals(service.find(summary.id()), new LandscapeModelService(repository).find(summary.id()));
@@ -133,7 +136,7 @@ class LandscapeModelServiceTest {
     }
 
     @Test
-    void legacyLandscapeIsPreparedAndPersistedOnce() {
+    void legacyLandscapeWithoutPreparedMapIsRejected() {
         MemoryLandscapeRepository repository = new MemoryLandscapeRepository();
         LandscapeModelService service = new LandscapeModelService(repository);
         repository.save(new LandscapeModelEntity(
@@ -178,31 +181,26 @@ class LandscapeModelServiceTest {
                 LocalDateTime.now()
         ));
 
-        var model = service.find("stale-world-map").orElseThrow();
-        assertEquals(1, model.worldMap().landmasses().size());
-        assertFalse(model.respawnCandidates().isEmpty());
-        assertEquals(2, repository.saveCount);
-        var reloaded = new LandscapeModelService(repository).find("stale-world-map").orElseThrow();
-        assertEquals(model, reloaded);
-        assertEquals(2, repository.saveCount);
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> service.find("stale-world-map"));
+        assertEquals(1, repository.saveCount);
     }
 
     @Test
     void persistedPreparationSurvivesRestartAndListingWithoutRebuilding() {
         MemoryLandscapeRepository repository = preparedRepository();
         var before = new LandscapeModelService(repository).find("fixture").orElseThrow();
-        assertEquals(2, repository.saveCount);
+        assertEquals(1, repository.saveCount);
         var restarted = new LandscapeModelService(repository);
         assertEquals(1, restarted.summaries().get(0).landmassCount());
         assertEquals(before, restarted.find("fixture").orElseThrow());
-        assertEquals(2, repository.saveCount);
+        assertEquals(1, repository.saveCount);
     }
 
     @Test
-    void outdatedOrDamagedPreparationIsRebuiltFromOriginal() {
-        for (String damage : List.of("version", "source", "map", "respawn", "invalid-json")) {
+    void outdatedOrDamagedPreparationIsRejected() {
+        for (String damage : List.of("version", "source", "map", "respawn", "instrument", "invalid-json")) {
             MemoryLandscapeRepository repository = preparedRepository();
-            var expected = new LandscapeModelService(repository).find("fixture").orElseThrow();
+            new LandscapeModelService(repository).find("fixture").orElseThrow();
             var row = repository.findById("fixture").orElseThrow();
             var stored = com.google.gson.JsonParser.parseString(row.getWorldMapJson()).getAsJsonObject();
             switch (damage) {
@@ -210,30 +208,27 @@ class LandscapeModelServiceTest {
                 case "source" -> row.setOriginalJson(row.getOriginalJson().replace("120", "180"));
                 case "map" -> stored.add("landmasses", new com.google.gson.JsonArray());
                 case "respawn" -> row.setRespawnCandidatesJson("[]");
+                case "instrument" -> row.setInstrumentMapJson("{}");
                 default -> { }
             }
             row.setWorldMapJson(damage.equals("invalid-json") ? "broken" : stored.toString());
-            var rebuilt = new LandscapeModelService(repository).find("fixture").orElseThrow();
-            assertEquals(3, repository.saveCount, damage);
-            if (damage.equals("source")) {
-                assertEquals(180, rebuilt.worldMap().landmasses().get(0).heightPoints().get(0).h());
-            } else {
-                assertEquals(expected, rebuilt, damage);
-            }
-            assertEquals(rebuilt, new LandscapeModelService(repository).find("fixture").orElseThrow());
-            assertEquals(3, repository.saveCount, damage);
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> new LandscapeModelService(repository).find("fixture"));
+            assertEquals(1, repository.saveCount, damage);
         }
     }
 
     private MemoryLandscapeRepository preparedRepository() {
         MemoryLandscapeRepository repository = new MemoryLandscapeRepository();
-        repository.save(new LandscapeModelEntity("fixture", "Fixture", "game-landscape-designer.v2", """
+        var summary = new LandscapeModelService(repository).saveUpload(new UploadedFile("landscapeFile", "Fixture.json", "application/json", """
                 {"format":"game-landscape-designer.v2","islands":[{
                   "id":"hill","polygon":[{"x":-100,"z":-100},{"x":100,"z":-100},
                     {"x":100,"z":100},{"x":-100,"z":100}],
                   "heights":[{"x":0,"z":0,"h":120}]
                 }]}
-                """, "{}", null, LocalDateTime.now()));
+                """.getBytes(StandardCharsets.UTF_8)));
+        var row = repository.rows.remove(summary.id());
+        row.setId("fixture");
+        repository.rows.put("fixture", row);
         return repository;
     }
 

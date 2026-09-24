@@ -28,7 +28,7 @@ public class LandscapeModelService {
 
     private static final String SUPPORTED_SOURCE_FORMAT = "game-landscape-designer.v2";
     // Bump when conversion, collision preparation or respawn generation changes.
-    private static final int PREPARATION_VERSION = 3;
+    private static final int PREPARATION_VERSION = 4;
 
     private final LandscapeModelRepository repository;
     private final LandscapeModelConverter converter = new LandscapeModelConverter();
@@ -80,6 +80,7 @@ public class LandscapeModelService {
             throw new IllegalArgumentException("Die Landschaft braucht das Format " + SUPPORTED_SOURCE_FORMAT + ".");
         }
         WorldMap worldMap = converter.convertEditorLandscape(root);
+        worldMap = worldMap.withInstrumentMap(InstrumentMap.prepare(worldMap));
         List<Vector2> respawnCandidates = DefaultGameSetupFactory.generatedWaterRespawnCandidates(worldMap);
         String name = stringValue(root, "name").orElse(fileNameWithoutExtension(file.getFileName()));
         LocalDateTime createdAt = timestampValue(root, "createdAt").orElseGet(LocalDateTime::now);
@@ -92,6 +93,7 @@ public class LandscapeModelService {
                 gson.toJson(respawnCandidates),
                 createdAt
         );
+        entity.setInstrumentMapJson(gson.toJson(worldMap.instrumentMap()));
         writePreparedMap(entity, worldMap);
         repository.save(entity);
         preparedModels.put(entity.getId(), new StoredLandscapeModel(entity.getId(), entity.getName(), worldMap, respawnCandidates));
@@ -126,25 +128,26 @@ public class LandscapeModelService {
                     && preparation.get("version").getAsInt() == PREPARATION_VERSION
                     && preparation.get("sourceSha256").getAsString().equals(sha256(entity.getOriginalJson()))
                     && preparation.get("worldMapSha256").getAsString().equals(sha256(stored.toString()))
+                    && preparation.get("instrumentMapSha256").getAsString().equals(sha256(entity.getInstrumentMapJson()))
                     && preparation.get("respawnSha256").getAsString().equals(sha256(entity.getRespawnCandidatesJson()))) {
                 WorldMap decoded = gson.fromJson(stored, WorldMap.class);
                 Vector2[] candidates = gson.fromJson(entity.getRespawnCandidatesJson(), Vector2[].class);
                 if (decoded != null && !decoded.landmasses().isEmpty() && candidates != null
                         && candidates.length > 0 && java.util.Arrays.stream(candidates)
                         .allMatch(point -> point != null && Double.isFinite(point.x()) && Double.isFinite(point.z()))) {
-                    worldMap = decoded;
+                    InstrumentMap instrumentMap = gson.fromJson(entity.getInstrumentMapJson(), InstrumentMap.class);
+                    if (instrumentMap == null || instrumentMap.version() != InstrumentMap.VERSION || instrumentMap.layers().size() != 3) {
+                        throw new IllegalArgumentException("Ungueltige vorbereitete Kartendaten.");
+                    }
+                    worldMap = decoded.withInstrumentMap(instrumentMap);
                     respawnCandidates = List.of(candidates);
                 }
             }
         } catch (IllegalArgumentException | JsonParseException | IllegalStateException | NullPointerException | ClassCastException e) {
-            // Legacy or damaged derived data is rebuilt from the unchanged original.
+            throw new IllegalArgumentException("Landschaft " + entity.getName() + ": Kartendaten ungueltig. Bitte neu importieren.", e);
         }
         if (worldMap == null) {
-            worldMap = converter.convertEditorLandscape(parseRoot(entity.getOriginalJson()));
-            respawnCandidates = DefaultGameSetupFactory.generatedWaterRespawnCandidates(worldMap);
-            entity.setRespawnCandidatesJson(gson.toJson(respawnCandidates));
-            writePreparedMap(entity, worldMap);
-            repository.save(entity);
+            throw new IllegalArgumentException("Landschaft " + entity.getName() + ": Vorbereitung fehlt oder ist veraltet. Bitte neu importieren.");
         }
         worldMap.landmasses().forEach(MappedPlateauGeometry::validate);
         StoredLandscapeModel model = new StoredLandscapeModel(
@@ -159,11 +162,13 @@ public class LandscapeModelService {
 
     private void writePreparedMap(LandscapeModelEntity entity, WorldMap worldMap) {
         JsonObject stored = gson.toJsonTree(worldMap).getAsJsonObject();
+        stored.remove("instrumentMap");
         JsonObject preparation = new JsonObject();
         preparation.addProperty("version", PREPARATION_VERSION);
         preparation.addProperty("sourceSha256", sha256(entity.getOriginalJson()));
         preparation.addProperty("worldMapSha256", sha256(stored.toString()));
         preparation.addProperty("respawnSha256", sha256(entity.getRespawnCandidatesJson()));
+        preparation.addProperty("instrumentMapSha256", sha256(entity.getInstrumentMapJson()));
         stored.add("preparation", preparation);
         entity.setWorldMapJson(gson.toJson(stored));
     }

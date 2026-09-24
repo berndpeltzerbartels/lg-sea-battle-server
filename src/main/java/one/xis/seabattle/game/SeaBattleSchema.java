@@ -113,4 +113,9 @@ class SeaBattleSchema {
         ddl.alterTable("landscape_models")
                 .addColumn("respawn_candidates_json").text();
     }
+
+    @Change("012-add-landscape-instrument-map")
+    void addLandscapeInstrumentMap(DDL ddl) {
+        ddl.alterTable("landscape_models").addColumn("instrument_map_json").text();
+    }
 }
