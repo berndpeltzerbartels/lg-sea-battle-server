@@ -55,8 +55,16 @@ public class GameStateService {
         executor.execute(this::runTickLoop);
     }
 
-    public WorldMap worldMap() {
-        return session.worldMap();
+    private WorldMap instrumentSource;
+    private WorldMap instrumentWorld;
+
+    public synchronized WorldMap worldMap() {
+        WorldMap current = session.worldMap();
+        if (instrumentSource != current) {
+            instrumentWorld = new WorldMap(current.version(), current.landmasses(), InstrumentMap.prepare(current));
+            instrumentSource = current;
+        }
+        return instrumentWorld;
     }
 
     public List<Vector2> respawnCandidates() {
