@@ -66,7 +66,7 @@ public final class SeaBattleEventService {
         players.add(playerId);
         gameStateService.connectPlayer(playerId);
         connections.register(PLAYER_SCOPE, playerId, emitter);
-        send(playerId, createMessage(gameStateService.snapshot()));
+        send(playerId, gson.toJson(createMessage(gameStateService.snapshot())));
     }
 
     public void unregister(String playerId, SseEmitter emitter) {
@@ -108,15 +108,16 @@ public final class SeaBattleEventService {
         }
 
         GameSnapshot state = gameStateService.snapshot();
-        players.forEach(playerId -> send(playerId, createMessage(state)));
+        String payload = gson.toJson(createMessage(state));
+        players.forEach(playerId -> send(playerId, payload));
     }
 
     private GameStreamMessage createMessage(GameSnapshot state) {
         return new GameStreamMessage("game-stream", state);
     }
 
-    private void send(String playerId, GameStreamMessage message) {
-        connections.sendData(PLAYER_SCOPE, playerId, gson.toJson(message));
+    private void send(String playerId, String payload) {
+        connections.sendData(PLAYER_SCOPE, playerId, payload);
     }
 
     private String initialsFromPlayerId(String playerId) {
