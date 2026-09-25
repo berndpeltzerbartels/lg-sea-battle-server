@@ -10,6 +10,18 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class InstrumentMapTest {
     @Test
+    void fractionalGridProducesOneOutlineWithoutInternalSeams() {
+        for (double offset : new double[]{0, 0.123, -1783.719}) {
+            Landmass land = new Landmass("coastline", "fractional", offset, offset,
+                    173.37, 211.19, 173.37, 211.19, 173.37, 211.19,
+                    null, 20, 200.0, 0.0, null, List.of(), List.of(), List.of());
+            var data = InstrumentMap.prepare(new WorldMap(1, List.of(land)));
+            assertEquals(1, data.layers().get(0).contours().size(),
+                    "one continuous island must have one outline at offset " + offset);
+        }
+    }
+
+    @Test
     void preparesAllLayersAndPreservesWaterHoles() {
         Landmass land = new Landmass("coastline", "test", 0, 0, 500, 500,
                 500, 500, 500, 500, null, 20, 200.0, 0.0, null,
@@ -33,7 +45,8 @@ class InstrumentMapTest {
         var world = service.worldMap();
         assertSame(world, service.worldMap());
         assertEquals(3, world.instrumentMap().layers().size());
-        assertFalse(world.instrumentMap().layers().get(0).contours().isEmpty());
+        assertEquals(73, world.instrumentMap().layers().get(0).contours().size(),
+                "default world must not acquire internal strip boundaries when areas overlap");
         String output = System.getProperty("seaBattle.instrumentFixture");
         if (output != null) Files.writeString(Path.of(output), new Gson().toJson(world));
         service.resetToSetup("ram-side");

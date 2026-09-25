@@ -1,58 +1,76 @@
 package one.xis.seabattle.game;
 
-import java.awt.geom.Area;
-import java.awt.geom.Path2D;
-import java.awt.geom.PathIterator;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Envelope;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.operation.union.UnaryUnionOp;
 import java.util.ArrayList;
 import java.util.List;
 
 /** World-space instrument contours sampled once from the procedural terrain. */
 record InstrumentMap(int version, List<Layer> layers) {
+    private static final GeometryFactory GEOMETRY = new GeometryFactory();
     record Layer(double height, List<List<Point2>> contours) {}
 
     static InstrumentMap prepare(WorldMap world) {
         var layers = new ArrayList<Layer>();
         for (double level : new double[]{0, 50, 150}) {
-            Area combined = new Area();
-            for (Landmass land : world.landmasses()) combined.add(areaAbove(land, level));
-            layers.add(new Layer(level, contours(combined)));
+            var islands = new ArrayList<Geometry>();
+            for (Landmass land : world.landmasses()) islands.add(areaAbove(land, level));
+            layers.add(new Layer(level, contours(UnaryUnionOp.union(islands, GEOMETRY))));
         }
         return new InstrumentMap(1, List.copyOf(layers));
     }
 
-    private static Area areaAbove(Landmass land, double level) {
+    private static Geometry areaAbove(Landmass land, double level) {
         double cell = Math.max(0.25, Math.min(8, Math.min(land.rx(), land.rz()) / 32));
         double minX = land.x() - land.rx() * 1.6, maxX = land.x() + land.rx() * 1.6;
         double minZ = land.z() - land.rz() * 1.6, maxZ = land.z() + land.rz() * 1.6;
         WorldMap single = new WorldMap(0, List.of(land));
-        Path2D.Double path = new Path2D.Double();
-        for (double z = minZ; z < maxZ; z += cell) {
-            double start = Double.NaN;
-            for (double x = minX; x <= maxX + cell; x += cell) {
+        var strips = new ArrayList<Geometry>();
+        int rows = (int) Math.ceil((maxZ - minZ) / cell);
+        int columns = (int) Math.ceil((maxX - minX) / cell);
+        // Derive shared edges from the same index, avoiding accumulated rounding gaps.
+        for (int row = 0; row < rows; row++) {
+            double z = minZ + row * cell;
+            int start = -1;
+            for (int column = 0; column <= columns; column++) {
+                double x = minX + column * cell;
                 Vector2 position = new Vector2(x + cell / 2, z + cell / 2);
-                boolean blocked = x < maxX && (level == 0
+                boolean blocked = column < columns && (level == 0
                         ? LandGeometry.isBlockedByLandmass(position, land)
                         : LandGeometry.terrainHeightAt(position, single) >= level);
-                if (blocked && Double.isNaN(start)) start = x;
-                if (!blocked && !Double.isNaN(start)) {
-                    path.moveTo(start, z); path.lineTo(x, z);
-                    path.lineTo(x, z + cell); path.lineTo(start, z + cell); path.closePath();
-                    start = Double.NaN;
+                if (blocked && start < 0) start = column;
+                if (!blocked && start >= 0) {
+                    strips.add(GEOMETRY.toGeometry(new Envelope(minX + start * cell, x,
+                            z, minZ + (row + 1) * cell)));
+                    start = -1;
                 }
             }
         }
-        return new Area(path);
+        return UnaryUnionOp.union(strips, GEOMETRY);
     }
 
-    private static List<List<Point2>> contours(Area area) {
+    private static List<List<Point2>> contours(Geometry area) {
+        area.normalize();
         var result = new ArrayList<List<Point2>>();
-        List<Point2> ring = null;
-        double[] point = new double[6];
-        for (var iterator = area.getPathIterator(null, 0.25); !iterator.isDone(); iterator.next()) {
-            int type = iterator.currentSegment(point);
-            if (type == PathIterator.SEG_MOVETO) { ring = new ArrayList<>(); result.add(ring); }
-            if (type == PathIterator.SEG_MOVETO || type == PathIterator.SEG_LINETO) ring.add(new Point2(point[0], point[1]));
+        for (int i = 0; i < area.getNumGeometries(); i++) {
+            if (!(area.getGeometryN(i) instanceof Polygon polygon)) continue;
+            result.add(ring(polygon.getExteriorRing().getCoordinates()));
+            for (int hole = 0; hole < polygon.getNumInteriorRing(); hole++) {
+                result.add(ring(polygon.getInteriorRingN(hole).getCoordinates()));
+            }
         }
-        return result.stream().filter(points -> points.size() >= 3).map(List::copyOf).toList();
+        return List.copyOf(result);
+    }
+
+    private static List<Point2> ring(Coordinate[] coordinates) {
+        var points = new ArrayList<Point2>();
+        for (int i = 0; i < coordinates.length - 1; i++) {
+            points.add(new Point2(coordinates[i].x, coordinates[i].y));
+        }
+        return List.copyOf(points);
     }
 }
