@@ -44,7 +44,7 @@ public class CrewRecruitmentService {
 
     public synchronized List<ShipOption> ships(Account account) {
         var snapshot = refresh();
-        boolean pending = requests.values().stream().anyMatch(r -> r.accountId().equals(account.id()) && r.status().equals("Offen"));
+        boolean pending = requests.values().stream().anyMatch(r -> r.accountId().equals(account.id()) && r.pending());
         return snapshot.ships().stream().filter(ship -> eligible(ship, account))
                 .map(ship -> {
                     var previous = requests.get(key(account.id(), ship.id()));
@@ -67,13 +67,38 @@ public class CrewRecruitmentService {
         if (requests.containsKey(key(account.id(), shipId))) {
             throw new IllegalArgumentException("Dieses Schiff wurde in dieser Partie bereits angefragt.");
         }
-        if (requests.values().stream().anyMatch(r -> r.accountId().equals(account.id()) && r.status().equals("Offen"))) {
+        if (requests.values().stream().anyMatch(r -> r.accountId().equals(account.id()) && r.pending())) {
             throw new IllegalArgumentException("Es ist bereits eine Anfrage offen.");
         }
         var ship = snapshot.ships().stream().filter(s -> s.id().equals(shipId) && eligible(s, account))
                 .findFirst().orElseThrow(() -> new IllegalArgumentException("Dieses Schiff ist nicht mehr verfuegbar."));
         requests.put(key(account.id(), ship.id()), new Request(account.id(), ship.id(),
-                ship.controlledBy(), "Offen", clock.millis() + 120_000));
+                ship.controlledBy(), "Offen", clock.millis() + 120_000,
+                UUID.randomUUID().toString(), account.nickname(), account.alias()));
+    }
+
+    public synchronized List<Request> inbox(Account recipient) {
+        refresh();
+        return requests.values().stream().filter(r -> r.status().equals("Offen")
+                && recipient.id().equals(players.accountIdForPlayer(r.recipientPlayerId()))).toList();
+    }
+
+    public synchronized void decide(Account recipient, String requestId, boolean accept) {
+        refresh();
+        Request request = requests.values().stream().filter(r -> r.id().equals(requestId)).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Anfrage nicht mehr vorhanden."));
+        if (!recipient.id().equals(players.accountIdForPlayer(request.recipientPlayerId()))) {
+            throw new IllegalArgumentException("Keine Berechtigung fuer diese Anfrage.");
+        }
+        String decision = accept ? "Angenommen" : "Abgelehnt";
+        if (request.status().equals(decision)) return;
+        if (!request.status().equals("Offen")) throw new IllegalArgumentException("Anfrage nicht mehr offen.");
+        if (accept && requests.values().stream().filter(r -> r.shipId().equals(request.shipId())
+                && r.status().equals("Angenommen")).count() >= 3) {
+            throw new IllegalArgumentException("Keine freien Besatzungsplaetze.");
+        }
+        requests.put(key(request.accountId(), request.shipId()), request.withStatus(decision,
+                accept ? clock.millis() + 120_000 : request.expiresAt()));
     }
 
     private GameSnapshot refresh() {
@@ -87,8 +112,8 @@ public class CrewRecruitmentService {
             boolean unavailable = snapshot.ships().stream().noneMatch(ship -> ship.id().equals(request.shipId())
                     && "active".equals(ship.state()) && Objects.equals(ship.controlledBy(), request.recipientPlayerId())
                     && players.isRegisteredPlayer(ship.controlledBy()));
-            return request.status().equals("Offen") && (clock.millis() >= request.expiresAt() || unavailable)
-                    ? new Request(request.accountId(), request.shipId(), request.recipientPlayerId(), "Abgelaufen", request.expiresAt())
+            return request.pending() && (clock.millis() >= request.expiresAt() || unavailable)
+                    ? request.withStatus("Abgelaufen", request.expiresAt())
                     : request;
         });
         return snapshot;
@@ -102,5 +127,11 @@ public class CrewRecruitmentService {
 
     private String key(String accountId, String shipId) { return accountId + ":" + shipId; }
     public record ShipOption(String id, String captain, String status, boolean available) {}
-    public record Request(String accountId, String shipId, String recipientPlayerId, String status, long expiresAt) {}
+    public record Request(String accountId, String shipId, String recipientPlayerId, String status, long expiresAt,
+                          String id, String nickname, String alias) {
+        boolean pending() { return status.equals("Offen") || status.equals("Angenommen"); }
+        Request withStatus(String status, long expiresAt) {
+            return new Request(accountId, shipId, recipientPlayerId, status, expiresAt, id, nickname, alias);
+        }
+    }
 }

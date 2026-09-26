@@ -17,8 +17,16 @@ RefreshOnUpdateEvents und RefreshEventPublisher (XIS SSE); ein XIS-Scheduler
 prueft einmal pro Sekunde die relevanten Listen und sendet nur bei Aenderungen.
 Positionen und Fahrbewegungen loesen kein Neuladen der Liste aus.
 
-Noch offen: Annahme/Ablehnung beim Ansprechpartner, Aufnahmefreigabe,
-Besatzungsplatzreservierung, tatsaechlicher Einstieg und Bedienberechtigungen.
+Annahme/Ablehnung erfolgt jetzt in einer kompakten XIS-SSE-Anzeige im Spiel,
+ohne Modal und ohne Fokuswechsel beim Erscheinen oder beim Mausklick.
+Abgelehnte Anfragen bleiben sichtbar; andere Schiffe werden wieder freigegeben,
+dasselbe Schiff bleibt fuer die Partie gesperrt. Annahmen reservieren vorerst
+fuer zwei Minuten einen von drei zusaetzlichen Plaetzen. Entscheidungen werden
+serverseitig gegen Empfaenger, Status und Kapazitaet geprueft.
+
+Noch offen: tatsaechlicher Einstieg, exklusive Bedienplatzbelegung und
+Bedienberechtigungen. Eine blosse Weiterleitung ins Spiel waere falsch, solange
+mehrere Clients Fahrt und Waffen desselben Schiffs ueberschreiben koennen.
 Aktuell erscheinen aktive menschlich gesteuerte Torpedoboote desselben Teams.
 Nicht auf Produktion ausgerollt. Lokaler Browser-Smoke-Test:
 node scripts/test-crew-page.mjs (Standardport 9092, CREW_TEST_URL optional).

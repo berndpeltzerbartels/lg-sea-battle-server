@@ -36,6 +36,18 @@ public class SeaBattleCrewPage {
         return ships(id).stream().filter(CrewRecruitmentService.ShipOption::available).toList();
     }
 
+    @ModelData("decisionNotice")
+    String decisionNotice(@NullAllowed @LocalStorage("accountId") String id) {
+        var history = requests(id);
+        if (history.isEmpty()) return "";
+        return switch (history.get(history.size() - 1).status()) {
+            case "Abgelehnt" -> "Deine Anfrage wurde abgelehnt. Du kannst bei einem anderen Schiff anfragen. Dieses Schiff bleibt fuer diese Partie gesperrt.";
+            case "Angenommen" -> "Deine Anfrage wurde angenommen. Der Platz ist fuer zwei Minuten reserviert. Der Einstieg ins gemeinsame Schiff ist noch nicht verfuegbar.";
+            case "Abgelaufen" -> "Deine Anfrage ist abgelaufen. Du kannst bei einem anderen Schiff anfragen.";
+            default -> "";
+        };
+    }
+
     @Action
     void request(@FormData("crew") CrewForm form, @NullAllowed @LocalStorage("accountId") String id) {
         Account account = accounts.findAccountById(id).orElse(null);

@@ -13,11 +13,15 @@
         form { display: grid; gap: 12px; margin-top: 24px; }
         button, select { min-height: 44px; padding: 10px; font: inherit; max-width: 100%; }
         a { color: #a8eeed; } .message { color: #ffb39f; }
+        .decision { border-left: 3px solid #9edac6; padding: 12px 16px; background: #18353c; }
+        .request-Abgelehnt, .request-Abgelaufen { color: #ffb39f; }
+        .request-Angenommen { color: #bce2cb; }
     </style>
 </head>
 <body><main>
     <a href="start.html">Zur Anmeldung</a>
     <h1>Anheuern</h1>
+    <p class="decision" role="status" xis:if="!empty(decisionNotice)">${decisionNotice}</p>
     <p xis:if="empty(ships)">Keine Torpedoboote deiner Flotte verf&uuml;gbar.</p>
     <table xis:if="!empty(ships)">
         <thead><tr><th>Schiff</th><th>Ansprechpartner</th><th>Status</th></tr></thead>
@@ -36,6 +40,6 @@
         <button type="submit" xis:action="request">Anfragen</button>
     </form>
     <h2 xis:if="!empty(requests)">Meine Anfragen</h2>
-    <ul><xis:foreach var="request" array="requests"><li>${request.shipId}: ${request.status}</li></xis:foreach></ul>
+    <ul><li xis:repeat="request:requests" class="request-${request.status}">${request.shipId}: ${request.status}</li></ul>
 </main></body>
 </html>

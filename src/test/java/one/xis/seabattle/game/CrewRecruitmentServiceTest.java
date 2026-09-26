@@ -81,4 +81,49 @@ class CrewRecruitmentServiceTest {
         game.resetCurrentSetup();
         assertTrue(service.requests(applicant).isEmpty());
     }
+
+    @Test
+    void onlyRecipientCanDecideAndRepeatedDecisionIsIdempotent() {
+        String ship = captain("CAP", "light", "torpedo-boat");
+        var recipient = new Account("CAP", "Captain", "CAP", "light", null);
+        service.request(applicant, ship);
+        var request = service.inbox(recipient).get(0);
+        assertThrows(IllegalArgumentException.class, () -> service.decide(applicant, request.id(), true));
+        service.decide(recipient, request.id(), true);
+        assertEquals("Angenommen", service.requests(applicant).get(0).status());
+        assertTrue(service.inbox(recipient).isEmpty());
+        assertDoesNotThrow(() -> service.decide(recipient, request.id(), true));
+        assertThrows(IllegalArgumentException.class, () -> service.decide(recipient, request.id(), false));
+        assertThrows(IllegalArgumentException.class, () -> service.request(applicant, ship));
+    }
+
+    @Test
+    void declineAndCaptainDepartureCannotBecomeAcceptance() {
+        String ship = captain("CAP", "light", "torpedo-boat");
+        var recipient = new Account("CAP", "Captain", "CAP", "light", null);
+        service.request(applicant, ship);
+        String id = service.inbox(recipient).get(0).id();
+        service.decide(recipient, id, false);
+        assertEquals("Abgelehnt", service.requests(applicant).get(0).status());
+        assertThrows(IllegalArgumentException.class, () -> service.decide(recipient, id, true));
+        var another = new Account("another", "Another", "TWO", "light", null);
+        service.request(another, ship);
+        String nextId = service.inbox(recipient).get(0).id();
+        game.releasePlayer("player-CAP-test");
+        assertThrows(IllegalArgumentException.class, () -> service.decide(recipient, nextId, true));
+        assertEquals("Abgelaufen", service.requests(another).get(0).status());
+    }
+
+    @Test
+    void acceptReservesAtMostThreeAdditionalPlaces() {
+        String ship = captain("CAP", "light", "torpedo-boat");
+        var recipient = new Account("CAP", "Captain", "CAP", "light", null);
+        for (int i = 0; i < 4; i++) {
+            var account = new Account("crew" + i, "Crew", "C" + i, "light", null);
+            service.request(account, ship);
+            String id = service.requests(account).get(0).id();
+            if (i < 3) service.decide(recipient, id, true);
+            else assertThrows(IllegalArgumentException.class, () -> service.decide(recipient, id, true));
+        }
+    }
 }
