@@ -1,5 +1,31 @@
 # Mehrere Menschen auf einem Torpedoboot
 
+## Aktualisierte Vereinbarung und erster Umsetzungsschritt
+
+Die spaetere Diskussion ersetzt den Kapitaen als exklusiven Fahrer durch
+gleichwertige Besatzungsmitglieder: Jeder kann einen freien Bedienplatz
+uebernehmen, der Server reserviert ihn exklusiv. Ein freigegebener Platz ist
+fuer alle frei. Ohne Steuermann bleibt die letzte Fahrtanweisung bestehen.
+Aufnahmeentscheidungen bleiben davon getrennt.
+
+Umgesetzt ist zunaechst der XIS-Anmeldeweg mit Anheuern-Auswahl und einer
+XIS-Seite /crew.html. Antragsteller erhalten noch kein eigenes Schiff.
+Einmalige Anfragen pro Account/Schiff/Partie und eine offene Anfrage pro
+Account werden serverseitig verwaltet. Anfragen laufen nach zwei Minuten
+oder bei Wegfall des Ansprechpartners ab. Die Seite aktualisiert sich ueber
+RefreshOnUpdateEvents und RefreshEventPublisher (XIS SSE); ein XIS-Scheduler
+prueft einmal pro Sekunde die relevanten Listen und sendet nur bei Aenderungen.
+Positionen und Fahrbewegungen loesen kein Neuladen der Liste aus.
+
+Noch offen: Annahme/Ablehnung beim Ansprechpartner, Aufnahmefreigabe,
+Besatzungsplatzreservierung, tatsaechlicher Einstieg und Bedienberechtigungen.
+Aktuell erscheinen aktive menschlich gesteuerte Torpedoboote desselben Teams.
+Nicht auf Produktion ausgerollt. Lokaler Browser-Smoke-Test:
+node scripts/test-crew-page.mjs (Standardport 9092, CREW_TEST_URL optional).
+
+Die folgende Erstanalyse dokumentiert den damaligen Ausgangspunkt;
+abweichende Rollenvorschlaege sind durch die Vereinbarung oben ersetzt.
+
 ## Ausgangspunkt
 
 - Server: main b437eaa, Branch codex/multi-person-crew.

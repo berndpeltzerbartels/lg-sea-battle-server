@@ -75,6 +75,10 @@ public class GameStateService {
         return publishedModel.state();
     }
 
+    Object recruitmentRoundIdentity() {
+        return session;
+    }
+
     public GameSnapshot tick(double deltaSeconds) {
         SessionView view;
         synchronized (this) {
