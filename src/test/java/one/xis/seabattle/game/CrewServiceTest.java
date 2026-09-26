@@ -168,7 +168,7 @@ class CrewServiceTest {
         catch (IllegalArgumentException rejected) { return false; }
     }
 
-    @Test void activatingOpposingTeamPreservesMembershipAndInvalidatesOldCommands() {
+    @Test void activatingOpposingTeamPreservesMembershipAndCurrentCommands() {
         var before = start();
         crew.join(captain, account("GUN"));
         var stale = command(captain, "cannon");
@@ -177,7 +177,58 @@ class CrewServiceTest {
         assertEquals(before.id(), after.id());
         assertEquals(2, after.members().size());
         assertEquals("flak", after.station());
-        assertThrows(IllegalArgumentException.class, () -> crew.switchStation(stale));
+        assertDoesNotThrow(() -> crew.switchStation(stale));
         assertEquals(1, game.snapshot().ships().stream().filter(s -> captain.equals(s.controlledBy())).count());
+    }
+
+    @Test void teamAndVehicleChangesPreservePersonalScoreAndPosition() {
+        var first = start();
+        var origin = ship(first.shipId());
+        game.restorePersonalScore(captain, 7);
+        var teamScores = game.snapshot().destroyedShipsByTeam();
+        String dark = crew.startOwnShip(new Account("captain", "Captain", "CAP", "dark", null), "submarine");
+        var changed = game.snapshot().ships().stream().filter(s -> dark.equals(s.controlledBy())).findFirst().orElseThrow();
+        assertEquals(origin.x(), changed.x());
+        assertEquals(origin.z(), changed.z());
+        assertEquals("dark", changed.teamId());
+        assertEquals("submarine", changed.vehicleType());
+        assertEquals(7, game.snapshot().killsByPlayer().get(dark));
+        teamScores.forEach((team, score) -> assertEquals(score, game.snapshot().destroyedShipsByTeam().get(team)));
+        assertFalse(players.isRegisteredPlayer(captain));
+        crew.leave(dark);
+        players.unregisterPlayer(dark);
+        game.releasePlayer(dark);
+        String light = crew.startOwnShip(new Account("captain", "Captain", "CAP", "light", null), "torpedo-boat");
+        var returned = game.snapshot().ships().stream().filter(s -> light.equals(s.controlledBy())).findFirst().orElseThrow();
+        assertEquals(origin.x(), returned.x());
+        assertEquals(origin.z(), returned.z());
+        assertEquals(7, game.snapshot().killsByPlayer().get(light));
+    }
+
+    @Test void changingOwnShipLeavesOtherCrewMembersOnTheirShip() {
+        var first = start();
+        crew.join(captain, account("GUN"));
+        String gunner = player("GUN");
+        game.restorePersonalScore(gunner, 3);
+        crew.startOwnShip(new Account("captain", "Captain", "CAP", "dark", null), "submarine");
+        assertEquals(first.shipId(), crew.view(gunner).shipId());
+        assertEquals("light", ship(first.shipId()).teamId());
+        assertEquals(3, game.snapshot().killsByPlayer().get(gunner));
+    }
+
+    @Test void recruitmentKeepsPersonalScoreButAdoptsDestinationPosition() {
+        var destination = start();
+        String previous = crew.startOwnShip(account("GUN"), "submarine");
+        game.restorePersonalScore(previous, 5);
+        crew.departForSelection("GUN");
+        var joined = crew.join(captain, account("GUN"));
+        assertEquals(destination.shipId(), joined.shipId());
+        assertEquals(5, game.snapshot().killsByPlayer().get(player("GUN")));
+        var target = ship(destination.shipId());
+        String departed = crew.startOwnShip(account("GUN"), "submarine");
+        var own = game.snapshot().ships().stream().filter(s -> departed.equals(s.controlledBy())).findFirst().orElseThrow();
+        assertTrue(Math.hypot(target.x() - own.x(), target.z() - own.z()) <= 80.001);
+        assertTrue(Math.hypot(target.x() - own.x(), target.z() - own.z()) >= 35);
+        assertEquals(5, game.snapshot().killsByPlayer().get(departed));
     }
 }

@@ -14,6 +14,29 @@ public class CrewService {
     private final Map<String, Long> awaitingConnection = new HashMap<>();
     private Object round;
     private long revision;
+    private record ReturnState(ShipSnapshot ship, int score) {}
+    private final Map<String, ReturnState> returnsByAccount = new HashMap<>();
+
+    public synchronized String startOwnShip(Account account, String vehicle) {
+        departForSelection(account.id());
+        game.activateTeam(account.team());
+        String player = "player-" + account.alias() + "-" + UUID.randomUUID().toString().substring(0, 12);
+        players.register(player, account.alias(), account.nickname(), account.team(), account.id());
+        ReturnState previous = returnsByAccount.get(account.id());
+        game.restorePlayer(player, account.team(), vehicle, previous == null ? null : previous.ship(),
+                previous == null ? 0 : previous.score());
+        return player;
+    }
+
+    public synchronized void departForSelection(String accountId) {
+        var active = players.players().stream().map(SeaBattlePlayerRegistry.RegisteredPlayer::playerId)
+                .filter(p -> accountId.equals(players.accountIdForPlayer(p))).toList();
+        for (String player : active) {
+            leave(player);
+            players.unregisterPlayer(player);
+            game.releasePlayer(player);
+        }
+    }
 
     public CrewService(GameStateService game, SeaBattlePlayerRegistry players) {
         this.game = game;
@@ -140,6 +163,8 @@ public class CrewService {
             throw new IllegalArgumentException("Schiff nicht aktiv.");
         String player = "player-" + applicant.alias() + "-" + UUID.randomUUID().toString().substring(0, 12);
         players.register(player, applicant.alias(), applicant.nickname(), applicant.team(), applicant.id());
+        ReturnState previous = returnsByAccount.get(applicant.id());
+        if (previous != null) game.restorePersonalScore(player, previous.score());
         c.members.put(player, new Member(player, applicant.nickname(), station, ++revision));
         byPlayer.put(player, c);
         awaitingConnection.put(player, System.currentTimeMillis() + 120_000);
@@ -214,6 +239,15 @@ public class CrewService {
 
     public synchronized void leave(String player) {
         refreshRound();
+        String accountId = players.accountIdForPlayer(player);
+        if (accountId != null) {
+            Crew current = byPlayer.get(player);
+            var snapshot = game.snapshot();
+            var ship = snapshot.ships().stream().filter(s -> current == null
+                    ? player.equals(s.controlledBy()) : s.id().equals(current.shipId)).findFirst().orElse(null);
+            if (ship != null) returnsByAccount.put(accountId,
+                    new ReturnState(ship, snapshot.killsByPlayer().getOrDefault(player, 0)));
+        }
         awaitingConnection.remove(player);
         Crew c = byPlayer.remove(player);
         if (c == null) return;

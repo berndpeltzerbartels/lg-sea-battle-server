@@ -15,11 +15,18 @@ map:
 .........
 .1.2.3.4.
 .........
+.........
+.........
+.........
+.........
+.........
+........5
 objects:
 1: ship light bot [speed: 0knt]
 2: ship light bot [speed: 0knt]
 3: ship light bot [speed: 0knt]
-4: ship light bot [speed: 0knt]`
+4: ship light bot [speed: 0knt]
+5: ship dark bot [speed: 0knt]`
   }});
   assert.equal(scenario.status(), 200);
   const errors = [];
@@ -192,6 +199,26 @@ objects:
   await page.reload();
   await page.waitForFunction(() => document.body.dataset.crewStation === "bridge");
   assert.equal(await page.getAttribute("body", "data-player-ship-id"), ship.id);
+  const beforeSwitch = await (await page.request.get(`${base}/game/state`)).json();
+  const oldShip = beforeSwitch.ships.find(s => s.id === ship.id);
+  await page.goto(`${base}/start.html`);
+  await page.waitForFunction(() => Boolean(document.querySelector('#nickname')?.value));
+  await page.locator("#team").selectOption("dark");
+  await page.locator("#vehicleType").selectOption("submarine");
+  await page.locator('button[xis\\:action="startGame"]').click();
+  await page.waitForURL("**/app?vehicle=submarine").catch(async error => {
+    console.log(await page.locator("body").innerText());
+    throw error;
+  });
+  await page.waitForFunction(() => Boolean(document.body.dataset.playerShipId));
+  const changedState = await (await page.request.get(`${base}/game/state`)).json();
+  const ownId = await page.getAttribute("body", "data-player-ship-id");
+  const own = changedState.ships.find(s => s.id === ownId);
+  assert.equal(own.teamId, "dark");
+  assert.equal(own.vehicleType, "submarine");
+  assert.ok(Math.hypot(own.x - oldShip.x, own.z - oldShip.z) < 15);
+  assert.equal(changedState.killsByPlayer[own.controlledBy] ?? 0, beforeSwitch.killsByPlayer[oldShip.controlledBy] ?? 0);
+  assert.deepEqual(changedState.destroyedShipsByTeam, beforeSwitch.destroyedShipsByTeam);
   assert.deepEqual(errors, []);
   console.log("PASS: XIS recruitment, shared cannon smoke on bridge and flak, exclusive stations, bridge/torpedo view, driver handover, leave and reconnect");
 } finally {

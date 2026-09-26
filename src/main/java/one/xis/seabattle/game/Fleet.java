@@ -137,6 +137,11 @@ final class Fleet {
         ships.stream().filter(s -> s.id().equals(shipId)).findFirst().ifPresent(s -> s.controlledBy(next));
     }
 
+    void removeUnoccupiedShipAt(ShipSnapshot previous) {
+        ships.removeIf(s -> s.id().equals(previous.id()) && "bot".equals(s.controlledBy())
+                && s.position().distanceTo(new Vector2(previous.x(), previous.z())) < 0.01);
+    }
+
     private String nextAdditionalShipId() {
         int next = ships.size() + 1;
         String candidate;

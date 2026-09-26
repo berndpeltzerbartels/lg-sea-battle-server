@@ -136,23 +136,18 @@ public class SeaBattleClientController {
                 request.team() == null ? "" : request.team().trim().toLowerCase(Locale.ROOT),
                 request.email() == null || request.email().isBlank() ? null : request.email().trim()
         );
-        if (crew.hasAccount(accountId)) {
-            var current = activeSession(accountService.findAccountById(accountId).orElse(account));
-            return current.getBody() instanceof PlayerLogin login
-                    ? ResponseEntity.ok(new StartGameResponse(accountId, login)) : current;
-        }
         String vehicleType = normalizeVehicleType(request.vehicleType());
         if (account.nickname().length() < 2 || account.alias().isBlank() || account.alias().length() > 5
                 || (!"light".equals(account.team()) && !"dark".equals(account.team()))) {
             return ResponseEntity.status(400, "Invalid player registration");
         }
-        accountService.saveAccount(account);
-        ResponseEntity<?> response = startOrFindSession(account);
-        if (response.getStatusCode() >= 400) {
-            return response;
+        if (playerRegistry.isAliasRegisteredForOtherAccount(account.alias(), accountId)
+                || playSessionService.isAliasActiveForOtherAccount(gameService.activeGameId(), account.alias(), accountId)) {
+            return ResponseEntity.status(409, "Alias is already active");
         }
-        PlayerLogin player = (PlayerLogin) response.getBody();
-        gameStateService.assignPlayerVehicle(player.playerId(), player.teamId(), vehicleType);
+        accountService.saveAccount(account);
+        String playerId = crew.startOwnShip(account, vehicleType);
+        PlayerLogin player = new PlayerLogin(playerId, account.alias(), account.team());
         return ResponseEntity.ok(new StartGameResponse(accountId, player));
     }
 

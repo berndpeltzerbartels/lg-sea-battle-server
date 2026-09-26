@@ -108,8 +108,6 @@ public class SeaBattleLoginPage {
 
     @Action
     PageUrlResponse startGame(@FormData("login") LoginForm form) {
-        if (crew.hasAccount(form.id())) return new PageUrlResponse("/app?vehicle=torpedo-boat")
-                .localStorage("accountId", form.id()).localStorage("vehicleType", "torpedo-boat");
         Account account = normalizeAccount(form);
         String initials = account.alias();
         if (isAliasActive(initials, account.id())) {
@@ -117,11 +115,12 @@ public class SeaBattleLoginPage {
         }
         Account savedAccount = accountService.saveAccount(account);
         if ("crew".equals(form.vehicleType())) {
+            crew.departForSelection(savedAccount.id());
             return new PageUrlResponse("/crew.html")
                     .localStorage("accountId", savedAccount.id());
         }
         String vehicleType = normalizeVehicleType(form.vehicleType());
-        startOrFindSession(savedAccount, vehicleType);
+        crew.startOwnShip(savedAccount, vehicleType);
         String target = switch (vehicleType) {
             case "submarine" -> "/app?vehicle=submarine";
             default -> "/app";

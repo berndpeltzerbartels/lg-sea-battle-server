@@ -54,6 +54,14 @@ Die Brueckenbefehle Flach/Flugabwehr richten nur aktuell unbesetzte
 Geschuetze aus; die Belegung wird beim Ausfuehren serverseitig geprueft.
 Am Geschuetz betreffen diese Befehle nur die eigene Waffe. Die Flak startet
 bei menschlichen Schiffen und Bots nach achtern (180 Grad).
+Die Anmeldung erlaubt Mannschafts- und Fahrzeugwechsel auch aus einer
+bestehenden Besatzung. Eine neue Spieler-ID entwertet alte Verbindungen;
+Punktestand und Rueckkehrort werden pro Account im laufenden Server gemerkt.
+Ein eigenes neues Schiff bleibt am bisherigen Ort. Bleibt dort eine andere
+Besatzung, wird ein freier Platz unmittelbar daneben gesucht (maximal 80 m).
+Beim Anheuern gilt stattdessen der Ort des Zielschiffs. Mannschaftsstatistiken
+werden nicht umgebucht; eine erstmals aktivierte Mannschaft wird zur laufenden
+Welt hinzugefuegt, ohne bestehende Schiffe oder Punktestaende zurueckzusetzen.
 Aktuell erscheinen aktive menschlich gesteuerte Torpedoboote desselben Teams.
 Nicht auf Produktion ausgerollt. Lokaler Browser-Smoke-Test:
 node scripts/test-crew-page.mjs (Standardport 9092, CREW_TEST_URL optional).

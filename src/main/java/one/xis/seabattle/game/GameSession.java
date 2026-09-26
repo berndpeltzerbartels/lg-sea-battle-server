@@ -285,6 +285,49 @@ public final class GameSession {
         fleet.assignNextShipToPlayer(playerId, vehicleType);
     }
 
+    public synchronized void addTeams(GameSetup setup) {
+        for (FleetSetup fleet : setup.fleets()) {
+            fleets.computeIfAbsent(fleet.teamId(), id -> new Fleet(id, createShips(fleet.ships())));
+            destroyedShipsByTeam.putIfAbsent(fleet.teamId(), 0);
+        }
+    }
+
+    public synchronized void restorePlayer(String player, String team, String vehicle, ShipSnapshot previous, int score) {
+        Fleet fleet = fleets.get(team);
+        if (fleet == null) throw new IllegalArgumentException("Unknown team");
+        if (previous != null) {
+            fleets.values().forEach(f -> f.removeUnoccupiedShipAt(previous));
+            Vector2 position = new Vector2(previous.x(), previous.z());
+            // A remaining crew keeps its hull; place a departing member alongside, never inside it.
+            if (allShips().stream().anyMatch(s -> "active".equals(s.state()) && s.position().distanceTo(new Vector2(previous.x(), previous.z())) < 20)) {
+                position = nearbyFreeReturnPosition(previous);
+            }
+            Ship ship = fleet.assignAdditionalShipToPlayer(player, position,
+                    previous.heading(), vehicle, "submarine".equals(vehicle) ? previous.y() : 0);
+            ship.applyCommand(previous.engineOrder(), previous.rudderDegrees());
+        } else {
+            fleet.assignNextShipToPlayer(player, vehicle);
+        }
+        killsByPlayer.put(player, score);
+    }
+
+    private Vector2 nearbyFreeReturnPosition(ShipSnapshot previous) {
+        var navigation = new NavigationService();
+        for (int radius : new int[]{40, 60, 80}) {
+            for (int direction = 0; direction < 8; direction++) {
+                double angle = previous.heading() + Math.PI / 2 + direction * Math.PI / 4;
+                var point = new Vector2(previous.x() + Math.sin(angle) * radius, previous.z() + Math.cos(angle) * radius);
+                if (!navigation.isShipBlocked(point, previous.heading(), worldMap)
+                        && allShips().stream().noneMatch(s -> "active".equals(s.state()) && s.position().distanceTo(point) < 35)) return point;
+            }
+        }
+        throw new IllegalArgumentException("Am bisherigen Ort ist kein freier Platz fuer ein weiteres Schiff.");
+    }
+
+    public synchronized void restorePersonalScore(String player, int score) {
+        killsByPlayer.put(player, score);
+    }
+
     public synchronized void applyPlayerState(PlayerStateUpdate update, NavigationService navigationService, WorldMap worldMap) {
         Fleet fleet = fleets.get(update.teamId());
         if (fleet == null) {

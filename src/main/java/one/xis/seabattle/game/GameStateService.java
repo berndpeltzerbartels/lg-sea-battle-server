@@ -282,7 +282,7 @@ public class GameStateService {
                 return;
             }
             requestedTeamIds.add(teamId);
-            session = new GameSession(setupFactory.setup(setupId, List.copyOf(requestedTeamIds)));
+            session.addTeams(setupFactory.setup(setupId, List.copyOf(requestedTeamIds)));
             view = captureSessionView();
         }
         publishModel(view);
@@ -290,6 +290,22 @@ public class GameStateService {
 
     private SessionView captureSessionView() {
         return new SessionView(session.snapshot(), session.worldMap());
+    }
+
+    public GameSnapshot restorePlayer(String player, String team, String vehicle, ShipSnapshot previous, int score) {
+        activateTeam(team);
+        SessionView view;
+        synchronized (this) {
+            session.restorePlayer(player, team, vehicle, previous, score);
+            view = captureSessionView();
+        }
+        publishModel(view);
+        return view.state();
+    }
+
+    public synchronized void restorePersonalScore(String player, int score) {
+        session.restorePersonalScore(player, score);
+        publishedModel = publishCurrentModel();
     }
 
     private void publishModel(SessionView view) {
