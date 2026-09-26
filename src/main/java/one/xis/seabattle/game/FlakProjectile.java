@@ -10,6 +10,7 @@ final class FlakProjectile {
     private final String id;
     private final String teamId;
     private final String shipId;
+    private final String shooterPlayerId;
     private final double originX;
     private final double originY;
     private final double originZ;
@@ -31,6 +32,12 @@ final class FlakProjectile {
 
     FlakProjectile(String id, String teamId, String shipId, double x, double y, double z,
                    double vx, double vy, double vz, double firedAtSeconds) {
+        this(id, teamId, shipId, x, y, z, vx, vy, vz, firedAtSeconds, null);
+    }
+
+    FlakProjectile(String id, String teamId, String shipId, double x, double y, double z,
+                   double vx, double vy, double vz, double firedAtSeconds, String shooterPlayerId) {
+        this.shooterPlayerId = shooterPlayerId;
         this.id = id;
         this.teamId = teamId;
         this.shipId = shipId;
@@ -136,7 +143,8 @@ final class FlakProjectile {
                 MathSupport.round(vx),
                 MathSupport.round(vy),
                 MathSupport.round(vz),
-                MathSupport.round(firedAtSeconds)
+                MathSupport.round(firedAtSeconds),
+                shooterPlayerId
         );
     }
 }

@@ -29,6 +29,7 @@ public class SeaBattleClientController {
     private final GameService gameService;
     private final PlaySessionService playSessionService;
     private final SeaBattleDiagnosticsService diagnosticsService;
+    private final CrewService crew;
 
     public SeaBattleClientController(GameStateService gameStateService,
                                      SseEndpoint sseEndpoint, SeaBattleEventService eventService,
@@ -36,7 +37,7 @@ public class SeaBattleClientController {
                                      AccountService accountService,
                                      GameService gameService,
                                      PlaySessionService playSessionService,
-                                     SeaBattleDiagnosticsService diagnosticsService) {
+                                     SeaBattleDiagnosticsService diagnosticsService, CrewService crew) {
         this.gameStateService = gameStateService;
         this.sseEndpoint = sseEndpoint;
         this.eventService = eventService;
@@ -45,6 +46,7 @@ public class SeaBattleClientController {
         this.gameService = gameService;
         this.playSessionService = playSessionService;
         this.diagnosticsService = diagnosticsService;
+        this.crew = crew;
     }
 
     @Get("/")
@@ -134,6 +136,11 @@ public class SeaBattleClientController {
                 request.team() == null ? "" : request.team().trim().toLowerCase(Locale.ROOT),
                 request.email() == null || request.email().isBlank() ? null : request.email().trim()
         );
+        if (crew.hasAccount(accountId)) {
+            var current = activeSession(accountService.findAccountById(accountId).orElse(account));
+            return current.getBody() instanceof PlayerLogin login
+                    ? ResponseEntity.ok(new StartGameResponse(accountId, login)) : current;
+        }
         String vehicleType = normalizeVehicleType(request.vehicleType());
         if (account.nickname().length() < 2 || account.alias().isBlank() || account.alias().length() > 5
                 || (!"light".equals(account.team()) && !"dark".equals(account.team()))) {
@@ -152,6 +159,7 @@ public class SeaBattleClientController {
     @Post("/game/player-state")
     @Produces(ContentType.JSON_UTF8)
     public ResponseEntity<?> updatePlayerState(@RequestBody PlayerStateUpdate update) {
+        if (crew.managed(update.playerId())) return ResponseEntity.status(409, "Use crew motion or aim endpoint");
         String teamId = teamIdFor(update.playerId());
         if (teamId == null) {
             diagnosticsService.logRejectedRequest("player-state", update.playerId(), "not-registered");
@@ -183,6 +191,7 @@ public class SeaBattleClientController {
     @Post("/game/fire-torpedo")
     @Produces(ContentType.JSON_UTF8)
     public ResponseEntity<?> fireTorpedo(@RequestBody FireTorpedoRequest request) {
+        if (crew.managed(request.playerId())) return ResponseEntity.status(409, "Use crew torpedo endpoint");
         String teamId = teamIdFor(request.playerId());
         if (teamId == null) {
             diagnosticsService.logRejectedRequest("fire", request.playerId(), "not-registered");
@@ -213,6 +222,7 @@ public class SeaBattleClientController {
     @Post("/game/drop-bomb")
     @Produces(ContentType.JSON_UTF8)
     public ResponseEntity<?> dropBomb(@RequestBody BombDropRequest request) {
+        if (crew.managed(request.playerId())) return ResponseEntity.status(409, "Ship crew cannot drop aircraft bombs");
         String teamId = teamIdFor(request.playerId());
         if (teamId == null) {
             diagnosticsService.logRejectedRequest("drop-bomb", request.playerId(), "not-registered");
@@ -235,6 +245,7 @@ public class SeaBattleClientController {
     @Post("/game/fire-flak")
     @Produces(ContentType.JSON_UTF8)
     public ResponseEntity<?> fireFlak(@RequestBody FlakFireRequest request) {
+        if (crew.managed(request.playerId())) return ResponseEntity.status(409, "Use crew flak endpoint");
         String teamId = teamIdFor(request.playerId());
         if (teamId == null) {
             diagnosticsService.logRejectedRequest("fire-flak", request.playerId(), "not-registered");
@@ -258,6 +269,7 @@ public class SeaBattleClientController {
     @Post("/game/fire-cannon")
     @Produces(ContentType.JSON_UTF8)
     public ResponseEntity<?> fireCannon(@RequestBody FlakFireRequest request) {
+        if (crew.managed(request.playerId())) return ResponseEntity.status(409, "Use crew cannon endpoint");
         String teamId = teamIdFor(request.playerId());
         if (teamId == null) {
             diagnosticsService.logRejectedRequest("fire-cannon", request.playerId(), "not-registered");
@@ -281,6 +293,7 @@ public class SeaBattleClientController {
     @Post("/game/report-plane-hit")
     @Produces(ContentType.JSON_UTF8)
     public ResponseEntity<?> reportPlaneHit(@RequestBody ClientPlaneHitRequest request) {
+        if (crew.managed(request.playerId())) return ResponseEntity.status(409, "Use crew hit endpoint");
         String teamId = teamIdFor(request.playerId());
         if (teamId == null) {
             diagnosticsService.logRejectedRequest("report-plane-hit", request.playerId(), "not-registered");

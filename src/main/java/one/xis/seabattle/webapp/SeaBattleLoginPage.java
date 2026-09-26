@@ -37,16 +37,18 @@ public class SeaBattleLoginPage {
     private final AccountService accountService;
     private final GameService gameService;
     private final PlaySessionService playSessionService;
+    private final one.xis.seabattle.game.CrewService crew;
 
     public SeaBattleLoginPage(GameStateService gameStateService, SeaBattlePlayerRegistry playerRegistry,
                               AccountService accountService,
                               GameService gameService,
-                              PlaySessionService playSessionService) {
+                              PlaySessionService playSessionService, one.xis.seabattle.game.CrewService crew) {
         this.gameStateService = gameStateService;
         this.playerRegistry = playerRegistry;
         this.accountService = accountService;
         this.gameService = gameService;
         this.playSessionService = playSessionService;
+        this.crew = crew;
     }
 
     @FormData("login")
@@ -106,6 +108,8 @@ public class SeaBattleLoginPage {
 
     @Action
     PageUrlResponse startGame(@FormData("login") LoginForm form) {
+        if (crew.hasAccount(form.id())) return new PageUrlResponse("/app?vehicle=torpedo-boat")
+                .localStorage("accountId", form.id()).localStorage("vehicleType", "torpedo-boat");
         Account account = normalizeAccount(form);
         String initials = account.alias();
         if (isAliasActive(initials, account.id())) {

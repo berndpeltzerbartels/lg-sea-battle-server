@@ -17,23 +17,39 @@ RefreshOnUpdateEvents und RefreshEventPublisher (XIS SSE); ein XIS-Scheduler
 prueft einmal pro Sekunde die relevanten Listen und sendet nur bei Aenderungen.
 Positionen und Fahrbewegungen loesen kein Neuladen der Liste aus.
 
-Annahme/Ablehnung erfolgt jetzt in einer kompakten XIS-SSE-Anzeige im Spiel,
+Annahme/Ablehnung erfolgt in einer kompakten XIS-SSE-Anzeige im Spiel,
 ohne Modal und ohne Fokuswechsel beim Erscheinen oder beim Mausklick.
 Abgelehnte Anfragen bleiben sichtbar; andere Schiffe werden wieder freigegeben,
 bei derselben Besatzung darf nach 15 Minuten erneut angefragt werden.
-Nach Ablauf einer unbeantworteten Anfrage oder Reservierung gelten zwei
+Nach Ablauf einer unbeantworteten Anfrage gelten zwei
 Minuten Wartezeit ab dem Ablaufzeitpunkt. Der Ablauf aktualisiert die Seite
 auch ohne weitere Spielereignisse ueber SSE. Sperren haengen derzeit am
-einzigen registrierten Schiffsbediener, ueberleben dessen Respawn und enden
-beim Abmelden. Mit der spaeteren Mehrpersonenbelegung muss diese Identitaet
-auf die fortbestehende Besatzung erweitert werden, nicht auf den jeweils
-besetzten Bedienplatz. Annahmen reservieren vorerst
-fuer zwei Minuten einen von drei zusaetzlichen Plaetzen. Entscheidungen werden
+stabilen Besatzungsverband, ueberleben Respawn und Kontaktwechsel und enden
+erst, wenn niemand mehr an Bord ist. Annahmen belegen atomar einen freien
+Bedienplatz. Nicht innerhalb von zwei Minuten verbundene Bewerber werden
+wieder entfernt. Entscheidungen werden
 serverseitig gegen Empfaenger, Status und Kapazitaet geprueft.
 
-Noch offen: tatsaechlicher Einstieg, exklusive Bedienplatzbelegung und
-Bedienberechtigungen. Eine blosse Weiterleitung ins Spiel waere falsch, solange
-mehrere Clients Fahrt und Waffen desselben Schiffs ueberschreiben koennen.
+Der Einstieg erfolgt automatisch nach XIS-SSE-Bestaetigung. Alle Torpedoboot-
+Spieler, auch Solospieler, verwenden /game/crew/station, /motion, /aim und die
+getrennten Feuer-Endpunkte. Bruecke (einschliesslich Torpedozielansicht), Flak
+und Kanone sind die drei exklusiven Positionen. Nur die Bruecke darf lenken,
+Fahrt aendern oder Torpedos abfeuern. Positionsrevision und Schiffs-ID schuetzen
+vor verspaeteten Befehlen; die alten Endpunkte weisen Besatzungsbefehle ab.
+Schuetzen folgen der gemeinsamen Serverbewegung mit der vorhandenen
+Interpolation und veraendern nur ihr Geschuetz. Belegte Positionen sind in
+der Auswahl gesperrt und mit dem Namen im Tooltip versehen.
+Verlassen und Verbindungsabbruch geben den Platz frei; der aelteste verbliebene
+Spieler wird Ansprechpartner, aber nicht automatisch Steuermann. Die letzte
+Fahrtanweisung bleibt erhalten. Respawn und Welt-Neuaufbau halten die Besatzung
+zusammen. Flugzeug und U-Boot behalten vorerst ihre bisherigen Schnittstellen.
+Geschoss-Snapshots enthalten den tatsaechlichen Schuetzen getrennt vom
+Schiffscontroller. Nur dessen Client unterdrueckt das bereits lokal gezeigte
+Geschoss. Andere Besatzungsmitglieder sehen Mündungsfeuer, Rauch und Rueckstoss
+am gemeinsamen 3D-Geschuetz, unabhaengig vom eigenen Bedienplatz.
+Fremdbediente Geschuetze werden rein visuell mit einer Zeitkonstante von
+85 ms geglaettet. Zielwinkel und Schussberechnung bleiben davon getrennt;
+der Bediener erhaelt keine zusaetzliche Eingabeverzoegerung.
 Aktuell erscheinen aktive menschlich gesteuerte Torpedoboote desselben Teams.
 Nicht auf Produktion ausgerollt. Lokaler Browser-Smoke-Test:
 node scripts/test-crew-page.mjs (Standardport 9092, CREW_TEST_URL optional).

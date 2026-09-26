@@ -161,10 +161,14 @@ public class GameStateService {
     }
 
     public GameSnapshot fireFlak(FlakFireRequest request) {
+        return fireFlak(request, request.playerId());
+    }
+
+    public GameSnapshot fireFlak(FlakFireRequest request, String shooterPlayerId) {
         SessionView view;
         activateTeam(request.teamId());
         synchronized (this) {
-            session.applyFireFlak(request);
+            session.applyFireFlak(request, shooterPlayerId);
             view = captureSessionView();
         }
         publishModel(view);
@@ -172,10 +176,14 @@ public class GameStateService {
     }
 
     public GameSnapshot fireCannon(FlakFireRequest request) {
+        return fireCannon(request, request.playerId());
+    }
+
+    public GameSnapshot fireCannon(FlakFireRequest request, String shooterPlayerId) {
         SessionView view;
         activateTeam(request.teamId());
         synchronized (this) {
-            session.applyFireCannon(request);
+            session.applyFireCannon(request, shooterPlayerId);
             view = captureSessionView();
         }
         publishModel(view);
@@ -201,6 +209,17 @@ public class GameStateService {
             view = captureSessionView();
         }
         publishModel(view);
+    }
+
+    public synchronized void transferCrewController(String previous, String next, String team) {
+        session.transferCrewController(previous, next, team);
+        publishModel(captureSessionView());
+    }
+
+    public synchronized GameSnapshot aimCrewWeapon(String player, String team, String station, double yaw, double pitch) {
+        session.aimCrewWeapon(player, team, station, yaw, pitch);
+        publishModel(captureSessionView());
+        return snapshot();
     }
 
     public void connectPlayer(String playerId) {

@@ -130,6 +130,13 @@ final class Fleet {
                 });
     }
 
+    void transferController(String previous, String next) {
+        String shipId = activeShipIdByPlayerId.remove(previous);
+        if (shipId == null) return;
+        activeShipIdByPlayerId.put(next, shipId);
+        ships.stream().filter(s -> s.id().equals(shipId)).findFirst().ifPresent(s -> s.controlledBy(next));
+    }
+
     private String nextAdditionalShipId() {
         int next = ships.size() + 1;
         String candidate;

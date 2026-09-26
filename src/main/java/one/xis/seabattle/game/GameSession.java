@@ -409,6 +409,10 @@ public final class GameSession {
     }
 
     public synchronized void applyFireFlak(FlakFireRequest request) {
+        applyFireFlak(request, request.playerId());
+    }
+
+    public synchronized void applyFireFlak(FlakFireRequest request, String shooterPlayerId) {
         Fleet fleet = fleets.get(request.teamId());
         if (fleet == null) {
             return;
@@ -439,11 +443,15 @@ public final class GameSession {
                 request.vx(),
                 request.vy(),
                 request.vz(),
-                nowSeconds
+                nowSeconds, shooterPlayerId
         ));
     }
 
     public synchronized void applyFireCannon(FlakFireRequest request) {
+        applyFireCannon(request, request.playerId());
+    }
+
+    public synchronized void applyFireCannon(FlakFireRequest request, String shooterPlayerId) {
         Fleet fleet = fleets.get(request.teamId());
         if (fleet == null) {
             return;
@@ -474,7 +482,7 @@ public final class GameSession {
                 request.vx(),
                 request.vy(),
                 request.vz(),
-                nowSeconds
+                nowSeconds, shooterPlayerId
         ));
     }
 
@@ -517,6 +525,20 @@ public final class GameSession {
 
     public synchronized void releasePlayer(String playerId) {
         fleets.values().forEach(fleet -> fleet.releasePlayer(playerId));
+    }
+
+    public synchronized void transferCrewController(String previous, String next, String team) {
+        Fleet fleet = fleets.get(team);
+        if (fleet != null) fleet.transferController(previous, next);
+    }
+
+    public synchronized void aimCrewWeapon(String player, String team, String station, double yaw, double pitch) {
+        Fleet fleet = fleets.get(team);
+        if (fleet == null) return;
+        fleet.assignedShip(player).ifPresent(ship -> {
+            if (station.equals("flak")) ship.flakAim(yaw, pitch);
+            else ship.cannonAim(yaw, pitch);
+        });
     }
 
     public synchronized void update(double deltaSeconds, RadarService radarService, NavigationService navigationService, WorldMap worldMap) {

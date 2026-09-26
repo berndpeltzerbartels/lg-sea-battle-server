@@ -10,7 +10,8 @@ class CrewRecruitmentServiceTest {
     private final SeaBattlePlayerRegistry players = new SeaBattlePlayerRegistry();
     private final java.util.List<one.xis.RefreshEvent> events = new java.util.ArrayList<>();
     private final TestClock clock = new TestClock();
-    private final CrewRecruitmentService service = new CrewRecruitmentService(game, players, events::add) {
+    private final CrewService crew = new CrewService(game, players);
+    private final CrewRecruitmentService service = new CrewRecruitmentService(game, players, events::add, crew) {
         @Override long nowMillis() { return clock.millis(); }
     };
     private final Account applicant = new Account("applicant", "Applicant", "APP", "light", null);
@@ -66,6 +67,7 @@ class CrewRecruitmentServiceTest {
         String respawn = captain("CAP", "light", "torpedo-boat");
         assertThrows(IllegalArgumentException.class, () -> service.request(applicant, respawn));
         players.unregisterPlayer("player-CAP-test");
+        crew.leave("player-CAP-test");
         game.releasePlayer("player-CAP-test");
         service.publishChanges();
         String next = captain("NEW", "light", "torpedo-boat");
@@ -175,14 +177,14 @@ class CrewRecruitmentServiceTest {
     }
 
     @Test
-    void acceptReservesAtMostThreeAdditionalPlaces() {
+    void acceptBoardsAtMostTwoAdditionalPeople() {
         String ship = captain("CAP", "light", "torpedo-boat");
         var recipient = new Account("CAP", "Captain", "CAP", "light", null);
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 3; i++) {
             var account = new Account("crew" + i, "Crew", "C" + i, "light", null);
             service.request(account, ship);
             String id = service.requests(account).get(0).id();
-            if (i < 3) service.decide(recipient, id, true);
+            if (i < 2) service.decide(recipient, id, true);
             else assertThrows(IllegalArgumentException.class, () -> service.decide(recipient, id, true));
         }
     }

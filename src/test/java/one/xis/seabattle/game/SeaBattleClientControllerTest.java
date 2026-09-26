@@ -22,6 +22,7 @@ class SeaBattleClientControllerTest {
                 new FixedAccountService(new Account("account-1", "Bernd", "BPB", "light", null)),
                 null,
                 null,
+                null,
                 null
         );
 
@@ -39,6 +40,7 @@ class SeaBattleClientControllerTest {
     @Test
     void gameConfigExposesCurrentEngineSpeeds() {
         SeaBattleClientController controller = new SeaBattleClientController(
+                null,
                 null,
                 null,
                 null,

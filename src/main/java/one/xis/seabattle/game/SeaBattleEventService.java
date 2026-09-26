@@ -23,6 +23,7 @@ public final class SeaBattleEventService {
     private final SeaBattlePlayerRegistry playerRegistry;
     private final PlaySessionService playSessionService;
     private final GameService gameService;
+    private final CrewService crew;
     private final Gson gson = new Gson();
     private final Set<String> players = ConcurrentHashMap.newKeySet();
     private final ConcurrentHashMap<String, ScheduledFuture<?>> pendingUnregisters = new ConcurrentHashMap<>();
@@ -35,12 +36,13 @@ public final class SeaBattleEventService {
     public SeaBattleEventService(SseConnectionHub connections, GameStateService gameStateService,
                                  SeaBattlePlayerRegistry playerRegistry,
                                  PlaySessionService playSessionService,
-                                 GameService gameService) {
+                                 GameService gameService, CrewService crew) {
         this.connections = connections;
         this.gameStateService = gameStateService;
         this.playerRegistry = playerRegistry;
         this.playSessionService = playSessionService;
         this.gameService = gameService;
+        this.crew = crew;
         executor.scheduleAtFixedRate(this::broadcastTick, TICK_MILLIS, TICK_MILLIS, TimeUnit.MILLISECONDS);
     }
 
@@ -50,6 +52,7 @@ public final class SeaBattleEventService {
             return;
         }
         cancelPendingUnregister(playerId);
+        crew.connected(playerId);
         String replacedPlayerId = playerRegistry.registerPlayer(
                 playerId,
                 playerRegistry.playerName(initialsFromPlayerId(playerId)),
@@ -66,7 +69,7 @@ public final class SeaBattleEventService {
         players.add(playerId);
         gameStateService.connectPlayer(playerId);
         connections.register(PLAYER_SCOPE, playerId, emitter);
-        send(playerId, createMessage(gameStateService.snapshot()));
+        send(playerId, new GameStreamMessage("game-stream", gameStateService.snapshot(), crew.view(playerId)));
     }
 
     public void unregister(String playerId, SseEmitter emitter) {
@@ -81,6 +84,7 @@ public final class SeaBattleEventService {
         int score = gameStateService.snapshot().killsByPlayer().getOrDefault(playerId, 0);
         playSessionService.endSession(playerId, score);
         players.remove(playerId);
+        crew.leave(playerId);
         playerRegistry.unregisterPlayer(playerId);
         gameStateService.releasePlayer(playerId);
     }
@@ -108,7 +112,7 @@ public final class SeaBattleEventService {
         }
 
         GameSnapshot state = gameStateService.snapshot();
-        players.forEach(playerId -> send(playerId, createMessage(state)));
+        players.forEach(playerId -> send(playerId, new GameStreamMessage("game-stream", state, crew.view(playerId))));
     }
 
     private GameStreamMessage createMessage(GameSnapshot state) {

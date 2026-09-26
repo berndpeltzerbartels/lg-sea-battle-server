@@ -21,6 +21,7 @@
 <body><main>
     <a href="start.html">Zur Anmeldung</a>
     <h1>Anheuern</h1>
+    <a id="boarding" href="app?vehicle=torpedo-boat" xis:if="ready">An Bord</a>
     <p class="decision" role="status" xis:if="!empty(decisionNotice)">${decisionNotice}</p>
     <p xis:if="empty(ships)">Keine Torpedoboote deiner Flotte verf&uuml;gbar.</p>
     <table xis:if="!empty(ships)">
@@ -41,5 +42,6 @@
     </form>
     <h2 xis:if="!empty(requests)">Meine Anfragen</h2>
     <ul><li xis:repeat="request:requests" class="request-${request.status}">${request.shipId}: ${request.status}</li></ul>
-</main></body>
+</main>
+</body>
 </html>

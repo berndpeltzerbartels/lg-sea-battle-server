@@ -10,6 +10,7 @@ public record FlakProjectileSnapshot(
         double vx,
         double vy,
         double vz,
-        double firedAt
+        double firedAt,
+        String shooterPlayerId
 ) {
 }
