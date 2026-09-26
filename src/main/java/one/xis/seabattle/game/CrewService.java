@@ -38,6 +38,20 @@ public class CrewService {
     public record Command(String playerId, String shipId, long revision, String station,
                           PlayerStateUpdate motion, FlakFireRequest shot, Integer tubeSide) {}
     public record HitCommand(String playerId, String shipId, long revision, ClientPlaneHitRequest hit) {}
+    public record AlignCommand(String playerId, String shipId, long revision, String mode) {}
+
+    public synchronized GameSnapshot alignUnoccupiedWeapons(AlignCommand command) {
+        Crew c = authorized(new Command(command.playerId(), command.shipId(), command.revision(), "bridge", null, null, null), "bridge");
+        requireActive(c);
+        if (!List.of("flat", "air-defense").contains(command.mode())) throw new IllegalArgumentException("Unbekannte Ausrichtung.");
+        boolean air = command.mode().equals("air-defense");
+        for (String station : List.of("flak", "cannon")) {
+            if (c.members.values().stream().anyMatch(m -> m.station().equals(station))) continue;
+            game.aimCrewWeapon(c.controller, c.team, station, station.equals("flak") ? Math.PI : 0,
+                    air ? Math.toRadians(station.equals("flak") ? 18 : 20) : 0);
+        }
+        return game.snapshot();
+    }
 
     private void refreshRound() {
         Object current = game.recruitmentRoundIdentity();

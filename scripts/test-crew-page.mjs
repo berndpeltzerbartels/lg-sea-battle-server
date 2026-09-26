@@ -59,6 +59,10 @@ objects:
     throw error;
   });
   assert.equal(await bridge.locator('iframe[title="Besatzungsanfragen"]').isVisible(), false);
+  await bridge.locator("#alignAirDefenseButton").click();
+  await bridge.waitForFunction(() => document.body.dataset.flakPitch === "18" && document.body.dataset.cannonPitch === "20");
+  await bridge.locator("#alignWeaponsButton").click();
+  await bridge.waitForFunction(() => document.body.dataset.flakPitch === "0" && document.body.dataset.cannonPitch === "0");
   const state = await (await captain.request.get(`${base}/game/state`)).json();
   const ship = state.ships.find(s => s.controlledBy === login.player.playerId);
   assert.ok(ship);
@@ -92,6 +96,11 @@ objects:
   await page.waitForFunction(() => document.body.dataset.crewStation === "flak");
   assert.equal(await page.getAttribute("body", "data-player-ship-id"), ship.id);
   await bridge.waitForFunction(() => document.body.dataset.crewMembers === "2");
+  await bridge.locator("#alignAirDefenseButton").click();
+  await bridge.waitForFunction(() => document.body.dataset.cannonPitch === "20");
+  assert.equal(await bridge.getAttribute("body", "data-flak-pitch"), "0");
+  await bridge.locator("#alignWeaponsButton").click();
+  await bridge.waitForFunction(() => document.body.dataset.cannonPitch === "0");
   assert.ok(await bridge.locator("#flakViewButton").isDisabled());
   assert.ok(await page.locator("#bridgeViewButton").isDisabled());
   await page.screenshot({ path: "/tmp/crew-gunner.png" });

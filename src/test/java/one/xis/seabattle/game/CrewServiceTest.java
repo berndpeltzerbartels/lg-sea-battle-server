@@ -16,6 +16,43 @@ class CrewServiceTest {
         return crew.view(captain);
     }
     private Account account(String alias) { return new Account(alias, alias, alias, "light", null); }
+    private ShipSnapshot ship(String id) {
+        return game.snapshot().ships().stream().filter(s -> s.id().equals(id)).findFirst().orElseThrow();
+    }
+    private CrewService.AlignCommand alignment(String player, String mode) {
+        var v = crew.view(player);
+        return new CrewService.AlignCommand(player, v.shipId(), v.revision(), mode);
+    }
+
+    @Test void flakStartsFacingAftForHumansAndBots() {
+        var v = start();
+        assertEquals(Math.PI, ship(v.shipId()).flakYaw(), 0.001);
+        assertTrue(game.snapshot().ships().stream().anyMatch(s -> "bot".equals(s.controlledBy())));
+        game.snapshot().ships().stream().filter(s -> "bot".equals(s.controlledBy()))
+                .forEach(s -> assertEquals(Math.PI, s.flakYaw(), 0.001));
+    }
+
+    @Test void bridgeAlignmentOnlyAffectsCurrentlyUnoccupiedWeapons() {
+        var v = start();
+        crew.alignUnoccupiedWeapons(alignment(captain, "air-defense"));
+        assertEquals(Math.toRadians(18), ship(v.shipId()).flakPitch(), 0.001);
+        assertEquals(Math.toRadians(20), ship(v.shipId()).cannonPitch(), 0.001);
+        crew.join(captain, account("GUN"));
+        var staleBridgeOrder = alignment(captain, "flat");
+        crew.alignUnoccupiedWeapons(staleBridgeOrder);
+        assertEquals(Math.toRadians(18), ship(v.shipId()).flakPitch(), 0.001);
+        assertEquals(0, ship(v.shipId()).cannonPitch());
+        assertThrows(IllegalArgumentException.class, () -> crew.alignUnoccupiedWeapons(alignment(player("GUN"), "flat")));
+        crew.switchStation(command(player("GUN"), "cannon"));
+        crew.alignUnoccupiedWeapons(alignment(captain, "air-defense"));
+        assertEquals(0, ship(v.shipId()).cannonPitch());
+        crew.alignUnoccupiedWeapons(staleBridgeOrder);
+        assertEquals(0, ship(v.shipId()).flakPitch());
+        crew.join(captain, account("TWO"));
+        crew.alignUnoccupiedWeapons(alignment(captain, "air-defense"));
+        assertEquals(0, ship(v.shipId()).flakPitch());
+        assertEquals(0, ship(v.shipId()).cannonPitch());
+    }
     private String player(String alias) { return players.activePlayerIdForAccountAlias(alias, alias); }
     private CrewService.Command command(String player, String station) {
         var v = crew.view(player);

@@ -16,6 +16,8 @@ public class CrewController {
     public ResponseEntity<?> motion(@RequestBody CrewService.Command command) { return execute(() -> crew.motion(command)); }
     @Post("/game/crew/aim") @Produces(ContentType.JSON_UTF8)
     public ResponseEntity<?> aim(@RequestBody CrewService.Command command) { return execute(() -> crew.aim(command)); }
+    @Post("/game/crew/align-weapons") @Produces(ContentType.JSON_UTF8)
+    public ResponseEntity<?> align(@RequestBody CrewService.AlignCommand command) { return execute(() -> crew.alignUnoccupiedWeapons(command)); }
     @Post("/game/crew/fire-flak") @Produces(ContentType.JSON_UTF8)
     public ResponseEntity<?> flak(@RequestBody CrewService.Command command) { return execute(() -> crew.fire(command, "flak")); }
     @Post("/game/crew/fire-cannon") @Produces(ContentType.JSON_UTF8)

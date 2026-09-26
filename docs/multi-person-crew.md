@@ -50,6 +50,10 @@ am gemeinsamen 3D-Geschuetz, unabhaengig vom eigenen Bedienplatz.
 Fremdbediente Geschuetze werden rein visuell mit einer Zeitkonstante von
 85 ms geglaettet. Zielwinkel und Schussberechnung bleiben davon getrennt;
 der Bediener erhaelt keine zusaetzliche Eingabeverzoegerung.
+Die Brueckenbefehle Flach/Flugabwehr richten nur aktuell unbesetzte
+Geschuetze aus; die Belegung wird beim Ausfuehren serverseitig geprueft.
+Am Geschuetz betreffen diese Befehle nur die eigene Waffe. Die Flak startet
+bei menschlichen Schiffen und Bots nach achtern (180 Grad).
 Aktuell erscheinen aktive menschlich gesteuerte Torpedoboote desselben Teams.
 Nicht auf Produktion ausgerollt. Lokaler Browser-Smoke-Test:
 node scripts/test-crew-page.mjs (Standardport 9092, CREW_TEST_URL optional).

@@ -41,7 +41,7 @@ final class Ship {
     private double glancingRamBackoffUntilSeconds = Double.NEGATIVE_INFINITY;
     private Vector2 glancingRamBackoffTarget;
     private double botScoutPlaneTargetY = BOT_SCOUT_PLANE_Y;
-    private double flakYaw;
+    private double flakYaw = Math.PI;
     private double flakPitch;
     private double cannonYaw;
     private double cannonPitch;
