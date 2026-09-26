@@ -41,9 +41,9 @@ public class SeaBattleCrewPage {
         var history = requests(id);
         if (history.isEmpty()) return "";
         return switch (history.get(history.size() - 1).status()) {
-            case "Abgelehnt" -> "Deine Anfrage wurde abgelehnt. Du kannst bei einem anderen Schiff anfragen. Dieses Schiff bleibt fuer diese Partie gesperrt.";
+            case "Abgelehnt" -> "Deine Anfrage wurde abgelehnt. Bei dieser Besatzung kannst du nach 15 Minuten erneut anfragen, bei anderen Schiffen sofort.";
             case "Angenommen" -> "Deine Anfrage wurde angenommen. Der Platz ist fuer zwei Minuten reserviert. Der Einstieg ins gemeinsame Schiff ist noch nicht verfuegbar.";
-            case "Abgelaufen" -> "Deine Anfrage ist abgelaufen. Du kannst bei einem anderen Schiff anfragen.";
+            case "Abgelaufen" -> "Deine Anfrage ist abgelaufen. Bei derselben Besatzung kannst du zwei Minuten nach Ablauf erneut anfragen, bei anderen Schiffen sofort.";
             default -> "";
         };
     }

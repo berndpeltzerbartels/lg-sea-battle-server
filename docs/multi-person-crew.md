@@ -10,7 +10,7 @@ Aufnahmeentscheidungen bleiben davon getrennt.
 
 Umgesetzt ist zunaechst der XIS-Anmeldeweg mit Anheuern-Auswahl und einer
 XIS-Seite /crew.html. Antragsteller erhalten noch kein eigenes Schiff.
-Einmalige Anfragen pro Account/Schiff/Partie und eine offene Anfrage pro
+Wartezeiten pro Account/Besatzung und eine offene Anfrage pro
 Account werden serverseitig verwaltet. Anfragen laufen nach zwei Minuten
 oder bei Wegfall des Ansprechpartners ab. Die Seite aktualisiert sich ueber
 RefreshOnUpdateEvents und RefreshEventPublisher (XIS SSE); ein XIS-Scheduler
@@ -20,7 +20,14 @@ Positionen und Fahrbewegungen loesen kein Neuladen der Liste aus.
 Annahme/Ablehnung erfolgt jetzt in einer kompakten XIS-SSE-Anzeige im Spiel,
 ohne Modal und ohne Fokuswechsel beim Erscheinen oder beim Mausklick.
 Abgelehnte Anfragen bleiben sichtbar; andere Schiffe werden wieder freigegeben,
-dasselbe Schiff bleibt fuer die Partie gesperrt. Annahmen reservieren vorerst
+bei derselben Besatzung darf nach 15 Minuten erneut angefragt werden.
+Nach Ablauf einer unbeantworteten Anfrage oder Reservierung gelten zwei
+Minuten Wartezeit ab dem Ablaufzeitpunkt. Der Ablauf aktualisiert die Seite
+auch ohne weitere Spielereignisse ueber SSE. Sperren haengen derzeit am
+einzigen registrierten Schiffsbediener, ueberleben dessen Respawn und enden
+beim Abmelden. Mit der spaeteren Mehrpersonenbelegung muss diese Identitaet
+auf die fortbestehende Besatzung erweitert werden, nicht auf den jeweils
+besetzten Bedienplatz. Annahmen reservieren vorerst
 fuer zwei Minuten einen von drei zusaetzlichen Plaetzen. Entscheidungen werden
 serverseitig gegen Empfaenger, Status und Kapazitaet geprueft.
 

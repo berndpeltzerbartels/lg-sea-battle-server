@@ -9,8 +9,68 @@ class CrewRecruitmentServiceTest {
             new RadarService(), new NavigationService());
     private final SeaBattlePlayerRegistry players = new SeaBattlePlayerRegistry();
     private final java.util.List<one.xis.RefreshEvent> events = new java.util.ArrayList<>();
-    private final CrewRecruitmentService service = new CrewRecruitmentService(game, players, events::add);
+    private final TestClock clock = new TestClock();
+    private final CrewRecruitmentService service = new CrewRecruitmentService(game, players, events::add) {
+        @Override long nowMillis() { return clock.millis(); }
+    };
     private final Account applicant = new Account("applicant", "Applicant", "APP", "light", null);
+
+    private static class TestClock extends java.time.Clock {
+        long now = 1_000_000;
+        public java.time.ZoneId getZone() { return java.time.ZoneOffset.UTC; }
+        public java.time.Clock withZone(java.time.ZoneId zone) { return this; }
+        public java.time.Instant instant() { return java.time.Instant.ofEpochMilli(now); }
+        public long millis() { return now; }
+    }
+
+    @Test
+    void declineBlocksForFifteenMinutesAndExpiryPublishesSse() {
+        String ship = captain("CAP", "light", "torpedo-boat");
+        var recipient = new Account("CAP", "Captain", "CAP", "light", null);
+        service.request(applicant, ship);
+        String oldId = service.requests(applicant).get(0).id();
+        service.decide(recipient, oldId, false);
+        service.publishChanges();
+        int count = events.size();
+        clock.now += 899_999;
+        service.publishChanges();
+        assertEquals(count, events.size());
+        assertThrows(IllegalArgumentException.class, () -> service.request(applicant, ship));
+        clock.now++;
+        service.publishChanges();
+        assertEquals(count + 1, events.size());
+        assertTrue(service.ships(applicant).get(0).available());
+        service.request(applicant, ship);
+        assertThrows(IllegalArgumentException.class, () -> service.decide(recipient, oldId, true));
+    }
+
+    @Test
+    void unansweredRequestWaitsTwoMinutesAfterItsDeadlineNotAfterRefresh() {
+        String ship = captain("CAP", "light", "torpedo-boat");
+        service.request(applicant, ship);
+        clock.now += 239_999;
+        assertEquals("Abgelaufen", service.requests(applicant).get(0).status());
+        assertThrows(IllegalArgumentException.class, () -> service.request(applicant, ship));
+        clock.now++;
+        assertDoesNotThrow(() -> service.request(applicant, ship));
+    }
+
+    @Test
+    void cooldownFollowsControllerToAnotherShipButNotANewHumanSession() {
+        String ship = captain("CAP", "light", "torpedo-boat");
+        var recipient = new Account("CAP", "Captain", "CAP", "light", null);
+        service.request(applicant, ship);
+        service.decide(recipient, service.requests(applicant).get(0).id(), false);
+        game.releasePlayer("player-CAP-test");
+        service.publishChanges();
+        String respawn = captain("CAP", "light", "torpedo-boat");
+        assertThrows(IllegalArgumentException.class, () -> service.request(applicant, respawn));
+        players.unregisterPlayer("player-CAP-test");
+        game.releasePlayer("player-CAP-test");
+        service.publishChanges();
+        String next = captain("NEW", "light", "torpedo-boat");
+        assertDoesNotThrow(() -> service.request(applicant, next));
+    }
 
     private String captain(String alias, String team, String type) {
         String id = "player-" + alias + "-test";
