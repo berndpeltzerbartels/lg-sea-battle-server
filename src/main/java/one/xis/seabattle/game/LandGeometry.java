@@ -8,6 +8,7 @@ final class LandGeometry {
     private static final double COASTLINE_NAVIGATION_BLOCK_DISTANCE = 1.06;
     private static final double ISLAND_NAVIGATION_BLOCK_DISTANCE = 1.02;
     private static final double STEEP_ROCK_BLOCK_DISTANCE = 1.0;
+    private static final double MAX_COAST_RADIUS_FACTOR = 1.42;
 
     private LandGeometry() {
     }
@@ -17,6 +18,15 @@ final class LandGeometry {
     }
 
     static boolean isBlockedByLandmass(Vector2 position, Landmass landmass) {
+        // Enclose even the widest possible coastline, including its navigation margin.
+        // Round outwards so boundary points still reach the unchanged exact test.
+        double extent = "coastline".equals(landmass.kind())
+                ? MAX_COAST_RADIUS_FACTOR * COASTLINE_NAVIGATION_BLOCK_DISTANCE
+                : ISLAND_NAVIGATION_BLOCK_DISTANCE;
+        if (Math.abs(position.x() - landmass.x()) > Math.nextUp(Math.abs(landmass.rx()) * extent)
+                || Math.abs(position.z() - landmass.z()) > Math.nextUp(Math.abs(landmass.rz()) * extent)) {
+            return false;
+        }
         double distance = shapeDistance(position, landmass);
         return distance < navigationBlockDistance(landmass) && !isInLandWater(position, landmass);
     }
@@ -73,10 +83,10 @@ final class LandGeometry {
     }
 
     private static boolean isBlockedExact(Vector2 position, WorldMap worldMap) {
-        return worldMap.landmasses().stream().anyMatch(landmass -> {
-            double distance = shapeDistance(position, landmass);
-            return distance < navigationBlockDistance(landmass) && !isInLandWater(position, landmass);
-        });
+        for (Landmass landmass : worldMap.landmasses()) {
+            if (isBlockedByLandmass(position, landmass)) return true;
+        }
+        return false;
     }
 
     static double shapeDistance(Vector2 position, Landmass landmass) {
@@ -236,7 +246,7 @@ final class LandGeometry {
             double mouth = 1 - MathSupport.smoothstep(width * 0.45, width * 1.9, angleDistance);
             fjordBite = Math.max(fjordBite, mouth * (0.18 + width * 0.9));
         }
-        return MathSupport.clamp(1 + (broad + bays + small) * roughness - fjordBite, 0.56, 1.42);
+        return MathSupport.clamp(1 + (broad + bays + small) * roughness - fjordBite, 0.56, MAX_COAST_RADIUS_FACTOR);
     }
 
     private static int stableNameSeed(String name) {
