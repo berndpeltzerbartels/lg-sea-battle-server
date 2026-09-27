@@ -8,7 +8,8 @@ final class SubmarineBot {
     static final double UNDERWATER_RANGE = 945 * 2.5 * 0.62 * 0.58;
     private static final double DIVE_RANGE = 500;
     private static final double DEEP_RANGE = 130;
-    private static final double SAFE_RANGE = 260;
+    private static final double SAFE_RANGE = 220;
+    private static final double SHOT_ASCENT_RANGE = 180;
     private static final double SURFACE_RANGE = 650;
     private Vector2 progressPosition;
     private double progressTime;
@@ -16,6 +17,10 @@ final class SubmarineBot {
     private String depth = "surface";
 
     Vector2 update(Ship ship, List<Ship> contacts, double now) {
+        return update(ship, contacts, now, false);
+    }
+
+    Vector2 update(Ship ship, List<Ship> contacts, double now, boolean hasShotOpportunity) {
         Ship nearest = contacts.stream()
                 .filter(other -> !other.teamId().equals(ship.teamId()))
                 .filter(other -> "active".equals(other.state()) && !other.isScoutPlane())
@@ -42,7 +47,7 @@ final class SubmarineBot {
         }
 
         if ("submerged".equals(depth)) {
-            if (distance < SAFE_RANGE) {
+            if (distance < SAFE_RANGE && !(hasShotOpportunity && distance >= SHOT_ASCENT_RANGE)) {
                 ship.botDepth(depth);
                 return nearest.position();
             }

@@ -1069,7 +1069,11 @@ public final class GameSession {
                     : visibleTargets(ship, visibilityCache).stream()
                         .filter(contact -> visibilityCache.isVisible(ship, contact, RadarService.RADAR_RANGE))
                         .toList();
-            retreatFrom = ship.submarineBot().update(ship, contacts, nowSeconds);
+            boolean shotOpportunity = ship.isFullySubmerged() && contacts.stream()
+                    .filter(target -> !target.teamId().equals(ship.teamId()))
+                    .filter(target -> "active".equals(target.state()) && target.isOnSurface() && !target.isScoutPlane())
+                    .anyMatch(target -> submarineHasAscentShot(ship, target));
+            retreatFrom = ship.submarineBot().update(ship, contacts, nowSeconds, shotOpportunity);
         }
         if (escapeBlockedWater(ship, navigationService, worldMap)) {
             return;
@@ -1101,6 +1105,14 @@ public final class GameSession {
         }
 
         aimAtTarget(ship, target.get(), navigationService, worldMap);
+    }
+
+    private boolean submarineHasAscentShot(Ship ship, Ship target) {
+        if (Math.abs(relativeBearing(ship, target.position())) > BOT_FIRE_ARC) return false;
+        Vector2 muzzle = torpedoMuzzlePosition(ship, ship.heading(), 1);
+        return torpedoLineHitsShip(muzzle, Vector2.fromHeading(ship.heading()), target,
+                BOT_FIRE_MAX_RANGE, TORPEDO_HULL_MARGIN)
+                && !torpedoLaunchWouldHitFriendlyShip(ship, muzzle, ship.heading());
     }
 
     private double botPeriscopeRamDetectionRange(Ship target) {

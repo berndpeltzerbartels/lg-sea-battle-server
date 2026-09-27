@@ -79,6 +79,41 @@ class SubmarineBotTest {
     }
 
     @Test
+    void returnsToPeriscopeAtReducedSafeDistance() {
+        Ship ship = submarine();
+        ship.submarineBot().update(ship, List.of(enemy(100)), 0);
+        assertNotNull(ship.submarineBot().update(ship, List.of(enemy(219)), 1));
+        assertNull(ship.submarineBot().update(ship, List.of(enemy(220)), 2));
+        assertTrue(ship.isAtPeriscopeDepth());
+    }
+
+    @Test
+    void alignedShotAllowsEarlierAscentButNearbyThreatStillPreventsIt() {
+        Ship ship = submarine();
+        ship.submarineBot().update(ship, List.of(enemy(100)), 0);
+        assertNotNull(ship.submarineBot().update(ship, List.of(enemy(200), enemy(150)), 1, true));
+        assertTrue(ship.isFullySubmerged());
+        assertNotNull(ship.submarineBot().update(ship, List.of(enemy(180)), 2, false));
+        assertNull(ship.submarineBot().update(ship, List.of(enemy(180)), 3, true));
+        assertTrue(ship.isAtPeriscopeDepth());
+    }
+
+    @Test
+    void ascentShotRequiresTargetAheadAndNoFriendlyShipInLine() throws Exception {
+        Ship sub = new Ship("sub", "light", new Vector2(0, 0), 0, "bot");
+        sub.vehicleType("submarine");
+        var method = GameSession.class.getDeclaredMethod("submarineHasAscentShot", Ship.class, Ship.class);
+        method.setAccessible(true);
+        GameSession empty = new GameSession(new GameSetup("test", new WorldMap(99009, List.of()), List.of(), List.of()));
+        assertEquals(true, method.invoke(empty, sub, enemy(200)));
+        assertEquals(false, method.invoke(empty, sub, enemy(-200)));
+        GameSession blocked = new GameSession(new GameSetup("test", new WorldMap(99009, List.of()),
+                List.of(new FleetSetup("light", List.of(new ShipSetup("friend", "light", new Vector2(0, 90),
+                        0, "bot", 2, 0, 99, "torpedo-boat", 0)))), List.of()));
+        assertEquals(false, method.invoke(blocked, sub, enemy(200)));
+    }
+
+    @Test
     void divesAndUsesCurrentUnderwaterContactsWithHysteresis() {
         Ship ship = submarine();
         SubmarineBot bot = ship.submarineBot();
