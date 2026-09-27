@@ -19,6 +19,7 @@ public record GameSnapshot(
         List<FlakImpactSnapshot> flakImpacts,
         List<RamHitSnapshot> ramHits,
         Map<String, Integer> destroyedShipsByTeam,
-        Map<String, Integer> killsByPlayer
+        Map<String, Integer> killsByPlayer,
+        String instanceId
 ) {
 }

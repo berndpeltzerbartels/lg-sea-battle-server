@@ -19,6 +19,24 @@ class CrewServiceTest {
     private ShipSnapshot ship(String id) {
         return game.snapshot().ships().stream().filter(s -> s.id().equals(id)).findFirst().orElseThrow();
     }
+
+    @Test void bridgeDebugTeleportReachesServerButOrdinaryLargeJumpIsRejected() {
+        var v = start();
+        var before = ship(v.shipId());
+        var navigation = new NavigationService();
+        Vector2 target = new Vector2(before.x() + 500, before.z());
+        while (navigation.isShipBlocked(target, before.heading(), game.worldMap())) {
+            target = target.add(new Vector2(100, 0));
+        }
+        for (boolean teleport : new boolean[]{false, true}) {
+            var motion = new PlayerStateUpdate(captain, "light", target.x(), target.z(), before.heading(), 0,
+                    0, 2, 0, 1, teleport, "torpedo-boat", 0, 0, null, null, null, null);
+            var result = crew.motion(new CrewService.Command(captain, v.shipId(), v.revision(), "bridge", motion, null, null));
+            var confirmed = result.ships().stream().filter(s -> s.id().equals(v.shipId())).findFirst().orElseThrow();
+            assertEquals(teleport ? target.x() : before.x(), confirmed.x(), 0.001);
+            assertEquals(confirmed.x(), ship(v.shipId()).x());
+        }
+    }
     private CrewService.AlignCommand alignment(String player, String mode) {
         var v = crew.view(player);
         return new CrewService.AlignCommand(player, v.shipId(), v.revision(), mode);

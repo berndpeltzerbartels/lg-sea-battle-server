@@ -402,7 +402,8 @@ final class DefaultGameSetupFactory {
         List<ShipSetup> ships = new ArrayList<>();
         for (int index = 0; index < formation.length; index += 1) {
             double[] slot = formation[index];
-            String vehicleType = isBotScoutPlaneSlot(teamId, index) ? VEHICLE_SCOUT_PLANE : VEHICLE_TORPEDO_BOAT;
+            String vehicleType = isBotScoutPlaneSlot(teamId, index) ? VEHICLE_SCOUT_PLANE
+                    : index == 2 || index == 4 || index == 6 ? "submarine" : VEHICLE_TORPEDO_BOAT;
             String shipId = teamId + "-" + vehiclePrefix(vehicleType) + (index + 1);
             ships.add(new ShipSetup(
                     shipId,

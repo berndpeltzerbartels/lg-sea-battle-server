@@ -169,6 +169,7 @@ public final class GameSession {
     private static final int SCORE_PLAYER_SUNK = -3;
 
     private final String id;
+    private final String instanceId = java.util.UUID.randomUUID().toString();
     private final WorldMap worldMap;
     private final WorldMap scoutPlaneObstacleMap;
     private final Map<String, Fleet> fleets;
@@ -271,7 +272,8 @@ public final class GameSession {
                         .filter(hit -> nowSeconds - hit.t() <= TORPEDO_IMPACT_VISIBILITY_SECONDS)
                         .toList(),
                 Map.copyOf(destroyedShipsByTeam),
-                Map.copyOf(killsByPlayer)
+                Map.copyOf(killsByPlayer),
+                instanceId
         );
     }
 
@@ -1060,7 +1062,20 @@ public final class GameSession {
 
     private void commandBot(Ship ship, RadarService.VisibilityCache visibilityCache, NavigationService navigationService,
                             WorldMap worldMap, List<Ship> humanSurfaceShips, List<Ship> surfaceShips) {
+        Vector2 retreatFrom = null;
+        if (ship.isSubmarine()) {
+            List<Ship> contacts = ship.isFullySubmerged()
+                    ? visibilityCache.candidates(ship, SubmarineBot.UNDERWATER_RANGE)
+                    : visibleTargets(ship, visibilityCache).stream()
+                        .filter(contact -> visibilityCache.isVisible(ship, contact, RadarService.RADAR_RANGE))
+                        .toList();
+            retreatFrom = ship.submarineBot().update(ship, contacts, nowSeconds);
+        }
         if (escapeBlockedWater(ship, navigationService, worldMap)) {
+            return;
+        }
+        if (retreatFrom != null) {
+            steerAwayFrom(ship, retreatFrom, ENGINE_FULL, navigationService, worldMap);
             return;
         }
 

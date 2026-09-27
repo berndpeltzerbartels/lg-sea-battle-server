@@ -46,6 +46,17 @@ final class Ship {
     private double cannonYaw;
     private double cannonPitch;
     private String depthState = DEPTH_SURFACE;
+    private SubmarineBot submarineBot = new SubmarineBot();
+
+    SubmarineBot submarineBot() {
+        return submarineBot;
+    }
+
+    void botDepth(String depth) {
+        if (isSubmarine() && isBotControlled()) {
+            depthState = normalizeDepthState(depth);
+        }
+    }
 
     Ship(String id, String teamId, Vector2 position, double heading, String controlledBy) {
         this.id = id;
@@ -104,6 +115,9 @@ final class Ship {
     }
 
     void controlledBy(String controlledBy) {
+        if (!java.util.Objects.equals(this.controlledBy, controlledBy)) {
+            submarineBot = new SubmarineBot();
+        }
         this.controlledBy = controlledBy;
     }
 
@@ -249,6 +263,12 @@ final class Ship {
             updateScoutPlane(deltaSeconds);
             return;
         }
+        if (isSubmarine() && isBotControlled()) {
+            double offset = isFullySubmerged() ? -2.95 : isAtPeriscopeDepth() ? -1.6 : 0;
+            double targetY = (-0.26 + offset) * SeaBattleGameConfig.TORPEDO_BOAT_SCALE;
+            double step = 0.28 * SeaBattleGameConfig.TORPEDO_BOAT_SCALE * deltaSeconds;
+            y += MathSupport.clamp(targetY - y, -step, step);
+        }
 
         Vector2 previousPosition = position;
         double previousSpeed = speed;
@@ -287,7 +307,9 @@ final class Ship {
     }
 
     boolean canFire(double nowSeconds) {
-        return "active".equals(state) && !isScoutPlane() && nowSeconds >= nextFireTime;
+        return "active".equals(state) && !isScoutPlane() && !isFullySubmerged()
+                && !(isSubmarine() && isBotControlled() && y < -1.87 * SeaBattleGameConfig.TORPEDO_BOAT_SCALE)
+                && nowSeconds >= nextFireTime;
     }
 
     boolean canDropBomb(double nowSeconds) {
@@ -375,6 +397,7 @@ final class Ship {
     }
 
     void respawn(Vector2 position, double heading, double nowSeconds) {
+        submarineBot = new SubmarineBot();
         this.position = position;
         this.heading = MathSupport.normalizeAngle(heading);
         speed = isScoutPlane() ? BOT_SCOUT_PLANE_SPEED : 0;

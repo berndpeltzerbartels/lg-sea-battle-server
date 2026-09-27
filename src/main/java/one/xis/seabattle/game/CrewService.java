@@ -201,7 +201,7 @@ public class CrewService {
         PlayerStateUpdate u = Objects.requireNonNull(command.motion());
         requireActive(c);
         return game.updatePlayerState(new PlayerStateUpdate(c.controller, c.team, u.x(), u.z(), u.heading(), u.speed(),
-                u.turnVelocity(), u.engineOrder(), u.rudderDegrees(), u.clientTime(), false, "torpedo-boat",
+                u.turnVelocity(), u.engineOrder(), u.rudderDegrees(), u.clientTime(), u.debugTeleport(), "torpedo-boat",
                 0, 0, null, null, null, null, "surface"));
     }
 
