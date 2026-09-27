@@ -6,6 +6,40 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class SubmarineBotTest {
     @Test
+    void respawnPreparationDoesNotTurnSubmarineIntoSurfaceShip() throws Exception {
+        Ship ship = submarine();
+        ship.sink(1);
+        GameSession session = new GameSession(new GameSetup("dense-land",
+                new WorldMap(99009, List.of()), List.of(), List.of()));
+        var prepare = GameSession.class.getDeclaredMethod("prepareBotVehicleTypeForRespawn", Ship.class);
+        prepare.setAccessible(true);
+        prepare.invoke(session, ship);
+        ship.respawn(new Vector2(0, 0), 0, 1);
+        assertTrue(ship.isSubmarine());
+        assertTrue(ship.isOnSurface());
+    }
+
+    @Test
+    void specialMenuFleetResetsKeepThreeSubmarinesPerSide() {
+        WorldMapService maps = new WorldMapService() {
+            @Override WorldMap denseWorld() { return new WorldMap(99009, List.of()); }
+            @Override WorldMap world() { return new WorldMap(99009, List.of()); }
+        };
+        GameStateService game = new GameStateService(new DefaultGameSetupFactory(maps),
+                new RadarService(), new NavigationService());
+        for (String setup : List.of("dense-land", "islands", "dense-land-crowded",
+                "dense-land-crowded-reverse", "scout-plane")) {
+            for (int repeat = 0; repeat < 2; repeat++) {
+                GameSnapshot state = game.reset(new ResetGameRequest("bernd", setup));
+                for (String team : List.of("light", "dark")) {
+                    assertEquals(3, state.ships().stream().filter(s -> team.equals(s.teamId()))
+                            .filter(s -> "submarine".equals(s.vehicleType())).count(), setup + ": " + team);
+                }
+            }
+        }
+    }
+
+    @Test
     void newSessionHasNewInstanceEvenWithSameSetupId() {
         GameSetup setup = new GameSetup("same", new WorldMap(99009, List.of()), List.of(), List.of());
         GameSession first = new GameSession(setup);

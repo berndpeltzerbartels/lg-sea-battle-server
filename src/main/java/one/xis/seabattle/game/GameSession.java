@@ -2768,7 +2768,7 @@ public final class GameSession {
     }
 
     private void prepareBotVehicleTypeForRespawn(Ship ship) {
-        if (!ship.isBotControlled()) {
+        if (!ship.isBotControlled() || ship.isSubmarine()) {
             return;
         }
         if (!allowsDynamicScoutPlanes()) {

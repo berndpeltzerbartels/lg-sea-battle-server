@@ -402,8 +402,7 @@ final class DefaultGameSetupFactory {
         List<ShipSetup> ships = new ArrayList<>();
         for (int index = 0; index < formation.length; index += 1) {
             double[] slot = formation[index];
-            String vehicleType = isBotScoutPlaneSlot(teamId, index) ? VEHICLE_SCOUT_PLANE
-                    : index == 2 || index == 4 || index == 6 ? "submarine" : VEHICLE_TORPEDO_BOAT;
+            String vehicleType = fleetVehicleType(teamId, index);
             String shipId = teamId + "-" + vehiclePrefix(vehicleType) + (index + 1);
             ships.add(new ShipSetup(
                     shipId,
@@ -429,11 +428,16 @@ final class DefaultGameSetupFactory {
         return (TEAM_LIGHT.equals(teamId) || TEAM_DARK.equals(teamId)) && index == 3;
     }
 
+    private static String fleetVehicleType(String teamId, int index) {
+        if (isBotScoutPlaneSlot(teamId, index)) return VEHICLE_SCOUT_PLANE;
+        return index == 2 || index == 4 || index == 6 ? "submarine" : VEHICLE_TORPEDO_BOAT;
+    }
+
     private static List<ShipSetup> createScenarioShips(String teamId, List<Vector2> positions, double heading) {
         List<ShipSetup> ships = new ArrayList<>();
         for (int index = 0; index < positions.size(); index += 1) {
             Vector2 position = positions.get(index);
-            String vehicleType = isBotScoutPlaneSlot(teamId, index) ? VEHICLE_SCOUT_PLANE : VEHICLE_TORPEDO_BOAT;
+            String vehicleType = fleetVehicleType(teamId, index);
             ships.add(new ShipSetup(
                     teamId + "-" + vehiclePrefix(vehicleType) + (index + 1),
                     teamId,
