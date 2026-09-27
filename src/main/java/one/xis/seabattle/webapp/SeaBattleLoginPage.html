@@ -131,7 +131,7 @@
             text-transform: uppercase;
         }
 
-        #nickname {
+        #nickname, #crewNickname {
             text-transform: none;
         }
 
@@ -281,7 +281,27 @@
     </section>
 
     <section class="start-card">
-        <form xis:binding="login">
+        <nav aria-label="Einsteigen" style="display:flex;gap:24px">
+            <a xis:page="/start.html" style="color:#a8eeed">Eigenes Schiff</a>
+            <a xis:page="/start.html" style="color:#a8eeed">Anheuern<xis:parameter name="mode" value="crew"/></a>
+        </nav>
+        <form xis:binding="enlist" xis:if="enlisting">
+            <h2>Anheuern</h2>
+            <xis:global-messages/>
+            <input type="hidden" xis:binding="id">
+            <div class="field">
+                <label for="crewNickname">Name</label>
+                <input id="crewNickname" xis:binding="nickname" xis:error-class="error" maxlength="40" autocomplete="off">
+                <div class="message" xis:message-for="nickname"></div>
+            </div>
+            <div class="field">
+                <label for="crewAlias">Kennung</label>
+                <input id="crewAlias" xis:binding="alias" xis:error-class="error" maxlength="5" autocomplete="off">
+                <div class="message" xis:message-for="alias"></div>
+            </div>
+            <button type="submit" xis:action="enlistCrew">Schiff ausw&auml;hlen</button>
+        </form>
+        <form xis:binding="login" xis:if="!enlisting">
             <xis:global-messages/>
             <input type="hidden" xis:binding="id">
 
@@ -327,7 +347,6 @@
                 <select id="vehicleType" xis:binding="vehicleType" xis:error-class="error">
                     <option value="torpedo-boat">Eigenes Torpedoboot</option>
                     <option value="submarine">Eigenes U-Boot</option>
-                    <option value="crew">Anheuern</option>
                 </select>
                 <div class="message" xis:message-for="vehicleType"></div>
             </div>

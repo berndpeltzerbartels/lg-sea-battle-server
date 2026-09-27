@@ -11,6 +11,34 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 
 class GameSessionTest {
+    @Test
+    void shotEventSurvivesProjectileImpactButExpires() {
+        assertShotEventSurvivesImpact(false);
+    }
+
+    @Test
+    void flakShotEventSurvivesProjectileImpactButExpires() {
+        assertShotEventSurvivesImpact(true);
+    }
+
+    private void assertShotEventSurvivesImpact(boolean flak) {
+        GameSession session = new GameSession(new GameSetup(
+                "shot-event-test", new WorldMap(99001, List.of()),
+                List.of(new FleetSetup("light", List.of(
+                        ship("light-1", "light", 0, 0, 0, "bot", 2, 0, 0)))),
+                List.of(new Vector2(0, 0))));
+        FlakFireRequest request = new FlakFireRequest("captain", "light", "light-1",
+                0, 0.1, 30, 0, -100, 100);
+        if (flak) session.applyFireFlak(request, "gunner");
+        else session.applyFireCannon(request, "gunner");
+        assertEquals(1, session.snapshot().weaponShots().size());
+        assertTrue(session.snapshot().weaponShots().get(0).id().startsWith(flak ? "flak-" : "cannon-"));
+        session.update(0.2, radarService, navigationService, session.worldMap());
+        assertTrue(session.snapshot().flakProjectiles().isEmpty());
+        assertEquals("gunner", session.snapshot().weaponShots().get(0).shooterPlayerId());
+        for (int i = 0; i < 30; i++) session.update(0.1, radarService, navigationService, session.worldMap());
+        assertTrue(session.snapshot().weaponShots().isEmpty());
+    }
 
     private static final double TORPEDO_BOAT_MODEL_SCALE = SeaBattleGameConfig.TORPEDO_BOAT_SCALE;
     private static final double SCOUT_PLANE_START_Y = 220;

@@ -17,7 +17,6 @@ public record Account(
         @LabelKey("seaBattle.alias")
         String alias,
 
-        @Mandatory
         @RegExpr("light|dark")
         @LabelKey("seaBattle.team")
         String team,

@@ -113,6 +113,10 @@ public class CrewService {
     }
 
     public synchronized boolean managed(String player) { return crew(player) != null; }
+    public synchronized List<Member> members(String player) {
+        var c = crew(player);
+        return c == null ? List.of() : List.copyOf(c.members.values());
+    }
     public synchronized String identity(String player) { var c = crew(player); return c == null ? player : c.id; }
     public synchronized boolean exists(String identity) {
         refreshRound();

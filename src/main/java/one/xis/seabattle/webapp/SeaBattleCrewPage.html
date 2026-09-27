@@ -19,15 +19,15 @@
     </style>
 </head>
 <body><main>
-    <a href="start.html">Zur Anmeldung</a>
+    <a xis:page="/start.html">Zur Anmeldung<xis:parameter name="mode" value="crew"/></a>
     <h1>Anheuern</h1>
     <a id="boarding" href="app?vehicle=torpedo-boat" xis:if="ready">An Bord</a>
     <p class="decision" role="status" xis:if="!empty(decisionNotice)">${decisionNotice}</p>
-    <p xis:if="empty(ships)">Keine Torpedoboote deiner Flotte verf&uuml;gbar.</p>
+    <p xis:if="empty(ships)">Keine bemannten Torpedoboote verf&uuml;gbar.</p>
     <table xis:if="!empty(ships)">
-        <thead><tr><th>Schiff</th><th>Ansprechpartner</th><th>Status</th></tr></thead>
+        <thead><tr><th>Schiff</th><th>Flotte</th><th>Besatzung</th><th>Status</th></tr></thead>
         <tbody>
-            <tr xis:repeat="ship:ships"><td>${ship.id}</td><td>${ship.captain}</td><td>${ship.status}</td></tr>
+            <tr xis:repeat="ship:ships"><td>${ship.id}</td><td>${ship.team}</td><td>${ship.crew}</td><td>${ship.status}</td></tr>
         </tbody>
     </table>
     <form xis:binding="crew" xis:if="!empty(availableShips)">
@@ -35,7 +35,7 @@
         <label for="shipId">Schiff</label>
         <select id="shipId" xis:binding="shipId">
             <option value="">Schiff ausw&auml;hlen</option>
-            <option xis:repeat="ship:availableShips" value="${ship.id}">${ship.id} - ${ship.captain}</option>
+            <option xis:repeat="ship:availableShips" value="${ship.id}">${ship.id} - ${ship.team} - ${ship.crew}</option>
         </select>
         <div class="message" xis:message-for="shipId"></div>
         <button type="submit" xis:action="request">Anfragen</button>

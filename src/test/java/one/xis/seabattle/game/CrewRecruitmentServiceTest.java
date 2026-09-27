@@ -11,7 +11,17 @@ class CrewRecruitmentServiceTest {
     private final java.util.List<one.xis.RefreshEvent> events = new java.util.ArrayList<>();
     private final TestClock clock = new TestClock();
     private final CrewService crew = new CrewService(game, players);
-    private final CrewRecruitmentService service = new CrewRecruitmentService(game, players, events::add, crew) {
+    private final java.util.Map<String, Account> savedAccounts = new java.util.HashMap<>();
+    private final one.xis.seabattle.webapp.account.AccountService accounts = new one.xis.seabattle.webapp.account.AccountService() {
+        public Account saveAccount(Account account) {
+            savedAccounts.put(account.id(), account);
+            return account;
+        }
+        public java.util.Optional<Account> findAccountById(String id) {
+            return java.util.Optional.ofNullable(savedAccounts.get(id));
+        }
+    };
+    private final CrewRecruitmentService service = new CrewRecruitmentService(game, players, events::add, crew, accounts) {
         @Override long nowMillis() { return clock.millis(); }
     };
     private final Account applicant = new Account("applicant", "Applicant", "APP", "light", null);
@@ -46,11 +56,22 @@ class CrewRecruitmentServiceTest {
     }
 
     @Test
-    void unansweredRequestWaitsTwoMinutesAfterItsDeadlineNotAfterRefresh() {
+    void unansweredRequestIsDeclinedAndBlockedForFifteenMinutesFromDeadline() {
         String ship = captain("CAP", "light", "torpedo-boat");
+        var recipient = new Account("CAP", "Captain", "CAP", "light", null);
         service.request(applicant, ship);
-        clock.now += 239_999;
-        assertEquals("Abgelaufen", service.requests(applicant).get(0).status());
+        String id = service.requests(applicant).get(0).id();
+        clock.now += 119_999;
+        assertEquals("Offen", service.requests(applicant).get(0).status());
+        service.publishChanges();
+        int eventCount = events.size();
+        clock.now++;
+        service.publishChanges();
+        assertEquals(eventCount + 1, events.size());
+        assertEquals("Abgelehnt", service.requests(applicant).get(0).status());
+        assertTrue(service.inbox(recipient).isEmpty());
+        assertThrows(IllegalArgumentException.class, () -> service.decide(recipient, id, true));
+        clock.now += 899_999;
         assertThrows(IllegalArgumentException.class, () -> service.request(applicant, ship));
         clock.now++;
         assertDoesNotThrow(() -> service.request(applicant, ship));
@@ -83,11 +104,11 @@ class CrewRecruitmentServiceTest {
     }
 
     @Test
-    void onlyFriendlyHumanTorpedoBoatsAreOfferedAndApplyingDoesNotAssignShip() {
-        captain("ENEMY", "dark", "torpedo-boat");
+    void humanTorpedoBoatsOfBothTeamsAreOfferedAndApplyingDoesNotAssignShip() {
+        String other = captain("ENEMY", "dark", "torpedo-boat");
         String ship = captain("CAP", "light", "torpedo-boat");
         captain("SUB", "light", "submarine");
-        assertEquals(java.util.List.of(ship), service.ships(applicant).stream().map(CrewRecruitmentService.ShipOption::id).toList());
+        assertEquals(java.util.Set.of(ship, other), new java.util.HashSet<>(service.ships(applicant).stream().map(CrewRecruitmentService.ShipOption::id).toList()));
         var before = game.snapshot().ships();
         service.request(applicant, ship);
         assertEquals(before, game.snapshot().ships());
@@ -114,6 +135,28 @@ class CrewRecruitmentServiceTest {
     }
 
     @Test
+    void crewNamesIncludeEveryoneAndJoiningAndLeavingPublishUpdates() {
+        captain("CAP", "light", "torpedo-boat");
+        assertEquals("CAP", service.ships(applicant).get(0).crew());
+        service.publishChanges();
+        var gunner = crew.join("player-CAP-test", new Account("gunner", "Gunner", "GUN", "light", null));
+        service.publishChanges();
+        assertEquals(2, events.size());
+        assertEquals("CAP, Gunner", service.ships(applicant).get(0).crew());
+        crew.join("player-CAP-test", new Account("third", "Third", "THI", "light", null));
+        service.publishChanges();
+        assertEquals(3, events.size());
+        assertEquals("CAP, Gunner, Third", service.ships(applicant).get(0).crew());
+        service.publishChanges();
+        assertEquals(3, events.size());
+        String gunnerId = gunner.members().stream().filter(m -> m.name().equals("Gunner")).findFirst().orElseThrow().playerId();
+        crew.leave(gunnerId);
+        service.publishChanges();
+        assertEquals(4, events.size());
+        assertEquals("CAP, Third", service.ships(applicant).get(0).crew());
+    }
+
+    @Test
     void duplicateAndParallelRequestsAreRejectedEvenAfterPageReload() {
         String first = captain("CAP", "light", "torpedo-boat");
         String second = captain("TWO", "light", "torpedo-boat");
@@ -128,9 +171,13 @@ class CrewRecruitmentServiceTest {
     }
 
     @Test
-    void forgedEnemyTargetAndExistingControllerAreRejected() {
+    void joiningOtherTeamPersistsThatTeamAndExistingControllersAreRejected() {
         String enemy = captain("ENEMY", "dark", "torpedo-boat");
-        assertThrows(IllegalArgumentException.class, () -> service.request(applicant, enemy));
+        service.request(applicant, enemy);
+        service.decide(new Account("ENEMY", "Enemy", "ENEMY", "dark", null),
+                service.requests(applicant).get(0).id(), true);
+        assertEquals(new Account(applicant.id(), applicant.nickname(), applicant.alias(), "dark", null),
+                savedAccounts.get(applicant.id()));
         String friendly = captain("CAP", "light", "torpedo-boat");
         captain("APP", "light", "torpedo-boat");
         players.register("player-APP-test", "APP", "Applicant", "light", applicant.id());
@@ -187,5 +234,24 @@ class CrewRecruitmentServiceTest {
             if (i < 2) service.decide(recipient, id, true);
             else assertThrows(IllegalArgumentException.class, () -> service.decide(recipient, id, true));
         }
+    }
+
+    @Test
+    void thirdPersonCanApplyWhenBridgeIsEmptyAndBothGunsAreOccupied() {
+        String ship = captain("CAP", "light", "torpedo-boat");
+        var recipient = new Account("CAP", "Captain", "CAP", "light", null);
+        service.request(applicant, ship);
+        service.decide(recipient, service.requests(applicant).get(0).id(), true);
+        var captainView = crew.view("player-CAP-test");
+        crew.switchStation(new CrewService.Command("player-CAP-test", ship,
+                captainView.revision(), "cannon", null, null, null));
+        var third = new Account("third", "Third", "THIRD", null, null);
+        assertTrue(service.ships(third).stream().anyMatch(s -> s.id().equals(ship) && s.available()));
+        service.request(third, ship);
+        service.decide(recipient, service.requests(third).get(0).id(), true);
+        var members = crew.view("player-CAP-test").members();
+        assertEquals(3, members.size());
+        assertTrue(members.stream().anyMatch(m -> m.name().equals("Third") && m.station().equals("bridge")));
+        assertEquals("light", savedAccounts.get("third").team());
     }
 }

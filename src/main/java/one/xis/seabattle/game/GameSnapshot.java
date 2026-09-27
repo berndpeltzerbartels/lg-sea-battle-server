@@ -14,6 +14,7 @@ public record GameSnapshot(
         List<BombSnapshot> bombs,
         List<BombImpactSnapshot> bombImpacts,
         List<FlakProjectileSnapshot> flakProjectiles,
+        List<FlakProjectileSnapshot> weaponShots,
         List<ProjectileHitSnapshot> flakHits,
         List<FlakImpactSnapshot> flakImpacts,
         List<RamHitSnapshot> ramHits,

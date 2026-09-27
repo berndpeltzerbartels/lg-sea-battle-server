@@ -7,6 +7,11 @@ import one.xis.ddl.DDL;
 @ChangeSet("sea-battle-schema")
 class SeaBattleSchema {
 
+    @Change("009-allow-unaffiliated-crew-applicants")
+    void allowUnaffiliatedCrewApplicants(DDL ddl) {
+        ddl.alterTable("accounts").alterColumn("team").nullable().varchar(20);
+    }
+
     @Change("001-create-accounts")
     void createAccounts(DDL ddl) {
         var accounts = ddl.createTableIfNotExists("accounts");

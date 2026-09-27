@@ -65,6 +65,36 @@ public class SeaBattleLoginPage {
         );
     }
 
+    @ModelData("enlisting")
+    boolean enlisting(@NullAllowed @QueryParameter("mode") String mode) {
+        return "crew".equals(mode);
+    }
+
+    @FormData("enlist")
+    EnlistForm enlist(@NullAllowed @LocalStorage("accountId") String accountId) {
+        Account account = accountService.findAccountById(accountId).orElseGet(this::newAccount);
+        return new EnlistForm(account.id(), account.nickname(), account.alias());
+    }
+
+    @Action
+    PageUrlResponse enlistCrew(@FormData("enlist") EnlistForm form) {
+        String alias = form.alias().trim().toUpperCase(Locale.ROOT);
+        if (isAliasActive(alias, form.id())) {
+            throw new ValidationFailedException("/enlist/alias", "seaBattle.aliasTaken");
+        }
+        Account previous = accountService.findAccountById(form.id()).orElse(null);
+        Account saved = accountService.saveAccount(new Account(
+                form.id() == null || form.id().isBlank() ? UUID.randomUUID().toString() : form.id(),
+                normalizeName(form.nickname()), alias, previous == null ? null : previous.team(),
+                previous == null ? null : previous.email()));
+        crew.departForSelection(saved.id());
+        return new PageUrlResponse("/crew.html").localStorage("accountId", saved.id());
+    }
+
+    public record EnlistForm(String id,
+            @Mandatory @RegExpr("[\\p{L}0-9 .'-]{2,40}") @LabelKey("seaBattle.nickname") String nickname,
+            @Mandatory @RegExpr("[A-Za-z0-9]{1,5}") @LabelKey("seaBattle.alias") String alias) {}
+
     @ModelData("teams")
     List<TeamOption> teams() {
         Map<String, List<PlayerEntry>> playersByTeam = players().stream()
@@ -114,11 +144,6 @@ public class SeaBattleLoginPage {
             throw new ValidationFailedException("/login/alias", "seaBattle.aliasTaken");
         }
         Account savedAccount = accountService.saveAccount(account);
-        if ("crew".equals(form.vehicleType())) {
-            crew.departForSelection(savedAccount.id());
-            return new PageUrlResponse("/crew.html")
-                    .localStorage("accountId", savedAccount.id());
-        }
         String vehicleType = normalizeVehicleType(form.vehicleType());
         crew.startOwnShip(savedAccount, vehicleType);
         String target = switch (vehicleType) {
@@ -235,7 +260,7 @@ public class SeaBattleLoginPage {
             String email,
 
             @Mandatory
-            @RegExpr("torpedo-boat|submarine|crew")
+            @RegExpr("torpedo-boat|submarine")
             String vehicleType
     ) {
     }

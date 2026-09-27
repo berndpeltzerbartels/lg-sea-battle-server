@@ -183,6 +183,7 @@ public final class GameSession {
     private final List<PendingBombRelease> pendingBombReleases = new ArrayList<>();
     private final List<BombImpactSnapshot> bombImpacts = new ArrayList<>();
     private final List<FlakProjectile> flakProjectiles = new ArrayList<>();
+    private final List<FlakProjectileSnapshot> weaponShots = new ArrayList<>();
     private final List<ProjectileHitSnapshot> projectileHits = new ArrayList<>();
     private final List<FlakImpactSnapshot> flakImpacts = new ArrayList<>();
     private final List<RamHitSnapshot> ramHits = new ArrayList<>();
@@ -231,6 +232,7 @@ public final class GameSession {
     }
 
     public synchronized GameSnapshot snapshot() {
+        weaponShots.removeIf(shot -> nowSeconds - shot.firedAt() > 2);
         return new GameSnapshot(
                 "state",
                 id,
@@ -258,6 +260,7 @@ public final class GameSession {
                         .filter(projectile -> "flying".equals(projectile.state()))
                         .map(FlakProjectile::snapshot)
                         .toList(),
+                List.copyOf(weaponShots),
                 projectileHits.stream()
                         .filter(hit -> nowSeconds - hit.t() <= FLAK_HIT_VISIBILITY_SECONDS)
                         .toList(),
@@ -488,6 +491,7 @@ public final class GameSession {
                 request.vz(),
                 nowSeconds, shooterPlayerId
         ));
+        weaponShots.add(flakProjectiles.get(flakProjectiles.size() - 1).snapshot());
     }
 
     public synchronized void applyFireCannon(FlakFireRequest request) {
@@ -527,6 +531,7 @@ public final class GameSession {
                 request.vz(),
                 nowSeconds, shooterPlayerId
         ));
+        weaponShots.add(flakProjectiles.get(flakProjectiles.size() - 1).snapshot());
     }
 
     public synchronized void applyClientPlaneHit(ClientPlaneHitRequest request) {

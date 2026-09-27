@@ -37,11 +37,24 @@ objects:
   });
   const alias = `A${Date.now().toString(36).slice(-4)}`.toUpperCase();
   await page.goto(`${base}/start.html`);
-  await page.locator("#nickname").fill("Crew Test");
-  await page.locator("#alias").fill(alias);
-  await page.locator("#team").selectOption("light");
-  await page.locator("#vehicleType").selectOption("crew");
-  await page.locator('button[xis\\:action="startGame"]').click();
+  await page.getByRole("link", { name: "Anheuern", exact: true }).click();
+  await page.locator("#crewNickname").waitFor({ state: "visible" });
+  assert.equal(await page.locator("#team").isVisible(), false);
+  await page.getByRole("link", { name: "Eigenes Schiff", exact: true }).click();
+  await page.locator("#team").waitFor({ state: "visible" });
+  await page.getByRole("link", { name: "Anheuern", exact: true }).click();
+  await page.getByRole("button", { name: "Schiff ausw\u00e4hlen" }).click();
+  await page.locator("#crewNickname.error").waitFor();
+  assert.ok(page.url().includes("start.html"), "Incomplete enlistment must not navigate");
+  await page.locator("#crewNickname").fill("Crew Test");
+  await page.locator("#crewAlias").fill(alias);
+  assert.equal(await page.locator("#team").isVisible(), false);
+  await page.screenshot({ path: "/tmp/crew-enlist-form-desktop.png" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: "/tmp/crew-enlist-form-mobile.png" });
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await page.getByRole("button", { name: "Schiff ausw\u00e4hlen" }).click();
   await page.waitForURL("**/crew.html");
   await page.locator("h1").filter({ hasText: "Anheuern" }).waitFor();
   const initialState = await (await page.request.get(`${base}/game/state`)).json();
@@ -116,12 +129,10 @@ objects:
   const rejectedContext = await browser.newContext();
   const rejected = await rejectedContext.newPage();
   rejected.on("pageerror", error => errors.push(error.message));
-  await rejected.goto(`${base}/start.html`);
-  await rejected.locator("#nickname").fill("Second Applicant");
-  await rejected.locator("#alias").fill(`R${alias.slice(1)}`);
-  await rejected.locator("#team").selectOption("light");
-  await rejected.locator("#vehicleType").selectOption("crew");
-  await rejected.locator('button[xis\\:action="startGame"]').click();
+  await rejected.goto(`${base}/start.html?mode=crew`);
+  await rejected.locator("#crewNickname").fill("Second Applicant");
+  await rejected.locator("#crewAlias").fill(`R${alias.slice(1)}`);
+  await rejected.getByRole("button", { name: "Schiff ausw\u00e4hlen" }).click();
   await rejected.waitForURL("**/crew.html");
   await rejected.locator("#shipId").selectOption(ship.id);
   await rejected.locator('button[xis\\:action="request"]').click();
@@ -150,6 +161,11 @@ objects:
   await page.locator("#cannonViewButton").click();
   await page.waitForFunction(() => document.body.dataset.crewStation === "cannon");
   await bridge.waitForFunction(() => document.querySelector("#cannonViewButton").disabled);
+  await page.locator("#alignWeaponsButton").click();
+  await page.waitForFunction(() => !window.seaBattleScenarioTest.weaponHeadingHoldState().cannon);
+  await page.keyboard.down("ArrowRight");
+  await page.waitForFunction(() => window.seaBattleScenarioTest.weaponHeadingHoldState().cannon);
+  await page.keyboard.up("ArrowRight");
   await bridge.evaluate(() => {
     window.aimSamples = [];
     function sample() {
