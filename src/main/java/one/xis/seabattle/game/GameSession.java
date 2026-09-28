@@ -297,8 +297,17 @@ public final class GameSession {
         if (nowSeconds < nextDepthChargeTime.getOrDefault(shipId, 0.0))
             throw new IllegalArgumentException("Wasserbomben werden nachgeladen.");
         nextDepthChargeTime.put(shipId, nowSeconds + DEPTH_CHARGE_COOLDOWN);
-        for (int i = 0; i < 4; i++)
-            pendingDepthCharges.add(new PendingDepthCharge(ship.id(), actor, i, nowSeconds + i * 2.5));
+        // Aim for a slightly overlapping diamond at steady forward speed. Limit waiting
+        // when stopped/reversing; the release positions still follow the actual ship.
+        double speed = Math.max(0, ship.speed());
+        double separation = 36;
+        double launcherOffset = 4.45 * TORPEDO_BOAT_MODEL_SCALE + speed * 0.6;
+        double sideDelay = speed > 0 ? MathSupport.clamp((separation - launcherOffset) / speed, 0.1, 3) : 3;
+        double sternDelay = speed > 0 ? MathSupport.clamp((separation + launcherOffset) / speed, 0.1, 6) : 6;
+        pendingDepthCharges.add(new PendingDepthCharge(ship.id(), actor, 0, nowSeconds));
+        pendingDepthCharges.add(new PendingDepthCharge(ship.id(), actor, 2, nowSeconds + sideDelay));
+        pendingDepthCharges.add(new PendingDepthCharge(ship.id(), actor, 3, nowSeconds + sideDelay));
+        pendingDepthCharges.add(new PendingDepthCharge(ship.id(), actor, 1, nowSeconds + sideDelay + sternDelay));
         updateDepthCharges();
     }
 

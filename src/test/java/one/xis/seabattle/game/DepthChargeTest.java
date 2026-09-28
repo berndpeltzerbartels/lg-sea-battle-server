@@ -20,14 +20,13 @@ class DepthChargeTest {
     private void tick(GameSession s, double dt) {
         s.updateIdle(dt, new RadarService(), new NavigationService(), s.worldMap());
     }
-    @Test void fourChargesAlternateAndExplodeOnceAcrossDepthsWithoutHurtingSurfaceShips() {
+    @Test void sternThenPairedSidesThenSternExplodeOnceAcrossDepthsWithoutHurtingSurfaceShips() {
         var s = session();
         s.dropDepthCharges("player-boat", "player-boat", "boat");
         assertEquals(1, s.snapshot().depthCharges().size());
         assertThrows(IllegalArgumentException.class, () -> s.dropDepthCharges("player-boat", "player-boat", "boat"));
         tick(s, 2.5);
-        assertEquals(2, s.snapshot().depthCharges().size());
-        assertEquals(2.5, s.snapshot().depthCharges().get(1).releasedAt());
+        assertEquals(1, s.snapshot().depthCharges().size());
         var hit = s.snapshot().depthCharges().get(0);
         assertEquals(24, hit.radius());
         assertEquals(13, hit.readyAt());
@@ -36,21 +35,26 @@ class DepthChargeTest {
         assertFalse(hit.targetShipIds().contains("outside"));
         assertFalse(hit.targetShipIds().contains("surface"));
         assertEquals(2, s.snapshot().killsByPlayer().get("player-boat"));
-        tick(s, 2.5);
-        assertTrue(s.snapshot().depthCharges().get(1).exploded());
-        assertTrue(s.snapshot().depthCharges().get(1).targetShipIds().isEmpty());
-        assertEquals(2, s.snapshot().depthCharges().get(2).lane());
-        assertEquals(-24, s.snapshot().depthCharges().get(2).x(), .001);
-        assertEquals(5, s.snapshot().depthCharges().get(2).releasedAt());
-        tick(s, 2.5);
-        var fourth = s.snapshot().depthCharges().stream().filter(c -> c.releasedAt() == 7.5).findFirst().orElseThrow();
-        assertEquals(3, fourth.lane());
-        assertEquals(24, fourth.x(), .001);
+        tick(s, .5);
+        assertEquals(3, s.snapshot().depthCharges().size());
+        var port = s.snapshot().depthCharges().get(1);
+        var starboard = s.snapshot().depthCharges().get(2);
+        assertEquals(2, port.lane());
+        assertEquals(3, starboard.lane());
+        assertEquals(3, port.releasedAt());
+        assertEquals(port.releasedAt(), starboard.releasedAt());
+        assertEquals(-24, port.x(), .001);
+        assertEquals(24, starboard.x(), .001);
+        assertEquals(port.radius() + starboard.radius(),
+                new Vector2(port.x(), port.z()).distanceTo(new Vector2(starboard.x(), starboard.z())), .001);
+        tick(s, 6);
+        var fourth = s.snapshot().depthCharges().stream().filter(c -> c.lane() == 1).findFirst().orElseThrow();
+        assertEquals(9, fourth.releasedAt());
         assertEquals(13, fourth.readyAt());
         assertThrows(IllegalArgumentException.class, () -> s.dropDepthCharges("player-boat", "player-boat", "boat"));
         tick(s, 2.5);
         assertTrue(s.snapshot().depthCharges().stream().filter(c -> c.id().equals(fourth.id())).findFirst().orElseThrow().exploded());
-        tick(s, 3.1);
+        tick(s, 3.6);
         assertTrue(s.snapshot().depthCharges().isEmpty());
         s.dropDepthCharges("player-boat", "player-boat", "boat");
         assertEquals(1, s.snapshot().depthCharges().size());
@@ -60,6 +64,37 @@ class DepthChargeTest {
         assertThrows(IllegalArgumentException.class, () -> s.dropDepthCharges("other", "other", "boat"));
         assertThrows(IllegalArgumentException.class, () -> s.dropDepthCharges("player-deep", "player-deep", "deep"));
         assertTrue(s.snapshot().depthCharges().isEmpty());
+    }
+
+    @Test void steadyForwardMotionProducesOverlappingDiamondRatherThanLongStrip() {
+        var s = session();
+        var navigation = new NavigationService();
+        double speed = 17.5;
+        s.applyPlayerState(new PlayerStateUpdate("player-boat", "light", 0, 0, 0,
+                speed, 0, 8, 0, 0, false), navigation, s.worldMap());
+        s.dropDepthCharges("player-boat", "player-boat", "boat");
+        var released = new java.util.HashMap<Integer, DepthChargeSnapshot>();
+        for (int frame = 0; frame <= 100; frame++) {
+            double t = frame * .05;
+            if (frame > 0) {
+                s.applyPlayerState(new PlayerStateUpdate("player-boat", "light", 0, speed * t, 0,
+                        speed, 0, 8, 0, t, false), navigation, s.worldMap());
+                tick(s, .05);
+            }
+            s.snapshot().depthCharges().forEach(c -> released.putIfAbsent(c.lane(), c));
+        }
+        assertEquals(4, released.size());
+        var first = released.get(0);
+        var port = released.get(2);
+        var starboard = released.get(3);
+        var last = released.get(1);
+        assertEquals(port.releasedAt(), starboard.releasedAt());
+        assertEquals(port.z(), starboard.z(), .001);
+        assertEquals(36, port.z() - first.z(), 1);
+        assertEquals(36, last.z() - port.z(), 1);
+        assertTrue(first.releasedAt() < port.releasedAt());
+        assertTrue(last.releasedAt() > port.releasedAt());
+        assertTrue(last.releasedAt() < 5);
     }
 
     @Test void sideThrowersRotateWithShipAndReachTargetsBeyondSternCoverage() {
@@ -76,13 +111,11 @@ class DepthChargeTest {
                             ship("starboard", "dark", starboardTarget.x(), starboardTarget.z(), "submarine", -20)))),
                     List.of(new Vector2(1000, 1000))));
             s.dropDepthCharges("player-boat", "player-boat", "boat");
-            tick(s, 2.5);
-            tick(s, 2.5);
+            tick(s, 3);
             assertFalse(s.snapshot().depthCharges().stream().anyMatch(c -> !c.targetShipIds().isEmpty()));
             tick(s, 2.5);
             var port = s.snapshot().depthCharges().stream().filter(c -> c.lane() == 2).findFirst().orElseThrow();
             assertEquals(List.of("port"), port.targetShipIds());
-            tick(s, 2.5);
             var starboard = s.snapshot().depthCharges().stream().filter(c -> c.lane() == 3).findFirst().orElseThrow();
             assertEquals(List.of("starboard"), starboard.targetShipIds());
             assertEquals(2, s.snapshot().killsByPlayer().get("player-boat"));
