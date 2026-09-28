@@ -777,7 +777,7 @@ public final class GameSession {
         List<Ship> humanSurfaceShips = surfaceShips.stream()
                 .filter(this::isHumanControlled)
                 .toList();
-        RadarService.VisibilityCache visibilityCache = radarService.visibilityCache(worldMap, surfaceShips);
+        RadarService.VisibilityCache visibilityCache = radarService.visibilityCache(worldMap, activeShips);
         Map<String, Integer> scoutPlaneTargetReservations = new LinkedHashMap<>();
         activeShips.stream()
                 .filter(ship -> "bot".equals(ship.controlledBy()))
@@ -1174,7 +1174,7 @@ public final class GameSession {
         if (ship.isSubmarine()) {
             List<Ship> contacts = ship.isFullySubmerged()
                     ? visibilityCache.candidates(ship, SubmarineBot.UNDERWATER_RANGE)
-                    : visibleTargets(ship, visibilityCache).stream()
+                    : visibilityCache.candidates(ship, RadarService.RADAR_RANGE).stream()
                         .filter(contact -> visibilityCache.isVisible(ship, contact, RadarService.RADAR_RANGE))
                         .toList();
             boolean shotOpportunity = ship.isFullySubmerged() && contacts.stream()

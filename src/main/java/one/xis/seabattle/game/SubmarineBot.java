@@ -15,6 +15,8 @@ final class SubmarineBot {
     private double progressTime;
     private double surfaceUntil;
     private String depth = "surface";
+    private Vector2 lastAircraftPosition;
+    private double aircraftMemoryUntil;
 
     private boolean backingAway;
 
@@ -47,6 +49,15 @@ final class SubmarineBot {
     }
 
     Vector2 update(Ship ship, List<Ship> contacts, double now, boolean hasShotOpportunity) {
+        if (!ship.isFullySubmerged()) {
+            Ship aircraft = contacts.stream()
+                    .filter(other -> other.isScoutPlane() && "active".equals(other.state()))
+                    .filter(other -> !other.teamId().equals(ship.teamId()))
+                    .min(java.util.Comparator.comparingDouble(
+                            other -> ship.position().distanceTo(other.position()))).orElse(null);
+            lastAircraftPosition = aircraft == null ? null : aircraft.position();
+            aircraftMemoryUntil = now + 10;
+        }
         Ship nearest = contacts.stream()
                 .filter(other -> !other.teamId().equals(ship.teamId()))
                 .filter(other -> "active".equals(other.state()) && !other.isScoutPlane())
@@ -56,6 +67,16 @@ final class SubmarineBot {
                 other -> ship.position().distanceTo(other.position()))).orElse(null);
         double distance = nearest == null ? Double.POSITIVE_INFINITY
                 : ship.position().distanceTo(nearest.position());
+        Vector2 threatPosition = nearest == null ? null : nearest.position();
+        boolean aircraftThreat = false;
+        if (lastAircraftPosition != null && now < aircraftMemoryUntil) {
+            double aircraftDistance = ship.position().distanceTo(lastAircraftPosition);
+            if (aircraftDistance < distance) {
+                distance = aircraftDistance;
+                threatPosition = lastAircraftPosition;
+                aircraftThreat = true;
+            }
+        }
 
         if (!"surface".equals(depth)) {
             if (progressPosition == null || ship.position().distanceTo(progressPosition) >= 8) {
@@ -73,11 +94,11 @@ final class SubmarineBot {
         }
 
         if ("submerged".equals(depth)) {
-            if (distance < SAFE_RANGE && !(hasShotOpportunity && distance >= SHOT_ASCENT_RANGE)) {
+            if (distance < SAFE_RANGE && !(hasShotOpportunity && !aircraftThreat && distance >= SHOT_ASCENT_RANGE)) {
                 ship.botDepth(depth);
-                return nearest.position();
+                return threatPosition;
             }
-            if (nearest == null) surface();
+            if (threatPosition == null) surface();
             else depth = "periscope";
             ship.botDepth(depth);
             return null; // Reacquire contacts on the next simulation tick.
@@ -92,7 +113,7 @@ final class SubmarineBot {
             surface();
         }
         ship.botDepth(depth);
-        return "submerged".equals(depth) ? nearest.position() : null;
+        return "submerged".equals(depth) ? threatPosition : null;
     }
 
     private void startDive(Ship ship, double now) {

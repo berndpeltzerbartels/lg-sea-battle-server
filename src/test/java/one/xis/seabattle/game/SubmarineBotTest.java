@@ -6,6 +6,47 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class SubmarineBotTest {
     @Test
+    void aircraftTriggersDiveAndLastSeenPositionExpiresUnderwater() {
+        Ship sub = submarine();
+        Ship plane = enemy(400);
+        plane.vehicleType("scout-plane");
+        sub.submarineBot().update(sub, List.of(plane), 0);
+        assertTrue(sub.isAtPeriscopeDepth());
+        Ship nearPlane = enemy(100);
+        nearPlane.vehicleType("scout-plane");
+        assertEquals(new Vector2(0, 100), sub.submarineBot().update(sub, List.of(nearPlane), 1));
+        assertTrue(sub.isFullySubmerged());
+        // No live tracking under water, even when the aircraft moves elsewhere.
+        assertEquals(new Vector2(0, 100), sub.submarineBot().update(sub, List.of(plane), 5));
+        assertTrue(sub.isFullySubmerged());
+        sub.submarineBot().update(sub, List.of(nearPlane), 11);
+        assertTrue(sub.isOnSurface());
+    }
+
+    @Test
+    void friendlyAircraftDoesNotTriggerDive() {
+        Ship sub = submarine();
+        Ship plane = new Ship("friend", "light", new Vector2(0, 10), 0, "bot");
+        plane.vehicleType("scout-plane");
+        sub.submarineBot().update(sub, List.of(plane), 0);
+        assertTrue(sub.isOnSurface());
+    }
+
+    @Test
+    void sessionIncludesAircraftInSubmarineThreatContacts() {
+        GameSession session = new GameSession(new GameSetup("air-threat",
+                new WorldMap(99009, List.of()), List.of(
+                new FleetSetup("light", List.of(new ShipSetup("sub", "light", new Vector2(0, 0),
+                        0, "bot", 7, 0, 9999, "submarine", 0))),
+                new FleetSetup("dark", List.of(new ShipSetup("plane", "dark", new Vector2(0, 100),
+                        0, "player", 2, 0, 9999, "scout-plane", 100)))), List.of()));
+        session.update(.1, new RadarService(), new NavigationService(), session.worldMap());
+        assertEquals("submerged", session.snapshot().ships().stream()
+                .filter(s -> s.id().equals("sub")).findFirst().orElseThrow().depthState());
+        assertTrue(session.snapshot().torpedoes().isEmpty());
+    }
+
+    @Test
     void deeplySubmergedBotLimitsSpeedToSixAndRestoresSurfaceSpeed() {
         Ship sub = submarine();
         var navigation = new NavigationService();
