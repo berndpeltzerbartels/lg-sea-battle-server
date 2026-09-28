@@ -25,6 +25,29 @@ class GameSessionPerformanceTest {
     }
 
     @Test
+    void repeatedDepthChargeSalvosStayBelowTickBudget() {
+        var session = new GameSession(setup("depth-charge-load", 70, true));
+        var durations = new ArrayList<Double>();
+        for (int tick = 0; tick < 400; tick++) {
+            if (tick % 81 == 0) {
+                for (var ship : session.snapshot().ships()) {
+                    if ("active".equals(ship.state()) && "torpedo-boat".equals(ship.vehicleType()))
+                        session.dropDepthCharges(ship.controlledBy(), ship.controlledBy(), ship.id());
+                }
+            }
+            long start = System.nanoTime();
+            session.update(.1, radarService, navigationService, session.worldMap());
+            if (tick >= 80) durations.add((System.nanoTime() - start) / 1_000_000.0);
+        }
+        var sorted = durations.stream().sorted().toList();
+        double p95 = percentile(sorted, .95), max = sorted.get(sorted.size() - 1);
+        System.out.printf(Locale.ROOT, "Depth charge ticks avg=%.3fms p95=%.3fms max=%.3fms%n",
+                sorted.stream().mapToDouble(Double::doubleValue).average().orElseThrow(), p95, max);
+        assertTrue(p95 <= MAX_P95_TICK_MILLIS_AFTER_WARMUP);
+        assertTrue(max <= MAX_TICK_MILLIS_AFTER_WARMUP);
+    }
+
+    @Test
     void fullLandscapeFleetTicksStayBelowBudgetAfterWarmup() {
         GameSetup setup = new DefaultGameSetupFactory(new WorldMapService()).defaultSetup();
         assertTickBudget("submarine-fleet", setup);
