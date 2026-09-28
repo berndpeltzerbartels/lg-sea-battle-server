@@ -84,6 +84,30 @@ class CrewServiceTest {
         assertEquals(0, ship(v.shipId()).cannonPitch());
     }
     private String player(String alias) { return players.activePlayerIdForAccountAlias(alias, alias); }
+    @Test void idleAlignmentWaitsThirtySecondsAndNeverMovesOccupiedStations() {
+        var v = start();
+        game.aimCrewWeapon(captain, "light", "flak", 1, .4);
+        game.aimCrewWeapon(captain, "light", "cannon", 1, .4);
+        crew.join(captain, account("GUN"));
+        crew.alignIdlePositions();
+        long reset = crew.view(captain).lookoutReset();
+        aimClock += 29_999;
+        crew.alignIdlePositions();
+        assertEquals(1, ship(v.shipId()).cannonYaw());
+        aimClock++;
+        crew.alignIdlePositions();
+        assertEquals(0, ship(v.shipId()).cannonYaw());
+        assertEquals(1, ship(v.shipId()).flakYaw());
+        assertEquals(reset + 1, crew.view(captain).lookoutReset());
+        crew.alignIdlePositions();
+        assertEquals(reset + 1, crew.view(captain).lookoutReset());
+        crew.switchStation(command(player("GUN"), "lookout"));
+        crew.alignUnoccupiedWeapons(alignment(captain, "flat"));
+        assertEquals(reset + 1, crew.view(captain).lookoutReset());
+        aimClock += 31_000;
+        crew.alignIdlePositions();
+        assertEquals(reset + 1, crew.view(captain).lookoutReset());
+    }
     private CrewService.Command command(String player, String station) {
         var v = crew.view(player);
         return new CrewService.Command(player, v.shipId(), v.revision(), station, null, null, null);

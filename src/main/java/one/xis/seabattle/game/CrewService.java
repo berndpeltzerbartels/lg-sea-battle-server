@@ -51,6 +51,8 @@ public class CrewService {
         long respawnAt;
         final LinkedHashMap<String, Member> members = new LinkedHashMap<>();
         final Map<String, AimRequest> aimRequests = new LinkedHashMap<>();
+        final Map<String, Long> vacantSince = new HashMap<>();
+        long lookoutReset;
         Crew(String controller, ShipSnapshot ship) {
             this.controller = controller;
             this.shipId = ship.id();
@@ -58,7 +60,7 @@ public class CrewService {
         }
     }
     public record Member(String playerId, String name, String station, long revision) {}
-    public record View(String id, String shipId, String controller, String station, long revision, List<Member> members, List<AimRequest> aimRequests) {}
+    public record View(String id, String shipId, String controller, String station, long revision, List<Member> members, List<AimRequest> aimRequests, long lookoutReset) {}
     public record AimRequest(String id, String shipId, String requester, long requesterRevision,
                              String recipient, long recipientRevision, String weapon, double yaw, double pitch,
                              long expiresAt, String status) {
@@ -90,6 +92,7 @@ public class CrewService {
             return new AimResult(true, null);
         }
         game.aimCrewWeapon(c.controller, c.team, command.weapon(), command.yaw(), command.pitch());
+        c.vacantSince.put(command.weapon(), aimNowMillis());
         return new AimResult(false, game.snapshot());
     }
 
@@ -126,6 +129,11 @@ public class CrewService {
             if (c.members.values().stream().anyMatch(m -> m.station().equals(station))) continue;
             game.aimCrewWeapon(c.controller, c.team, station, station.equals("flak") ? Math.PI : 0,
                     air ? Math.toRadians(station.equals("flak") ? 18 : 20) : 0);
+            c.vacantSince.put(station, Long.MAX_VALUE);
+        }
+        if (c.members.values().stream().noneMatch(m -> m.station().equals("lookout"))) {
+            c.lookoutReset++;
+            c.vacantSince.put("lookout", Long.MAX_VALUE);
         }
         return game.snapshot();
     }
@@ -136,6 +144,8 @@ public class CrewService {
         var surviving = new HashSet<>(byPlayer.values());
         for (Crew c : surviving) {
             c.aimRequests.clear();
+            c.vacantSince.clear();
+            c.lookoutReset++;
             c.members.keySet().removeIf(p -> !players.isRegisteredPlayer(p));
             if (!c.members.isEmpty() && !c.members.containsKey(c.controller)) c.controller = c.members.keySet().iterator().next();
         }
@@ -195,6 +205,25 @@ public class CrewService {
         var expired = awaitingConnection.entrySet().stream().filter(e -> e.getValue() <= System.currentTimeMillis())
                 .map(Map.Entry::getKey).toList();
         for (String player : expired) { leave(player); players.unregisterPlayer(player); }
+        alignIdlePositions();
+    }
+
+    synchronized void alignIdlePositions() {
+        long now = aimNowMillis();
+        for (Crew c : new HashSet<>(byPlayer.values())) {
+            if (game.snapshot().ships().stream().noneMatch(s -> s.id().equals(c.shipId) && "active".equals(s.state()))) continue;
+            for (String station : List.of("flak", "cannon", "lookout")) {
+                if (c.members.values().stream().anyMatch(m -> station.equals(m.station()))) {
+                    c.vacantSince.remove(station);
+                    continue;
+                }
+                long since = c.vacantSince.computeIfAbsent(station, key -> now);
+                if (since == Long.MAX_VALUE || now - since < 30_000) continue;
+                if (station.equals("lookout")) c.lookoutReset++;
+                else game.aimCrewWeapon(c.controller, c.team, station, station.equals("flak") ? Math.PI : 0, 0);
+                c.vacantSince.put(station, Long.MAX_VALUE);
+            }
+        }
     }
 
     public synchronized View view(String player) {
@@ -211,7 +240,7 @@ public class CrewService {
         Member m = c.members.get(player);
         expireAimRequests(c);
         return new View(c.id, c.shipId, c.controller, m.station(), m.revision(), List.copyOf(c.members.values()),
-                c.aimRequests.values().stream().filter(r -> r.requester().equals(player) || r.recipient().equals(player)).toList());
+                c.aimRequests.values().stream().filter(r -> r.requester().equals(player) || r.recipient().equals(player)).toList(), c.lookoutReset);
     }
 
     public synchronized View join(String recipient, Account applicant) {
@@ -238,8 +267,11 @@ public class CrewService {
         if (c.members.values().stream().anyMatch(m -> m.station().equals(command.station()) && !m.playerId().equals(command.playerId())))
             throw new IllegalArgumentException("Position bereits belegt.");
         Member old = c.members.get(command.playerId());
-        if (!old.station().equals(command.station()))
+        if (!old.station().equals(command.station())) {
             c.members.put(old.playerId(), new Member(old.playerId(), old.name(), command.station(), ++revision));
+            c.vacantSince.put(old.station(), aimNowMillis());
+            c.vacantSince.remove(command.station());
+        }
         return view(command.playerId());
     }
 
@@ -320,7 +352,8 @@ public class CrewService {
         awaitingConnection.remove(player);
         Crew c = byPlayer.remove(player);
         if (c == null) return;
-        c.members.remove(player);
+        Member departed = c.members.remove(player);
+        if (departed != null) c.vacantSince.put(departed.station(), aimNowMillis());
         if (c.controller.equals(player) && !c.members.isEmpty()) {
             String next = c.members.keySet().iterator().next();
             game.transferCrewController(player, next, c.team);
