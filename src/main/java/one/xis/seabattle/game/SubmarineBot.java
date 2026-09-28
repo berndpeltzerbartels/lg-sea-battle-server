@@ -16,6 +16,32 @@ final class SubmarineBot {
     private double surfaceUntil;
     private String depth = "surface";
 
+    private boolean backingAway;
+
+    int attackEngineOrder(Ship ship, Ship target, double distance, double targetBearing) {
+        // Keep steerage while turning; once aimed, match radial target speed and close the range error.
+        if (Math.abs(targetBearing) > Math.PI / 3) {
+            backingAway = false;
+            return 5;
+        }
+        double targetRadialSpeed = target.speed() * Math.cos(target.heading() - ship.heading() - targetBearing);
+        double desiredSpeed = targetRadialSpeed + (distance - 300) * 0.04;
+        // Separate reversal thresholds keep the boat moving instead of hovering at zero speed.
+        if (desiredSpeed < -2) backingAway = true;
+        else if (desiredSpeed > 2) backingAway = false;
+        // Slow ahead (4), not dead slow: reversals must still make progress for the anti-idle guard.
+        int bestOrder = 4;
+        double bestError = Double.POSITIVE_INFINITY;
+        for (int order = backingAway ? 0 : 4; order <= (backingAway ? 1 : 7); order++) {
+            double error = Math.abs(EngineOrders.speedFor(order) - desiredSpeed);
+            if (error < bestError) {
+                bestOrder = order;
+                bestError = error;
+            }
+        }
+        return bestOrder;
+    }
+
     Vector2 update(Ship ship, List<Ship> contacts, double now) {
         return update(ship, contacts, now, false);
     }

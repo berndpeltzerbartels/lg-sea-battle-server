@@ -6,6 +6,75 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class SubmarineBotTest {
     @Test
+    void periscopeAttackSlowsDownAndBacksAwayInsteadOfCharging() {
+        Ship sub = submarine();
+        Ship target = enemy(300);
+        assertEquals(4, sub.submarineBot().attackEngineOrder(sub, target, 300, 0));
+        assertEquals(1, sub.submarineBot().attackEngineOrder(sub, target, 240, 0));
+        assertEquals(1, sub.submarineBot().attackEngineOrder(sub, target, 300, 0));
+        assertEquals(7, sub.submarineBot().attackEngineOrder(sub, target, 650, 0));
+        assertEquals(5, sub.submarineBot().attackEngineOrder(sub, target, 300, Math.PI));
+    }
+
+    @Test
+    void periscopeAttackMatchesMovingTargetAndNeverOrdersStop() {
+        Ship sub = new Ship("sub", "light", new Vector2(0, 0), 0, "bot");
+        sub.vehicleType("submarine");
+        Ship target = enemy(300);
+        target.applyCommand(7, 0);
+        target.update(20, new NavigationService(), new WorldMap(99009, List.of()));
+        assertEquals(7, sub.submarineBot().attackEngineOrder(sub, target, 300, 0));
+        Ship approaching = new Ship("approaching", "dark", new Vector2(0, 300), Math.PI, "bot");
+        approaching.applyCommand(7, 0);
+        approaching.update(20, new NavigationService(), new WorldMap(99009, List.of()));
+        assertEquals(0, sub.submarineBot().attackEngineOrder(sub, approaching, 300, 0));
+        for (int distance = 130; distance <= 650; distance++) {
+            assertNotEquals(2, sub.submarineBot().attackEngineOrder(sub, target, distance, 0));
+        }
+    }
+
+    @Test
+    void distanceControlKeepsMovingWithinFiringRangeForTenMinutes() {
+        Ship sub = new Ship("sub", "light", new Vector2(0, 0), 0, "bot");
+        sub.vehicleType("submarine");
+        Ship target = enemy(400);
+        WorldMap world = new WorldMap(99009, List.of());
+        NavigationService navigation = new NavigationService();
+        boolean movedForward = false;
+        boolean movedBackward = false;
+        for (int tick = 0; tick < 6000; tick++) {
+            sub.submarineBot().update(sub, List.of(target), tick * 0.1);
+            double distance = sub.position().distanceTo(target.position());
+            sub.applyCommand(sub.submarineBot().attackEngineOrder(sub, target, distance, 0), 0);
+            sub.update(0.1, navigation, world);
+            assertTrue(sub.isAtPeriscopeDepth(), "Must not trigger idle surfacing or emergency diving");
+            assertTrue(distance > 220 && distance <= 400, "Must stay in firing range: " + distance);
+            movedForward |= sub.speed() > 0.5;
+            movedBackward |= sub.speed() < -0.5;
+        }
+        assertTrue(movedForward && movedBackward);
+    }
+    @Test
+    void sessionMaintainsShotDistanceInsteadOfDivingBesideStationaryTarget() {
+        GameSession session = new GameSession(new GameSetup("submarine-range-test",
+                new WorldMap(99009, List.of()), List.of(
+                new FleetSetup("light", List.of(new ShipSetup("sub", "light", new Vector2(0, 0),
+                        0, "bot", 7, 0, 9999, "submarine", 0))),
+                new FleetSetup("dark", List.of(new ShipSetup("enemy", "dark", new Vector2(0, 400),
+                        0, "player", 2, 0, 9999, "torpedo-boat", 0)))), List.of()));
+        RadarService radar = new RadarService();
+        NavigationService navigation = new NavigationService();
+        for (int tick = 0; tick < 1200; tick++) {
+            session.update(0.1, radar, navigation, session.worldMap());
+            ShipSnapshot sub = session.snapshot().ships().stream()
+                    .filter(s -> s.id().equals("sub")).findFirst().orElseThrow();
+            double distance = Math.hypot(sub.x(), sub.z() - 400);
+            assertTrue(distance > 220 && distance < 410, "Shot distance: " + distance);
+            assertEquals("active", sub.state());
+        }
+    }
+
+    @Test
     void respawnPreparationDoesNotTurnSubmarineIntoSurfaceShip() throws Exception {
         Ship ship = submarine();
         ship.sink(1);

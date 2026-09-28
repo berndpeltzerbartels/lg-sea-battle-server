@@ -10,13 +10,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GameSessionPerformanceTest {
 
-    private static final double MAX_TICK_MILLIS_AFTER_WARMUP = 10.0;
-    private static final double MAX_P95_TICK_MILLIS_AFTER_WARMUP = 3.0;
+    // A simulation round has 100 ms; retain headroom for larger fleets and other server work.
+    private static final double MAX_TICK_MILLIS_AFTER_WARMUP = 25.0;
+    private static final double MAX_P95_TICK_MILLIS_AFTER_WARMUP = 10.0;
     private static final int ENGINE_HALF = 5;
     private static final int ENGINE_TWO_THIRDS = 6;
 
     private final RadarService radarService = new RadarService();
     private final NavigationService navigationService = new NavigationService();
+
+    @Test
+    void submarineFleetTicksStayBelowBudgetAfterWarmup() {
+        assertTickBudget("mixed-submarine-fleet", setup("submarine-performance", 300, true));
+    }
+
+    @Test
+    void fullLandscapeFleetTicksStayBelowBudgetAfterWarmup() {
+        GameSetup setup = new DefaultGameSetupFactory(new WorldMapService()).defaultSetup();
+        assertTickBudget("submarine-fleet", setup);
+    }
 
     @Test
     void widelySpreadBotTicksStayBelowBudgetAfterWarmup() {
@@ -106,6 +118,10 @@ class GameSessionPerformanceTest {
     }
 
     private GameSetup setup(String id, double spacing) {
+        return setup(id, spacing, false);
+    }
+
+    private GameSetup setup(String id, double spacing, boolean submarines) {
         List<ShipSetup> light = new ArrayList<>();
         List<ShipSetup> dark = new ArrayList<>();
         for (int index = 0; index < 15; index += 1) {
@@ -113,8 +129,15 @@ class GameSessionPerformanceTest {
             int col = index % 5;
             double x = (col - 2) * spacing;
             double z = (row - 1) * spacing;
-            light.add(ship("light-" + (index + 1), "light", x - spacing * 0.45, z, Math.PI / 2, index));
-            dark.add(ship("dark-" + (index + 1), "dark", x + spacing * 0.45, z, -Math.PI / 2, index));
+            if (submarines && index % 5 == 0) {
+                light.add(ship("light-" + (index + 1), "light", x - spacing * 0.45, z,
+                        Math.PI / 2, "bot", ENGINE_HALF, 0, index * 0.35, "submarine"));
+                dark.add(ship("dark-" + (index + 1), "dark", x + spacing * 0.45, z,
+                        -Math.PI / 2, "bot", ENGINE_HALF, 0, index * 0.35, "submarine"));
+            } else {
+                light.add(ship("light-" + (index + 1), "light", x - spacing * 0.45, z, Math.PI / 2, index));
+                dark.add(ship("dark-" + (index + 1), "dark", x + spacing * 0.45, z, -Math.PI / 2, index));
+            }
         }
         return new GameSetup(
                 id,

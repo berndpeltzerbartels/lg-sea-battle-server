@@ -1605,6 +1605,7 @@ public final class GameSession {
         int maxRudder = distance < BOT_CLOSE_MANEUVER_RANGE ? 35 : 26;
         int rudder = (int) Math.round(MathSupport.clamp(steerError / rudderScale, -1, 1) * maxRudder);
         int engineOrder = botAttackEngineOrder(ship, target, distance, targetBearing);
+        if (ship.isSubmarine() && ship.isAtPeriscopeDepth() && ship.speed() < 0) rudder = -rudder;
         applyBotCommand(ship, engineOrder, rudder, navigationService, worldMap);
 
         boolean closeInFront = distance <= BOT_CLOSE_FIRE_RANGE && Math.abs(targetBearing) <= BOT_CLOSE_FIRE_ARC;
@@ -1615,6 +1616,9 @@ public final class GameSession {
     }
 
     private int botAttackEngineOrder(Ship ship, Ship target, double distance, double targetBearing) {
+        if (ship.isSubmarine() && ship.isAtPeriscopeDepth()) {
+            return ship.submarineBot().attackEngineOrder(ship, target, distance, targetBearing);
+        }
         if (target.isAtPeriscopeDepth()) {
             return ENGINE_FULL;
         }
