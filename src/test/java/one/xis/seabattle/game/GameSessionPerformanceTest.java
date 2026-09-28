@@ -29,9 +29,12 @@ class GameSessionPerformanceTest {
         var session = new GameSession(setup("depth-charge-load", 70, true));
         var durations = new ArrayList<Double>();
         for (int tick = 0; tick < 400; tick++) {
-            if (tick % 131 == 0) {
-                for (var ship : session.snapshot().ships()) {
-                    if ("active".equals(ship.state()) && "torpedo-boat".equals(ship.vehicleType()))
+            if (tick % 10 == 0) {
+                var snapshot = session.snapshot();
+                for (var ship : snapshot.ships()) {
+                    var control = snapshot.depthChargeControls().get(ship.id());
+                    if ("active".equals(ship.state()) && "torpedo-boat".equals(ship.vehicleType())
+                            && (control == null || !control.queued()))
                         session.dropDepthCharges(ship.controlledBy(), ship.controlledBy(), ship.id());
                 }
             }

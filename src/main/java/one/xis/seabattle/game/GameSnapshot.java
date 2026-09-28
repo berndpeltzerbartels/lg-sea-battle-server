@@ -21,6 +21,7 @@ public record GameSnapshot(
         Map<String, Integer> destroyedShipsByTeam,
         Map<String, Integer> killsByPlayer,
         String instanceId,
-        List<DepthChargeSnapshot> depthCharges
+        List<DepthChargeSnapshot> depthCharges,
+        Map<String, DepthChargeControlSnapshot> depthChargeControls
 ) {
 }

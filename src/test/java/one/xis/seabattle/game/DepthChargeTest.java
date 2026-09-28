@@ -24,12 +24,11 @@ class DepthChargeTest {
         var s = session();
         s.dropDepthCharges("player-boat", "player-boat", "boat");
         assertEquals(1, s.snapshot().depthCharges().size());
-        assertThrows(IllegalArgumentException.class, () -> s.dropDepthCharges("player-boat", "player-boat", "boat"));
         tick(s, 2.5);
         assertEquals(1, s.snapshot().depthCharges().size());
         var hit = s.snapshot().depthCharges().get(0);
         assertEquals(24, hit.radius());
-        assertEquals(13, hit.readyAt());
+        assertEquals(4.8, hit.readyAt());
         assertTrue(hit.exploded());
         assertTrue(hit.targetShipIds().containsAll(List.of("deep", "edge")));
         assertFalse(hit.targetShipIds().contains("outside"));
@@ -50,8 +49,7 @@ class DepthChargeTest {
         tick(s, 6);
         var fourth = s.snapshot().depthCharges().stream().filter(c -> c.lane() == 1).findFirst().orElseThrow();
         assertEquals(9, fourth.releasedAt());
-        assertEquals(13, fourth.readyAt());
-        assertThrows(IllegalArgumentException.class, () -> s.dropDepthCharges("player-boat", "player-boat", "boat"));
+        assertEquals(13.8, fourth.readyAt(), .001);
         tick(s, 2.5);
         assertTrue(s.snapshot().depthCharges().stream().filter(c -> c.id().equals(fourth.id())).findFirst().orElseThrow().exploded());
         tick(s, 3.6);
@@ -64,6 +62,52 @@ class DepthChargeTest {
         assertThrows(IllegalArgumentException.class, () -> s.dropDepthCharges("other", "other", "boat"));
         assertThrows(IllegalArgumentException.class, () -> s.dropDepthCharges("player-deep", "player-deep", "deep"));
         assertTrue(s.snapshot().depthCharges().isEmpty());
+    }
+
+    @Test void oneQueuedSalvoStartsAfterLastReleaseAndHonorsEveryLaunchersReload() {
+        var s = session();
+        s.dropDepthCharges("player-boat", "player-boat", "boat");
+        s.dropDepthCharges("player-boat", "lookout", "boat");
+        assertTrue(s.snapshot().depthChargeControls().get("boat").queued());
+        assertThrows(IllegalArgumentException.class, () -> s.dropDepthCharges("player-boat", "third", "boat"));
+        var releases = new java.util.LinkedHashMap<String, DepthChargeSnapshot>();
+        for (int frame = 0; frame < 400; frame++) {
+            s.snapshot().depthCharges().forEach(c -> releases.putIfAbsent(c.id(), c));
+            tick(s, .05);
+        }
+        assertEquals(8, releases.size());
+        var shots = List.copyOf(releases.values());
+        assertEquals("lookout", shots.get(4).playerId());
+        assertTrue(shots.get(4).releasedAt() >= shots.get(3).releasedAt());
+        assertTrue(shots.get(4).releasedAt() - shots.get(3).releasedAt() < .11,
+                "no arbitrary delay between salvos once the first rack is ready");
+        var lastByLane = new java.util.HashMap<Integer, Double>();
+        for (var shot : shots) {
+            var previous = lastByLane.put(shot.lane(), shot.releasedAt());
+            if (previous != null) assertTrue(shot.releasedAt() - previous >= 4.8 - 1e-8);
+        }
+        assertFalse(s.snapshot().depthChargeControls().get("boat").queued());
+    }
+
+    @Test void fastSalvosWaitOnlyForTheFirstRacksReloadAndThenPostponeAnyUnreadyLane() {
+        var s = session();
+        s.applyPlayerState(new PlayerStateUpdate("player-boat", "light", 0, 0, 0,
+                30, 0, 8, 0, 0, false), new NavigationService(), s.worldMap());
+        s.dropDepthCharges("player-boat", "player-boat", "boat");
+        s.dropDepthCharges("player-boat", "lookout", "boat");
+        var releases = new java.util.LinkedHashMap<String, DepthChargeSnapshot>();
+        for (int frame = 0; frame < 220; frame++) {
+            s.snapshot().depthCharges().forEach(c -> releases.putIfAbsent(c.id(), c));
+            tick(s, .05);
+        }
+        var shots = List.copyOf(releases.values());
+        assertEquals(8, shots.size());
+        assertEquals(4.8, shots.get(4).releasedAt(), .06);
+        var lastByLane = new java.util.HashMap<Integer, Double>();
+        for (var shot : shots) {
+            var previous = lastByLane.put(shot.lane(), shot.releasedAt());
+            if (previous != null) assertTrue(shot.releasedAt() - previous >= 4.8 - 1e-8);
+        }
     }
 
     @Test void steadyForwardMotionProducesOverlappingDiamondRatherThanLongStrip() {
