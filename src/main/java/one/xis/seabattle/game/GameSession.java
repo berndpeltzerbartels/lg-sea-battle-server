@@ -184,8 +184,8 @@ public final class GameSession {
     private final List<DepthChargeSnapshot> depthCharges = new ArrayList<>();
     private final Map<String, Double> nextDepthChargeTime = new HashMap<>();
     private int nextDepthChargeId;
-    static final double DEPTH_CHARGE_RADIUS = 12;
-    static final double DEPTH_CHARGE_COOLDOWN = 8;
+    static final double DEPTH_CHARGE_RADIUS = 24;
+    static final double DEPTH_CHARGE_COOLDOWN = 13;
     private final List<TorpedoImpactSnapshot> torpedoImpacts = new ArrayList<>();
     private final List<Bomb> bombs = new ArrayList<>();
     private final List<PendingBombRelease> pendingBombReleases = new ArrayList<>();
@@ -297,8 +297,8 @@ public final class GameSession {
         if (nowSeconds < nextDepthChargeTime.getOrDefault(shipId, 0.0))
             throw new IllegalArgumentException("Wasserbomben werden nachgeladen.");
         nextDepthChargeTime.put(shipId, nowSeconds + DEPTH_CHARGE_COOLDOWN);
-        pendingDepthCharges.add(new PendingDepthCharge(ship.id(), actor, 0, nowSeconds));
-        pendingDepthCharges.add(new PendingDepthCharge(ship.id(), actor, 1, nowSeconds + 1.2));
+        for (int i = 0; i < 4; i++)
+            pendingDepthCharges.add(new PendingDepthCharge(ship.id(), actor, i % 2, nowSeconds + i * 2.5));
         updateDepthCharges();
     }
 
@@ -316,7 +316,7 @@ public final class GameSession {
                         .add(right.scale((release.lane() == 0 ? -0.225 : 0.225) * TORPEDO_BOAT_MODEL_SCALE));
                 depthCharges.add(new DepthChargeSnapshot("depth-charge-" + ++nextDepthChargeId, ship.id(), release.playerId(),
                         release.lane(), nowSeconds, nowSeconds + 2.5, position.x(), position.z(), ship.heading(),
-                        DEPTH_CHARGE_RADIUS, false, List.of()));
+                        DEPTH_CHARGE_RADIUS, false, List.of(), nextDepthChargeTime.get(ship.id())));
             });
         }
         for (int i = 0; i < depthCharges.size(); i++) {
@@ -330,7 +330,7 @@ public final class GameSession {
                         && sinkShip(target, charge.playerId())) targets.add(target.id());
             }
             depthCharges.set(i, new DepthChargeSnapshot(charge.id(), charge.shipId(), charge.playerId(), charge.lane(),
-                    charge.releasedAt(), charge.explodesAt(), charge.x(), charge.z(), charge.heading(), charge.radius(), true, List.copyOf(targets)));
+                    charge.releasedAt(), charge.explodesAt(), charge.x(), charge.z(), charge.heading(), charge.radius(), true, List.copyOf(targets), charge.readyAt()));
         }
         depthCharges.removeIf(c -> nowSeconds - c.explodesAt() > 3);
         nextDepthChargeTime.entrySet().removeIf(e -> e.getValue() < nowSeconds);
