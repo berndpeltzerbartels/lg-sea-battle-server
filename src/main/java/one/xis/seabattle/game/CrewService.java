@@ -273,6 +273,14 @@ public class CrewService {
         return game.aimCrewWeapon(c.controller, c.team, command.station(), yaw, pitch);
     }
 
+    public synchronized GameSnapshot dropDepthCharges(Command command) {
+        Crew c = authorized(command, null);
+        if (!List.of("bridge", "lookout").contains(c.members.get(command.playerId()).station()))
+            throw new IllegalArgumentException("Nur Bruecke oder Ausguck.");
+        requireActive(c);
+        return game.dropDepthCharges(c.controller, command.playerId(), c.shipId);
+    }
+
     public synchronized GameSnapshot fire(Command command, String station) {
         Crew c = authorized(command, station.equals("torpedo") ? "bridge" : station);
         requireActive(c);

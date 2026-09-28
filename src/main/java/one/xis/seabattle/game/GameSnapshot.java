@@ -20,6 +20,7 @@ public record GameSnapshot(
         List<RamHitSnapshot> ramHits,
         Map<String, Integer> destroyedShipsByTeam,
         Map<String, Integer> killsByPlayer,
-        String instanceId
+        String instanceId,
+        List<DepthChargeSnapshot> depthCharges
 ) {
 }

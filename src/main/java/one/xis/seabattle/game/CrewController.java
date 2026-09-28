@@ -28,6 +28,8 @@ public class CrewController {
     public ResponseEntity<?> cannon(@RequestBody CrewService.Command command) { return execute(() -> crew.fire(command, "cannon")); }
     @Post("/game/crew/fire-torpedo") @Produces(ContentType.JSON_UTF8)
     public ResponseEntity<?> torpedo(@RequestBody CrewService.Command command) { return execute(() -> crew.fire(command, "torpedo")); }
+    @Post("/game/crew/depth-charges") @Produces(ContentType.JSON_UTF8)
+    public ResponseEntity<?> depthCharges(@RequestBody CrewService.Command command) { return execute(() -> crew.dropDepthCharges(command)); }
     @Post("/game/crew/leave") @Produces(ContentType.JSON_UTF8)
     public ResponseEntity<?> leave(@RequestBody CrewService.Command command) {
         events.unregisterPlayer(command.playerId());

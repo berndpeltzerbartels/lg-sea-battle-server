@@ -179,6 +179,13 @@ public final class GameSession {
     private final Map<String, Double> nextFlakFireTimeByShipId = new LinkedHashMap<>();
     private final Map<String, Double> nextCannonFireTimeByShipId = new LinkedHashMap<>();
     private final List<Torpedo> torpedoes = new ArrayList<>();
+    private record PendingDepthCharge(String shipId, String playerId, int lane, double at) {}
+    private final List<PendingDepthCharge> pendingDepthCharges = new ArrayList<>();
+    private final List<DepthChargeSnapshot> depthCharges = new ArrayList<>();
+    private final Map<String, Double> nextDepthChargeTime = new HashMap<>();
+    private int nextDepthChargeId;
+    static final double DEPTH_CHARGE_RADIUS = 12;
+    static final double DEPTH_CHARGE_COOLDOWN = 8;
     private final List<TorpedoImpactSnapshot> torpedoImpacts = new ArrayList<>();
     private final List<Bomb> bombs = new ArrayList<>();
     private final List<PendingBombRelease> pendingBombReleases = new ArrayList<>();
@@ -273,13 +280,60 @@ public final class GameSession {
                         .toList(),
                 Map.copyOf(destroyedShipsByTeam),
                 Map.copyOf(killsByPlayer),
-                instanceId
+                instanceId,
+                List.copyOf(depthCharges)
         );
     }
 
     public synchronized GameSnapshot updatePlayerState(PlayerStateUpdate update, NavigationService navigationService, WorldMap worldMap) {
         applyPlayerState(update, navigationService, worldMap);
         return snapshot();
+    }
+
+    public synchronized void dropDepthCharges(String controller, String actor, String shipId) {
+        Ship ship = findShipById(shipId).filter(s -> controller.equals(s.controlledBy())
+                && "active".equals(s.state()) && !s.isSubmarine() && !s.isScoutPlane()).orElseThrow(
+                        () -> new IllegalArgumentException("Kein aktives Torpedoboot."));
+        if (nowSeconds < nextDepthChargeTime.getOrDefault(shipId, 0.0))
+            throw new IllegalArgumentException("Wasserbomben werden nachgeladen.");
+        nextDepthChargeTime.put(shipId, nowSeconds + DEPTH_CHARGE_COOLDOWN);
+        pendingDepthCharges.add(new PendingDepthCharge(ship.id(), actor, 0, nowSeconds));
+        pendingDepthCharges.add(new PendingDepthCharge(ship.id(), actor, 1, nowSeconds + 1.2));
+        updateDepthCharges();
+    }
+
+    private void updateDepthCharges() {
+        var releases = pendingDepthCharges.iterator();
+        while (releases.hasNext()) {
+            var release = releases.next();
+            if (release.at() > nowSeconds) continue;
+            releases.remove();
+            findShipById(release.shipId()).filter(s -> "active".equals(s.state())).ifPresent(ship -> {
+                Vector2 forward = Vector2.fromHeading(ship.heading());
+                Vector2 right = new Vector2(Math.cos(ship.heading()), -Math.sin(ship.heading()));
+                // Short free flight retains ship velocity; drag stops horizontal travel in water.
+                Vector2 position = ship.position().add(forward.scale(-4.35 * TORPEDO_BOAT_MODEL_SCALE + ship.speed() * 0.7))
+                        .add(right.scale((release.lane() == 0 ? -0.225 : 0.225) * TORPEDO_BOAT_MODEL_SCALE));
+                depthCharges.add(new DepthChargeSnapshot("depth-charge-" + ++nextDepthChargeId, ship.id(), release.playerId(),
+                        release.lane(), nowSeconds, nowSeconds + 2.5, position.x(), position.z(), ship.heading(),
+                        DEPTH_CHARGE_RADIUS, false, List.of()));
+            });
+        }
+        for (int i = 0; i < depthCharges.size(); i++) {
+            var charge = depthCharges.get(i);
+            if (charge.exploded() || charge.explodesAt() > nowSeconds) continue;
+            Vector2 center = new Vector2(charge.x(), charge.z());
+            var targets = new ArrayList<String>();
+            for (Ship target : allShips()) {
+                if (target.isSubmarine() && "active".equals(target.state())
+                        && target.position().distanceTo(center) <= charge.radius()
+                        && sinkShip(target, charge.playerId())) targets.add(target.id());
+            }
+            depthCharges.set(i, new DepthChargeSnapshot(charge.id(), charge.shipId(), charge.playerId(), charge.lane(),
+                    charge.releasedAt(), charge.explodesAt(), charge.x(), charge.z(), charge.heading(), charge.radius(), true, List.copyOf(targets)));
+        }
+        depthCharges.removeIf(c -> nowSeconds - c.explodesAt() > 3);
+        nextDepthChargeTime.entrySet().removeIf(e -> e.getValue() < nowSeconds);
     }
 
     public synchronized void assignPlayerVehicle(String playerId, String teamId, String vehicleType) {
@@ -596,6 +650,7 @@ public final class GameSession {
             return;
         }
         nowSeconds += deltaSeconds;
+        updateDepthCharges();
         if (!TEMPORARILY_DISABLE_BOTS) {
             commandBots(radarService, navigationService, worldMap);
             allShips().stream()
@@ -626,6 +681,7 @@ public final class GameSession {
             return;
         }
         nowSeconds += deltaSeconds;
+        updateDepthCharges();
         updateTorpedoes(deltaSeconds, navigationService, worldMap);
         Set<String> releasedBombIds = releasePendingBombs();
         updateBombs(deltaSeconds, releasedBombIds);

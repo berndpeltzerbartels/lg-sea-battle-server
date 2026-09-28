@@ -53,6 +53,15 @@ class CrewServiceTest {
                 .forEach(s -> assertEquals(Math.PI, s.flakYaw(), 0.001));
     }
 
+    @Test void onlyBridgeAndLookoutCanDropAndShareCooldown() {
+        start();
+        crew.join(captain, account("GUN"));
+        assertThrows(IllegalArgumentException.class, () -> crew.dropDepthCharges(command(player("GUN"), "bridge")));
+        crew.switchStation(command(player("GUN"), "lookout"));
+        assertEquals(1, crew.dropDepthCharges(command(player("GUN"), "lookout")).depthCharges().size());
+        assertThrows(IllegalArgumentException.class, () -> crew.dropDepthCharges(command(captain, "bridge")));
+    }
+
     @Test void bridgeAlignmentOnlyAffectsCurrentlyUnoccupiedWeapons() {
         var v = start();
         crew.alignUnoccupiedWeapons(alignment(captain, "air-defense"));

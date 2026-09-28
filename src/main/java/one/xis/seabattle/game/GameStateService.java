@@ -115,6 +115,16 @@ public class GameStateService {
         return view.state();
     }
 
+    public GameSnapshot dropDepthCharges(String controller, String actor, String shipId) {
+        SessionView view;
+        synchronized (this) {
+            session.dropDepthCharges(controller, actor, shipId);
+            view = captureSessionView();
+        }
+        publishModel(view);
+        return view.state();
+    }
+
     public GameSnapshot fireTorpedo(FireTorpedoRequest request) {
         SessionView view;
         activateTeam(request.teamId());
