@@ -224,14 +224,14 @@ class CrewRecruitmentServiceTest {
     }
 
     @Test
-    void acceptBoardsAtMostTwoAdditionalPeople() {
+    void acceptBoardsAtMostThreeAdditionalPeopleIncludingLookout() {
         String ship = captain("CAP", "light", "torpedo-boat");
         var recipient = new Account("CAP", "Captain", "CAP", "light", null);
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 4; i++) {
             var account = new Account("crew" + i, "Crew", "C" + i, "light", null);
             service.request(account, ship);
             String id = service.requests(account).get(0).id();
-            if (i < 2) service.decide(recipient, id, true);
+            if (i < 3) service.decide(recipient, id, true);
             else assertThrows(IllegalArgumentException.class, () -> service.decide(recipient, id, true));
         }
     }

@@ -16,6 +16,10 @@ public class CrewController {
     public ResponseEntity<?> motion(@RequestBody CrewService.Command command) { return execute(() -> crew.motion(command)); }
     @Post("/game/crew/aim") @Produces(ContentType.JSON_UTF8)
     public ResponseEntity<?> aim(@RequestBody CrewService.Command command) { return execute(() -> crew.aim(command)); }
+    @Post("/game/crew/lookout-aim") @Produces(ContentType.JSON_UTF8)
+    public ResponseEntity<?> lookoutAim(@RequestBody CrewService.LookoutAimCommand command) { return execute(() -> crew.aimFromLookout(command)); }
+    @Post("/game/crew/lookout-aim-decision") @Produces(ContentType.JSON_UTF8)
+    public ResponseEntity<?> lookoutAimDecision(@RequestBody CrewService.AimDecision command) { return execute(() -> crew.decideLookoutAim(command)); }
     @Post("/game/crew/align-weapons") @Produces(ContentType.JSON_UTF8)
     public ResponseEntity<?> align(@RequestBody CrewService.AlignCommand command) { return execute(() -> crew.alignUnoccupiedWeapons(command)); }
     @Post("/game/crew/fire-flak") @Produces(ContentType.JSON_UTF8)

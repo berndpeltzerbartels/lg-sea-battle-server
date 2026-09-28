@@ -7,7 +7,10 @@ import static org.junit.jupiter.api.Assertions.*;
 class CrewServiceTest {
     private final GameStateService game = new GameStateService(new DefaultGameSetupFactory(new WorldMapService()), new RadarService(), new NavigationService());
     private final SeaBattlePlayerRegistry players = new SeaBattlePlayerRegistry();
-    private final CrewService crew = new CrewService(game, players);
+    private long aimClock = 1000;
+    private final CrewService crew = new CrewService(game, players) {
+        @Override long aimNowMillis() { return aimClock; }
+    };
     private final String captain = "player-CAP-test";
 
     private CrewService.View start() {
@@ -123,7 +126,65 @@ class CrewServiceTest {
         assertThrows(IllegalArgumentException.class, () -> crew.join(captain, new Account("E", "Enemy", "E", "dark", null)));
         crew.join(captain, account("ONE"));
         crew.join(captain, account("TWO"));
-        assertThrows(IllegalArgumentException.class, () -> crew.join(captain, account("THREE")));
+        assertEquals("lookout", crew.join(captain, account("THREE")).station());
+        assertThrows(IllegalArgumentException.class, () -> crew.join(captain, account("FOUR")));
+    }
+
+    @Test void lookoutIsExclusiveAndCanOnlyDirectFreeWeapons() {
+        var v = start();
+        crew.join(captain, account("GUN"));
+        crew.switchStation(command(captain, "lookout"));
+        var lookout = command(captain, "lookout");
+        assertThrows(IllegalArgumentException.class, () -> crew.switchStation(command(player("GUN"), "lookout")));
+        assertThrows(IllegalArgumentException.class, () -> crew.motion(lookout));
+        assertThrows(IllegalArgumentException.class, () -> crew.fire(lookout, "torpedo"));
+        assertTrue(crew.aimFromLookout(
+                new CrewService.LookoutAimCommand(captain, v.shipId(), lookout.revision(), "flak", 1, .2)).requested());
+        crew.aimFromLookout(new CrewService.LookoutAimCommand(captain, v.shipId(), lookout.revision(), "cannon", 1, .2));
+        assertEquals(1, ship(v.shipId()).cannonYaw(), .001);
+        assertEquals(.2, ship(v.shipId()).cannonPitch(), .001);
+        assertEquals(Math.PI, ship(v.shipId()).flakYaw(), .001);
+        assertThrows(IllegalArgumentException.class, () -> crew.aimFromLookout(
+                new CrewService.LookoutAimCommand(captain, v.shipId(), lookout.revision(), "cannon", Double.NaN, 0)));
+        crew.switchStation(command(captain, "bridge"));
+        assertThrows(IllegalArgumentException.class, () -> crew.aimFromLookout(
+                new CrewService.LookoutAimCommand(captain, v.shipId(), lookout.revision(), "cannon", 0, 0)));
+    }
+
+    @Test void occupiedGunRequiresOneTimeConsentAndRequestsExpireAfterTenSeconds() {
+        var v = start();
+        crew.join(captain, account("GUN"));
+        var lookout = crew.switchStation(command(captain, "lookout"));
+        var aim = new CrewService.LookoutAimCommand(captain, v.shipId(), lookout.revision(), "flak", 1, .2);
+        crew.aimFromLookout(aim);
+        var gunner = crew.view(player("GUN"));
+        var request = gunner.aimRequests().get(0);
+        assertEquals(aimClock + 10_000, request.expiresAt());
+        assertEquals(Math.PI, ship(v.shipId()).flakYaw(), .001);
+        crew.aimFromLookout(new CrewService.LookoutAimCommand(captain, v.shipId(), lookout.revision(), "flak", 2, .3));
+        assertEquals(request, crew.view(player("GUN")).aimRequests().get(0));
+        assertThrows(IllegalArgumentException.class, () -> crew.decideLookoutAim(
+                new CrewService.AimDecision(captain, v.shipId(), lookout.revision(), request.id(), true)));
+        var decision = new CrewService.AimDecision(player("GUN"), v.shipId(), gunner.revision(), request.id(), true);
+        crew.decideLookoutAim(decision);
+        assertEquals(1, ship(v.shipId()).flakYaw(), .001);
+        assertThrows(IllegalArgumentException.class, () -> crew.decideLookoutAim(decision));
+        aimClock += 10_000;
+        crew.aimFromLookout(aim);
+        var second = crew.view(player("GUN")).aimRequests().get(0);
+        assertNotEquals(request.id(), second.id());
+        crew.decideLookoutAim(new CrewService.AimDecision(player("GUN"), v.shipId(), gunner.revision(), second.id(), false));
+        assertEquals("declined", crew.view(captain).aimRequests().get(0).status());
+        aimClock += 10_000;
+        crew.aimFromLookout(aim);
+        var expired = crew.view(player("GUN")).aimRequests().get(0);
+        aimClock += 10_000;
+        assertTrue(crew.view(player("GUN")).aimRequests().isEmpty());
+        assertThrows(IllegalArgumentException.class, () -> crew.decideLookoutAim(
+                new CrewService.AimDecision(player("GUN"), v.shipId(), gunner.revision(), expired.id(), true)));
+        crew.aimFromLookout(aim);
+        crew.switchStation(command(player("GUN"), "cannon"));
+        assertTrue(crew.view(captain).aimRequests().isEmpty());
     }
 
     @Test void gunfireIdentifiesActualGunnerNotBridgeController() {

@@ -7,7 +7,7 @@ import java.util.*;
 /** Membership and station changes share a lock with command authorization. */
 @Service
 public class CrewService {
-    private static final List<String> STATIONS = List.of("bridge", "flak", "cannon");
+    private static final List<String> STATIONS = List.of("bridge", "flak", "cannon", "lookout");
     private final GameStateService game;
     private final SeaBattlePlayerRegistry players;
     private final Map<String, Crew> byPlayer = new HashMap<>();
@@ -50,6 +50,7 @@ public class CrewService {
         String shipId;
         long respawnAt;
         final LinkedHashMap<String, Member> members = new LinkedHashMap<>();
+        final Map<String, AimRequest> aimRequests = new LinkedHashMap<>();
         Crew(String controller, ShipSnapshot ship) {
             this.controller = controller;
             this.shipId = ship.id();
@@ -57,11 +58,64 @@ public class CrewService {
         }
     }
     public record Member(String playerId, String name, String station, long revision) {}
-    public record View(String id, String shipId, String controller, String station, long revision, List<Member> members) {}
+    public record View(String id, String shipId, String controller, String station, long revision, List<Member> members, List<AimRequest> aimRequests) {}
+    public record AimRequest(String id, String shipId, String requester, long requesterRevision,
+                             String recipient, long recipientRevision, String weapon, double yaw, double pitch,
+                             long expiresAt, String status) {
+        AimRequest decided(String status) {
+            return new AimRequest(id, shipId, requester, requesterRevision, recipient, recipientRevision,
+                    weapon, yaw, pitch, expiresAt, status);
+        }
+    }
+    public record AimResult(boolean requested, GameSnapshot snapshot) {}
+    public record AimDecision(String playerId, String shipId, long revision, String requestId, boolean accept) {}
     public record Command(String playerId, String shipId, long revision, String station,
                           PlayerStateUpdate motion, FlakFireRequest shot, Integer tubeSide) {}
     public record HitCommand(String playerId, String shipId, long revision, ClientPlaneHitRequest hit) {}
     public record AlignCommand(String playerId, String shipId, long revision, String mode) {}
+    public record LookoutAimCommand(String playerId, String shipId, long revision, String weapon, double yaw, double pitch) {}
+
+    public synchronized AimResult aimFromLookout(LookoutAimCommand command) {
+        Crew c = authorized(new Command(command.playerId(), command.shipId(), command.revision(), "lookout", null, null, null), "lookout");
+        requireActive(c);
+        if (!List.of("flak", "cannon").contains(command.weapon())
+                || !Double.isFinite(command.yaw()) || !Double.isFinite(command.pitch()))
+            throw new IllegalArgumentException("Ungueltige Ausrichtung.");
+        expireAimRequests(c);
+        var gunner = c.members.values().stream().filter(m -> m.station().equals(command.weapon())).findFirst().orElse(null);
+        if (gunner != null) {
+            c.aimRequests.computeIfAbsent(command.weapon(), weapon -> new AimRequest(UUID.randomUUID().toString(), c.shipId,
+                    command.playerId(), command.revision(), gunner.playerId(), gunner.revision(), weapon,
+                    command.yaw(), command.pitch(), aimNowMillis() + 10_000, "pending"));
+            return new AimResult(true, null);
+        }
+        game.aimCrewWeapon(c.controller, c.team, command.weapon(), command.yaw(), command.pitch());
+        return new AimResult(false, game.snapshot());
+    }
+
+    public synchronized View decideLookoutAim(AimDecision command) {
+        Crew c = authorized(new Command(command.playerId(), command.shipId(), command.revision(), null, null, null, null), null);
+        requireActive(c);
+        expireAimRequests(c);
+        var request = c.aimRequests.values().stream().filter(r -> r.id().equals(command.requestId())
+                && r.recipient().equals(command.playerId()) && r.status().equals("pending"))
+                .findFirst().orElseThrow(() -> new IllegalArgumentException("Anfrage nicht mehr verfuegbar."));
+        if (command.accept()) game.aimCrewWeapon(c.controller, c.team, request.weapon(), request.yaw(), request.pitch());
+        c.aimRequests.put(request.weapon(), request.decided(command.accept() ? "accepted" : "declined"));
+        return view(command.playerId());
+    }
+
+    long aimNowMillis() { return System.currentTimeMillis(); }
+
+    private void expireAimRequests(Crew c) {
+        c.aimRequests.values().removeIf(r -> {
+            var from = c.members.get(r.requester());
+            var to = c.members.get(r.recipient());
+            return r.expiresAt() <= aimNowMillis() || !c.shipId.equals(r.shipId())
+                    || from == null || to == null || from.revision() != r.requesterRevision()
+                    || to.revision() != r.recipientRevision();
+        });
+    }
 
     public synchronized GameSnapshot alignUnoccupiedWeapons(AlignCommand command) {
         Crew c = authorized(new Command(command.playerId(), command.shipId(), command.revision(), "bridge", null, null, null), "bridge");
@@ -81,6 +135,7 @@ public class CrewService {
         if (round == current) return;
         var surviving = new HashSet<>(byPlayer.values());
         for (Crew c : surviving) {
+            c.aimRequests.clear();
             c.members.keySet().removeIf(p -> !players.isRegisteredPlayer(p));
             if (!c.members.isEmpty() && !c.members.containsKey(c.controller)) c.controller = c.members.keySet().iterator().next();
         }
@@ -154,7 +209,9 @@ public class CrewService {
             c.respawnAt = System.currentTimeMillis() + 1000;
         }
         Member m = c.members.get(player);
-        return new View(c.id, c.shipId, c.controller, m.station(), m.revision(), List.copyOf(c.members.values()));
+        expireAimRequests(c);
+        return new View(c.id, c.shipId, c.controller, m.station(), m.revision(), List.copyOf(c.members.values()),
+                c.aimRequests.values().stream().filter(r -> r.requester().equals(player) || r.recipient().equals(player)).toList());
     }
 
     public synchronized View join(String recipient, Account applicant) {
