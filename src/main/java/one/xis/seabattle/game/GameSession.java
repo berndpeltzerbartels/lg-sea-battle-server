@@ -298,7 +298,7 @@ public final class GameSession {
             throw new IllegalArgumentException("Wasserbomben werden nachgeladen.");
         nextDepthChargeTime.put(shipId, nowSeconds + DEPTH_CHARGE_COOLDOWN);
         for (int i = 0; i < 4; i++)
-            pendingDepthCharges.add(new PendingDepthCharge(ship.id(), actor, i % 2, nowSeconds + i * 2.5));
+            pendingDepthCharges.add(new PendingDepthCharge(ship.id(), actor, i, nowSeconds + i * 2.5));
         updateDepthCharges();
     }
 
@@ -312,8 +312,12 @@ public final class GameSession {
                 Vector2 forward = Vector2.fromHeading(ship.heading());
                 Vector2 right = new Vector2(Math.cos(ship.heading()), -Math.sin(ship.heading()));
                 // Short free flight retains ship velocity; drag stops horizontal travel in water.
-                Vector2 position = ship.position().add(forward.scale(-4.35 * TORPEDO_BOAT_MODEL_SCALE + ship.speed() * 0.7))
-                        .add(right.scale((release.lane() == 0 ? -0.225 : 0.225) * TORPEDO_BOAT_MODEL_SCALE));
+                boolean sideThrower = release.lane() >= 2;
+                double side = release.lane() % 2 == 0 ? -1 : 1;
+                Vector2 position = ship.position().add(forward.scale(
+                                (sideThrower ? 0.1 : -4.35) * TORPEDO_BOAT_MODEL_SCALE
+                                        + ship.speed() * (sideThrower ? 1.3 : 0.7)))
+                        .add(right.scale(side * (sideThrower ? 24 : 0.225 * TORPEDO_BOAT_MODEL_SCALE)));
                 depthCharges.add(new DepthChargeSnapshot("depth-charge-" + ++nextDepthChargeId, ship.id(), release.playerId(),
                         release.lane(), nowSeconds, nowSeconds + 2.5, position.x(), position.z(), ship.heading(),
                         DEPTH_CHARGE_RADIUS, false, List.of(), nextDepthChargeTime.get(ship.id())));
