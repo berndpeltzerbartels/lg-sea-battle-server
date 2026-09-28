@@ -14,6 +14,8 @@ final class SubmarineBot {
     private Vector2 progressPosition;
     private double progressTime;
     private double surfaceUntil;
+    private Vector2 surfaceRecoveryPosition;
+    private double surfaceRecoveryStarted;
     private String depth = "surface";
     private Vector2 lastAircraftPosition;
     private double aircraftMemoryUntil;
@@ -85,8 +87,16 @@ final class SubmarineBot {
             }
             if (now - progressTime >= 15) {
                 surfaceUntil = now + 30;
+                surfaceRecoveryPosition = ship.position();
+                surfaceRecoveryStarted = now;
                 surface();
             }
+        }
+        // Keep genuinely stuck boats visible, but resume diving once movement has recovered.
+        if (now < surfaceUntil && now - surfaceRecoveryStarted >= 3
+                && surfaceRecoveryPosition != null
+                && ship.position().distanceTo(surfaceRecoveryPosition) >= 8) {
+            surfaceUntil = now;
         }
         if (now < surfaceUntil) {
             ship.botDepth("surface");

@@ -282,6 +282,34 @@ class SubmarineBotTest {
     }
 
     @Test
+    void recoveredBoatDivesAgainBeforeSurfaceTimeoutWhenEnemyRemainsNearby() {
+        for (double distance : List.of(100.0, 400.0)) {
+            Ship ship = submarine();
+            ship.submarineBot().update(ship, List.of(enemy(distance)), 0);
+            ship.submarineBot().update(ship, List.of(enemy(distance)), 15);
+            assertTrue(ship.isOnSurface());
+            ship.applyCommand(7, 0);
+            ship.update(4, new NavigationService(), new WorldMap(99009, List.of()));
+            Ship contact = new Ship("enemy", "dark", ship.position().add(new Vector2(0, distance)), 0, "bot");
+            ship.submarineBot().update(ship, List.of(contact), 19);
+            assertTrue(distance == 100 ? ship.isFullySubmerged() : ship.isAtPeriscopeDepth());
+            ship.submarineBot().update(ship, List.of(contact), 20);
+            assertFalse(ship.isOnSurface(), "Recovery must restart the underwater progress timer");
+        }
+    }
+
+    @Test
+    void recoveredBoatStaysOnSurfaceWithoutEnemy() {
+        Ship ship = submarine();
+        ship.submarineBot().update(ship, List.of(enemy(100)), 0);
+        ship.submarineBot().update(ship, List.of(enemy(100)), 15);
+        ship.applyCommand(7, 0);
+        ship.update(4, new NavigationService(), new WorldMap(99009, List.of()));
+        ship.submarineBot().update(ship, List.of(), 19);
+        assertTrue(ship.isOnSurface());
+    }
+
+    @Test
     void activeRetreatDoesNotSurfaceBesideEnemyAfterNinetySeconds() {
         Ship ship = submarine();
         WorldMap world = new WorldMap(99009, List.of());
