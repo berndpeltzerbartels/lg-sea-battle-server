@@ -33,11 +33,13 @@ class GameSessionTest {
         else session.applyFireCannon(request, "gunner");
         assertEquals(1, session.snapshot().weaponShots().size());
         assertTrue(session.snapshot().weaponShots().get(0).id().startsWith(flak ? "flak-" : "cannon-"));
-        session.update(0.2, radarService, navigationService, session.worldMap());
-        assertTrue(session.snapshot().flakProjectiles().isEmpty());
+        session.update(0.3, radarService, navigationService, session.worldMap());
+        assertEquals(1, session.snapshot().flakProjectiles().size());
         assertEquals("gunner", session.snapshot().weaponShots().get(0).shooterPlayerId());
         for (int i = 0; i < 30; i++) session.update(0.1, radarService, navigationService, session.worldMap());
         assertTrue(session.snapshot().weaponShots().isEmpty());
+        session.update(20, radarService, navigationService, session.worldMap());
+        assertTrue(session.snapshot().flakProjectiles().isEmpty());
     }
 
     private static final double TORPEDO_BOAT_MODEL_SCALE = SeaBattleGameConfig.TORPEDO_BOAT_SCALE;
@@ -886,10 +888,16 @@ class GameSessionTest {
         session.update(0.1, radarService, navigationService, session.worldMap());
         GameSnapshot snapshot = session.snapshot();
 
-        assertEquals(0, snapshot.flakProjectiles().size());
+        assertEquals(1, snapshot.flakProjectiles().size());
+        assertTrue(snapshot.flakProjectiles().get(0).y() < 0);
         assertEquals(1, snapshot.flakImpacts().size());
         assertEquals("water-hit", snapshot.flakImpacts().get(0).reason());
         assertEquals(0, snapshot.flakImpacts().get(0).y(), 0.001);
+        session.update(0.8, radarService, navigationService, session.worldMap());
+        assertEquals(1, session.snapshot().flakProjectiles().size());
+        assertEquals(1, session.snapshot().flakImpacts().size(), "Only one splash on water entry");
+        session.update(8, radarService, navigationService, session.worldMap());
+        assertTrue(session.snapshot().flakProjectiles().isEmpty());
     }
 
     @Test

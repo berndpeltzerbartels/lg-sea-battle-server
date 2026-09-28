@@ -2275,19 +2275,23 @@ public final class GameSession {
     }
 
     private void updateFlakTerrainImpacts(WorldMap worldMap) {
-        double maxTerrainHeight = LandGeometry.maxTerrainHeight(worldMap) + 1.5;
+        double maxTerrainHeight = LandGeometry.maxTerrainHeight(worldMap);
         flakProjectiles.stream()
                 .filter(projectile -> !projectile.hitResolved())
-                .filter(projectile -> "flying".equals(projectile.state()) || (projectile.previousY() > 0 && projectile.y() <= 0))
+                .filter(FlakProjectile::hasCollisionSegment)
                 .forEach(projectile -> recordFlakTerrainImpact(projectile, worldMap, maxTerrainHeight)
-                        .ifPresent(impact -> projectile.hit()));
+                        .ifPresent(impact -> {
+                            if (!"water-hit".equals(impact.reason())) {
+                                projectile.hit();
+                            }
+                        }));
     }
 
     private Optional<FlakImpactSnapshot> recordFlakTerrainImpact(FlakProjectile projectile, WorldMap worldMap, double maxTerrainHeight) {
         double dx = projectile.x() - projectile.previousX();
         double dy = projectile.y() - projectile.previousY();
         double dz = projectile.z() - projectile.previousZ();
-        if (Math.min(projectile.previousY(), projectile.y()) <= maxTerrainHeight) {
+        if (maxTerrainHeight > 0.02 && Math.min(projectile.previousY(), projectile.y()) <= maxTerrainHeight + 1.5) {
             double segmentLength = Math.sqrt(dx * dx + dy * dy + dz * dz);
             int samples = Math.max(1, (int) Math.ceil(segmentLength / FLAK_SWEEP_STEP));
             for (int index = 1; index <= samples; index += 1) {
@@ -2316,15 +2320,26 @@ public final class GameSession {
                 .filter(ship -> "active".equals(ship.state()))
                 .toList();
 
+        // Conservative vertical bounds avoid searching the fleet for deep, spent trajectories.
+        double lowestTargetY = activeTargets.stream()
+                .mapToDouble(ship -> ship.y() - (ship.isScoutPlane() ? 9.0 * SCOUT_PLANE_MODEL_SCALE : 7.2 * TORPEDO_BOAT_MODEL_SCALE))
+                .min().orElse(Double.POSITIVE_INFINITY);
+
         flakProjectiles.stream()
                 .filter(projectile -> !projectile.hitResolved())
                 .filter(this::hasActiveFlakCollisionSegment)
+                .filter(projectile -> Math.max(projectile.previousY(), projectile.y()) >= lowestTargetY)
                 .forEach(projectile -> activeTargets.stream()
                         .filter(ship -> !ship.id().equals(projectile.shipId()))
                         .map(ship -> flakProjectileHitsTarget(projectile, ship))
                         .filter(Optional::isPresent)
                         .map(Optional::get)
-                        .findFirst()
+                        .min(java.util.Comparator.comparingDouble(hit -> {
+                            double dx = hit.x() - projectile.previousX();
+                            double dy = hit.y() - projectile.previousY();
+                            double dz = hit.z() - projectile.previousZ();
+                            return dx * dx + dy * dy + dz * dz;
+                        }))
                         .ifPresent(hit -> {
                             if (hit.sinks()) {
                                 sinkShip(hit.ship(), shooterController(projectile.shipId()));
@@ -2338,12 +2353,23 @@ public final class GameSession {
     }
 
     private boolean hasActiveFlakCollisionSegment(FlakProjectile projectile) {
-        return "flying".equals(projectile.state()) || (projectile.previousY() > 0 && projectile.y() <= 0);
+        return projectile.hasCollisionSegment();
     }
 
     private Optional<FlakTargetHit> flakProjectileHitsTarget(FlakProjectile projectile, Ship ship) {
         if (distanceToFlakSegment2D(projectile, ship.position()) > (ship.isScoutPlane() ? 9.0 * SCOUT_PLANE_MODEL_SCALE : 7.2 * TORPEDO_BOAT_MODEL_SCALE)) {
             return Optional.empty();
+        }
+        if (ship.isSubmarine()) {
+            double t = SubmarineProjectileGeometry.hitFraction(projectile.previousX(), projectile.previousY(), projectile.previousZ(),
+                    projectile.x(), projectile.y(), projectile.z(), ship);
+            if (!Double.isFinite(t)) {
+                return Optional.empty();
+            }
+            return Optional.of(new FlakTargetHit(ship, FlakShipHitArea.CRITICAL.reason(), true,
+                    projectile.previousX() + (projectile.x()-projectile.previousX())*t,
+                    projectile.previousY() + (projectile.y()-projectile.previousY())*t,
+                    projectile.previousZ() + (projectile.z()-projectile.previousZ())*t));
         }
         return ship.isScoutPlane()
                 ? flakProjectileHitsScoutPlane(projectile, ship)

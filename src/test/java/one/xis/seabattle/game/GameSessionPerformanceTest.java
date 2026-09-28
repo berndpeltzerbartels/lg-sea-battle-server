@@ -31,6 +31,33 @@ class GameSessionPerformanceTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void sustainedGunfireNearSubmarinesStaysBelowBudget() throws Exception {
+        GameSession session = new GameSession(setup("submarine-gunfire", 70, true));
+        var field = GameSession.class.getDeclaredField("flakProjectiles");
+        field.setAccessible(true);
+        List<FlakProjectile> projectiles = (List<FlakProjectile>) field.get(session);
+        List<Double> durations = new ArrayList<>();
+        for (int tick = 0; tick < 400; tick++) {
+            // 60 new shells per round, crossing the water near the submarine rows.
+            for (int i = 0; i < 60; i++) {
+                projectiles.add(new FlakProjectile("cannon-load-" + tick + "-" + i, "light", "load-shooter",
+                        -180 + (i % 10) * 10, .2, -70 + (i % 3) * 70, 100, -30, 0, 0));
+            }
+            long start = System.nanoTime();
+            session.update(.1, radarService, navigationService, session.worldMap());
+            if (tick >= 80) durations.add((System.nanoTime() - start) / 1_000_000.0);
+        }
+        List<Double> sorted = durations.stream().sorted().toList();
+        double p95 = percentile(sorted, .95);
+        double max = sorted.get(sorted.size() - 1);
+        System.out.printf(Locale.ROOT, "Submarine gunfire ticks=320 avg=%.3fms p95=%.3fms max=%.3fms%n",
+                sorted.stream().mapToDouble(Double::doubleValue).average().orElseThrow(), p95, max);
+        assertTrue(p95 <= MAX_P95_TICK_MILLIS_AFTER_WARMUP);
+        assertTrue(max <= MAX_TICK_MILLIS_AFTER_WARMUP);
+    }
+
+    @Test
     void widelySpreadBotTicksStayBelowBudgetAfterWarmup() {
         assertTickBudget("widely-spread-bots", spreadOutSetup());
     }

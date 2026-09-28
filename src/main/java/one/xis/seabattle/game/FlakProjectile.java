@@ -29,6 +29,11 @@ final class FlakProjectile {
     private final double firedAtSeconds;
     private double ageSeconds;
     private boolean hitResolved;
+    private boolean collisionSegment;
+    private final double waterEntryAge;
+    private final double waterEntryX;
+    private final double waterEntryZ;
+    private final double waterVy;
 
     FlakProjectile(String id, String teamId, String shipId, double x, double y, double z,
                    double vx, double vy, double vz, double firedAtSeconds) {
@@ -57,10 +62,14 @@ final class FlakProjectile {
         this.vy = vy;
         this.vz = vz;
         this.firedAtSeconds = firedAtSeconds;
+        waterEntryAge = y < 0 ? 0 : (vy + Math.sqrt(vy * vy + 2 * gravity() * y)) / gravity();
+        waterEntryX = x + vx * waterEntryAge;
+        waterEntryZ = z + vz * waterEntryAge;
+        waterVy = vy - gravity() * waterEntryAge;
     }
 
     String state() {
-        return ageSeconds >= lifetimeSeconds() || y < 0 ? "expired" : "flying";
+        return ageSeconds >= lifetimeSeconds() ? "expired" : "flying";
     }
 
     String id() {
@@ -108,7 +117,12 @@ final class FlakProjectile {
         return hitResolved;
     }
 
+    boolean hasCollisionSegment() {
+        return collisionSegment;
+    }
+
     void update(double deltaSeconds) {
+        collisionSegment = false;
         if (!"flying".equals(state())) {
             return;
         }
@@ -116,12 +130,22 @@ final class FlakProjectile {
         previousX = x;
         previousY = y;
         previousZ = z;
-        x = originX + initialVx * ageSeconds;
-        y = originY + initialVy * ageSeconds - 0.5 * gravity() * ageSeconds * ageSeconds;
-        z = originZ + initialVz * ageSeconds;
+        double sampleAge = Math.min(ageSeconds, lifetimeSeconds());
+        collisionSegment = deltaSeconds > 0;
+        x = originX + initialVx * sampleAge;
+        y = originY + initialVy * sampleAge - 0.5 * gravity() * sampleAge * sampleAge;
+        z = originZ + initialVz * sampleAge;
         vx = initialVx;
-        vy = initialVy - gravity() * ageSeconds;
+        vy = initialVy - gravity() * sampleAge;
         vz = initialVz;
+        if (sampleAge >= waterEntryAge) {
+            // Continue along the entry velocity until impact or the normal lifetime expires.
+            double elapsed = sampleAge - waterEntryAge;
+            x = waterEntryX + initialVx * elapsed;
+            y = Math.min(0, originY) + waterVy * elapsed;
+            z = waterEntryZ + initialVz * elapsed;
+            vy = waterVy;
+        }
     }
 
     private double gravity() {
