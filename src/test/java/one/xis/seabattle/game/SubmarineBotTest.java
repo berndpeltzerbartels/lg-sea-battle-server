@@ -6,6 +6,23 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class SubmarineBotTest {
     @Test
+    void deeplySubmergedBotLimitsSpeedToSixAndRestoresSurfaceSpeed() {
+        Ship sub = submarine();
+        var navigation = new NavigationService();
+        var world = new WorldMap(99009, List.of());
+        sub.botDepth("submerged");
+        sub.applyCommand(8, 0);
+        sub.update(20, navigation, world);
+        assertEquals(6, sub.speed(), .001);
+        sub.applyCommand(0, 0);
+        sub.update(20, navigation, world);
+        assertEquals(-6, sub.speed(), .001);
+        sub.botDepth("surface");
+        sub.applyCommand(8, 0);
+        sub.update(20, navigation, world);
+        assertEquals(EngineOrders.speedFor(8), sub.speed(), .001);
+    }
+    @Test
     void periscopeAttackSlowsDownAndBacksAwayInsteadOfCharging() {
         Ship sub = submarine();
         Ship target = enemy(300);

@@ -273,6 +273,7 @@ final class Ship {
         Vector2 previousPosition = position;
         double previousSpeed = speed;
         double targetSpeed = EngineOrders.speedFor(engineOrder);
+        if (isFullySubmerged()) targetSpeed = MathSupport.clamp(targetSpeed, -6, 6);
         double speedResponse = Math.abs(targetSpeed) > Math.abs(speed) ? 0.45 : 0.42;
         speed += (targetSpeed - speed) * Math.min(1, deltaSeconds * speedResponse);
 
