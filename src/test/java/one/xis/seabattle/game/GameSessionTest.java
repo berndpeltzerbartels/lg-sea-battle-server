@@ -142,6 +142,12 @@ class GameSessionTest {
         assertEquals("player-BP-test", ship.controlledBy());
         assertEquals("submarine", ship.vehicleType());
         assertEquals(0, ship.y(), 0.001);
+        for (double depth : new double[]{-5.58, -12, SeaBattleGameConfig.SUBMARINE_DEEP_Y}) {
+            GameSnapshot submerged = session.updatePlayerState(new PlayerStateUpdate(
+                    "player-BP-test", "light", 12, 0, 0, 6, 0, ENGINE_FULL, 0, 0, false, "submarine", depth
+            ), navigationService, session.worldMap());
+            assertEquals(depth, findShip(submerged, "light-S1").y(), .001);
+        }
     }
 
     @Test
@@ -1112,7 +1118,7 @@ class GameSessionTest {
                 session.worldMap()
         );
         session.fireFlak(new FlakFireRequest(
-                "player-gunner", "light", "light-1", 3, 1.14, -40, 0, 2.25, 95
+                "player-gunner", "light", "light-1", 3, 1.14, -40, 3, 6.2, 95
         ));
 
         session.update(0.5, radarService, navigationService, session.worldMap());
@@ -1122,7 +1128,7 @@ class GameSessionTest {
         assertEquals("sunk", findShip(snapshot, "light-2").state());
         assertEquals(1, snapshot.flakHits().size());
         assertEquals(1, snapshot.flakImpacts().size());
-        assertEquals("ship-hit", snapshot.flakImpacts().get(0).reason());
+        assertEquals("ship-critical-hit", snapshot.flakImpacts().get(0).reason());
     }
 
     @Test
@@ -1553,7 +1559,7 @@ class GameSessionTest {
     }
 
     @Test
-    void botScoutPlaneAvoidsBackToBackHumanAttacksWhenBotTargetsExist() {
+    void botScoutPlaneAvoidsBackToBackHumanAttacksWhenBotTargetsExist() throws Exception {
         GameSession session = new GameSession(new GameSetup(
                 "bot-scout-plane-human-cooldown-target-test",
                 new WorldMap(9041, List.of()),
@@ -1571,8 +1577,8 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        assertTrue(findShip(session.snapshot(), "light-plane").rudderDegrees() > 0,
-                "Bot scout plane should not choose a human again before enough non-human attacks happened");
+        assertEquals("dark-bot", selectBotScoutPlaneTargetId(session, "light-plane").orElse(null),
+                "Target choice, not the fly-through maneuver's rudder, determines who is attacked");
     }
 
     @Test
@@ -2373,13 +2379,13 @@ class GameSessionTest {
                 new WorldMap(9096, List.of()),
                 List.of(
                         new FleetSetup("red", List.of(
-                                ship("red-1", "red", 0, -240, 0, "bot", ENGINE_STOP, 0)
+                                ship("red-1", "red", 0, -180, 0, "bot", ENGINE_STOP, 0)
                         )),
                         new FleetSetup("blue", List.of(
                                 ship("blue-sub", "blue", 0, 0, 0, "player-blue", ENGINE_TWO_THIRDS, 0, 99, "submarine")
                         ))
                 ),
-                List.of(new Vector2(0, -240), new Vector2(0, 0))
+                List.of(new Vector2(0, -180), new Vector2(0, 0))
         ));
         session.updatePlayerState(
                 new PlayerStateUpdate("player-blue", "blue", 0, 0, 0, 10.4, 0, ENGINE_TWO_THIRDS, 0, 0, true,
@@ -2395,6 +2401,32 @@ class GameSessionTest {
         ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
         assertEquals(ENGINE_FULL, attacker.engineOrder());
         assertTrue(session.snapshot().torpedoes().isEmpty());
+    }
+
+    @Test
+    void periscopeTargetSelectionDependsOnObserversHeading() throws Exception {
+        for (double rotation : new double[]{0, Math.PI / 2, Math.PI, -Math.PI / 2}) {
+            for (double[] sample : new double[][]{
+                    {0, 180, 1}, {0, 220, 0}, {0, 60, 1},
+                    {0, 60, 0, 0}, {0, 10, 1, 0},
+                    {Math.PI / 2, 60, 1}, {-Math.PI / 2, 60, 1},
+                    {Math.PI / 2, 100, 0}, {Math.PI, 5, 0},
+                    {Math.PI * .75, 5, 0}}) {
+                double bearing = rotation + sample[0];
+                double x = Math.sin(bearing) * sample[1];
+                double z = Math.cos(bearing) * sample[1];
+                GameSession session = new GameSession(new GameSetup("periscope-direction",
+                        new WorldMap(9096, List.of()), List.of(
+                        new FleetSetup("red", List.of(ship("observer", "red", 0, 0, rotation, "bot", ENGINE_STOP, 0))),
+                        new FleetSetup("blue", List.of(ship("sub", "blue", x, z, 0, "human", ENGINE_TWO_THIRDS, 0, 99, "submarine")))) , List.of()));
+                double speed = sample.length > 3 ? sample[3] : 10.4;
+                session.updatePlayerState(new PlayerStateUpdate("human", "blue", x, z, 0, speed, 0,
+                        ENGINE_TWO_THIRDS, 0, 0, true, "submarine", -5.58, 0,
+                        null, null, null, null, "periscope"), navigationService, session.worldMap());
+                assertEquals(sample[2] == 1, selectBotTargetId(session, "observer").isPresent(),
+                        "rotation=" + rotation + ", bearing=" + sample[0] + ", distance=" + sample[1]);
+            }
+        }
     }
 
     @Test
@@ -3749,7 +3781,7 @@ class GameSessionTest {
     }
 
     @Test
-    void playerStateUsesClientPositionWithoutServerAdvancingHumanShip() {
+    void playerStateSetsPositionAndServerContinuesHumanShipMotion() {
         GameSession session = new GameSession(new GameSetup(
                 "client-authority-test",
                 new WorldMap(9006, List.of()),
@@ -3775,9 +3807,17 @@ class GameSessionTest {
         session.update(0.5, new RadarService(), navigationService, session.worldMap());
 
         ShipSnapshot afterServerTick = findShip(session.snapshot(), "red-1");
-        assertEquals(15, afterServerTick.x(), 0.001);
-        assertEquals(25, afterServerTick.z(), 0.001);
-        assertEquals(0.7, afterServerTick.heading(), 0.001);
+        assertTrue(afterServerTick.x() > afterClientUpdate.x());
+        assertTrue(afterServerTick.z() > afterClientUpdate.z());
+        assertTrue(afterServerTick.heading() > afterClientUpdate.heading());
+
+        session.updatePlayerState(
+                new PlayerStateUpdate("player-BP-test", "red", 16, 26, 0.75, 9.6, 0.12, 7, 14, 124, false),
+                navigationService, session.worldMap());
+        ShipSnapshot corrected = findShip(session.snapshot(), "red-1");
+        assertEquals(16, corrected.x(), 0.001);
+        assertEquals(26, corrected.z(), 0.001);
+        assertEquals(.75, corrected.heading(), 0.001);
     }
 
     @Test

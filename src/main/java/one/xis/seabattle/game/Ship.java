@@ -220,7 +220,8 @@ final class Ship {
         position = requestedPosition;
         y = isScoutPlane()
                 ? MathSupport.clamp(update.y(), SCOUT_PLANE_MIN_Y, SCOUT_PLANE_MAX_Y)
-                : (isSubmarine() && Double.isFinite(update.y()) ? update.y() : 0);
+                : (isSubmarine() && Double.isFinite(update.y())
+                    ? Math.min(update.y(), 0) : 0);
         verticalSpeed = isScoutPlane() ? MathSupport.clamp(update.verticalSpeed(), -34, 20) : 0;
         heading = MathSupport.normalizeAngle(update.heading());
         speed = MathSupport.clamp(update.speed(), -MAX_ACCEPTED_PLAYER_SPEED, MAX_ACCEPTED_PLAYER_SPEED);
@@ -255,6 +256,17 @@ final class Ship {
         this.verticalSpeed = MathSupport.clamp(verticalSpeed, -34, 20);
     }
 
+    static double advanceSubmarineDepth(double current, double target, double seconds) {
+        double periscope = -1.86 * SeaBattleGameConfig.TORPEDO_BOAT_SCALE;
+        double surfaceSpeed = .28 * SeaBattleGameConfig.TORPEDO_BOAT_SCALE;
+        double deepSpeed = Math.abs(SeaBattleGameConfig.SUBMARINE_DEEP_Y - periscope) / 6;
+        // Travel-time coordinates preserve both speeds even when a tick crosses periscope depth.
+        double from = (current - periscope) / (current >= periscope ? surfaceSpeed : deepSpeed);
+        double to = (target - periscope) / (target >= periscope ? surfaceSpeed : deepSpeed);
+        double next = from + Math.signum(to - from) * Math.min(Math.abs(to - from), Math.max(0, seconds));
+        return periscope + next * (next >= 0 ? surfaceSpeed : deepSpeed);
+    }
+
     void update(double deltaSeconds, NavigationService navigationService, WorldMap worldMap) {
         if (!"active".equals(state)) {
             return;
@@ -266,8 +278,7 @@ final class Ship {
         if (isSubmarine() && isBotControlled()) {
             double targetY = isFullySubmerged() ? SeaBattleGameConfig.SUBMARINE_DEEP_Y
                     : (-0.26 + (isAtPeriscopeDepth() ? -1.6 : 0)) * SeaBattleGameConfig.TORPEDO_BOAT_SCALE;
-            double step = 0.28 * SeaBattleGameConfig.TORPEDO_BOAT_SCALE * deltaSeconds;
-            y += MathSupport.clamp(targetY - y, -step, step);
+            y = advanceSubmarineDepth(y, targetY, deltaSeconds);
         }
 
         Vector2 previousPosition = position;

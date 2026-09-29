@@ -175,21 +175,23 @@ class GameStateServiceTest {
     }
 
     @Test
-    void fullySubmergedSubmarineCannotFireTorpedo() {
+    void fullySubmergedSubmarineFiresTorpedoAtItsDepth() {
         NavigationService navigationService = new NavigationService();
         GameSession session = new GameSession(new DefaultGameSetupFactory(new WorldMapService()).defaultSetup());
         session.assignPlayerVehicle("player-BP-test", "light", "submarine");
         session.updatePlayerState(new PlayerStateUpdate(
                 "player-BP-test", "light", 12, 0, 0, 0, 0, 2, 0, 1, true,
-                "submarine", 0, 0, null, null, null, null, "submerged"
+                "submarine", SeaBattleGameConfig.SUBMARINE_DEEP_Y, 0, null, null, null, null, "submerged"
         ), navigationService, session.worldMap());
 
         GameSnapshot after = session.fireTorpedo(new FireTorpedoRequest(
                 "player-BP-test", "light", "submarine", 12, 0, 0, 0, 0, 2, 0,
-                0, 0, -1, 2, "submerged"
+                SeaBattleGameConfig.SUBMARINE_DEEP_Y, 0, -1, 2, "submerged"
         ));
 
-        assertEquals(0, after.torpedoes().size());
+        assertEquals(1, after.torpedoes().size());
+        assertEquals(SeaBattleGameConfig.SUBMARINE_DEEP_Y + .2 * SeaBattleGameConfig.TORPEDO_BOAT_SCALE,
+                after.torpedoes().get(0).y(), .001);
     }
 
     @Test

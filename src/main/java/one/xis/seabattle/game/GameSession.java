@@ -1425,8 +1425,15 @@ public final class GameSession {
     }
 
     private boolean isVisiblePeriscopeRamContact(Ship observer, Ship target) {
-        return target.isAtPeriscopeDepth()
-                && observer.position().distanceTo(target.position()) <= botPeriscopeRamDetectionRange(target);
+        if (!target.isAtPeriscopeDepth()) return false;
+        double dx = target.position().x() - observer.position().x();
+        double dz = target.position().z() - observer.position().z();
+        double distance = Math.hypot(dx, dz);
+        if (distance < 1e-9) return true;
+        double forward = (dx * Math.sin(observer.heading()) + dz * Math.cos(observer.heading())) / distance;
+        if (forward < -1e-9) return false;
+        double directionFactor = .3 + .5 * MathSupport.clamp(forward, 0, 1);
+        return distance <= botPeriscopeRamDetectionRange(target) * directionFactor;
     }
 
     private boolean isStrategicHumanContact(Ship observer, Ship target) {
