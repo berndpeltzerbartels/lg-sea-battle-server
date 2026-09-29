@@ -10,7 +10,7 @@ class BotDepthChargeTest {
 
     private GameSession session(String controller, String boatType, String targetTeam, String depth, double distance) {
         var boat = new ShipSetup("boat", "light", new Vector2(0, 0), 0, controller, 2, 0, 999, boatType, 0);
-        var target = new ShipSetup("sub", targetTeam, new Vector2(distance, 0), 0, "diver", 2, 0, 999, "submarine", 0);
+        var target = new ShipSetup("sub", targetTeam, new Vector2(distance, 0), 0, "player-DIV-test", 2, 0, 999, "submarine", 0);
         var fleets = targetTeam.equals("light") ? List.of(new FleetSetup("light", List.of(boat, target)))
                 : List.of(new FleetSetup("light", List.of(boat)), new FleetSetup(targetTeam, List.of(target)));
         var session = new GameSession(new GameSetup("bot-charges", new WorldMap(42, List.of()), fleets,
@@ -21,7 +21,7 @@ class BotDepthChargeTest {
 
     private void position(GameSession s, String team, String depth, double distance) {
         double y = depth.equals("surface") ? 0 : depth.equals("periscope") ? -5.58 : SeaBattleGameConfig.SUBMARINE_DEEP_Y;
-        s.updatePlayerState(new PlayerStateUpdate("diver", team, distance, 0, 0, 0, 0, 2, 0, 0,
+        s.updatePlayerState(new PlayerStateUpdate("player-DIV-test", team, distance, 0, 0, 0, 0, 2, 0, 0,
                 false, "submarine", y, 0, null, null, null, null, depth), navigation, s.worldMap());
     }
 
@@ -65,5 +65,18 @@ class BotDepthChargeTest {
         for (int i = 0; i < 10; i++) tick(s, .1);
         assertEquals(1, s.snapshot().depthCharges().size());
         assertFalse(s.snapshot().depthChargeControls().get("boat").queued());
+    }
+
+    @Test void exportVictimNotificationBrowserFixture() throws Exception {
+        var s = session("bot", "torpedo-boat", "dark", "submerged", 8);
+        var before = s.snapshot();
+        tick(s, 0);
+        s.updateIdle(2.5, radar, navigation, s.worldMap());
+        var after = s.snapshot();
+        assertEquals(List.of("sub"), after.depthCharges().get(0).targetShipIds());
+        var output = java.nio.file.Path.of("build/test-fixtures/depth-charge-victim.json");
+        java.nio.file.Files.createDirectories(output.getParent());
+        java.nio.file.Files.writeString(output, new com.google.gson.Gson().toJson(
+                java.util.Map.of("before", before, "after", after)));
     }
 }
