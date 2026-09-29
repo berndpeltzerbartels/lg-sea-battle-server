@@ -13,6 +13,32 @@ class CrewServiceTest {
     };
     private final String captain = "player-CAP-test";
 
+    @Test void lookoutWarningIsSharedWithCrewRateLimitedAndExpires() {
+        var v = start();
+        crew.join(captain, account("LOOK"));
+        crew.switchStation(command(player("LOOK"), "lookout"));
+        var look = crew.view(player("LOOK"));
+        var request = new CrewService.WarningCommand(player("LOOK"), look.shipId(), look.revision(), -90);
+        var warning = crew.warnSubmarine(request).submarineWarning();
+        assertEquals(270, warning.bearing());
+        assertEquals(warning, crew.view(captain).submarineWarning());
+        assertThrows(IllegalArgumentException.class, () -> crew.warnSubmarine(request));
+        assertThrows(IllegalArgumentException.class, () -> crew.warnSubmarine(
+                new CrewService.WarningCommand(captain, v.shipId(), v.revision(), 0)));
+        aimClock += 5000;
+        assertNotEquals(warning.id(), crew.warnSubmarine(request).submarineWarning().id());
+        aimClock += 10000;
+        assertNull(crew.view(captain).submarineWarning());
+        var aircraftWarning = crew.warnAircraft(request).submarineWarning();
+        assertEquals("aircraft", aircraftWarning.kind());
+        assertEquals(270, aircraftWarning.bearing());
+        assertEquals(aircraftWarning, crew.view(captain).submarineWarning());
+        assertThrows(IllegalArgumentException.class, () -> crew.warnAircraft(
+                new CrewService.WarningCommand(captain, v.shipId(), v.revision(), 0)));
+        assertThrows(IllegalArgumentException.class, () -> crew.warnSubmarine(
+                new CrewService.WarningCommand(player("LOOK"), look.shipId(), look.revision(), Double.NaN)));
+    }
+
     private CrewService.View start() {
         players.register(captain, "CAP", "Captain", "light", "captain");
         game.assignPlayerVehicle(captain, "light", "torpedo-boat");
@@ -53,9 +79,10 @@ class CrewServiceTest {
                 .forEach(s -> assertEquals(Math.PI, s.flakYaw(), 0.001));
     }
 
-    @Test void onlyBridgeAndLookoutCanDropAndShareOneQueuedSalvo() {
+    @Test void bridgeLookoutAndFlakCanDropAndShareOneQueuedSalvo() {
         start();
         crew.join(captain, account("GUN"));
+        crew.switchStation(command(player("GUN"), "cannon"));
         assertThrows(IllegalArgumentException.class, () -> crew.dropDepthCharges(command(player("GUN"), "bridge")));
         crew.switchStation(command(player("GUN"), "lookout"));
         assertEquals(1, crew.dropDepthCharges(command(player("GUN"), "lookout")).depthCharges().size());
@@ -63,6 +90,15 @@ class CrewServiceTest {
         assertTrue(queued.depthChargeControls().get(crew.view(captain).shipId()).queued());
         assertThrows(IllegalArgumentException.class, () -> crew.dropDepthCharges(command(captain, "bridge")));
         assertThrows(IllegalArgumentException.class, () -> crew.dropDepthCharges(command(player("GUN"), "lookout")));
+        crew.switchStation(command(player("GUN"), "flak"));
+        assertThrows(IllegalArgumentException.class, () -> crew.dropDepthCharges(command(player("GUN"), "flak")));
+    }
+
+    @Test void flakCanReleaseDepthCharges() {
+        start();
+        crew.join(captain, account("GUN"));
+        crew.switchStation(command(player("GUN"), "flak"));
+        assertEquals(1, crew.dropDepthCharges(command(player("GUN"), "flak")).depthCharges().size());
     }
 
     @Test void bridgeAlignmentOnlyAffectsCurrentlyUnoccupiedWeapons() {

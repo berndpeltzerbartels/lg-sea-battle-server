@@ -30,6 +30,10 @@ public class CrewController {
     public ResponseEntity<?> torpedo(@RequestBody CrewService.Command command) { return execute(() -> crew.fire(command, "torpedo")); }
     @Post("/game/crew/depth-charges") @Produces(ContentType.JSON_UTF8)
     public ResponseEntity<?> depthCharges(@RequestBody CrewService.Command command) { return execute(() -> crew.dropDepthCharges(command)); }
+    @Post("/game/crew/submarine-warning") @Produces(ContentType.JSON_UTF8)
+    public ResponseEntity<?> submarineWarning(@RequestBody CrewService.WarningCommand command) { return execute(() -> crew.warnSubmarine(command)); }
+    @Post("/game/crew/aircraft-warning") @Produces(ContentType.JSON_UTF8)
+    public ResponseEntity<?> aircraftWarning(@RequestBody CrewService.WarningCommand command) { return execute(() -> crew.warnAircraft(command)); }
     @Post("/game/crew/leave") @Produces(ContentType.JSON_UTF8)
     public ResponseEntity<?> leave(@RequestBody CrewService.Command command) {
         events.unregisterPlayer(command.playerId());

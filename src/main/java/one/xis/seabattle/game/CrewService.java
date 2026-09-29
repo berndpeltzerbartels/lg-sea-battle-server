@@ -53,6 +53,7 @@ public class CrewService {
         final Map<String, AimRequest> aimRequests = new LinkedHashMap<>();
         final Map<String, Long> vacantSince = new HashMap<>();
         long lookoutReset;
+        SubmarineWarning submarineWarning;
         Crew(String controller, ShipSnapshot ship) {
             this.controller = controller;
             this.shipId = ship.id();
@@ -60,7 +61,29 @@ public class CrewService {
         }
     }
     public record Member(String playerId, String name, String station, long revision) {}
-    public record View(String id, String shipId, String controller, String station, long revision, List<Member> members, List<AimRequest> aimRequests, long lookoutReset) {}
+    public record View(String id, String shipId, String controller, String station, long revision, List<Member> members, List<AimRequest> aimRequests, long lookoutReset, SubmarineWarning submarineWarning) {}
+    public record SubmarineWarning(String id, String sender, double bearing, long expiresAt, String kind) {}
+    public record WarningCommand(String playerId, String shipId, long revision, double bearing) {}
+
+    public synchronized View warnSubmarine(WarningCommand command) {
+        return warnFromLookout(command, "submarine");
+    }
+
+    public synchronized View warnAircraft(WarningCommand command) {
+        return warnFromLookout(command, "aircraft");
+    }
+
+    private View warnFromLookout(WarningCommand command, String kind) {
+        Crew c = authorized(new Command(command.playerId(), command.shipId(), command.revision(), "lookout", null, null, null), "lookout");
+        requireActive(c);
+        if (!Double.isFinite(command.bearing())) throw new IllegalArgumentException("Ungueltige Peilung.");
+        long now = aimNowMillis();
+        if (c.submarineWarning != null && c.submarineWarning.expiresAt() - now > 5000)
+            throw new IllegalArgumentException("Warnung bereits gesendet.");
+        c.submarineWarning = new SubmarineWarning(UUID.randomUUID().toString(), c.members.get(command.playerId()).name(),
+                ((command.bearing() % 360) + 360) % 360, now + 10000, kind);
+        return view(command.playerId());
+    }
     public record AimRequest(String id, String shipId, String requester, long requesterRevision,
                              String recipient, long recipientRevision, String weapon, double yaw, double pitch,
                              long expiresAt, String status) {
@@ -240,7 +263,8 @@ public class CrewService {
         Member m = c.members.get(player);
         expireAimRequests(c);
         return new View(c.id, c.shipId, c.controller, m.station(), m.revision(), List.copyOf(c.members.values()),
-                c.aimRequests.values().stream().filter(r -> r.requester().equals(player) || r.recipient().equals(player)).toList(), c.lookoutReset);
+                c.aimRequests.values().stream().filter(r -> r.requester().equals(player) || r.recipient().equals(player)).toList(), c.lookoutReset,
+                c.submarineWarning != null && c.submarineWarning.expiresAt() > aimNowMillis() ? c.submarineWarning : null);
     }
 
     public synchronized View join(String recipient, Account applicant) {
@@ -307,8 +331,8 @@ public class CrewService {
 
     public synchronized GameSnapshot dropDepthCharges(Command command) {
         Crew c = authorized(command, null);
-        if (!List.of("bridge", "lookout").contains(c.members.get(command.playerId()).station()))
-            throw new IllegalArgumentException("Nur Bruecke oder Ausguck.");
+        if (!List.of("bridge", "lookout", "flak").contains(c.members.get(command.playerId()).station()))
+            throw new IllegalArgumentException("Nur Bruecke, Ausguck oder Flak.");
         requireActive(c);
         return game.dropDepthCharges(c.controller, command.playerId(), c.shipId);
     }
