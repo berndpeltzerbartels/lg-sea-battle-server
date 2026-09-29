@@ -2679,7 +2679,8 @@ public final class GameSession {
                 MathSupport.round(hit.x()),
                 MathSupport.round(hit.y()),
                 MathSupport.round(hit.z()),
-                MathSupport.round(nowSeconds)
+                MathSupport.round(nowSeconds),
+                MathSupport.round(hit.ship().y())
         ));
     }
 
@@ -2693,7 +2694,8 @@ public final class GameSession {
                 MathSupport.round(request.x()),
                 MathSupport.round(request.y()),
                 MathSupport.round(request.z()),
-                MathSupport.round(nowSeconds)
+                MathSupport.round(nowSeconds),
+                MathSupport.round(target.y())
         ));
     }
 

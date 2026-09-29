@@ -61,6 +61,23 @@ class SubmarineGunfireIntegrationTest {
     }
 
     private void verifyShot(boolean cannon, double distance, double heading, int side, Aim aim) {
+        verifyShot(cannon, distance, heading, side, aim, DEPTH, "periscope");
+    }
+
+    @TestFactory
+    List<DynamicTest> surfaceHitsPreserveActualHeightDespiteRequestedDive() {
+        List<DynamicTest> tests = new ArrayList<>();
+        for (boolean cannon : List.of(false, true)) {
+            for (String mode : List.of("surface", "periscope", "submerged")) {
+                tests.add(DynamicTest.dynamicTest("surface hit cannon=" + cannon + " requested=" + mode,
+                        () -> verifyShot(cannon, 15, 0, -1, new Aim("surface tower", 1, -.3, true),
+                                -.06 * SCALE, mode)));
+            }
+        }
+        return tests;
+    }
+
+    private void verifyShot(boolean cannon, double distance, double heading, int side, Aim aim, double depth, String mode) {
         WorldMap map = new WorldMap(99002, List.of());
         NavigationService navigation = new NavigationService();
         double cos = Math.cos(heading), sin = Math.sin(heading);
@@ -72,9 +89,9 @@ class SubmarineGunfireIntegrationTest {
                         new FleetSetup("dark", List.of(new ShipSetup("sub", "dark", new Vector2(0, 0),
                                 heading, "diver", 2, 0, 1000, "submarine", 0)))), List.of()));
         session.updatePlayerState(new PlayerStateUpdate("diver", "dark", 0, 0, heading, 0, 0, 2, 0, 0,
-                false, "submarine", DEPTH, 0, null, null, null, null, "periscope"), navigation, map);
-        assertEquals(DEPTH, session.snapshot().ships().stream().filter(s -> s.id().equals("sub")).findFirst().orElseThrow().y(), .001);
-        double targetY = DEPTH + aim.y() * SCALE;
+                false, "submarine", depth, 0, null, null, null, null, mode), navigation, map);
+        assertEquals(depth, session.snapshot().ships().stream().filter(s -> s.id().equals("sub")).findFirst().orElseThrow().y(), .001);
+        double targetY = depth + aim.y() * SCALE;
         FlakFireRequest request = new FlakFireRequest("captain", "light", "shooter", startX, 3, startZ,
                 -side * 300 * cos, (targetY - 3) * 300 / distance, side * 300 * sin);
         if (cannon) session.applyFireCannon(request, "gunner");
@@ -86,11 +103,12 @@ class SubmarineGunfireIntegrationTest {
         assertEquals(aim.hit() ? 1 : 0, hits.size(), aim.name());
         if (aim.hit()) {
             assertEquals("sub", hits.get(0).targetShipId());
+            assertEquals(depth, hits.get(0).targetY(), .001, "Hit event preserves target depth, not projectile height");
             var impact = session.snapshot().flakImpacts().stream()
                     .filter(value -> "ship-critical-hit".equals(value.reason())).findFirst().orElseThrow();
             double localZ = (impact.x() * sin + impact.z() * cos) / SCALE;
             assertEquals(aim.z(), localZ, .001, "Impact must stay in the targeted hull cross-section");
-            if (aim.y() < 1.5) assertTrue(impact.y() < -1, "Not a periscope hit");
+            if (depth == DEPTH && aim.y() < 1.5) assertTrue(impact.y() < -1, "Not a periscope hit");
         }
     }
 }

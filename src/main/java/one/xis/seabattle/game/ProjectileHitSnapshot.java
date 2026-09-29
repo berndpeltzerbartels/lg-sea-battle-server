@@ -8,6 +8,7 @@ public record ProjectileHitSnapshot(
         double x,
         double y,
         double z,
-        double t
+        double t,
+        double targetY
 ) {
 }
