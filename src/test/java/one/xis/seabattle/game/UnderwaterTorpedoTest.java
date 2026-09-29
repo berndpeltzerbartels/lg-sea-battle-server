@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class UnderwaterTorpedoTest {
     private static final double SCALE = SeaBattleGameConfig.TORPEDO_BOAT_SCALE;
-    private static final double DEEP = -3.21 * SCALE;
+    private static final double DEEP = SeaBattleGameConfig.SUBMARINE_DEEP_Y;
 
     @Test
     void wallImpactIsRecordedAtWaterSideAndPreservesLaunchDepth() {

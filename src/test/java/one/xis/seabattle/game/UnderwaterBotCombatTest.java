@@ -5,7 +5,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class UnderwaterBotCombatTest {
-    private static final double DEEP = -3.21 * SeaBattleGameConfig.TORPEDO_BOAT_SCALE;
+    private static final double DEEP = SeaBattleGameConfig.SUBMARINE_DEEP_Y;
     private final WorldMap map = new WorldMap(99012, List.of());
     private final NavigationService navigation = new NavigationService();
 
@@ -88,7 +88,7 @@ class UnderwaterBotCombatTest {
         if (deep) {
             ship.botDepth("submerged");
             ship.applyCommand(2, 0);
-            ship.update(20, navigation, map);
+            ship.update(30, navigation, map);
         }
         return ship;
     }

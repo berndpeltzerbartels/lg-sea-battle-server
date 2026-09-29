@@ -338,11 +338,11 @@ class SubmarineBotTest {
         ship.update(1, navigation, world);
         assertEquals(-0.84, ship.y(), 0.0001);
         assertFalse(ship.canFire(100));
-        for (int i = 0; i < 15; i++) ship.update(1, navigation, world);
-        assertEquals(-9.63, ship.y(), 0.0001);
+        for (int i = 0; i < 25; i++) ship.update(1, navigation, world);
+        assertEquals(-19.26, ship.y(), 0.0001);
         ship.botDepth("periscope");
         assertFalse(ship.canFire(100));
-        for (int i = 0; i < 10; i++) ship.update(1, navigation, world);
+        for (int i = 0; i < 20; i++) ship.update(1, navigation, world);
         assertEquals(-5.58, ship.y(), 0.0001);
         assertTrue(ship.canFire(100));
     }
