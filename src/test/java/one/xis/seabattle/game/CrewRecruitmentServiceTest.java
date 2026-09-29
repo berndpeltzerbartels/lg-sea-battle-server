@@ -104,6 +104,21 @@ class CrewRecruitmentServiceTest {
     }
 
     @Test
+    void submarineRecruitmentAndDirectJoiningAreRejectedWithoutChangingItsOwner() {
+        String shipId = captain("SUB", "light", "submarine");
+        var before = game.snapshot().ships().stream().filter(s -> s.id().equals(shipId)).findFirst().orElseThrow();
+
+        assertTrue(service.ships(applicant).stream().noneMatch(s -> s.id().equals(shipId)));
+        assertThrows(IllegalArgumentException.class, () -> service.request(applicant, shipId));
+        assertThrows(IllegalArgumentException.class, () -> crew.join("player-SUB-test", applicant));
+
+        assertTrue(service.requests(applicant).isEmpty());
+        assertFalse(crew.hasAccount(applicant.id()));
+        assertEquals(before, game.snapshot().ships().stream()
+                .filter(s -> s.id().equals(shipId)).findFirst().orElseThrow());
+    }
+
+    @Test
     void humanTorpedoBoatsOfBothTeamsAreOfferedAndApplyingDoesNotAssignShip() {
         String other = captain("ENEMY", "dark", "torpedo-boat");
         String ship = captain("CAP", "light", "torpedo-boat");
