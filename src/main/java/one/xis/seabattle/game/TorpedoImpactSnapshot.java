@@ -9,6 +9,7 @@ public record TorpedoImpactSnapshot(
         double x,
         double z,
         double heading,
-        double t
+        double t,
+        double y
 ) {
 }

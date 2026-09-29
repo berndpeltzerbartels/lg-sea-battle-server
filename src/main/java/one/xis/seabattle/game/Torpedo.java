@@ -43,6 +43,14 @@ final class Torpedo {
         this.verticalSpeed = 0;
     }
 
+    static Torpedo submerged(String id, String teamId, String shipId, Vector2 position, double heading,
+                             double speed, double firedAtSeconds, double maxRange, int tubeSide, double depthY) {
+        Torpedo torpedo = new Torpedo(id, teamId, shipId, position, heading, speed, firedAtSeconds, maxRange, tubeSide);
+        torpedo.y = depthY;
+        torpedo.previousY = depthY;
+        return torpedo;
+    }
+
     static Torpedo airDropped(
             String id,
             String teamId,

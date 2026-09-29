@@ -308,8 +308,11 @@ final class Ship {
     }
 
     boolean canFire(double nowSeconds) {
-        return "active".equals(state) && !isScoutPlane() && !isFullySubmerged()
-                && !(isSubmarine() && isBotControlled() && y < -1.87 * SeaBattleGameConfig.TORPEDO_BOAT_SCALE)
+        boolean botDepthReady = !isSubmarine() || !isBotControlled()
+                || (isFullySubmerged()
+                    ? Math.abs(y - -3.21 * SeaBattleGameConfig.TORPEDO_BOAT_SCALE) < .1
+                    : y >= -1.87 * SeaBattleGameConfig.TORPEDO_BOAT_SCALE);
+        return "active".equals(state) && !isScoutPlane() && botDepthReady
                 && nowSeconds >= nextFireTime;
     }
 

@@ -103,6 +103,15 @@ final class SubmarineBot {
             return null;
         }
 
+        // A deep enemy cannot be attacked from periscope depth. Keep the same spacing rules.
+        if (!aircraftThreat && nearest != null && nearest.isFullySubmerged()
+                && distance <= UNDERWATER_RANGE) {
+            startDive(ship, now);
+            depth = "submerged";
+            ship.botDepth(depth);
+            return distance < DEEP_RANGE ? threatPosition : null;
+        }
+
         if ("submerged".equals(depth)) {
             if (distance < SAFE_RANGE && !(hasShotOpportunity && !aircraftThreat && distance >= SHOT_ASCENT_RANGE)) {
                 ship.botDepth(depth);

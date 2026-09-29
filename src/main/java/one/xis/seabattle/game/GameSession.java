@@ -498,9 +498,6 @@ public final class GameSession {
         if (ship.isScoutPlane()) {
             return;
         }
-        if (ship.isFullySubmerged()) {
-            return;
-        }
         fireTorpedo(ship, 2.4, 0, request.tubeSide());
     }
 
@@ -1175,7 +1172,8 @@ public final class GameSession {
             List<Ship> contacts = ship.isFullySubmerged()
                     ? visibilityCache.candidates(ship, SubmarineBot.UNDERWATER_RANGE)
                     : visibilityCache.candidates(ship, RadarService.RADAR_RANGE).stream()
-                        .filter(contact -> visibilityCache.isVisible(ship, contact, RadarService.RADAR_RANGE))
+                        .filter(contact -> isUnderwaterBotContact(ship, contact)
+                                || visibilityCache.isVisible(ship, contact, RadarService.RADAR_RANGE))
                         .toList();
             boolean shotOpportunity = ship.isFullySubmerged() && contacts.stream()
                     .filter(target -> !target.teamId().equals(ship.teamId()))
@@ -1184,6 +1182,10 @@ public final class GameSession {
             retreatFrom = ship.submarineBot().update(ship, contacts, nowSeconds, shotOpportunity);
         }
         if (escapeBlockedWater(ship, navigationService, worldMap)) {
+            return;
+        }
+        if (avoidFriendlyBotDeadlock(ship, surfaceShips)
+                || avoidShipAhead(ship, surfaceShips, navigationService, worldMap)) {
             return;
         }
         if (retreatFrom != null) {
@@ -1197,12 +1199,6 @@ public final class GameSession {
             return;
         }
         if (ship.applyGlancingRamBackoff(nowSeconds)) {
-            return;
-        }
-        if (avoidFriendlyBotDeadlock(ship, surfaceShips)) {
-            return;
-        }
-        if (avoidShipAhead(ship, surfaceShips, navigationService, worldMap)) {
             return;
         }
 
@@ -1407,6 +1403,12 @@ public final class GameSession {
     }
 
     private List<Ship> visibleTargets(Ship ship, RadarService.VisibilityCache visibilityCache) {
+        if (ship.isFullySubmerged()) {
+            return visibilityCache.candidates(ship, SubmarineBot.UNDERWATER_RANGE).stream()
+                    .filter(target -> !target.teamId().equals(ship.teamId()))
+                    .filter(target -> isUnderwaterBotContact(ship, target) && target.isFullySubmerged())
+                    .toList();
+        }
         return visibilityCache.candidates(ship, RadarService.HUMAN_TARGET_RANGE).stream()
                 .filter(target -> !target.teamId().equals(ship.teamId()))
                 .filter(target -> !target.isScoutPlane())
@@ -1414,6 +1416,12 @@ public final class GameSession {
                         || visibilityCache.isVisible(ship, target, RadarService.RADAR_RANGE)
                         || isVisiblePeriscopeRamContact(ship, target))
                 .toList();
+    }
+
+    private boolean isUnderwaterBotContact(Ship observer, Ship target) {
+        return observer.isSubmarine() && target.isSubmarine() && !target.isOnSurface()
+                && !observer.id().equals(target.id()) && "active".equals(target.state())
+                && observer.position().distanceTo(target.position()) <= SubmarineBot.UNDERWATER_RANGE;
     }
 
     private boolean isVisiblePeriscopeRamContact(Ship observer, Ship target) {
@@ -1485,6 +1493,7 @@ public final class GameSession {
     }
 
     private boolean botCanSeeIncomingTorpedo(Ship ship, Torpedo torpedo) {
+        if (!torpedoCanDamageShip(torpedo, ship)) return false;
         Vector2 lookoutPosition = ship.position()
                 .add(Vector2.fromHeading(ship.heading()).scale(BOT_TORPEDO_LOOKOUT_FORWARD_OFFSET));
         if (lookoutPosition.distanceTo(torpedo.position()) > BOT_TORPEDO_EVADE_RANGE) {
@@ -1591,6 +1600,7 @@ public final class GameSession {
 
     private boolean avoidShipAhead(Ship ship, List<Ship> surfaceShips, NavigationService navigationService, WorldMap worldMap) {
         Optional<Ship> obstacle = surfaceShips.stream()
+                .filter(candidate -> ramDepthMode(ship, candidate) != RamDepthMode.NONE)
                 .filter(candidate -> !candidate.id().equals(ship.id()))
                 .filter(candidate -> "active".equals(candidate.state()))
                 .filter(candidate -> candidate.teamId().equals(ship.teamId()))
@@ -1613,6 +1623,7 @@ public final class GameSession {
             return false;
         }
         Optional<Ship> obstacle = surfaceShips.stream()
+                .filter(candidate -> ramDepthMode(ship, candidate) != RamDepthMode.NONE)
                 .filter(candidate -> !candidate.id().equals(ship.id()))
                 .filter(candidate -> "active".equals(candidate.state()))
                 .filter(candidate -> candidate.teamId().equals(ship.teamId()))
@@ -1713,7 +1724,7 @@ public final class GameSession {
         int maxRudder = distance < BOT_CLOSE_MANEUVER_RANGE ? 35 : 26;
         int rudder = (int) Math.round(MathSupport.clamp(steerError / rudderScale, -1, 1) * maxRudder);
         int engineOrder = botAttackEngineOrder(ship, target, distance, targetBearing);
-        if (ship.isSubmarine() && ship.isAtPeriscopeDepth() && ship.speed() < 0) rudder = -rudder;
+        if (ship.isSubmarine() && !ship.isOnSurface() && ship.speed() < 0) rudder = -rudder;
         applyBotCommand(ship, engineOrder, rudder, navigationService, worldMap);
 
         boolean closeInFront = distance <= BOT_CLOSE_FIRE_RANGE && Math.abs(targetBearing) <= BOT_CLOSE_FIRE_ARC;
@@ -1724,7 +1735,7 @@ public final class GameSession {
     }
 
     private int botAttackEngineOrder(Ship ship, Ship target, double distance, double targetBearing) {
-        if (ship.isSubmarine() && ship.isAtPeriscopeDepth()) {
+        if (ship.isSubmarine() && !ship.isOnSurface()) {
             return ship.submarineBot().attackEngineOrder(ship, target, distance, targetBearing);
         }
         if (target.isAtPeriscopeDepth()) {
@@ -2213,9 +2224,10 @@ public final class GameSession {
                 continue;
             }
 
-            if (torpedoHitsLand(torpedo, navigationService, worldMap)) {
+            Vector2 landImpact = torpedoLandImpact(torpedo, navigationService, worldMap);
+            if (landImpact != null) {
                 torpedo.hit();
-                recordTorpedoImpact(torpedo, "land-hit", null);
+                recordTorpedoImpact(torpedo, "land-hit", null, landImpact);
                 continue;
             }
 
@@ -2236,6 +2248,15 @@ public final class GameSession {
     }
 
     private boolean torpedoCanDamageShip(Torpedo torpedo, Ship target) {
+        return torpedoDepthCanDamageShip(torpedo.y(), target);
+    }
+
+    private boolean torpedoDepthCanDamageShip(double y, Ship target) {
+        if (y < -1) {
+            return target.isSubmarine()
+                    && target.y() < -1.87 * TORPEDO_BOAT_MODEL_SCALE
+                    && Math.abs(y - (target.y() + .2 * TORPEDO_BOAT_MODEL_SCALE)) <= .5 * TORPEDO_BOAT_MODEL_SCALE;
+        }
         if (!target.isSubmarine() || target.isOnSurface()) {
             return true;
         }
@@ -2247,6 +2268,8 @@ public final class GameSession {
                 .filter(Ship::isSubmarine)
                 .filter(ship -> "active".equals(ship.state()))
                 .filter(ship -> torpedo.runDistance() <= SUBMARINE_POINT_BLANK_TORPEDO_DANGER_RANGE)
+                .filter(ship -> torpedo.y() >= -1
+                        || Math.abs(torpedo.y() - (ship.y() + .2 * TORPEDO_BOAT_MODEL_SCALE)) <= .5 * TORPEDO_BOAT_MODEL_SCALE)
                 .ifPresent(this::sinkShip);
     }
 
@@ -2288,16 +2311,21 @@ public final class GameSession {
     }
 
     private void recordTorpedoImpact(Torpedo torpedo, String reason, String targetShipId) {
+        recordTorpedoImpact(torpedo, reason, targetShipId, torpedo.position());
+    }
+
+    private void recordTorpedoImpact(Torpedo torpedo, String reason, String targetShipId, Vector2 position) {
         torpedoImpacts.add(new TorpedoImpactSnapshot(
                 torpedo.id(),
                 torpedo.teamId(),
                 torpedo.shipId(),
                 targetShipId,
                 reason,
-                MathSupport.round(torpedo.position().x()),
-                MathSupport.round(torpedo.position().z()),
+                MathSupport.round(position.x()),
+                MathSupport.round(position.z()),
                 MathSupport.round(torpedo.heading()),
-                MathSupport.round(nowSeconds)
+                MathSupport.round(nowSeconds),
+                MathSupport.round(torpedo.y())
         ));
     }
 
@@ -2759,9 +2787,10 @@ public final class GameSession {
         ));
     }
 
-    private boolean torpedoHitsLand(Torpedo torpedo, NavigationService navigationService, WorldMap worldMap) {
+    private Vector2 torpedoLandImpact(Torpedo torpedo, NavigationService navigationService, WorldMap worldMap) {
         double segmentLength = torpedo.previousPosition().distanceTo(torpedo.position());
         int samples = Math.max(1, (int) Math.ceil(segmentLength / TORPEDO_SWEEP_STEP));
+        Vector2 waterSide = torpedo.previousPosition();
         for (int index = 0; index <= samples; index += 1) {
             double t = samples == 0 ? 1 : (double) index / samples;
             Vector2 sample = new Vector2(
@@ -2769,16 +2798,32 @@ public final class GameSession {
                     torpedo.previousPosition().z() + (torpedo.position().z() - torpedo.previousPosition().z()) * t
             );
             if (navigationService.isTorpedoBlocked(sample, worldMap)) {
-                return true;
+                // Refine only actual hits; keep the explosion on the water side of the wall.
+                Vector2 landSide = sample;
+                for (int refinement = 0; refinement < 8 && index > 0; refinement++) {
+                    Vector2 middle = waterSide.add(landSide).scale(0.5);
+                    if (navigationService.isTorpedoBlocked(middle, worldMap)) {
+                        landSide = middle;
+                    } else {
+                        waterSide = middle;
+                    }
+                }
+                return waterSide;
             }
+            waterSide = sample;
         }
-        return false;
+        return null;
     }
 
     private boolean torpedoHitsShip(Torpedo torpedo, Ship ship) {
         if (ship.position().distanceTo(torpedo.position()) > TORPEDO_BROAD_PHASE_RADIUS * TORPEDO_BOAT_MODEL_SCALE
                 && ship.position().distanceTo(torpedo.previousPosition()) > TORPEDO_BROAD_PHASE_RADIUS * TORPEDO_BOAT_MODEL_SCALE) {
             return false;
+        }
+        if (torpedo.y() < -1 && ship.isSubmarine()) {
+            return Double.isFinite(SubmarineProjectileGeometry.hitFraction(
+                    torpedo.previousPosition().x(), torpedo.y(), torpedo.previousPosition().z(),
+                    torpedo.position().x(), torpedo.y(), torpedo.position().z(), ship));
         }
 
         double segmentLength = torpedo.previousPosition().distanceTo(torpedo.position());
@@ -3079,14 +3124,18 @@ public final class GameSession {
         int tubeSide = normalizeTubeSide(requestedTubeSide);
         Vector2 forward = Vector2.fromHeading(heading);
         Vector2 muzzlePosition = torpedoMuzzlePosition(ship, heading, tubeSide);
-        if (target != null && !torpedoLineHitsShip(muzzlePosition, forward, target, BOT_FIRE_MAX_RANGE, TORPEDO_HULL_MARGIN)) {
+        double launchY = ship.isSubmarine() && ship.y() < -1.87 * TORPEDO_BOAT_MODEL_SCALE
+                ? ship.y() + .2 * TORPEDO_BOAT_MODEL_SCALE : .05;
+        if (target != null && !torpedoDepthCanDamageShip(launchY, target)) return false;
+        if (target != null && !torpedoLineHitsShipAtDepth(muzzlePosition, forward, target, launchY)) {
             return false;
         }
-        if (target != null && torpedoLaunchWouldHitFriendlyShip(ship, muzzlePosition, heading)) {
+        if (target != null && torpedoLaunchWouldHitFriendlyShip(ship, muzzlePosition, heading, launchY)) {
             return false;
         }
         ship.markFired(nowSeconds, cooldownSeconds);
-        torpedoes.add(new Torpedo(
+        boolean underwater = ship.isSubmarine() && ship.y() < -1.87 * TORPEDO_BOAT_MODEL_SCALE;
+        Torpedo torpedo = new Torpedo(
                 "torpedo-" + nextTorpedoId++,
                 ship.teamId(),
                 ship.id(),
@@ -3096,7 +3145,13 @@ public final class GameSession {
                 nowSeconds,
                 RadarService.TORPEDO_RANGE,
                 tubeSide
-        ));
+        );
+        if (underwater) {
+            torpedo = Torpedo.submerged(torpedo.id(), ship.teamId(), ship.id(), muzzlePosition, heading,
+                    torpedo.speed(), nowSeconds, RadarService.TORPEDO_RANGE, tubeSide,
+                    ship.y() + .2 * TORPEDO_BOAT_MODEL_SCALE);
+        }
+        torpedoes.add(torpedo);
         return true;
     }
 
@@ -3117,13 +3172,27 @@ public final class GameSession {
     }
 
     private boolean torpedoLaunchWouldHitFriendlyShip(Ship shooter, Vector2 muzzlePosition, double heading) {
+        return torpedoLaunchWouldHitFriendlyShip(shooter, muzzlePosition, heading, .05);
+    }
+
+    private boolean torpedoLaunchWouldHitFriendlyShip(Ship shooter, Vector2 muzzlePosition, double heading, double launchY) {
         Vector2 forward = Vector2.fromHeading(heading);
         return allShips().stream()
                 .filter(ship -> "active".equals(ship.state()))
                 .filter(ship -> !ship.isScoutPlane())
                 .filter(ship -> !ship.id().equals(shooter.id()))
                 .filter(ship -> ship.teamId().equals(shooter.teamId()))
-                .anyMatch(ship -> torpedoLineHitsShip(muzzlePosition, forward, ship, BOT_FIRE_MAX_RANGE, TORPEDO_HULL_MARGIN));
+                .filter(ship -> torpedoDepthCanDamageShip(launchY, ship))
+                .anyMatch(ship -> torpedoLineHitsShipAtDepth(muzzlePosition, forward, ship, launchY));
+    }
+
+    private boolean torpedoLineHitsShipAtDepth(Vector2 start, Vector2 forward, Ship target, double y) {
+        if (y < -1) {
+            Vector2 end = start.add(forward.scale(BOT_FIRE_MAX_RANGE));
+            return Double.isFinite(SubmarineProjectileGeometry.hitFraction(
+                    start.x(), y, start.z(), end.x(), y, end.z(), target));
+        }
+        return torpedoLineHitsShip(start, forward, target, BOT_FIRE_MAX_RANGE, TORPEDO_HULL_MARGIN);
     }
 
     private boolean torpedoLineHitsShip(Vector2 muzzlePosition, Vector2 forward, Ship target, double maxRange, double margin) {

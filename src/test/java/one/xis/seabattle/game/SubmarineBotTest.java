@@ -321,7 +321,7 @@ class SubmarineBotTest {
             ship.update(1, navigation, world);
         }
         assertTrue(ship.isFullySubmerged());
-        assertFalse(ship.canFire(120));
+        assertTrue(ship.canFire(120), "Settled deep boats can now fire depth-running torpedoes");
         Ship distant = new Ship("enemy", "dark", ship.position().add(new Vector2(0, 300)), 0, "bot");
         ship.submarineBot().update(ship, List.of(distant), 121);
         assertTrue(ship.isAtPeriscopeDepth());
