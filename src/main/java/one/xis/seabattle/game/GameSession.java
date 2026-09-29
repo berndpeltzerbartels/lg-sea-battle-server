@@ -190,6 +190,8 @@ public final class GameSession {
     private int nextDepthChargeId;
     static final double DEPTH_CHARGE_RADIUS = 24;
     static final double DEPTH_CHARGE_RELOAD = 4.8;
+    private static final double BOT_DEPTH_CHARGE_DETECTION_RADIUS = 12;
+    private double nextBotDepthChargeCheck;
     private final List<TorpedoImpactSnapshot> torpedoImpacts = new ArrayList<>();
     private final List<Bomb> bombs = new ArrayList<>();
     private final List<PendingBombRelease> pendingBombReleases = new ArrayList<>();
@@ -775,6 +777,8 @@ public final class GameSession {
                 .filter(this::isHumanControlled)
                 .toList();
         RadarService.VisibilityCache visibilityCache = radarService.visibilityCache(worldMap, activeShips);
+        boolean checkDepthCharges = nowSeconds >= nextBotDepthChargeCheck;
+        if (checkDepthCharges) nextBotDepthChargeCheck = nowSeconds + .5;
         Map<String, Integer> scoutPlaneTargetReservations = new LinkedHashMap<>();
         activeShips.stream()
                 .filter(ship -> "bot".equals(ship.controlledBy()))
@@ -782,9 +786,26 @@ public final class GameSession {
                     if (ship.isScoutPlane()) {
                         commandScoutPlaneBot(ship, activeShips, worldMap, scoutPlaneTargetReservations);
                     } else {
+                        if (checkDepthCharges) tryBotDepthCharges(ship, visibilityCache);
                         commandBot(ship, visibilityCache, navigationService, worldMap, humanSurfaceShips, surfaceShips);
                     }
                 });
+    }
+
+    private void tryBotDepthCharges(Ship ship, RadarService.VisibilityCache visibilityCache) {
+        if (ship.isSubmarine() || hasPendingDepthCharges(ship.id())) return;
+        var reload = depthChargeReloads.get(ship.id());
+        if (reload != null && (reload.queuedPlayer != null
+                || java.util.Arrays.stream(reload.readyAt).anyMatch(t -> nowSeconds < t))) return;
+        for (Ship target : visibilityCache.candidates(ship, BOT_DEPTH_CHARGE_DETECTION_RADIUS)) {
+            if ("active".equals(target.state()) && !target.teamId().equals(ship.teamId())
+                    && target.isSubmarine() && !target.isOnSurface()
+                    && target.y() < -1
+                    && ship.position().distanceTo(target.position()) <= BOT_DEPTH_CHARGE_DETECTION_RADIUS) {
+                dropDepthCharges(ship.controlledBy(), ship.controlledBy(), ship.id());
+                return;
+            }
+        }
     }
 
     private void commandScoutPlaneBot(Ship plane, List<Ship> activeShips, WorldMap worldMap,
