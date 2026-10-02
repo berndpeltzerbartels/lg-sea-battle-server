@@ -62,26 +62,25 @@ public class CrewService {
     }
     public record Member(String playerId, String name, String station, long revision) {}
     public record View(String id, String shipId, String controller, String station, long revision, List<Member> members, List<AimRequest> aimRequests, long lookoutReset, SubmarineWarning submarineWarning) {}
-    public record SubmarineWarning(String id, String sender, double bearing, long expiresAt, String kind) {}
-    public record WarningCommand(String playerId, String shipId, long revision, double bearing) {}
+    public record SubmarineWarning(String id, String sender, long expiresAt, String kind) {}
+    public record WarningCommand(String playerId, String shipId, long revision) {}
 
     public synchronized View warnSubmarine(WarningCommand command) {
-        return warnFromLookout(command, "submarine");
+        return warnCrew(command, "submarine");
     }
 
     public synchronized View warnAircraft(WarningCommand command) {
-        return warnFromLookout(command, "aircraft");
+        return warnCrew(command, "aircraft");
     }
 
-    private View warnFromLookout(WarningCommand command, String kind) {
-        Crew c = authorized(new Command(command.playerId(), command.shipId(), command.revision(), "lookout", null, null, null), "lookout");
+    private View warnCrew(WarningCommand command, String kind) {
+        Crew c = authorized(new Command(command.playerId(), command.shipId(), command.revision(), null, null, null, null), null);
         requireActive(c);
-        if (!Double.isFinite(command.bearing())) throw new IllegalArgumentException("Ungueltige Peilung.");
         long now = aimNowMillis();
         if (c.submarineWarning != null && c.submarineWarning.expiresAt() - now > 5000)
             throw new IllegalArgumentException("Warnung bereits gesendet.");
         c.submarineWarning = new SubmarineWarning(UUID.randomUUID().toString(), c.members.get(command.playerId()).name(),
-                ((command.bearing() % 360) + 360) % 360, now + 10000, kind);
+                now + 10000, kind);
         return view(command.playerId());
     }
     public record AimRequest(String id, String shipId, String requester, long requesterRevision,

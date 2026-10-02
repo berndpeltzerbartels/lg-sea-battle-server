@@ -18,25 +18,36 @@ class CrewServiceTest {
         crew.join(captain, account("LOOK"));
         crew.switchStation(command(player("LOOK"), "lookout"));
         var look = crew.view(player("LOOK"));
-        var request = new CrewService.WarningCommand(player("LOOK"), look.shipId(), look.revision(), -90);
+        var request = new CrewService.WarningCommand(player("LOOK"), look.shipId(), look.revision());
         var warning = crew.warnSubmarine(request).submarineWarning();
-        assertEquals(270, warning.bearing());
         assertEquals(warning, crew.view(captain).submarineWarning());
         assertThrows(IllegalArgumentException.class, () -> crew.warnSubmarine(request));
         assertThrows(IllegalArgumentException.class, () -> crew.warnSubmarine(
-                new CrewService.WarningCommand(captain, v.shipId(), v.revision(), 0)));
+                new CrewService.WarningCommand(captain, v.shipId(), v.revision())));
         aimClock += 5000;
         assertNotEquals(warning.id(), crew.warnSubmarine(request).submarineWarning().id());
         aimClock += 10000;
         assertNull(crew.view(captain).submarineWarning());
         var aircraftWarning = crew.warnAircraft(request).submarineWarning();
         assertEquals("aircraft", aircraftWarning.kind());
-        assertEquals(270, aircraftWarning.bearing());
         assertEquals(aircraftWarning, crew.view(captain).submarineWarning());
         assertThrows(IllegalArgumentException.class, () -> crew.warnAircraft(
-                new CrewService.WarningCommand(captain, v.shipId(), v.revision(), 0)));
+                new CrewService.WarningCommand(captain, v.shipId(), v.revision())));
         assertThrows(IllegalArgumentException.class, () -> crew.warnSubmarine(
-                new CrewService.WarningCommand(player("LOOK"), look.shipId(), look.revision(), Double.NaN)));
+                new CrewService.WarningCommand(player("LOOK"), look.shipId(), look.revision() - 1)));
+    }
+
+    @Test void everyStationCanWarnWithoutBearing() {
+        start();
+        for (String station : new String[] { "bridge", "lookout", "cannon", "flak" }) {
+            crew.switchStation(command(captain, station));
+            var view = crew.view(captain);
+            var command = new CrewService.WarningCommand(captain, view.shipId(), view.revision());
+            aimClock += 10000;
+            assertEquals("submarine", crew.warnSubmarine(command).submarineWarning().kind());
+            aimClock += 10000;
+            assertEquals("aircraft", crew.warnAircraft(command).submarineWarning().kind());
+        }
     }
 
     private CrewService.View start() {
