@@ -114,6 +114,9 @@ public final class GameSession {
     private static final double SUBMARINE_PERISCOPE_RAM_RADIUS = 0.36 * TORPEDO_BOAT_MODEL_SCALE;
     private static final double SUBMERGED_SUBMARINE_RAM_RADIUS = 1.25 * TORPEDO_BOAT_MODEL_SCALE;
     private static final double RAM_IMPACT_STOP_HOLD_SECONDS = 0.65;
+    private static final double RAM_SURFACE_KEEL_Y = (-.26 - .05) * TORPEDO_BOAT_MODEL_SCALE;
+    private static final double RAM_SUBMARINE_HULL_TOP = .62 * TORPEDO_BOAT_MODEL_SCALE;
+    private static final double RAM_SUBMARINE_MAST_TOP = (.66 + .64 * .9 - .012 + .986 * .9) * TORPEDO_BOAT_MODEL_SCALE;
     private static final double BOT_SHIP_AVOID_RANGE = 86.0;
     private static final double BOT_SHIP_AVOID_CORRIDOR = 3.15 * TORPEDO_BOAT_MODEL_SCALE;
     private static final double BOT_BOT_DEADLOCK_AVOID_RANGE = 54.0;
@@ -706,7 +709,10 @@ public final class GameSession {
             commandBots(radarService, navigationService, worldMap);
             allShips().stream()
                     .filter(this::isMotionIntegratedOnServer)
-                    .forEach(ship -> ship.update(deltaSeconds, navigationService, worldMap));
+                    .forEach(ship -> {
+                        applyPendingRamImpactStop(ship);
+                        ship.update(deltaSeconds, navigationService, worldMap);
+                    });
         }
         updateTorpedoes(deltaSeconds, navigationService, worldMap);
         Set<String> releasedBombIds = releasePendingBombs();
@@ -1805,7 +1811,9 @@ public final class GameSession {
         for (int i = 0; i < activeShips.size(); i += 1) {
             Ship left = activeShips.get(i);
             for (int j = i + 1; j < activeShips.size(); j += 1) {
+                if (!"active".equals(left.state())) break;
                 Ship right = activeShips.get(j);
+                if (!"active".equals(right.state())) continue;
                 if (left.position().distanceTo(right.position()) > RAM_COLLISION_BROAD_PHASE_RADIUS) {
                     continue;
                 }
@@ -1864,15 +1872,30 @@ public final class GameSession {
     }
 
     private RamDepthMode ramDepthMode(Ship left, Ship right) {
-        if (left.isFullySubmerged() || right.isFullySubmerged()) {
-            return left.isFullySubmerged() && right.isFullySubmerged()
+        if (ramBelowSurface(left) || ramBelowSurface(right)) {
+            return ramBelowSurface(left) && ramBelowSurface(right)
+                    && Math.abs(left.y() - right.y()) <= .89 * TORPEDO_BOAT_MODEL_SCALE
                     ? RamDepthMode.SUBMERGED_SUBMARINES
                     : RamDepthMode.NONE;
         }
-        if (left.isAtPeriscopeDepth() || right.isAtPeriscopeDepth()) {
+        if (ramAtPeriscopeDepth(left) || ramAtPeriscopeDepth(right)) {
             return RamDepthMode.PERISCOPE;
         }
         return RamDepthMode.HULL;
+    }
+
+    // Compare actual model heights with the surface hull's keel, never the dive command.
+    private boolean ramBelowSurface(Ship ship) {
+        return ship.isSubmarine() && ship.y() + RAM_SUBMARINE_MAST_TOP < RAM_SURFACE_KEEL_Y;
+    }
+
+    private boolean ramAtPeriscopeDepth(Ship ship) {
+        return ship.isSubmarine() && !ramBelowSurface(ship)
+                && ship.y() + RAM_SUBMARINE_HULL_TOP < RAM_SURFACE_KEEL_Y;
+    }
+
+    private boolean ramOnSurface(Ship ship) {
+        return !ramBelowSurface(ship) && !ramAtPeriscopeDepth(ship);
     }
 
     private void resolveSubmergedSubmarineRamCollision(Ship left, Ship right) {
@@ -1897,9 +1920,9 @@ public final class GameSession {
         if (left.isBotControlled() && right.isBotControlled()) {
             return;
         }
-        boolean leftSubmarineSinks = left.isAtPeriscopeDepth()
+        boolean leftSubmarineSinks = ramAtPeriscopeDepth(left)
                 && (periscopeRamHit(right, left) || periscopeHitsSurfaceHull(left, right));
-        boolean rightSubmarineSinks = right.isAtPeriscopeDepth()
+        boolean rightSubmarineSinks = ramAtPeriscopeDepth(right)
                 && (periscopeRamHit(left, right) || periscopeHitsSurfaceHull(right, left));
         if (!leftSubmarineSinks && !rightSubmarineSinks) {
             return;
@@ -1915,7 +1938,7 @@ public final class GameSession {
     }
 
     private boolean periscopeRamHit(Ship attacker, Ship target) {
-        if (!target.isAtPeriscopeDepth() || !attacker.isOnSurface()) {
+        if (!ramAtPeriscopeDepth(target) || !ramOnSurface(attacker)) {
             return false;
         }
         for (double bowOffset : List.of(RAM_BOW_OFFSET, RAM_BOW_OFFSET - 1.15, RAM_BOW_OFFSET - 2.3)) {
@@ -1929,8 +1952,8 @@ public final class GameSession {
     }
 
     private boolean periscopeHitsSurfaceHull(Ship submarine, Ship surfaceShip) {
-        if (!submarine.isAtPeriscopeDepth()
-                || !surfaceShip.isOnSurface()) {
+        if (!ramAtPeriscopeDepth(submarine)
+                || !ramOnSurface(surfaceShip)) {
             return false;
         }
         return pointInsideShipHull(
@@ -1941,7 +1964,7 @@ public final class GameSession {
     }
 
     private boolean submergedSubmarineRamHit(Ship attacker, Ship target) {
-        if (!attacker.isFullySubmerged() || !target.isFullySubmerged()) {
+        if (!ramBelowSurface(attacker) || !ramBelowSurface(target)) {
             return false;
         }
         for (double bowOffset : List.of(RAM_BOW_OFFSET, RAM_BOW_OFFSET - 1.15, RAM_BOW_OFFSET - 2.3)) {

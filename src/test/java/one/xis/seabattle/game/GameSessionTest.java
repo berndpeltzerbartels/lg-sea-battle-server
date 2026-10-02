@@ -2719,7 +2719,7 @@ class GameSessionTest {
         );
         session.updatePlayerState(
                 new PlayerStateUpdate("player-blue", "blue", 0, 0, 0, 0, 0, ENGINE_STOP, 0, 0, true,
-                        "submarine", 0, 0, null, null, null, null, "periscope"),
+                        "submarine", -5.58, 0, null, null, null, null, "periscope"),
                 navigationService,
                 session.worldMap()
         );
@@ -2750,7 +2750,7 @@ class GameSessionTest {
         );
         session.updatePlayerState(
                 new PlayerStateUpdate("player-blue", "blue", 0, 0, 0, 0, 0, ENGINE_STOP, 0, 0, true,
-                        "submarine", 0, 0, null, null, null, null, "periscope"),
+                        "submarine", -5.58, 0, null, null, null, null, "periscope"),
                 navigationService,
                 session.worldMap()
         );
@@ -2781,7 +2781,7 @@ class GameSessionTest {
         );
         session.updatePlayerState(
                 new PlayerStateUpdate("player-blue", "blue", 0, -1.0, 0, 1.0, 0, ENGINE_SLOW, 0, 0, true,
-                        "submarine", 0, 0, null, null, null, null, "periscope"),
+                        "submarine", -5.58, 0, null, null, null, null, "periscope"),
                 navigationService,
                 session.worldMap()
         );
@@ -2812,7 +2812,7 @@ class GameSessionTest {
         );
         session.updatePlayerState(
                 new PlayerStateUpdate("player-blue", "blue", 0, -1.0, 0, 9.0, 0, ENGINE_FULL, 0, 0, true,
-                        "submarine", 0, 0, null, null, null, null, "periscope"),
+                        "submarine", -5.58, 0, null, null, null, null, "periscope"),
                 navigationService,
                 session.worldMap()
         );
@@ -2843,7 +2843,7 @@ class GameSessionTest {
         );
         session.updatePlayerState(
                 new PlayerStateUpdate("player-blue", "blue", 0, -1.0, 0, 1.0, 0, ENGINE_SLOW, 0, 0, true,
-                        "submarine", 0, 0, null, null, null, null, "periscope"),
+                        "submarine", -5.58, 0, null, null, null, null, "periscope"),
                 navigationService,
                 session.worldMap()
         );
@@ -2868,7 +2868,7 @@ class GameSessionTest {
         ));
         session.updatePlayerState(
                 new PlayerStateUpdate("player-red", "red", 0, 0, Math.PI / 2, 8, 0, ENGINE_FULL, 0, 0, true,
-                        "submarine", 0, 0, null, null, null, null, "periscope"),
+                        "submarine", -5.58, 0, null, null, null, null, "periscope"),
                 navigationService,
                 session.worldMap()
         );
@@ -2899,7 +2899,7 @@ class GameSessionTest {
         ));
         session.updatePlayerState(
                 new PlayerStateUpdate("player-red", "red", 1.05, 0, Math.PI / 2, 8, 0, ENGINE_FULL, 0, 0, true,
-                        "submarine", 0, 0, null, null, null, null, "periscope"),
+                        "submarine", -5.58, 0, null, null, null, null, "periscope"),
                 navigationService,
                 session.worldMap()
         );
@@ -2936,7 +2936,7 @@ class GameSessionTest {
         );
         session.updatePlayerState(
                 new PlayerStateUpdate("player-blue", "blue", 0, 0, 0, 0, 0, ENGINE_STOP, 0, 0, true,
-                        "submarine", 0, 0, null, null, null, null, "periscope"),
+                        "submarine", -5.58, 0, null, null, null, null, "periscope"),
                 navigationService,
                 session.worldMap()
         );
@@ -2967,7 +2967,7 @@ class GameSessionTest {
         );
         shipEntity(session, "blue-1").applyPlayerState(
                 new PlayerStateUpdate("bot-blue", "blue", 0, 0, 0, 0, 0, ENGINE_STOP, 0, 0, true,
-                        "submarine", 0, 0, null, null, null, null, "periscope"),
+                        "submarine", -5.58, 0, null, null, null, null, "periscope"),
                 navigationService,
                 session.worldMap()
         );
@@ -2998,7 +2998,7 @@ class GameSessionTest {
         );
         session.updatePlayerState(
                 new PlayerStateUpdate("player-blue", "blue", 1.2, 0, 0, 0, 0, ENGINE_STOP, 0, 0, true,
-                        "submarine", 0, 0, null, null, null, null, "periscope"),
+                        "submarine", -5.58, 0, null, null, null, null, "periscope"),
                 navigationService,
                 session.worldMap()
         );
@@ -3282,7 +3282,7 @@ class GameSessionTest {
         );
         session.updatePlayerState(
                 new PlayerStateUpdate("player-blue", "blue", 0, 0, 0, 0, 0, ENGINE_STOP, 0, 0, true,
-                        "submarine", 0, 0, null, null, null, null, "submerged"),
+                        "submarine", SeaBattleGameConfig.SUBMARINE_DEEP_Y, 0, null, null, null, null, "submerged"),
                 navigationService,
                 session.worldMap()
         );
@@ -3307,13 +3307,13 @@ class GameSessionTest {
         ));
         session.updatePlayerState(
                 new PlayerStateUpdate("player-red", "red", 0, -11.04, 0, 8, 0, ENGINE_FULL, 0, 0, true,
-                        "submarine", 0, 0, null, null, null, null, "submerged"),
+                        "submarine", SeaBattleGameConfig.SUBMARINE_DEEP_Y, 0, null, null, null, null, "submerged"),
                 navigationService,
                 session.worldMap()
         );
         session.updatePlayerState(
                 new PlayerStateUpdate("player-blue", "blue", 0, 0, Math.PI, 0, 0, ENGINE_STOP, 0, 0, true,
-                        "submarine", 0, 0, null, null, null, null, "submerged"),
+                        "submarine", SeaBattleGameConfig.SUBMARINE_DEEP_Y, 0, null, null, null, null, "submerged"),
                 navigationService,
                 session.worldMap()
         );
@@ -3338,13 +3338,13 @@ class GameSessionTest {
         ));
         session.updatePlayerState(
                 new PlayerStateUpdate("player-red", "red", 0, -11.04, 0, 1.0, 0, ENGINE_SLOW, 0, 0, true,
-                        "submarine", 0, 0, null, null, null, null, "submerged"),
+                        "submarine", SeaBattleGameConfig.SUBMARINE_DEEP_Y, 0, null, null, null, null, "submerged"),
                 navigationService,
                 session.worldMap()
         );
         session.updatePlayerState(
                 new PlayerStateUpdate("player-blue", "blue", 0, 0, Math.PI, 0, 0, ENGINE_STOP, 0, 0, true,
-                        "submarine", 0, 0, null, null, null, null, "submerged"),
+                        "submarine", SeaBattleGameConfig.SUBMARINE_DEEP_Y, 0, null, null, null, null, "submerged"),
                 navigationService,
                 session.worldMap()
         );
