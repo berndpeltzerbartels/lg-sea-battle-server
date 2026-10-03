@@ -367,6 +367,37 @@ class CrewServiceTest {
         assertEquals(7, game.snapshot().killsByPlayer().get(light));
     }
 
+    @Test void personalScoreExpiresAfterFiveMinutesAwayButPositionAndTeamScoresRemain() {
+        var first = start();
+        var origin = ship(first.shipId());
+        game.restorePersonalScore(captain, 7);
+        var teamScores = game.snapshot().destroyedShipsByTeam();
+        crew.departForSelection("captain");
+        aimClock += 299_999;
+        String returned = crew.startOwnShip(new Account("captain", "Captain", "CAP", "light", null), "submarine");
+        assertEquals(7, game.snapshot().killsByPlayer().get(returned));
+        crew.departForSelection("captain");
+        aimClock += 300_000;
+        String expired = crew.startOwnShip(new Account("captain", "Captain", "CAP", "dark", null), "submarine");
+        assertEquals(0, game.snapshot().killsByPlayer().get(expired));
+        var restored = game.snapshot().ships().stream().filter(s -> expired.equals(s.controlledBy())).findFirst().orElseThrow();
+        assertEquals(origin.x(), restored.x());
+        assertEquals(origin.z(), restored.z());
+        teamScores.forEach((team, score) -> assertEquals(score, game.snapshot().destroyedShipsByTeam().get(team)));
+    }
+
+    @Test void recruitmentAfterFiveMinutesAwayResetsOnlyApplicantsScore() {
+        start();
+        game.restorePersonalScore(captain, 9);
+        String previous = crew.startOwnShip(account("GUN"), "submarine");
+        game.restorePersonalScore(previous, 5);
+        crew.departForSelection("GUN");
+        aimClock += 300_000;
+        crew.join(captain, account("GUN"));
+        assertEquals(0, game.snapshot().killsByPlayer().get(player("GUN")));
+        assertEquals(9, game.snapshot().killsByPlayer().get(captain));
+    }
+
     @Test void changingOwnShipLeavesOtherCrewMembersOnTheirShip() {
         var first = start();
         crew.join(captain, account("GUN"));
