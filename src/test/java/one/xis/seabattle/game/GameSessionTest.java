@@ -2404,6 +2404,23 @@ class GameSessionTest {
     }
 
     @Test
+    void idleWakeDoesNotTrackHiddenSubmarines() throws Exception {
+        GameSession session = new GameSession(new GameSetup("idle-hidden-sub",
+                new WorldMap(9096, List.of()), List.of(
+                new FleetSetup("red", List.of(ship("observer", "red", 0, 0, 0, "bot", ENGINE_STOP, 0))),
+                new FleetSetup("blue", List.of(ship("sub", "blue", 0, 40, 0, "human", ENGINE_TWO_THIRDS, 0, 99, "submarine")))), List.of()));
+        Method select = GameSession.class.getDeclaredMethod("nearestHumanControlledEnemyShip", Ship.class, List.class);
+        select.setAccessible(true);
+        for (String depth : List.of("surface", "periscope", "submerged")) {
+            session.updatePlayerState(new PlayerStateUpdate("human", "blue", 0, 40, 0, 10.4, 0,
+                    ENGINE_TWO_THIRDS, 0, 0, true, "submarine", depth.equals("surface") ? 0 : depth.equals("periscope") ? -5.58 : -19.26,
+                    0, null, null, null, null, depth), navigationService, session.worldMap());
+            var result = (Optional<?>) select.invoke(session, shipEntity(session, "observer"), List.of(shipEntity(session, "sub")));
+            assertEquals(!depth.equals("submerged"), result.isPresent(), depth);
+        }
+    }
+
+    @Test
     void periscopeTargetSelectionDependsOnObserversHeading() throws Exception {
         for (double rotation : new double[]{0, Math.PI / 2, Math.PI, -Math.PI / 2}) {
             for (double[] sample : new double[][]{
@@ -2425,6 +2442,13 @@ class GameSessionTest {
                         null, null, null, null, "periscope"), navigationService, session.worldMap());
                 assertEquals(sample[2] == 1, selectBotTargetId(session, "observer").isPresent(),
                         "rotation=" + rotation + ", bearing=" + sample[0] + ", distance=" + sample[1]);
+                Method idleTarget = GameSession.class.getDeclaredMethod("nearestHumanControlledEnemyShip", Ship.class, List.class);
+                idleTarget.setAccessible(true);
+                var idleResult = (Optional<?>) idleTarget.invoke(session, shipEntity(session, "observer"),
+                        List.of(shipEntity(session, "sub")));
+                assertEquals(sample[2] == 1, idleResult.isPresent(),
+                        "Idle pursuit must obey the same visibility rules: rotation=" + rotation
+                                + ", bearing=" + sample[0] + ", distance=" + sample[1] + ", speed=" + speed);
             }
         }
     }

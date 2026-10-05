@@ -1697,6 +1697,7 @@ public final class GameSession {
     private Optional<Ship> nearestHumanControlledEnemyShip(Ship ship, List<Ship> humanSurfaceShips) {
         return humanSurfaceShips.stream()
                 .filter(target -> !target.teamId().equals(ship.teamId()))
+                .filter(target -> target.isOnSurface() || isVisiblePeriscopeRamContact(ship, target))
                 .min((left, right) -> Double.compare(
                         ship.position().distanceTo(left.position()),
                         ship.position().distanceTo(right.position())
