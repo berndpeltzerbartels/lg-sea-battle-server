@@ -62,7 +62,7 @@ public class CrewService {
         }
     }
     public record Member(String playerId, String name, String station, long revision) {}
-    public record View(String id, String shipId, String controller, String station, long revision, List<Member> members, List<AimRequest> aimRequests, long lookoutReset, SubmarineWarning submarineWarning) {}
+    public record View(String id, String shipId, String controller, String station, long revision, List<Member> members, List<AimRequest> aimRequests, long lookoutReset, SubmarineWarning submarineWarning, ShipSnapshot ship) {}
     public record SubmarineWarning(String id, String sender, long expiresAt, String kind) {}
     public record WarningCommand(String playerId, String shipId, long revision) {}
 
@@ -269,7 +269,7 @@ public class CrewService {
         expireAimRequests(c);
         return new View(c.id, c.shipId, c.controller, m.station(), m.revision(), List.copyOf(c.members.values()),
                 c.aimRequests.values().stream().filter(r -> r.requester().equals(player) || r.recipient().equals(player)).toList(), c.lookoutReset,
-                c.submarineWarning != null && c.submarineWarning.expiresAt() > aimNowMillis() ? c.submarineWarning : null);
+                c.submarineWarning != null && c.submarineWarning.expiresAt() > aimNowMillis() ? c.submarineWarning : null, ship);
     }
 
     public synchronized View join(String recipient, Account applicant) {

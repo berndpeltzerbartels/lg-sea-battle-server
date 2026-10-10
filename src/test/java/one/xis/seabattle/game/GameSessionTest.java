@@ -4509,6 +4509,33 @@ class GameSessionTest {
     }
 
     @Test
+    void playerReversePositionIsAcceptedWhileBowStillTouchesLand() {
+        WorldMap map = new WorldMap(9003, List.of(testIsland("bow-rock", 0, 5.2, 2.5, 2.5)));
+        Ship ship = new Ship("red-1", "red", new Vector2(0, 0), 0, "player-test");
+        Vector2 requested = new Vector2(0, -0.2);
+        assertTrue(navigationService.isShipBlocked(requested, 0, map));
+        assertFalse(navigationService.isShipMovementBlocked(requested, 0, -1, map));
+        ship.applyPlayerState(new PlayerStateUpdate("player-test", "red", 0, -0.2, 0, -1,
+                0, 0, 0, 1, false, "torpedo-boat"), navigationService, map);
+        assertEquals(requested, ship.position());
+        assertEquals(-1, ship.speed());
+        ship.update(0.1, navigationService, map);
+        assertTrue(ship.position().z() < requested.z(), "Unmanned bridge must continue reversing from the accepted position");
+    }
+
+    @Test
+    void playerReversePositionStillRejectsGroundedSternAndLargeJumps() {
+        WorldMap map = new WorldMap(9004, List.of(testIsland("stern-rock", 0, -1.05, 1.9, 1.9)));
+        Ship ship = new Ship("red-1", "red", new Vector2(0, 0), 0, "player-test");
+        ship.applyPlayerState(new PlayerStateUpdate("player-test", "red", 0, -0.2, 0, -1,
+                0, 0, 0, 1, false, "torpedo-boat"), navigationService, map);
+        assertEquals(new Vector2(0, 0), ship.position());
+        ship.applyPlayerState(new PlayerStateUpdate("player-test", "red", 0, -10000, 0, -1,
+                0, 0, 0, 2, false, "torpedo-boat"), navigationService, map);
+        assertEquals(new Vector2(0, 0), ship.position());
+    }
+
+    @Test
     void respawnSelectionUsesCandidatesAsRoundRobin() {
         List<Vector2> candidates = List.of(
                 new Vector2(-200, 0),

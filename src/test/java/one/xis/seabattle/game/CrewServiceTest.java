@@ -55,6 +55,19 @@ class CrewServiceTest {
         game.assignPlayerVehicle(captain, "light", "torpedo-boat");
         return crew.view(captain);
     }
+
+    @Test void stationHandoverIncludesCurrentShipMotionInsteadOfClientCachedPosition() {
+        var before = start();
+        var current = ship(before.shipId());
+        var update = new PlayerStateUpdate(captain, "light", current.x(), current.z(), current.heading(), -2,
+                0, 0, 0, 1, false, "torpedo-boat");
+        game.updatePlayerState(update);
+        var flak = crew.switchStation(command(captain, "flak"));
+        assertEquals(ship(before.shipId()), flak.ship());
+        assertEquals(-2, flak.ship().speed());
+        var bridge = crew.switchStation(command(captain, "bridge"));
+        assertEquals(flak.ship(), bridge.ship());
+    }
     private Account account(String alias) { return new Account(alias, alias, alias, "light", null); }
     private ShipSnapshot ship(String id) {
         return game.snapshot().ships().stream().filter(s -> s.id().equals(id)).findFirst().orElseThrow();

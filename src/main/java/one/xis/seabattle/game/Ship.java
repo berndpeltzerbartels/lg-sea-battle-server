@@ -211,7 +211,9 @@ final class Ship {
         vehicleType = normalizeVehicleType(update.vehicleType());
         depthState = isSubmarine() ? normalizeDepthState(update.depthState()) : DEPTH_SURFACE;
         boolean implausiblePosition = position.distanceTo(requestedPosition) > MAX_ACCEPTED_PLAYER_POSITION_DELTA;
-        boolean blockedPosition = !isScoutPlane() && navigationService.isShipBlocked(requestedPosition, update.heading(), worldMap);
+        boolean blockedPosition = !isScoutPlane()
+                && navigationService.isShipBlocked(requestedPosition, update.heading(), worldMap)
+                && navigationService.isShipMovementBlocked(requestedPosition, update.heading(), update.speed(), worldMap);
         if ((!update.debugTeleport() && implausiblePosition) || blockedPosition) {
             applyCommand(update.engineOrder(), update.rudderDegrees());
             return;
