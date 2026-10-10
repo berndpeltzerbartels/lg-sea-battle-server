@@ -218,7 +218,35 @@ public final class GameSession {
     private double nextBotScoutPlaneTorpedoTime;
     private String state = "running";
 
+    private final int simulationThreads;
+    private final boolean parallelBotNavigation;
+    private Map<Ship, BotCommand> plannedBotEscapes;
+    private List<BotCourseRequest> pendingBotCourses;
+
+    private record BotCommand(int engineOrder, int rudder) {
+        void apply(Ship ship) {
+            ship.applyCommand(engineOrder, rudder);
+        }
+    }
+
+    private record BotCourseRequest(Ship ship, int engineOrder, int rudder) {
+    }
+
     GameSession(GameSetup setup) {
+        this(setup, Integer.getInteger("seaBattle.simulationThreads", 1),
+                Boolean.getBoolean("seaBattle.parallelBotNavigation"));
+    }
+
+    GameSession(GameSetup setup, int simulationThreads) {
+        this(setup, simulationThreads, false);
+    }
+
+    GameSession(GameSetup setup, int simulationThreads, boolean parallelBotNavigation) {
+        if (simulationThreads != 1 && simulationThreads != 2) {
+            throw new IllegalArgumentException("simulationThreads must be 1 or 2");
+        }
+        this.simulationThreads = simulationThreads;
+        this.parallelBotNavigation = parallelBotNavigation;
         this.id = setup.id();
         this.worldMap = setup.worldMap();
         this.scoutPlaneObstacleMap = LandGeometry.obstacleMapForMinimumTerrainHeight(
@@ -707,12 +735,19 @@ public final class GameSession {
         updateDepthCharges();
         if (!TEMPORARILY_DISABLE_BOTS) {
             commandBots(radarService, navigationService, worldMap);
-            allShips().stream()
-                    .filter(this::isMotionIntegratedOnServer)
-                    .forEach(ship -> {
-                        applyPendingRamImpactStop(ship);
-                        ship.update(deltaSeconds, navigationService, worldMap);
-                    });
+            if (simulationThreads == 1) {
+                allShips().stream()
+                        .filter(this::isMotionIntegratedOnServer)
+                        .forEach(ship -> {
+                            applyPendingRamImpactStop(ship);
+                            ship.update(deltaSeconds, navigationService, worldMap);
+                        });
+            } else {
+                List<Ship> movingShips = allShips().stream().filter(this::isMotionIntegratedOnServer).toList();
+                movingShips.forEach(this::applyPendingRamImpactStop);
+                // Only independent movement runs concurrently; combat reads the completed round.
+                TwoThreadSimulation.forEach(movingShips, ship -> ship.update(deltaSeconds, navigationService, worldMap));
+            }
         }
         updateTorpedoes(deltaSeconds, navigationService, worldMap);
         Set<String> releasedBombIds = releasePendingBombs();
@@ -786,16 +821,36 @@ public final class GameSession {
         boolean checkDepthCharges = nowSeconds >= nextBotDepthChargeCheck;
         if (checkDepthCharges) nextBotDepthChargeCheck = nowSeconds + .5;
         Map<String, Integer> scoutPlaneTargetReservations = new LinkedHashMap<>();
-        activeShips.stream()
-                .filter(ship -> "bot".equals(ship.controlledBy()))
-                .forEach(ship -> {
-                    if (ship.isScoutPlane()) {
-                        commandScoutPlaneBot(ship, activeShips, worldMap, scoutPlaneTargetReservations);
-                    } else {
-                        if (checkDepthCharges) tryBotDepthCharges(ship, visibilityCache);
-                        commandBot(ship, visibilityCache, navigationService, worldMap, humanSurfaceShips, surfaceShips);
-                    }
-                });
+        if (parallelBotNavigation) {
+            List<Ship> boats = surfaceShips.stream().filter(Ship::isBotControlled).toList();
+            List<BotCommand> escapes = BotNavigationStream.map(boats,
+                    ship -> escapeCommand(ship, navigationService, worldMap));
+            plannedBotEscapes = new HashMap<>();
+            for (int i = 0; i < boats.size(); i++) plannedBotEscapes.put(boats.get(i), escapes.get(i));
+            pendingBotCourses = new ArrayList<>();
+        }
+        try {
+            activeShips.stream()
+                    .filter(ship -> "bot".equals(ship.controlledBy()))
+                    .forEach(ship -> {
+                        if (ship.isScoutPlane()) {
+                            commandScoutPlaneBot(ship, activeShips, worldMap, scoutPlaneTargetReservations);
+                        } else {
+                            if (checkDepthCharges) tryBotDepthCharges(ship, visibilityCache);
+                            commandBot(ship, visibilityCache, navigationService, worldMap, humanSurfaceShips, surfaceShips);
+                        }
+                    });
+            if (parallelBotNavigation) {
+                // Decisions keep their original order; only read-only terrain planning runs in parallel.
+                List<BotCommand> courses = BotNavigationStream.map(pendingBotCourses,
+                        request -> courseCommand(request.ship(), request.engineOrder(), request.rudder(),
+                                navigationService, worldMap));
+                for (int i = 0; i < courses.size(); i++) courses.get(i).apply(pendingBotCourses.get(i).ship());
+            }
+        } finally {
+            plannedBotEscapes = null;
+            pendingBotCourses = null;
+        }
     }
 
     private void tryBotDepthCharges(Ship ship, RadarService.VisibilityCache visibilityCache) {
@@ -1305,6 +1360,14 @@ public final class GameSession {
     }
 
     private boolean escapeBlockedWater(Ship ship, NavigationService navigationService, WorldMap worldMap) {
+        BotCommand command = plannedBotEscapes == null
+                ? escapeCommand(ship, navigationService, worldMap) : plannedBotEscapes.get(ship);
+        if (command == null) return false;
+        command.apply(ship);
+        return true;
+    }
+
+    private BotCommand escapeCommand(Ship ship, NavigationService navigationService, WorldMap worldMap) {
         Vector2 forward = Vector2.fromHeading(ship.heading());
         double lookAheadDistance = MathSupport.clamp(Math.abs(ship.speed()) * 6.0 + 22.0, 24.0, 78.0);
         Vector2 nearLookAhead = ship.position().add(forward.scale(14));
@@ -1327,30 +1390,25 @@ public final class GameSession {
                     worldMap
             );
             if (ship.speed() >= 0 && forwardClear) {
-                ship.applyCommand(ENGINE_SLOW, 0);
-                return true;
+                return new BotCommand(ENGINE_SLOW, 0);
             }
             if (asternClear) {
-                ship.applyCommand(ENGINE_FULL_ASTERN, 0);
-                return true;
+                return new BotCommand(ENGINE_FULL_ASTERN, 0);
             }
             if (forwardClear) {
-                ship.applyCommand(ENGINE_SLOW, 0);
-                return true;
+                return new BotCommand(ENGINE_SLOW, 0);
             }
             double safeHeading = chooseSafeEscapeHeading(ship, navigationService, worldMap);
-            ship.applyCommand(ENGINE_SLOW, rudderTowardHeading(ship, safeHeading));
-            return true;
+            return new BotCommand(ENGINE_SLOW, rudderTowardHeading(ship, safeHeading));
         }
 
         if (blockedAhead) {
             double safeHeading = chooseSafeEscapeHeading(ship, navigationService, worldMap);
             int rudder = rudderTowardHeading(ship, safeHeading);
-            ship.applyCommand(ENGINE_ONE_THIRD, rudder);
-            return true;
+            return new BotCommand(ENGINE_ONE_THIRD, rudder);
         }
 
-        return false;
+        return null;
     }
 
     private double chooseSafeEscapeHeading(Ship ship, NavigationService navigationService, WorldMap worldMap) {
@@ -1396,20 +1454,26 @@ public final class GameSession {
     }
 
     private void applyBotCommand(Ship ship, int engineOrder, int rudder, NavigationService navigationService, WorldMap worldMap) {
+        if (pendingBotCourses != null) {
+            pendingBotCourses.add(new BotCourseRequest(ship, engineOrder, rudder));
+        } else {
+            courseCommand(ship, engineOrder, rudder, navigationService, worldMap).apply(ship);
+        }
+    }
+
+    private BotCommand courseCommand(Ship ship, int engineOrder, int rudder, NavigationService navigationService, WorldMap worldMap) {
         if (EngineOrders.speedFor(engineOrder) <= 0) {
-            ship.applyCommand(engineOrder, rudder);
-            return;
+            return new BotCommand(engineOrder, rudder);
         }
 
         int cruisingEngineOrder = Math.max(engineOrder, ENGINE_HALF);
         double plannedHeading = plannedBotCourseHeading(ship, rudder);
         if (isBotCourseSafe(ship, plannedHeading, navigationService, worldMap)) {
-            ship.applyCommand(cruisingEngineOrder, rudder);
-            return;
+            return new BotCommand(cruisingEngineOrder, rudder);
         }
 
         double escapeHeading = chooseSafeEscapeHeading(ship, navigationService, worldMap);
-        ship.applyCommand(Math.min(engineOrder, ENGINE_SLOW), rudderTowardHeading(ship, escapeHeading));
+        return new BotCommand(Math.min(engineOrder, ENGINE_SLOW), rudderTowardHeading(ship, escapeHeading));
     }
 
     private double plannedBotCourseHeading(Ship ship, int rudder) {
