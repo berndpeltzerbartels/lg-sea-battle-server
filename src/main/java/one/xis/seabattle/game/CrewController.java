@@ -8,6 +8,12 @@ public class CrewController {
     private final CrewService crew;
     private final SeaBattleEventService events;
     public CrewController(CrewService crew, SeaBattleEventService events) { this.crew = crew; this.events = events; }
+    public record Activity(String playerId) {}
+    @Post("/game/crew/activity") @Produces(ContentType.JSON_UTF8)
+    public ResponseEntity<?> activity(@RequestBody Activity input) {
+        return events.recordActivity(input.playerId()) ? ResponseEntity.noContent()
+                : ResponseEntity.status(403, "Sitzung abgelaufen.");
+    }
     @Get("/game/crew/{playerId}") @Produces(ContentType.JSON_UTF8)
     public CrewService.View view(@PathVariable("playerId") String playerId) { return crew.view(playerId); }
     @Post("/game/crew/station") @Produces(ContentType.JSON_UTF8)

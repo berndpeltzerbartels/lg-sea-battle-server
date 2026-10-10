@@ -62,7 +62,11 @@ while (performance.now() < stopAt) {
 
   if (options.update) {
     for (const client of activeUpdateClients) {
-      requests.push(track(request("POST", "/game/player-state", playerUpdate(client, elapsedSeconds), "player-state")
+      const motion = playerUpdate(client, elapsedSeconds);
+      const path = client.crew ? "/game/crew/motion" : "/game/player-state";
+      const body = client.crew ? { playerId: client.playerId, shipId: client.crew.shipId,
+        revision: client.crew.revision, station: "bridge", motion } : motion;
+      requests.push(track(request("POST", path, body, "player-state")
               .then(response => {
                 if (response.body?.ships) {
                   refreshClientStarts([client], groupShipsByTeam(response.body.ships));
@@ -144,11 +148,11 @@ async function request(method, path, body, label) {
     status = response.status;
     const text = await response.text();
     bytes = Buffer.byteLength(text);
-    parsedBody = text ? JSON.parse(text) : null;
+    try { parsedBody = text ? JSON.parse(text) : null; }
+    catch { parsedBody = text; }
     ok = response.ok;
     return { status, body: parsedBody };
   } catch (error) {
-    record(label, performance.now() - started, status, bytes, false);
     throw error;
   } finally {
     record(label, performance.now() - started, status, bytes, ok);
@@ -167,6 +171,10 @@ async function registerClients(clients) {
     if (response.body?.player?.playerId) {
       client.playerId = response.body.player.playerId;
       client.registered = true;
+      const crew = await request("GET", `/game/crew/${encodeURIComponent(client.playerId)}`, null, "crew");
+      if (crew.body?.shipId) client.crew = crew.body;
+    } else {
+      throw new Error(`Registration failed: ${response.status}`);
     }
   }
 }
@@ -332,7 +340,9 @@ function applyEventMessage(client, message) {
     return;
   }
   try {
-    const snapshot = JSON.parse(data);
+    const payload = JSON.parse(data);
+    if (payload.crew?.shipId) client.crew = payload.crew;
+    const snapshot = payload.state?.ships ? payload.state : payload;
     if (snapshot?.ships) {
       refreshClientStarts([client], groupShipsByTeam(snapshot.ships));
     }

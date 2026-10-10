@@ -26,6 +26,7 @@ public final class SeaBattleEventService {
     private final CrewService crew;
     private final Gson gson = new Gson();
     private final Set<String> players = ConcurrentHashMap.newKeySet();
+    private final PlayerActivity activity = new PlayerActivity();
     private final ConcurrentHashMap<String, ScheduledFuture<?>> pendingUnregisters = new ConcurrentHashMap<>();
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(task -> {
         Thread thread = new Thread(task, "sea-battle-events");
@@ -46,7 +47,7 @@ public final class SeaBattleEventService {
         executor.scheduleAtFixedRate(this::broadcastTick, TICK_MILLIS, TICK_MILLIS, TimeUnit.MILLISECONDS);
     }
 
-    public void register(String playerId, SseEmitter emitter) {
+    public synchronized void register(String playerId, SseEmitter emitter) {
         if (!playerRegistry.isRegisteredPlayer(playerId)) {
             emitter.close();
             return;
@@ -67,23 +68,25 @@ public final class SeaBattleEventService {
                 playerRegistry.aliasForPlayer(playerId),
                 playerRegistry.teamIdForPlayer(playerId));
         players.add(playerId);
+        activity.connected(playerId, System.currentTimeMillis());
         gameStateService.connectPlayer(playerId);
         connections.register(PLAYER_SCOPE, playerId, emitter);
         send(playerId, new GameStreamMessage("game-stream", gameStateService.snapshot(), crew.view(playerId)));
     }
 
-    public void unregister(String playerId, SseEmitter emitter) {
+    public synchronized void unregister(String playerId, SseEmitter emitter) {
         connections.unregister(PLAYER_SCOPE, playerId, emitter);
         if (connections.connectionCount(SseConnectionKey.of(PLAYER_SCOPE, playerId)) == 0) {
             scheduleUnregister(playerId);
         }
     }
 
-    public void unregisterPlayer(String playerId) {
+    public synchronized void unregisterPlayer(String playerId) {
         cancelPendingUnregister(playerId);
         int score = gameStateService.snapshot().killsByPlayer().getOrDefault(playerId, 0);
         playSessionService.endSession(playerId, score);
         players.remove(playerId);
+        activity.remove(playerId);
         crew.leave(playerId);
         playerRegistry.unregisterPlayer(playerId);
         gameStateService.releasePlayer(playerId);
@@ -92,9 +95,11 @@ public final class SeaBattleEventService {
     private void scheduleUnregister(String playerId) {
         pendingUnregisters.computeIfAbsent(playerId, ignored ->
                 executor.schedule(() -> {
-                    pendingUnregisters.remove(playerId);
-                    if (connections.connectionCount(SseConnectionKey.of(PLAYER_SCOPE, playerId)) == 0) {
-                        unregisterPlayer(playerId);
+                    synchronized (SeaBattleEventService.this) {
+                        pendingUnregisters.remove(playerId);
+                        if (connections.connectionCount(SseConnectionKey.of(PLAYER_SCOPE, playerId)) == 0) {
+                            unregisterPlayer(playerId);
+                        }
                     }
                 }, DISCONNECT_GRACE_SECONDS, TimeUnit.SECONDS));
     }
@@ -106,13 +111,31 @@ public final class SeaBattleEventService {
         }
     }
 
-    private void broadcastTick() {
+    public synchronized boolean recordActivity(String playerId) {
+        return playerRegistry.isRegisteredPlayer(playerId) && activity.input(playerId, System.currentTimeMillis());
+    }
+
+    private synchronized void broadcastTick() {
         if (players.isEmpty()) {
             return;
         }
 
+        expireInactivePlayers(System.currentTimeMillis());
+        // Failed writes may remove emitters without the endpoint's disconnect callback.
+        for (String playerId : players) {
+            if (connections.connectionCount(SseConnectionKey.of(PLAYER_SCOPE, playerId)) == 0) {
+                scheduleUnregister(playerId);
+            }
+        }
         GameSnapshot state = gameStateService.snapshot();
         players.forEach(playerId -> send(playerId, new GameStreamMessage("game-stream", state, crew.view(playerId))));
+    }
+
+    synchronized void expireInactivePlayers(long now) {
+        for (String playerId : activity.expired(now)) {
+            connections.sendData(PLAYER_SCOPE, playerId, "{\"type\":\"session-expired\",\"reason\":\"inactivity\"}");
+            unregisterPlayer(playerId);
+        }
     }
 
     private GameStreamMessage createMessage(GameSnapshot state) {
