@@ -20,6 +20,7 @@ public class SeaBattleDiagnosticsService {
 
     private final GameStateService gameStateService;
     private final SeaBattlePlayerRegistry playerRegistry;
+    private final ClientEventLogBudget clientEventLogBudget = new ClientEventLogBudget();
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(task -> {
         Thread thread = new Thread(task, "sea-battle-diagnostics");
         thread.setDaemon(true);
@@ -83,6 +84,7 @@ public class SeaBattleDiagnosticsService {
         if (report == null) {
             return;
         }
+        if (!clientEventLogBudget.allow(safe(report.playerId()), System.nanoTime())) return;
         LOGGER.info(() -> String.format(
                 Locale.ROOT,
                 "sea-battle-client-event event=%s player=%s team=%s ship=%s t=%.2f pos=(%.1f,%.1f) heading=%.3f speed=%.2f damage=%s localTorps=%d serverTorps=%d visuals=%d details=%s",
@@ -99,7 +101,7 @@ public class SeaBattleDiagnosticsService {
                 report.localTorpedoes(),
                 report.serverTorpedoes(),
                 report.serverTorpedoVisuals(),
-                safe(report.details())
+                bounded(report.details(), 12000)
         ));
     }
 
@@ -207,9 +209,13 @@ public class SeaBattleDiagnosticsService {
     }
 
     private String safe(String value) {
+        return bounded(value, 256);
+    }
+
+    private String bounded(String value, int limit) {
         return value == null || value.isBlank()
                 ? "-"
-                : value.replace('\n', ' ').replace('\r', ' ');
+                : value.substring(0, Math.min(value.length(), limit)).replace('\n', ' ').replace('\r', ' ');
     }
 
 }

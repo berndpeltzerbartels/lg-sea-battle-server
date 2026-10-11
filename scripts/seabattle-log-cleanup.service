@@ -1,0 +1,6 @@
+[Unit]
+Description=Rotate and expire Sea Battle diagnostic logs
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/journalctl --namespace=seabattle --rotate --vacuum-time=2d --vacuum-size=128M

@@ -1,0 +1,10 @@
+[Unit]
+Description=Bound Sea Battle log retention even while the game is idle
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target
