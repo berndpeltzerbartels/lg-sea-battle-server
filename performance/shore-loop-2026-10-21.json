@@ -1,0 +1,27 @@
+{
+  "host": "Netcup 159.195.63.236",
+  "baselineServerCommit": "09a8db0",
+  "candidate": "uncommitted blocked-next-step recovery and retained escape course",
+  "benchmark": "SimulationThreadsBenchmarkMain bots",
+  "method": "Identical standalone harness for both jars; 105 landmasses; two warmup runs followed by ABBA thread order; 1000 measured ticks per run. Public service unchanged. Baseline and candidate measured sequentially; no browser or HTTP load measurement.",
+  "parallelBotNavigation": true,
+  "simulationThreads": 1,
+  "results": [
+    {
+      "ships": 30,
+      "baselineMeanMsByRun": [1.1803, 1.1274, 1.3609, 1.2594],
+      "candidateMeanMsByRun": [0.8936, 1.0430, 1.0007, 0.9538],
+      "baselineP95MsByRun": [1.9293, 1.7574, 2.0421, 1.9820],
+      "candidateP95MsByRun": [1.5473, 1.7572, 1.7048, 1.6897]
+    },
+    {
+      "ships": 60,
+      "baselineMeanMsByRun": [2.6194, 2.5707, 2.6537, 2.6604],
+      "candidateMeanMsByRun": [2.0835, 1.9969, 2.0873, 2.0593],
+      "baselineP95MsByRun": [3.5308, 3.5605, 3.5758, 3.6251],
+      "candidateP95MsByRun": [2.8731, 2.8480, 2.9899, 2.9547]
+    }
+  ],
+  "regression": "Three simulated minutes at a wide coast with an enemy behind it, at three initial positions. Before fix first case stays within a few metres; after fix each leaves by more than 90 metres. Additional live-coordinate coastal scenarios also pass. These reproduce a failure mechanism, not the exact unidentified ships in the screenshots.",
+  "productionDeployment": false
+}

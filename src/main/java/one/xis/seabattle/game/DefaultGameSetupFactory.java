@@ -467,6 +467,21 @@ final class DefaultGameSetupFactory {
             String teamId = activeTeamIds.get(index);
             fleets.add(new FleetSetup(teamId, createShips(teamId, slotsByTeam.get(index).toArray(double[][]::new))));
         }
+        if (Boolean.getBoolean("seaBattle.localFleetTrial")) {
+            List<Vector2> positions = denseRespawnCandidates();
+            for (int team = 0; team < fleets.size(); team++) {
+                FleetSetup fleet = fleets.get(team);
+                List<ShipSetup> ships = new ArrayList<>(fleet.ships());
+                for (int extra = 0; extra < 5; extra++) {
+                    Vector2 position = positions.get(team * 5 + extra);
+                    String type = extra == 0 ? "submarine" : extra == 1 ? VEHICLE_SCOUT_PLANE : VEHICLE_TORPEDO_BOAT;
+                    ships.add(new ShipSetup(fleet.teamId() + "-trial-" + vehiclePrefix(type) + extra,
+                            fleet.teamId(), position, team % 2 == 0 ? 0 : Math.PI, "bot", ENGINE_SLOW, 0,
+                            5 + extra, type, VEHICLE_SCOUT_PLANE.equals(type) ? SCOUT_PLANE_START_Y : 0));
+                }
+                fleets.set(team, new FleetSetup(fleet.teamId(), ships));
+            }
+        }
         return fleets;
     }
 

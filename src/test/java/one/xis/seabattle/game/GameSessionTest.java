@@ -4254,6 +4254,47 @@ class GameSessionTest {
     }
 
     @Test
+    void coastalBotsMakeSustainedProgressFromLiveShorePositions() {
+        WorldMap world = new DefaultGameSetupFactory(new WorldMapService()).defaultSetup().worldMap();
+        for (double[] start : List.of(new double[]{383.232, 937.424, 2.385},
+                new double[]{321.176, 993.974, 2.273}, new double[]{-354.006, 1136.656, 1.186})) {
+            GameSession session = new GameSession(new GameSetup("coastal-progress", world,
+                    List.of(new FleetSetup("light", List.of(ship("light-S13", "light", start[0], start[1],
+                            start[2], "bot", ENGINE_FULL, 0, 999)))), List.of(new Vector2(start[0], start[1]))));
+            double furthest = 0;
+            var trace = new java.util.ArrayList<String>();
+            for (int tick = 0; tick < 1800; tick++) {
+                session.update(.1, radarService, navigationService, world);
+                ShipSnapshot bot = findShip(session.snapshot(), "light-S13");
+                furthest = Math.max(furthest, Math.hypot(bot.x() - start[0], bot.z() - start[1]));
+                if (tick % 200 == 0) trace.add(bot.x() + "," + bot.z() + " h=" + bot.heading()
+                        + " e=" + bot.engineOrder() + " r=" + bot.rudderDegrees());
+            }
+            assertTrue(furthest > 80, "Bot must leave shore rather than oscillate: " + trace);
+        }
+    }
+
+    @Test
+    void groundedBotDoesNotResumeChasingThroughTheSameCoast() {
+        for (double offset : new double[]{-30, 0, 30}) {
+            WorldMap world = new WorldMap(9067, List.of(testIsland("long-bank", 0, 45, 90, 40)));
+            GameSession session = new GameSession(new GameSetup("shore-chase", world,
+                    List.of(new FleetSetup("light", List.of(ship("light-S13", "light", offset, 0, 0, "bot", ENGINE_FULL, 0, 999))),
+                            new FleetSetup("dark", List.of(ship("target", "dark", offset, 110, 0, "human", ENGINE_STOP, 0, 999)))),
+                    List.of(new Vector2(offset, 0))));
+            double furthest = 0;
+            var trace = new java.util.ArrayList<String>();
+            for (int tick = 0; tick < 1800; tick++) {
+                session.update(.1, radarService, navigationService, world);
+                ShipSnapshot bot = findShip(session.snapshot(), "light-S13");
+                furthest = Math.max(furthest, Math.hypot(bot.x() - offset, bot.z()));
+                if (tick % 200 == 0) trace.add(bot.x() + "," + bot.z() + " h=" + bot.heading() + " e=" + bot.engineOrder());
+            }
+            assertTrue(furthest > 90, "Must escape the coastal pocket: " + trace);
+        }
+    }
+
+    @Test
     void friendlyShipsDoNotSinkEachOtherByRamCollision() {
         GameSession session = new GameSession(new GameSetup(
                 "friendly-ram-ignore-test",

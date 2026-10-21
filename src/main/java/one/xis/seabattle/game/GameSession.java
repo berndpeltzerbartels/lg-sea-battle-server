@@ -1373,9 +1373,19 @@ public final class GameSession {
         Vector2 nearLookAhead = ship.position().add(forward.scale(4));
         Vector2 farLookAhead = ship.position().add(forward.scale(lookAheadDistance));
         boolean blockedHere = navigationService.isShipBlocked(ship.position(), ship.heading(), worldMap);
-        boolean blockedAhead = navigationService.isShipBlocked(nearLookAhead, ship.heading(), worldMap)
+        boolean blockedNear = navigationService.isShipBlocked(nearLookAhead, ship.heading(), worldMap);
+        boolean blockedAhead = blockedNear
                 || navigationService.isShipBlocked(ship.position().add(forward.scale(14)), ship.heading(), worldMap)
                 || navigationService.isShipBlocked(farLookAhead, ship.heading(), worldMap);
+
+        // Collision rollback leaves the current position clear even when the next step is blocked.
+        // Back away before attempting the turn, and finish that manoeuvre before chasing again.
+        if ((nowSeconds < ship.botReverseUntil || (blockedNear && Math.abs(ship.speed()) < .5))
+                && !navigationService.isShipMovementBlocked(ship.position(), ship.heading(), -1, worldMap)) {
+            double safeHeading = retainedEscapeHeading(ship, navigationService, worldMap);
+            if (nowSeconds >= ship.botReverseUntil) ship.botReverseUntil = nowSeconds + 6;
+            return new BotCommand(ENGINE_FULL_ASTERN, -rudderTowardHeading(ship, safeHeading));
+        }
 
         if (blockedHere) {
             boolean forwardClear = !navigationService.isShipMovementBlocked(
@@ -1405,19 +1415,13 @@ public final class GameSession {
             return new BotCommand(ENGINE_SLOW, rudderTowardHeading(ship, safeHeading));
         }
 
-        if (nowSeconds < ship.botReverseUntil && !navigationService.isShipMovementBlocked(
-                ship.position(), ship.heading(), -1, worldMap)) {
-            return new BotCommand(ENGINE_FULL_ASTERN, -rudderTowardHeading(ship, ship.botEscapeHeading));
-        }
-
         if (blockedAhead) {
             double safeHeading = retainedEscapeHeading(ship, navigationService, worldMap);
             int rudder = rudderTowardHeading(ship, safeHeading);
             return new BotCommand(ENGINE_ONE_THIRD, rudder);
         }
 
-        if (nowSeconds < ship.botEscapeUntil
-                && Math.abs(MathSupport.normalizeAngle(ship.botEscapeHeading - ship.heading())) > .25) {
+        if (nowSeconds < ship.botEscapeUntil) {
             return new BotCommand(ENGINE_ONE_THIRD, rudderTowardHeading(ship, ship.botEscapeHeading));
         }
 
