@@ -47,6 +47,10 @@ final class Ship {
     private double cannonPitch;
     private String depthState = DEPTH_SURFACE;
     private SubmarineBot submarineBot = new SubmarineBot();
+    // Each navigation worker owns one ship; these plans survive individual simulation rounds.
+    double botEscapeHeading;
+    double botEscapeUntil;
+    double botReverseUntil;
 
     SubmarineBot submarineBot() {
         return submarineBot;
@@ -414,6 +418,8 @@ final class Ship {
     }
 
     void respawn(Vector2 position, double heading, double nowSeconds) {
+        botEscapeUntil = 0;
+        botReverseUntil = 0;
         submarineBot = new SubmarineBot();
         this.position = position;
         this.heading = MathSupport.normalizeAngle(heading);

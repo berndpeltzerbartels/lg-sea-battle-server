@@ -4190,6 +4190,7 @@ class GameSessionTest {
 
         ShipSnapshot bot = findShip(session.snapshot(), "red-1");
         assertEquals(ENGINE_FULL_ASTERN, bot.engineOrder());
+        assertNotEquals(0, bot.rudderDegrees(), "Reverse escape must also turn toward a different course");
     }
 
     @Test
@@ -4213,6 +4214,43 @@ class GameSessionTest {
 
         ShipSnapshot bot = findShip(session.snapshot(), "red-1");
         assertEquals(ENGINE_SLOW, bot.engineOrder());
+    }
+
+    @Test
+    void groundedBotTurnsAndLeavesInsteadOfRepeatedlyDrivingBackIntoTheSameRock() {
+        GameSession session = new GameSession(new GameSetup(
+                "escape-progress", new WorldMap(9067, List.of(testIsland("bow-rock", 0, 5.2, 2.5, 2.5))),
+                List.of(new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, 0, "bot", ENGINE_FULL, 0, 99)))),
+                List.of(new Vector2(0, 0))));
+        var trace = new java.util.ArrayList<String>();
+        for (int i = 0; i < 300; i++) {
+            session.update(.1, radarService, navigationService, session.worldMap());
+            if (i % 50 == 0) {
+                var s = findShip(session.snapshot(), "red-1");
+                trace.add(s.x() + "," + s.z() + " heading=" + s.heading() + " engine=" + s.engineOrder() + " rudder=" + s.rudderDegrees());
+            }
+        }
+        ShipSnapshot bot = findShip(session.snapshot(), "red-1");
+        assertTrue(Math.hypot(bot.x(), bot.z()) > 20, "Bot must make sustained progress away from the obstruction: " + trace);
+        assertTrue(Math.abs(bot.heading()) > .3, "Escape must change course");
+    }
+
+    @Test
+    void idleWakeSpendsHalfItsCycleActive() throws Exception {
+        GameSession session = new GameSession(new GameSetup("wake", new WorldMap(1, List.of()),
+                List.of(new FleetSetup("red", List.of(ship("red-1", "red", 0, 0, 0, "bot", ENGINE_STOP, 0, 99)))),
+                List.of(new Vector2(0, 0))));
+        Ship bot = new Ship("red-1", "red", new Vector2(0, 0), 0, "bot");
+        Method active = GameSession.class.getDeclaredMethod("botIdleWakeActive", Ship.class);
+        active.setAccessible(true);
+        Field time = GameSession.class.getDeclaredField("nowSeconds");
+        time.setAccessible(true);
+        int activeSamples = 0;
+        for (int i = 0; i < 160; i++) {
+            time.setDouble(session, i * .1);
+            if ((boolean) active.invoke(session, bot)) activeSamples++;
+        }
+        assertEquals(80, activeSamples);
     }
 
     @Test

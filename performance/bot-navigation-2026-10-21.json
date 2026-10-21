@@ -1,0 +1,31 @@
+{
+  "host": "Netcup 159.195.63.236",
+  "baselineServerCommit": "441d531",
+  "candidate": "uncommitted shoreline escape and idle-wake changes",
+  "benchmark": "SimulationThreadsBenchmarkMain bots",
+  "method": "Same initial fleets and 105 landmasses, two warmup runs, ABBA thread order, 1000 measured simulation rounds per run; public service left running. In-memory simulation, not browser or HTTP load.",
+  "parallelBotNavigation": true,
+  "simulationThreads": 1,
+  "results": [
+    {
+      "ships": 30,
+      "baselineMeanMsByRun": [4.5245, 4.6056, 5.1299, 4.4738],
+      "candidateMeanMsByRun": [1.2623, 1.2215, 1.1768, 1.1516],
+      "baselineP95MsByRun": [5.8226, 5.8488, 6.5884, 5.7050],
+      "candidateP95MsByRun": [1.9551, 1.9318, 1.8174, 1.8078]
+    },
+    {
+      "ships": 60,
+      "baselineMeanMsByRun": [9.2213, 8.7997, 9.8756, 9.2551],
+      "candidateMeanMsByRun": [2.8372, 2.8311, 2.7190, 2.5533],
+      "baselineP95MsByRun": [11.4789, 11.4022, 13.4197, 11.7051],
+      "candidateP95MsByRun": [3.6878, 3.7394, 3.6981, 3.3767]
+    }
+  ],
+  "activityCheck": {
+    "method": "Separate activity runs, snapshots sampled every ten rounds after warmup, active bot ships excluding aircraft, moving when absolute speed >= 0.5; not a measure of tactical success.",
+    "30Ships": { "baselineMoving": 2624, "baselineActive": 2657, "candidateMoving": 2648, "candidateActive": 2658 },
+    "60Ships": { "baselineMoving": 4720, "baselineActive": 5305, "candidateMoving": 4676, "candidateActive": 5311 }
+  },
+  "productionDeployment": false
+}

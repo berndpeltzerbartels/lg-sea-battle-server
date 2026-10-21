@@ -150,8 +150,8 @@ public final class GameSession {
     private static final double BOT_FRIENDLY_HUMAN_COMBAT_RADIUS = 420;
     private static final double BOT_FRIENDLY_HUMAN_TARGET_DRIFT_WEIGHT = 0.8;
     private static final double BOT_GLANCING_RAM_BACKOFF_SECONDS = 2.85;
-    private static final double BOT_IDLE_WAKE_INTERVAL_SECONDS = 24.0;
-    private static final double BOT_IDLE_WAKE_DURATION_SECONDS = 6.0;
+    private static final double BOT_IDLE_WAKE_INTERVAL_SECONDS = 16.0;
+    private static final double BOT_IDLE_WAKE_DURATION_SECONDS = 8.0;
     private static final boolean SCOUT_PLANE_EXPERIMENT_PEACEFUL_BOTS = false;
     private static final boolean TEMPORARILY_DISABLE_BOTS = false;
     private static final double RESPAWN_DELAY_SECONDS = 8;
@@ -841,7 +841,7 @@ public final class GameSession {
                         }
                     });
             if (parallelBotNavigation) {
-                // Decisions keep their original order; only read-only terrain planning runs in parallel.
+                // Decisions keep their order; each terrain-planning worker owns one ship's escape plan.
                 List<BotCommand> courses = BotNavigationStream.map(pendingBotCourses,
                         request -> courseCommand(request.ship(), request.engineOrder(), request.rudder(),
                                 navigationService, worldMap));
@@ -1370,10 +1370,11 @@ public final class GameSession {
     private BotCommand escapeCommand(Ship ship, NavigationService navigationService, WorldMap worldMap) {
         Vector2 forward = Vector2.fromHeading(ship.heading());
         double lookAheadDistance = MathSupport.clamp(Math.abs(ship.speed()) * 6.0 + 22.0, 24.0, 78.0);
-        Vector2 nearLookAhead = ship.position().add(forward.scale(14));
+        Vector2 nearLookAhead = ship.position().add(forward.scale(4));
         Vector2 farLookAhead = ship.position().add(forward.scale(lookAheadDistance));
         boolean blockedHere = navigationService.isShipBlocked(ship.position(), ship.heading(), worldMap);
         boolean blockedAhead = navigationService.isShipBlocked(nearLookAhead, ship.heading(), worldMap)
+                || navigationService.isShipBlocked(ship.position().add(forward.scale(14)), ship.heading(), worldMap)
                 || navigationService.isShipBlocked(farLookAhead, ship.heading(), worldMap);
 
         if (blockedHere) {
@@ -1393,22 +1394,42 @@ public final class GameSession {
                 return new BotCommand(ENGINE_SLOW, 0);
             }
             if (asternClear) {
-                return new BotCommand(ENGINE_FULL_ASTERN, 0);
+                double safeHeading = retainedEscapeHeading(ship, navigationService, worldMap);
+                if (nowSeconds >= ship.botReverseUntil) ship.botReverseUntil = nowSeconds + 6;
+                return new BotCommand(ENGINE_FULL_ASTERN, -rudderTowardHeading(ship, safeHeading));
             }
             if (forwardClear) {
                 return new BotCommand(ENGINE_SLOW, 0);
             }
-            double safeHeading = chooseSafeEscapeHeading(ship, navigationService, worldMap);
+            double safeHeading = retainedEscapeHeading(ship, navigationService, worldMap);
             return new BotCommand(ENGINE_SLOW, rudderTowardHeading(ship, safeHeading));
         }
 
+        if (nowSeconds < ship.botReverseUntil && !navigationService.isShipMovementBlocked(
+                ship.position(), ship.heading(), -1, worldMap)) {
+            return new BotCommand(ENGINE_FULL_ASTERN, -rudderTowardHeading(ship, ship.botEscapeHeading));
+        }
+
         if (blockedAhead) {
-            double safeHeading = chooseSafeEscapeHeading(ship, navigationService, worldMap);
+            double safeHeading = retainedEscapeHeading(ship, navigationService, worldMap);
             int rudder = rudderTowardHeading(ship, safeHeading);
             return new BotCommand(ENGINE_ONE_THIRD, rudder);
         }
 
+        if (nowSeconds < ship.botEscapeUntil
+                && Math.abs(MathSupport.normalizeAngle(ship.botEscapeHeading - ship.heading())) > .25) {
+            return new BotCommand(ENGINE_ONE_THIRD, rudderTowardHeading(ship, ship.botEscapeHeading));
+        }
+
         return null;
+    }
+
+    private double retainedEscapeHeading(Ship ship, NavigationService navigationService, WorldMap worldMap) {
+        if (nowSeconds >= ship.botEscapeUntil) {
+            ship.botEscapeHeading = chooseSafeEscapeHeading(ship, navigationService, worldMap);
+            ship.botEscapeUntil = nowSeconds + 12;
+        }
+        return ship.botEscapeHeading;
     }
 
     private double chooseSafeEscapeHeading(Ship ship, NavigationService navigationService, WorldMap worldMap) {
@@ -1429,12 +1450,12 @@ public final class GameSession {
     private double escapeCourseScore(Ship ship, double heading, NavigationService navigationService, WorldMap worldMap) {
         double score = 0;
         Vector2 forward = Vector2.fromHeading(heading);
-        double[] distances = {18, 34, 58, 88, 128, 170};
+        double[] distances = {4, 8, 12, 18, 34, 58, 88, 128, 170};
         for (int index = 0; index < distances.length; index += 1) {
             Vector2 sample = ship.position().add(forward.scale(distances[index]));
             if (navigationService.isShipBlocked(sample, heading, worldMap)) {
-                score -= 5000 - index * 250;
-                continue;
+                // A clear point beyond an obstruction is not a reachable escape route.
+                return -5000 + index * 250;
             }
             score += distances[index] * (1.0 + index * 0.18);
         }
@@ -1472,7 +1493,7 @@ public final class GameSession {
             return new BotCommand(cruisingEngineOrder, rudder);
         }
 
-        double escapeHeading = chooseSafeEscapeHeading(ship, navigationService, worldMap);
+        double escapeHeading = retainedEscapeHeading(ship, navigationService, worldMap);
         return new BotCommand(Math.min(engineOrder, ENGINE_SLOW), rudderTowardHeading(ship, escapeHeading));
     }
 

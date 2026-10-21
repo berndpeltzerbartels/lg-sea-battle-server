@@ -15,6 +15,10 @@ public final class SimulationThreadsBenchmarkMain {
         for (GameSetup setup : List.of(normal, largerFleet(normal))) {
             int ships = setup.fleets().stream().mapToInt(fleet -> fleet.ships().size()).sum();
             System.out.printf("SCENARIO ships=%d terrain=%d%n", ships, setup.worldMap().landmasses().size());
+            if (args.length > 1 && "activity".equals(args[1])) {
+                run(setup, 2, true, bots);
+                continue;
+            }
             // Warm up both paths before collecting results. ABBA order reduces ordering bias.
             run(setup, 1, false, bots);
             run(setup, 2, false, bots);
@@ -41,10 +45,20 @@ public final class SimulationThreadsBenchmarkMain {
         var radar = new RadarService();
         var navigation = new NavigationService();
         double[] durations = new double[1000];
+        int movingSamples = 0, activeSamples = 0;
         for (int tick = 0; tick < 1200; tick++) {
             long start = System.nanoTime();
             session.update(.1, radar, navigation, setup.worldMap());
             if (tick >= 200) durations[tick - 200] = (System.nanoTime() - start) / 1_000_000.0;
+            // Outside the timed section; sample activity to detect misleading gains from idle fleets.
+            if (tick >= 200 && tick % 10 == 0) {
+                for (ShipSnapshot ship : session.snapshot().ships()) {
+                    if (!"active".equals(ship.state()) || !"bot".equals(ship.controlledBy())
+                            || "scout-plane".equals(ship.vehicleType())) continue;
+                    activeSamples++;
+                    if (Math.abs(ship.speed()) >= .5) movingSamples++;
+                }
+            }
         }
         if (report) {
             Arrays.sort(durations);
@@ -52,6 +66,8 @@ public final class SimulationThreadsBenchmarkMain {
                     "threads=%d ticks=%d avg=%.4fms p50=%.4fms p95=%.4fms p99=%.4fms max=%.4fms checksum=%d%n",
                     threads, durations.length, Arrays.stream(durations).average().orElseThrow(),
                     durations[499], durations[949], durations[989], durations[999], session.snapshot().ships().hashCode());
+            System.out.printf(Locale.ROOT, "movingBotSamples=%d/%d (%.1f%%)%n", movingSamples, activeSamples,
+                    activeSamples == 0 ? 0 : movingSamples * 100.0 / activeSamples);
         }
     }
 }
