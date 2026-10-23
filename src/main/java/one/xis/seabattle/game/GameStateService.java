@@ -45,6 +45,7 @@ public class GameStateService {
     private long lastSlowTickLoggedAtNanos;
     private long suppressedSlowTickLogs;
     private boolean scenarioSetupActive;
+    private GameSetup scenarioSetup;
 
     public GameStateService(DefaultGameSetupFactory setupFactory, RadarService radarService, NavigationService navigationService) {
         this.setupFactory = setupFactory;
@@ -82,6 +83,9 @@ public class GameStateService {
     public GameSnapshot tick(double deltaSeconds) {
         SessionView view;
         synchronized (this) {
+            if (connectedPlayerIds.isEmpty()) {
+                return snapshot();
+            }
             if (session.hasHumanControlledShip(connectedPlayerIds)) {
                 session.update(deltaSeconds, radarService, navigationService, session.worldMap());
             } else {
@@ -221,6 +225,13 @@ public class GameStateService {
         publishModel(view);
     }
 
+    public synchronized void finishIfNoPlayers() {
+        if (connectedPlayerIds.isEmpty()) {
+            session.finish();
+            publishModel(captureSessionView());
+        }
+    }
+
     public synchronized void transferCrewController(String previous, String next, String team) {
         session.transferCrewController(previous, next, team);
         publishModel(captureSessionView());
@@ -254,6 +265,7 @@ public class GameStateService {
         synchronized (this) {
             setupId = setup.id();
             scenarioSetupActive = true;
+            scenarioSetup = setup;
             requestedTeamIds.clear();
             session = new GameSession(setup);
             view = captureSessionView();
@@ -267,6 +279,7 @@ public class GameStateService {
         synchronized (this) {
             setupId = nextSetupId;
             scenarioSetupActive = false;
+            scenarioSetup = null;
             requestedTeamIds.clear();
             session = new GameSession(setupFactory.setup(setupId, List.copyOf(requestedTeamIds)));
             view = captureSessionView();
@@ -275,8 +288,12 @@ public class GameStateService {
         return view.state();
     }
 
-    public GameSnapshot resetCurrentSetup() {
+    public synchronized GameSnapshot resetCurrentSetup() {
         if (scenarioSetupActive) {
+            if ("finished".equals(session.snapshot().state())) {
+                session = new GameSession(scenarioSetup);
+                publishModel(captureSessionView());
+            }
             return snapshot();
         }
         return resetToSetup(setupId);

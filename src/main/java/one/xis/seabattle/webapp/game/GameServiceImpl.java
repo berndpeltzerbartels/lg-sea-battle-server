@@ -35,6 +35,17 @@ class GameServiceImpl implements GameService {
         }
     }
 
+    @Override
+    public synchronized void endActiveGame() {
+        if (activeGame == null) {
+            return;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        playSessionService.endActiveSessionsForGame(activeGame.getId(), now);
+        gameRepository.save(new GameEntity(activeGame.getId(), ENDED, activeGame.getBeginTime(), now));
+        activeGame = null;
+    }
+
     private GameEntity startNewGame() {
         LocalDateTime now = LocalDateTime.now();
         gameRepository.findByStatus(ACTIVE).stream()

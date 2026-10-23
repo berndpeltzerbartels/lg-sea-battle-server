@@ -20,6 +20,9 @@ public class CrewService {
 
     public synchronized String startOwnShip(Account account, String vehicle) {
         departForSelection(account.id());
+        if ("finished".equals(game.snapshot().state())) {
+            game.resetCurrentSetup();
+        }
         game.activateTeam(account.team());
         String player = "player-" + account.alias() + "-" + UUID.randomUUID().toString().substring(0, 12);
         players.register(player, account.alias(), account.nickname(), account.team(), account.id());

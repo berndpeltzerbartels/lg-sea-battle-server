@@ -27,6 +27,25 @@ class GameServiceImplTest {
         assertEquals(List.of("old-game"), playSessionService.closedGameIds);
     }
 
+    @Test
+    void lastPlayerDepartureEndsGameOnceAndNextPlayerGetsANewRound() {
+        InMemoryGameRepository repository = new InMemoryGameRepository();
+        RecordingPlaySessionService sessions = new RecordingPlaySessionService();
+        GameServiceImpl service = new GameServiceImpl(repository, sessions);
+        service.endActiveGame();
+        assertEquals(0, repository.count());
+        String first = service.activeGameId();
+        service.endActiveGame();
+        service.endActiveGame();
+        GameEntity ended = repository.findById(first).orElseThrow();
+        assertEquals("ENDED", ended.getStatus());
+        org.junit.jupiter.api.Assertions.assertNotNull(ended.getEndTime());
+        assertEquals(List.of(first), sessions.closedGameIds);
+        assertEquals(0, repository.findByStatus("ACTIVE").size());
+        assertNotEquals(first, service.activeGameId());
+        assertEquals(1, repository.findByStatus("ACTIVE").size());
+    }
+
     private static class InMemoryGameRepository implements GameRepository {
         private final Map<String, GameEntity> games = new LinkedHashMap<>();
 

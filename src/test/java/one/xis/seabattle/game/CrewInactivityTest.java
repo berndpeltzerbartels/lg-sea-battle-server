@@ -31,8 +31,12 @@ class CrewInactivityTest {
             public void endActiveSessionsForGame(String g, LocalDateTime time) {}
             public boolean isAliasActiveForOtherAccount(String g, String a, String id) { return false; }
         };
+        var endedGames = new java.util.concurrent.atomic.AtomicInteger();
         var games = (GameService) java.lang.reflect.Proxy.newProxyInstance(GameService.class.getClassLoader(),
-                new Class<?>[] { GameService.class }, (proxy, method, args) -> "test");
+                new Class<?>[] { GameService.class }, (proxy, method, args) -> {
+                    if (method.getName().equals("endActiveGame")) { endedGames.incrementAndGet(); return null; }
+                    return "test";
+                });
         var events = new SeaBattleEventService(new SseConnectionHub(), game, players, sessions, games, crew);
         var messages = new java.util.concurrent.CopyOnWriteArrayList<String>();
         var closed = new java.util.concurrent.atomic.AtomicBoolean();
@@ -58,5 +62,16 @@ class CrewInactivityTest {
                 leaving, before.shipId(), before.revision(), before.station(), null, null, null)));
         assertEquals(before.station(), crew.switchStation(new CrewService.Command(
                 staying, survivor.shipId(), survivor.revision(), before.station(), null, null, null)).station());
+        assertEquals(0, endedGames.get());
+        assertEquals("running", game.snapshot().state());
+        events.unregisterPlayer(staying);
+        assertEquals(1, endedGames.get());
+        assertEquals("finished", game.snapshot().state());
+        double stoppedAt = game.snapshot().t();
+        assertEquals(stoppedAt, game.tick(60).t());
+        String next = crew.startOwnShip(new Account("NEW", "New Captain", "NEW", "light", null), "torpedo-boat");
+        assertEquals("running", game.snapshot().state());
+        assertEquals(0, game.snapshot().t());
+        assertTrue(players.isRegisteredPlayer(next));
     }
 }

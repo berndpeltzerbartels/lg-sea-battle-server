@@ -242,7 +242,7 @@ class GameStateServiceTest {
     }
 
     @Test
-    void tickAdvancesIdleTimeWithoutConnectedPlayerWithoutMovingShips() {
+    void tickPausesWithoutConnectedPlayersWithoutMovingShips() {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
                 new RadarService(),
@@ -257,7 +257,7 @@ class GameStateServiceTest {
                 .findFirst()
                 .orElseThrow();
 
-        assertTrue(after.t() > before.t());
+        assertEquals(before.t(), after.t());
         assertEquals(beforeShip.x(), afterShip.x());
         assertEquals(beforeShip.z(), afterShip.z());
     }

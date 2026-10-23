@@ -768,6 +768,10 @@ public final class GameSession {
         checkGameOver();
     }
 
+    public synchronized void finish() {
+        state = "finished";
+    }
+
     public synchronized void updateIdle(double deltaSeconds, RadarService radarService, NavigationService navigationService, WorldMap worldMap) {
         if (!"running".equals(state)) {
             return;
