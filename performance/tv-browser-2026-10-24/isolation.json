@@ -1,0 +1,130 @@
+{
+  "device": {
+    "model": "LG OLED55G29LA",
+    "reportedProduct": "webOSTV 7.0",
+    "firmware": "33.31.61",
+    "browserUserAgent": "Mozilla/5.0 (Linux; NetCast; U) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 SmartTV/10.0 Colt/2.0"
+  },
+  "method": "Real TV controlled over paired SSAP. Isolated HTTP server on local Mac. Each page runs 4 seconds then advances. No game code, Babylon, Vite runtime or remote dependencies. Common inline error handler sends reports via XMLHttpRequest. Variants: plain heading, canvas, tiny classic external script, tiny module script.",
+  "events": [
+    {
+      "page": "/plain",
+      "ms": 88,
+      "message": "page entered"
+    },
+    {
+      "page": "/plain",
+      "ms": 124,
+      "message": "ERROR",
+      "extra": {
+        "message": "Script error.",
+        "source": "",
+        "line": 0,
+        "column": 0,
+        "stack": null
+      }
+    },
+    {
+      "page": "/plain",
+      "ms": 103,
+      "message": "load complete"
+    },
+    {
+      "page": "/plain",
+      "ms": 4099,
+      "message": "test complete"
+    },
+    {
+      "page": "/canvas",
+      "ms": 83,
+      "message": "page entered"
+    },
+    {
+      "page": "/canvas",
+      "ms": 92,
+      "message": "load complete"
+    },
+    {
+      "page": "/canvas",
+      "ms": 118,
+      "message": "ERROR",
+      "extra": {
+        "message": "Script error.",
+        "source": "",
+        "line": 0,
+        "column": 0,
+        "stack": null
+      }
+    },
+    {
+      "page": "/canvas",
+      "ms": 4090,
+      "message": "test complete"
+    },
+    {
+      "page": "/classic",
+      "ms": 79,
+      "message": "page entered"
+    },
+    {
+      "page": "/classic",
+      "ms": 97,
+      "message": "external script ran"
+    },
+    {
+      "page": "/classic",
+      "ms": 104,
+      "message": "load complete"
+    },
+    {
+      "page": "/classic",
+      "ms": 117,
+      "message": "ERROR",
+      "extra": {
+        "message": "Script error.",
+        "source": "",
+        "line": 0,
+        "column": 0,
+        "stack": null
+      }
+    },
+    {
+      "page": "/classic",
+      "ms": 4103,
+      "message": "test complete"
+    },
+    {
+      "page": "/module",
+      "ms": 92,
+      "message": "page entered"
+    },
+    {
+      "page": "/module",
+      "ms": 108,
+      "message": "external script ran"
+    },
+    {
+      "page": "/module",
+      "ms": 114,
+      "message": "load complete"
+    },
+    {
+      "page": "/module",
+      "ms": 132,
+      "message": "ERROR",
+      "extra": {
+        "message": "Script error.",
+        "source": "",
+        "line": 0,
+        "column": 0,
+        "stack": null
+      }
+    },
+    {
+      "page": "/module",
+      "ms": 4099,
+      "message": "test complete"
+    }
+  ],
+  "finding": "All four pages emit identical source-less Script error. and then complete successfully. This reproduces the observed event independently of game/Babylon. It does not identify the exact internal browser script or firmware cause."
+}
