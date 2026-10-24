@@ -145,7 +145,11 @@ public class SeaBattleLoginPage {
         }
         Account savedAccount = accountService.saveAccount(account);
         String vehicleType = normalizeVehicleType(form.vehicleType());
-        crew.startOwnShip(savedAccount, vehicleType);
+        try {
+            crew.startOwnShip(savedAccount, vehicleType);
+        } catch (one.xis.seabattle.game.DuelSlotUnavailableException e) {
+            throw new ValidationFailedException("/login/team", "seaBattle.duelColorTaken");
+        }
         String target = switch (vehicleType) {
             case "submarine" -> "/app?vehicle=submarine";
             default -> "/app";

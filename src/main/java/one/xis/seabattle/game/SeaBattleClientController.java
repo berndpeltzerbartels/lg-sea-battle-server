@@ -146,7 +146,12 @@ public class SeaBattleClientController {
             return ResponseEntity.status(409, "Alias is already active");
         }
         accountService.saveAccount(account);
-        String playerId = crew.startOwnShip(account, vehicleType);
+        String playerId;
+        try {
+            playerId = crew.startOwnShip(account, vehicleType);
+        } catch (DuelSlotUnavailableException e) {
+            return ResponseEntity.status(409, e.getMessage());
+        }
         PlayerLogin player = new PlayerLogin(playerId, account.alias(), account.team());
         return ResponseEntity.ok(new StartGameResponse(accountId, player));
     }

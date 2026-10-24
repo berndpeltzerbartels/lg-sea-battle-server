@@ -434,8 +434,8 @@ public final class GameSession {
         return "two-ship-duel".equals(id);
     }
 
-    private IllegalArgumentException duelSlotUnavailable() {
-        return new IllegalArgumentException("Spezialmenü 9 hat genau ein Schiff pro Farbe. Bitte Light und Dark wählen; ein belegtes oder gesunkenes Schiff kann nicht zusätzlich angelegt werden.");
+    private DuelSlotUnavailableException duelSlotUnavailable() {
+        return new DuelSlotUnavailableException();
     }
 
     private Ship additionalPlayerShip(Fleet fleet, String player, Vector2 position, double heading, String vehicle, double y) {
