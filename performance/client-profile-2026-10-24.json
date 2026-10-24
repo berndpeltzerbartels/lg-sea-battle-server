@@ -1,0 +1,2603 @@
+{
+  "date": "2026-10-24",
+  "method": "Local Chrome replay of the real 105-landmass map and 40 stationary ships, anonymized controllers, synthetic 10 Hz state stream and staggered flak projectiles; Apple M4 Pro via ANGLE Metal, no CPU/network throttling. Does not access or mutate live game state.",
+  "clientBaseCommit": "7007994",
+  "instrumentation": "Local optional perf-log=1 CPU timers, compatible with existing metrics.",
+  "limitations": [
+    "This is Chrome, not a recording of the user's active Firefox session.",
+    "Only CPU wall time is measured. sceneDrawCpuMs includes engine render preparation, the earlier light-priority callback and graphics-driver submission, not isolated GPU elapsed time.",
+    "Most synthetic projectiles were outside the current view. Explosions, water impacts, cannon smoke and a moving camera were not reproduced.",
+    "All measured steady-state windows stayed near 60 FPS. The complete loss of input was not reproduced.",
+    "The large public load test already showed significant server/API delays, so a client-only explanation is unsupported.",
+    "Muzzle-effect exclusion removes the whole new-shot effect path, including muzzle transforms, meshes, lights and recoil, not lights alone."
+  ],
+  "averages": [
+    {
+      "label": "no-projectiles",
+      "settings": {
+        "projectiles": 0,
+        "hudPlayers": 8,
+        "shots": true
+      },
+      "metrics": {
+        "controlsCpuMs": {
+          "mean": 0.013,
+          "max": 0.1,
+          "count": 600
+        },
+        "shipMotionCpuMs": {
+          "mean": 0.159,
+          "max": 0.3,
+          "count": 600
+        },
+        "worldVisualsCpuMs": {
+          "mean": 0.557,
+          "max": 1,
+          "count": 600
+        },
+        "projectileUpdateMs": {
+          "mean": 0.006,
+          "max": 0.1,
+          "count": 600
+        },
+        "instrumentsCpuMs": {
+          "mean": 0.609,
+          "max": 0.9,
+          "count": 600
+        },
+        "frameLogicCpuMs": {
+          "mean": 1.456,
+          "max": 1.9,
+          "count": 600
+        },
+        "renderCpuMs": {
+          "mean": 4.881,
+          "max": 5.6,
+          "count": 600
+        },
+        "sceneDrawCpuMs": {
+          "mean": 3.425,
+          "max": 3.9,
+          "count": 600
+        },
+        "frameMs": {
+          "mean": 16.674,
+          "max": 19.5,
+          "count": 600
+        },
+        "flakActive": {
+          "mean": 0,
+          "max": 0,
+          "count": 600
+        },
+        "cannonActive": {
+          "mean": 0,
+          "max": 0,
+          "count": 600
+        },
+        "cannonDrawn": {
+          "mean": 0,
+          "max": 0,
+          "count": 600
+        },
+        "cannonHidden": {
+          "mean": 0,
+          "max": 0,
+          "count": 600
+        },
+        "projectileLights": {
+          "mean": 0,
+          "max": 0,
+          "count": 600
+        },
+        "activeMeshes": {
+          "mean": 160.856,
+          "max": 161,
+          "count": 600
+        },
+        "width": {
+          "mean": 860,
+          "max": 860,
+          "count": 600
+        },
+        "height": {
+          "mean": 1133,
+          "max": 1133,
+          "count": 600
+        },
+        "fov": {
+          "mean": 0.86,
+          "max": 0.86,
+          "count": 600
+        },
+        "jsonParseMs": {
+          "mean": 0.046,
+          "max": 0.2,
+          "count": 100
+        },
+        "streamMs": {
+          "mean": 0.365,
+          "max": 0.5,
+          "count": 100
+        },
+        "messageChars": {
+          "mean": 14080.92,
+          "max": 14083,
+          "count": 100
+        },
+        "diagnosticContextMs": {
+          "mean": 0.04,
+          "max": 0.1,
+          "count": 10
+        }
+      }
+    },
+    {
+      "label": "100-projectiles",
+      "settings": {
+        "projectiles": 100,
+        "hudPlayers": 8,
+        "shots": true
+      },
+      "metrics": {
+        "controlsCpuMs": {
+          "mean": 0.011,
+          "max": 0.1,
+          "count": 600
+        },
+        "shipMotionCpuMs": {
+          "mean": 0.149,
+          "max": 0.3,
+          "count": 600
+        },
+        "worldVisualsCpuMs": {
+          "mean": 0.502,
+          "max": 1,
+          "count": 600
+        },
+        "projectileUpdateMs": {
+          "mean": 0.422,
+          "max": 3.3,
+          "count": 600
+        },
+        "instrumentsCpuMs": {
+          "mean": 0.575,
+          "max": 0.8,
+          "count": 600
+        },
+        "frameLogicCpuMs": {
+          "mean": 1.772,
+          "max": 4.6,
+          "count": 600
+        },
+        "renderCpuMs": {
+          "mean": 6.445,
+          "max": 14.4,
+          "count": 600
+        },
+        "sceneDrawCpuMs": {
+          "mean": 4.673,
+          "max": 9.8,
+          "count": 600
+        },
+        "frameMs": {
+          "mean": 16.675,
+          "max": 19.1,
+          "count": 600
+        },
+        "flakActive": {
+          "mean": 97,
+          "max": 97,
+          "count": 600
+        },
+        "cannonActive": {
+          "mean": 0,
+          "max": 0,
+          "count": 600
+        },
+        "cannonDrawn": {
+          "mean": 0,
+          "max": 0,
+          "count": 600
+        },
+        "cannonHidden": {
+          "mean": 0,
+          "max": 0,
+          "count": 600
+        },
+        "projectileLights": {
+          "mean": 0,
+          "max": 0,
+          "count": 600
+        },
+        "activeMeshes": {
+          "mean": 160.052,
+          "max": 162,
+          "count": 600
+        },
+        "width": {
+          "mean": 860,
+          "max": 860,
+          "count": 600
+        },
+        "height": {
+          "mean": 1133,
+          "max": 1133,
+          "count": 600
+        },
+        "fov": {
+          "mean": 0.86,
+          "max": 0.86,
+          "count": 600
+        },
+        "diagnosticContextMs": {
+          "mean": 0.06,
+          "max": 0.1,
+          "count": 10
+        },
+        "jsonParseMs": {
+          "mean": 0.071,
+          "max": 0.2,
+          "count": 100
+        },
+        "streamMs": {
+          "mean": 2.608,
+          "max": 3.7,
+          "count": 100
+        },
+        "messageChars": {
+          "mean": 35876.99,
+          "max": 36011,
+          "count": 100
+        }
+      }
+    },
+    {
+      "label": "450-projectiles",
+      "settings": {
+        "projectiles": 450,
+        "hudPlayers": 30,
+        "shots": true
+      },
+      "metrics": {
+        "controlsCpuMs": {
+          "mean": 0.013,
+          "max": 0.2,
+          "count": 600
+        },
+        "shipMotionCpuMs": {
+          "mean": 0.153,
+          "max": 0.3,
+          "count": 600
+        },
+        "worldVisualsCpuMs": {
+          "mean": 0.509,
+          "max": 0.8,
+          "count": 600
+        },
+        "projectileUpdateMs": {
+          "mean": 1.285,
+          "max": 9,
+          "count": 600
+        },
+        "instrumentsCpuMs": {
+          "mean": 0.54,
+          "max": 0.7,
+          "count": 600
+        },
+        "frameLogicCpuMs": {
+          "mean": 2.606,
+          "max": 10.4,
+          "count": 600
+        },
+        "renderCpuMs": {
+          "mean": 8.136,
+          "max": 17.8,
+          "count": 600
+        },
+        "sceneDrawCpuMs": {
+          "mean": 5.529,
+          "max": 10.2,
+          "count": 600
+        },
+        "frameMs": {
+          "mean": 16.675,
+          "max": 20.8,
+          "count": 600
+        },
+        "flakActive": {
+          "mean": 438,
+          "max": 438,
+          "count": 600
+        },
+        "cannonActive": {
+          "mean": 0,
+          "max": 0,
+          "count": 600
+        },
+        "cannonDrawn": {
+          "mean": 0,
+          "max": 0,
+          "count": 600
+        },
+        "cannonHidden": {
+          "mean": 0,
+          "max": 0,
+          "count": 600
+        },
+        "projectileLights": {
+          "mean": 0,
+          "max": 0,
+          "count": 600
+        },
+        "activeMeshes": {
+          "mean": 162.079,
+          "max": 164,
+          "count": 600
+        },
+        "width": {
+          "mean": 860,
+          "max": 860,
+          "count": 600
+        },
+        "height": {
+          "mean": 1133,
+          "max": 1133,
+          "count": 600
+        },
+        "fov": {
+          "mean": 0.86,
+          "max": 0.86,
+          "count": 600
+        },
+        "jsonParseMs": {
+          "mean": 0.159,
+          "max": 0.3,
+          "count": 100
+        },
+        "streamMs": {
+          "mean": 6.537,
+          "max": 9.1,
+          "count": 100
+        },
+        "messageChars": {
+          "mean": 120098.87,
+          "max": 120232,
+          "count": 100
+        },
+        "diagnosticContextMs": {
+          "mean": 0.06,
+          "max": 0.2,
+          "count": 10
+        }
+      }
+    },
+    {
+      "label": "450-projectiles-no-new-muzzle-effects",
+      "settings": {
+        "projectiles": 450,
+        "hudPlayers": 30,
+        "shots": false
+      },
+      "metrics": {
+        "controlsCpuMs": {
+          "mean": 0.012,
+          "max": 0.2,
+          "count": 900
+        },
+        "shipMotionCpuMs": {
+          "mean": 0.154,
+          "max": 0.3,
+          "count": 900
+        },
+        "worldVisualsCpuMs": {
+          "mean": 0.535,
+          "max": 1,
+          "count": 900
+        },
+        "projectileUpdateMs": {
+          "mean": 0.45,
+          "max": 0.7,
+          "count": 900
+        },
+        "instrumentsCpuMs": {
+          "mean": 0.587,
+          "max": 1,
+          "count": 900
+        },
+        "frameLogicCpuMs": {
+          "mean": 1.851,
+          "max": 2.6,
+          "count": 900
+        },
+        "renderCpuMs": {
+          "mean": 6.017,
+          "max": 6.7,
+          "count": 900
+        },
+        "sceneDrawCpuMs": {
+          "mean": 4.166,
+          "max": 4.9,
+          "count": 900
+        },
+        "frameMs": {
+          "mean": 16.674,
+          "max": 20.2,
+          "count": 900
+        },
+        "flakActive": {
+          "mean": 438,
+          "max": 438,
+          "count": 900
+        },
+        "cannonActive": {
+          "mean": 0,
+          "max": 0,
+          "count": 900
+        },
+        "cannonDrawn": {
+          "mean": 0,
+          "max": 0,
+          "count": 900
+        },
+        "cannonHidden": {
+          "mean": 0,
+          "max": 0,
+          "count": 900
+        },
+        "projectileLights": {
+          "mean": 0,
+          "max": 0,
+          "count": 900
+        },
+        "activeMeshes": {
+          "mean": 156.257,
+          "max": 157,
+          "count": 900
+        },
+        "width": {
+          "mean": 860,
+          "max": 860,
+          "count": 900
+        },
+        "height": {
+          "mean": 1133,
+          "max": 1133,
+          "count": 900
+        },
+        "fov": {
+          "mean": 0.86,
+          "max": 0.86,
+          "count": 900
+        },
+        "jsonParseMs": {
+          "mean": 0.164,
+          "max": 0.3,
+          "count": 150
+        },
+        "streamMs": {
+          "mean": 0.857,
+          "max": 1.8,
+          "count": 150
+        },
+        "messageChars": {
+          "mean": 113501.813,
+          "max": 113583,
+          "count": 150
+        },
+        "diagnosticContextMs": {
+          "mean": 0.027,
+          "max": 0.1,
+          "count": 15
+        }
+      }
+    },
+    {
+      "label": "450-projectiles-ultrawide",
+      "settings": {
+        "projectiles": 450,
+        "hudPlayers": 30,
+        "shots": true
+      },
+      "metrics": {
+        "controlsCpuMs": {
+          "mean": 0.012,
+          "max": 0.1,
+          "count": 901
+        },
+        "shipMotionCpuMs": {
+          "mean": 0.141,
+          "max": 0.3,
+          "count": 901
+        },
+        "worldVisualsCpuMs": {
+          "mean": 0.517,
+          "max": 0.9,
+          "count": 901
+        },
+        "projectileUpdateMs": {
+          "mean": 1.313,
+          "max": 12.5,
+          "count": 901
+        },
+        "instrumentsCpuMs": {
+          "mean": 0.649,
+          "max": 1.5,
+          "count": 901
+        },
+        "frameLogicCpuMs": {
+          "mean": 2.739,
+          "max": 14,
+          "count": 901
+        },
+        "renderCpuMs": {
+          "mean": 8.45,
+          "max": 22.1,
+          "count": 901
+        },
+        "sceneDrawCpuMs": {
+          "mean": 5.711,
+          "max": 10.9,
+          "count": 901
+        },
+        "frameMs": {
+          "mean": 16.669,
+          "max": 23.5,
+          "count": 901
+        },
+        "flakActive": {
+          "mean": 438,
+          "max": 438,
+          "count": 901
+        },
+        "cannonActive": {
+          "mean": 0,
+          "max": 0,
+          "count": 901
+        },
+        "cannonDrawn": {
+          "mean": 0,
+          "max": 0,
+          "count": 901
+        },
+        "cannonHidden": {
+          "mean": 0,
+          "max": 0,
+          "count": 901
+        },
+        "projectileLights": {
+          "mean": 0,
+          "max": 0,
+          "count": 901
+        },
+        "activeMeshes": {
+          "mean": 200.625,
+          "max": 205,
+          "count": 901
+        },
+        "width": {
+          "mean": 2920,
+          "max": 2920,
+          "count": 901
+        },
+        "height": {
+          "mean": 1440,
+          "max": 1440,
+          "count": 901
+        },
+        "fov": {
+          "mean": 0.86,
+          "max": 0.86,
+          "count": 901
+        },
+        "diagnosticContextMs": {
+          "mean": 0.04,
+          "max": 0.1,
+          "count": 15
+        },
+        "jsonParseMs": {
+          "mean": 0.157,
+          "max": 0.3,
+          "count": 150
+        },
+        "streamMs": {
+          "mean": 6.463,
+          "max": 11.3,
+          "count": 150
+        },
+        "messageChars": {
+          "mean": 119971.667,
+          "max": 120078,
+          "count": 150
+        }
+      }
+    },
+    {
+      "label": "450-projectiles-detailed",
+      "settings": {
+        "projectiles": 450,
+        "hudPlayers": 30,
+        "shots": true
+      },
+      "metrics": {
+        "controlsCpuMs": {
+          "mean": 0.011,
+          "max": 0.2,
+          "count": 900
+        },
+        "shipMotionCpuMs": {
+          "mean": 0.143,
+          "max": 0.3,
+          "count": 900
+        },
+        "worldVisualsCpuMs": {
+          "mean": 0.541,
+          "max": 1,
+          "count": 900
+        },
+        "projectileUpdateMs": {
+          "mean": 1.254,
+          "max": 7.7,
+          "count": 900
+        },
+        "instrumentsCpuMs": {
+          "mean": 0.669,
+          "max": 2.3,
+          "count": 900
+        },
+        "frameLogicCpuMs": {
+          "mean": 2.731,
+          "max": 8.9,
+          "count": 900
+        },
+        "renderCpuMs": {
+          "mean": 8.546,
+          "max": 18.3,
+          "count": 900
+        },
+        "sceneDrawCpuMs": {
+          "mean": 5.815,
+          "max": 11.2,
+          "count": 900
+        },
+        "frameMs": {
+          "mean": 16.677,
+          "max": 22.9,
+          "count": 900
+        },
+        "flakActive": {
+          "mean": 438,
+          "max": 438,
+          "count": 900
+        },
+        "cannonActive": {
+          "mean": 0,
+          "max": 0,
+          "count": 900
+        },
+        "cannonDrawn": {
+          "mean": 0,
+          "max": 0,
+          "count": 900
+        },
+        "cannonHidden": {
+          "mean": 0,
+          "max": 0,
+          "count": 900
+        },
+        "projectileLights": {
+          "mean": 0,
+          "max": 0,
+          "count": 900
+        },
+        "activeMeshes": {
+          "mean": 203.85,
+          "max": 208,
+          "count": 900
+        },
+        "width": {
+          "mean": 2920,
+          "max": 2920,
+          "count": 900
+        },
+        "height": {
+          "mean": 1440,
+          "max": 1440,
+          "count": 900
+        },
+        "fov": {
+          "mean": 0.86,
+          "max": 0.86,
+          "count": 900
+        },
+        "diagnosticContextMs": {
+          "mean": 0.053,
+          "max": 0.1,
+          "count": 15
+        },
+        "jsonParseMs": {
+          "mean": 0.151,
+          "max": 0.3,
+          "count": 150
+        },
+        "snapshotHudCpuMs": {
+          "mean": 0.358,
+          "max": 0.6,
+          "count": 150
+        },
+        "muzzleEffectsBatchCpuMs": {
+          "mean": 4.832,
+          "max": 7.7,
+          "count": 150
+        },
+        "projectileSyncCpuMs": {
+          "mean": 0.177,
+          "max": 0.3,
+          "count": 150
+        },
+        "streamMs": {
+          "mean": 5.775,
+          "max": 8.8,
+          "count": 150
+        },
+        "messageChars": {
+          "mean": 120092.78,
+          "max": 120250,
+          "count": 150
+        }
+      }
+    }
+  ],
+  "cases": [
+    {
+      "label": "no-projectiles",
+      "settings": {
+        "projectiles": 0,
+        "hudPlayers": 8,
+        "shots": true
+      },
+      "reports": [
+        {
+          "at": "2026-10-24T10:32:56.572Z",
+          "metrics": {
+            "controlsCpuMs": {
+              "mean": 0.014,
+              "max": 0.1,
+              "count": 300
+            },
+            "shipMotionCpuMs": {
+              "mean": 0.157,
+              "max": 0.3,
+              "count": 300
+            },
+            "worldVisualsCpuMs": {
+              "mean": 0.558,
+              "max": 0.9,
+              "count": 300
+            },
+            "projectileUpdateMs": {
+              "mean": 0.007,
+              "max": 0.1,
+              "count": 300
+            },
+            "instrumentsCpuMs": {
+              "mean": 0.612,
+              "max": 0.9,
+              "count": 300
+            },
+            "frameLogicCpuMs": {
+              "mean": 1.459,
+              "max": 1.9,
+              "count": 300
+            },
+            "renderCpuMs": {
+              "mean": 4.884,
+              "max": 5.4,
+              "count": 300
+            },
+            "sceneDrawCpuMs": {
+              "mean": 3.425,
+              "max": 3.9,
+              "count": 300
+            },
+            "frameMs": {
+              "mean": 16.674,
+              "max": 17.7,
+              "count": 300,
+              "framesOver50ms": 0
+            },
+            "flakActive": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonActive": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonDrawn": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonHidden": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "projectileLights": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "activeMeshes": {
+              "mean": 160.713,
+              "max": 161,
+              "count": 300
+            },
+            "width": {
+              "mean": 860,
+              "max": 860,
+              "count": 300
+            },
+            "height": {
+              "mean": 1133,
+              "max": 1133,
+              "count": 300
+            },
+            "fov": {
+              "mean": 0.86,
+              "max": 0.86,
+              "count": 300
+            },
+            "jsonParseMs": {
+              "mean": 0.038,
+              "max": 0.1,
+              "count": 50
+            },
+            "streamMs": {
+              "mean": 0.36,
+              "max": 0.5,
+              "count": 50
+            },
+            "messageChars": {
+              "mean": 14081.16,
+              "max": 14083,
+              "count": 50
+            },
+            "diagnosticContextMs": {
+              "mean": 0.02,
+              "max": 0.1,
+              "count": 5
+            }
+          }
+        },
+        {
+          "at": "2026-10-24T10:33:01.574Z",
+          "metrics": {
+            "controlsCpuMs": {
+              "mean": 0.012,
+              "max": 0.1,
+              "count": 300
+            },
+            "shipMotionCpuMs": {
+              "mean": 0.161,
+              "max": 0.3,
+              "count": 300
+            },
+            "worldVisualsCpuMs": {
+              "mean": 0.557,
+              "max": 1,
+              "count": 300
+            },
+            "projectileUpdateMs": {
+              "mean": 0.005,
+              "max": 0.1,
+              "count": 300
+            },
+            "instrumentsCpuMs": {
+              "mean": 0.605,
+              "max": 0.8,
+              "count": 300
+            },
+            "frameLogicCpuMs": {
+              "mean": 1.453,
+              "max": 1.9,
+              "count": 300
+            },
+            "renderCpuMs": {
+              "mean": 4.878,
+              "max": 5.6,
+              "count": 300
+            },
+            "sceneDrawCpuMs": {
+              "mean": 3.425,
+              "max": 3.9,
+              "count": 300
+            },
+            "frameMs": {
+              "mean": 16.674,
+              "max": 19.5,
+              "count": 300,
+              "framesOver50ms": 0
+            },
+            "flakActive": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonActive": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonDrawn": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonHidden": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "projectileLights": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "activeMeshes": {
+              "mean": 161,
+              "max": 161,
+              "count": 300
+            },
+            "width": {
+              "mean": 860,
+              "max": 860,
+              "count": 300
+            },
+            "height": {
+              "mean": 1133,
+              "max": 1133,
+              "count": 300
+            },
+            "fov": {
+              "mean": 0.86,
+              "max": 0.86,
+              "count": 300
+            },
+            "jsonParseMs": {
+              "mean": 0.054,
+              "max": 0.2,
+              "count": 50
+            },
+            "streamMs": {
+              "mean": 0.37,
+              "max": 0.5,
+              "count": 50
+            },
+            "messageChars": {
+              "mean": 14080.68,
+              "max": 14083,
+              "count": 50
+            },
+            "diagnosticContextMs": {
+              "mean": 0.06,
+              "max": 0.1,
+              "count": 5
+            }
+          }
+        }
+      ]
+    },
+    {
+      "label": "100-projectiles",
+      "settings": {
+        "projectiles": 100,
+        "hudPlayers": 8,
+        "shots": true
+      },
+      "reports": [
+        {
+          "at": "2026-10-24T10:33:21.583Z",
+          "metrics": {
+            "controlsCpuMs": {
+              "mean": 0.015,
+              "max": 0.1,
+              "count": 300
+            },
+            "shipMotionCpuMs": {
+              "mean": 0.152,
+              "max": 0.3,
+              "count": 300
+            },
+            "worldVisualsCpuMs": {
+              "mean": 0.498,
+              "max": 0.9,
+              "count": 300
+            },
+            "projectileUpdateMs": {
+              "mean": 0.425,
+              "max": 3.3,
+              "count": 300
+            },
+            "instrumentsCpuMs": {
+              "mean": 0.575,
+              "max": 0.8,
+              "count": 300
+            },
+            "frameLogicCpuMs": {
+              "mean": 1.777,
+              "max": 4.6,
+              "count": 300
+            },
+            "renderCpuMs": {
+              "mean": 6.462,
+              "max": 14.4,
+              "count": 300
+            },
+            "sceneDrawCpuMs": {
+              "mean": 4.685,
+              "max": 9.8,
+              "count": 300
+            },
+            "frameMs": {
+              "mean": 16.674,
+              "max": 17.7,
+              "count": 300,
+              "framesOver50ms": 0
+            },
+            "flakActive": {
+              "mean": 97,
+              "max": 97,
+              "count": 300
+            },
+            "cannonActive": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonDrawn": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonHidden": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "projectileLights": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "activeMeshes": {
+              "mean": 160.253,
+              "max": 162,
+              "count": 300
+            },
+            "width": {
+              "mean": 860,
+              "max": 860,
+              "count": 300
+            },
+            "height": {
+              "mean": 1133,
+              "max": 1133,
+              "count": 300
+            },
+            "fov": {
+              "mean": 0.86,
+              "max": 0.86,
+              "count": 300
+            },
+            "diagnosticContextMs": {
+              "mean": 0.06,
+              "max": 0.1,
+              "count": 5
+            },
+            "jsonParseMs": {
+              "mean": 0.07,
+              "max": 0.2,
+              "count": 50
+            },
+            "streamMs": {
+              "mean": 2.652,
+              "max": 3.7,
+              "count": 50
+            },
+            "messageChars": {
+              "mean": 35886.86,
+              "max": 36011,
+              "count": 50
+            }
+          }
+        },
+        {
+          "at": "2026-10-24T10:33:26.586Z",
+          "metrics": {
+            "controlsCpuMs": {
+              "mean": 0.007,
+              "max": 0.1,
+              "count": 300
+            },
+            "shipMotionCpuMs": {
+              "mean": 0.147,
+              "max": 0.3,
+              "count": 300
+            },
+            "worldVisualsCpuMs": {
+              "mean": 0.507,
+              "max": 1,
+              "count": 300
+            },
+            "projectileUpdateMs": {
+              "mean": 0.42,
+              "max": 2.5,
+              "count": 300
+            },
+            "instrumentsCpuMs": {
+              "mean": 0.574,
+              "max": 0.8,
+              "count": 300
+            },
+            "frameLogicCpuMs": {
+              "mean": 1.768,
+              "max": 3.8,
+              "count": 300
+            },
+            "renderCpuMs": {
+              "mean": 6.428,
+              "max": 10.6,
+              "count": 300
+            },
+            "sceneDrawCpuMs": {
+              "mean": 4.66,
+              "max": 7.6,
+              "count": 300
+            },
+            "frameMs": {
+              "mean": 16.675,
+              "max": 19.1,
+              "count": 300,
+              "framesOver50ms": 0
+            },
+            "flakActive": {
+              "mean": 97,
+              "max": 97,
+              "count": 300
+            },
+            "cannonActive": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonDrawn": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonHidden": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "projectileLights": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "activeMeshes": {
+              "mean": 159.85,
+              "max": 162,
+              "count": 300
+            },
+            "width": {
+              "mean": 860,
+              "max": 860,
+              "count": 300
+            },
+            "height": {
+              "mean": 1133,
+              "max": 1133,
+              "count": 300
+            },
+            "fov": {
+              "mean": 0.86,
+              "max": 0.86,
+              "count": 300
+            },
+            "diagnosticContextMs": {
+              "mean": 0.06,
+              "max": 0.1,
+              "count": 5
+            },
+            "jsonParseMs": {
+              "mean": 0.072,
+              "max": 0.2,
+              "count": 50
+            },
+            "streamMs": {
+              "mean": 2.564,
+              "max": 3.4,
+              "count": 50
+            },
+            "messageChars": {
+              "mean": 35867.12,
+              "max": 35997,
+              "count": 50
+            }
+          }
+        }
+      ]
+    },
+    {
+      "label": "450-projectiles",
+      "settings": {
+        "projectiles": 450,
+        "hudPlayers": 30,
+        "shots": true
+      },
+      "reports": [
+        {
+          "at": "2026-10-24T10:33:56.609Z",
+          "metrics": {
+            "controlsCpuMs": {
+              "mean": 0.01,
+              "max": 0.1,
+              "count": 300
+            },
+            "shipMotionCpuMs": {
+              "mean": 0.152,
+              "max": 0.3,
+              "count": 300
+            },
+            "worldVisualsCpuMs": {
+              "mean": 0.506,
+              "max": 0.8,
+              "count": 300
+            },
+            "projectileUpdateMs": {
+              "mean": 1.261,
+              "max": 8.4,
+              "count": 300
+            },
+            "instrumentsCpuMs": {
+              "mean": 0.531,
+              "max": 0.7,
+              "count": 300
+            },
+            "frameLogicCpuMs": {
+              "mean": 2.569,
+              "max": 9.7,
+              "count": 300
+            },
+            "renderCpuMs": {
+              "mean": 8.085,
+              "max": 17.5,
+              "count": 300
+            },
+            "sceneDrawCpuMs": {
+              "mean": 5.516,
+              "max": 10.2,
+              "count": 300
+            },
+            "frameMs": {
+              "mean": 16.677,
+              "max": 20.8,
+              "count": 300,
+              "framesOver50ms": 0
+            },
+            "flakActive": {
+              "mean": 438,
+              "max": 438,
+              "count": 300
+            },
+            "cannonActive": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonDrawn": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonHidden": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "projectileLights": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "activeMeshes": {
+              "mean": 162.127,
+              "max": 164,
+              "count": 300
+            },
+            "width": {
+              "mean": 860,
+              "max": 860,
+              "count": 300
+            },
+            "height": {
+              "mean": 1133,
+              "max": 1133,
+              "count": 300
+            },
+            "fov": {
+              "mean": 0.86,
+              "max": 0.86,
+              "count": 300
+            },
+            "jsonParseMs": {
+              "mean": 0.164,
+              "max": 0.3,
+              "count": 50
+            },
+            "streamMs": {
+              "mean": 6.416,
+              "max": 7.7,
+              "count": 50
+            },
+            "messageChars": {
+              "mean": 120101.82,
+              "max": 120232,
+              "count": 50
+            },
+            "diagnosticContextMs": {
+              "mean": 0.04,
+              "max": 0.1,
+              "count": 5
+            }
+          }
+        },
+        {
+          "at": "2026-10-24T10:34:01.611Z",
+          "metrics": {
+            "controlsCpuMs": {
+              "mean": 0.015,
+              "max": 0.2,
+              "count": 300
+            },
+            "shipMotionCpuMs": {
+              "mean": 0.154,
+              "max": 0.3,
+              "count": 300
+            },
+            "worldVisualsCpuMs": {
+              "mean": 0.511,
+              "max": 0.8,
+              "count": 300
+            },
+            "projectileUpdateMs": {
+              "mean": 1.309,
+              "max": 9,
+              "count": 300
+            },
+            "instrumentsCpuMs": {
+              "mean": 0.549,
+              "max": 0.7,
+              "count": 300
+            },
+            "frameLogicCpuMs": {
+              "mean": 2.643,
+              "max": 10.4,
+              "count": 300
+            },
+            "renderCpuMs": {
+              "mean": 8.186,
+              "max": 17.8,
+              "count": 300
+            },
+            "sceneDrawCpuMs": {
+              "mean": 5.543,
+              "max": 9.9,
+              "count": 300
+            },
+            "frameMs": {
+              "mean": 16.674,
+              "max": 19.8,
+              "count": 300,
+              "framesOver50ms": 0
+            },
+            "flakActive": {
+              "mean": 438,
+              "max": 438,
+              "count": 300
+            },
+            "cannonActive": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonDrawn": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonHidden": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "projectileLights": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "activeMeshes": {
+              "mean": 162.03,
+              "max": 164,
+              "count": 300
+            },
+            "width": {
+              "mean": 860,
+              "max": 860,
+              "count": 300
+            },
+            "height": {
+              "mean": 1133,
+              "max": 1133,
+              "count": 300
+            },
+            "fov": {
+              "mean": 0.86,
+              "max": 0.86,
+              "count": 300
+            },
+            "jsonParseMs": {
+              "mean": 0.154,
+              "max": 0.3,
+              "count": 50
+            },
+            "streamMs": {
+              "mean": 6.658,
+              "max": 9.1,
+              "count": 50
+            },
+            "messageChars": {
+              "mean": 120095.92,
+              "max": 120209,
+              "count": 50
+            },
+            "diagnosticContextMs": {
+              "mean": 0.08,
+              "max": 0.2,
+              "count": 5
+            }
+          }
+        }
+      ]
+    },
+    {
+      "label": "450-projectiles-no-new-muzzle-effects",
+      "settings": {
+        "projectiles": 450,
+        "hudPlayers": 30,
+        "shots": false
+      },
+      "reports": [
+        {
+          "at": "2026-10-24T10:34:21.612Z",
+          "metrics": {
+            "controlsCpuMs": {
+              "mean": 0.012,
+              "max": 0.1,
+              "count": 300
+            },
+            "shipMotionCpuMs": {
+              "mean": 0.153,
+              "max": 0.3,
+              "count": 300
+            },
+            "worldVisualsCpuMs": {
+              "mean": 0.536,
+              "max": 1,
+              "count": 300
+            },
+            "projectileUpdateMs": {
+              "mean": 0.443,
+              "max": 0.6,
+              "count": 300
+            },
+            "instrumentsCpuMs": {
+              "mean": 0.592,
+              "max": 1,
+              "count": 300
+            },
+            "frameLogicCpuMs": {
+              "mean": 1.857,
+              "max": 2.6,
+              "count": 300
+            },
+            "renderCpuMs": {
+              "mean": 6.011,
+              "max": 6.7,
+              "count": 300
+            },
+            "sceneDrawCpuMs": {
+              "mean": 4.155,
+              "max": 4.7,
+              "count": 300
+            },
+            "frameMs": {
+              "mean": 16.674,
+              "max": 18.4,
+              "count": 300,
+              "framesOver50ms": 0
+            },
+            "flakActive": {
+              "mean": 438,
+              "max": 438,
+              "count": 300
+            },
+            "cannonActive": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonDrawn": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonHidden": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "projectileLights": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "activeMeshes": {
+              "mean": 156.02,
+              "max": 157,
+              "count": 300
+            },
+            "width": {
+              "mean": 860,
+              "max": 860,
+              "count": 300
+            },
+            "height": {
+              "mean": 1133,
+              "max": 1133,
+              "count": 300
+            },
+            "fov": {
+              "mean": 0.86,
+              "max": 0.86,
+              "count": 300
+            },
+            "jsonParseMs": {
+              "mean": 0.174,
+              "max": 0.3,
+              "count": 50
+            },
+            "streamMs": {
+              "mean": 0.884,
+              "max": 1.2,
+              "count": 50
+            },
+            "messageChars": {
+              "mean": 113523.16,
+              "max": 113583,
+              "count": 50
+            },
+            "diagnosticContextMs": {
+              "mean": 0.04,
+              "max": 0.1,
+              "count": 5
+            }
+          }
+        },
+        {
+          "at": "2026-10-24T10:34:26.614Z",
+          "metrics": {
+            "controlsCpuMs": {
+              "mean": 0.013,
+              "max": 0.1,
+              "count": 300
+            },
+            "shipMotionCpuMs": {
+              "mean": 0.151,
+              "max": 0.3,
+              "count": 300
+            },
+            "worldVisualsCpuMs": {
+              "mean": 0.531,
+              "max": 0.9,
+              "count": 300
+            },
+            "projectileUpdateMs": {
+              "mean": 0.447,
+              "max": 0.6,
+              "count": 300
+            },
+            "instrumentsCpuMs": {
+              "mean": 0.572,
+              "max": 0.8,
+              "count": 300
+            },
+            "frameLogicCpuMs": {
+              "mean": 1.827,
+              "max": 2.3,
+              "count": 300
+            },
+            "renderCpuMs": {
+              "mean": 5.986,
+              "max": 6.6,
+              "count": 300
+            },
+            "sceneDrawCpuMs": {
+              "mean": 4.159,
+              "max": 4.6,
+              "count": 300
+            },
+            "frameMs": {
+              "mean": 16.674,
+              "max": 17.8,
+              "count": 300,
+              "framesOver50ms": 0
+            },
+            "flakActive": {
+              "mean": 438,
+              "max": 438,
+              "count": 300
+            },
+            "cannonActive": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonDrawn": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonHidden": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "projectileLights": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "activeMeshes": {
+              "mean": 156,
+              "max": 156,
+              "count": 300
+            },
+            "width": {
+              "mean": 860,
+              "max": 860,
+              "count": 300
+            },
+            "height": {
+              "mean": 1133,
+              "max": 1133,
+              "count": 300
+            },
+            "fov": {
+              "mean": 0.86,
+              "max": 0.86,
+              "count": 300
+            },
+            "jsonParseMs": {
+              "mean": 0.16,
+              "max": 0.3,
+              "count": 50
+            },
+            "streamMs": {
+              "mean": 0.83,
+              "max": 1.8,
+              "count": 50
+            },
+            "messageChars": {
+              "mean": 113487.58,
+              "max": 113575,
+              "count": 50
+            },
+            "diagnosticContextMs": {
+              "mean": 0.02,
+              "max": 0.1,
+              "count": 5
+            }
+          }
+        },
+        {
+          "at": "2026-10-24T10:34:31.616Z",
+          "metrics": {
+            "controlsCpuMs": {
+              "mean": 0.01,
+              "max": 0.2,
+              "count": 300
+            },
+            "shipMotionCpuMs": {
+              "mean": 0.159,
+              "max": 0.3,
+              "count": 300
+            },
+            "worldVisualsCpuMs": {
+              "mean": 0.538,
+              "max": 0.9,
+              "count": 300
+            },
+            "projectileUpdateMs": {
+              "mean": 0.459,
+              "max": 0.7,
+              "count": 300
+            },
+            "instrumentsCpuMs": {
+              "mean": 0.596,
+              "max": 0.8,
+              "count": 300
+            },
+            "frameLogicCpuMs": {
+              "mean": 1.87,
+              "max": 2.4,
+              "count": 300
+            },
+            "renderCpuMs": {
+              "mean": 6.054,
+              "max": 6.7,
+              "count": 300
+            },
+            "sceneDrawCpuMs": {
+              "mean": 4.185,
+              "max": 4.9,
+              "count": 300
+            },
+            "frameMs": {
+              "mean": 16.675,
+              "max": 20.2,
+              "count": 300,
+              "framesOver50ms": 0
+            },
+            "flakActive": {
+              "mean": 438,
+              "max": 438,
+              "count": 300
+            },
+            "cannonActive": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonDrawn": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonHidden": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "projectileLights": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "activeMeshes": {
+              "mean": 156.75,
+              "max": 157,
+              "count": 300
+            },
+            "width": {
+              "mean": 860,
+              "max": 860,
+              "count": 300
+            },
+            "height": {
+              "mean": 1133,
+              "max": 1133,
+              "count": 300
+            },
+            "fov": {
+              "mean": 0.86,
+              "max": 0.86,
+              "count": 300
+            },
+            "jsonParseMs": {
+              "mean": 0.158,
+              "max": 0.3,
+              "count": 50
+            },
+            "streamMs": {
+              "mean": 0.858,
+              "max": 1,
+              "count": 50
+            },
+            "messageChars": {
+              "mean": 113494.7,
+              "max": 113575,
+              "count": 50
+            },
+            "diagnosticContextMs": {
+              "mean": 0.02,
+              "max": 0.1,
+              "count": 5
+            }
+          }
+        }
+      ]
+    },
+    {
+      "label": "450-projectiles-ultrawide",
+      "settings": {
+        "projectiles": 450,
+        "hudPlayers": 30,
+        "shots": true
+      },
+      "viewport": {
+        "width": 3440,
+        "height": 1440,
+        "dpr": 1
+      },
+      "reports": [
+        {
+          "at": "2026-10-24T10:35:41.672Z",
+          "metrics": {
+            "controlsCpuMs": {
+              "mean": 0.012,
+              "max": 0.1,
+              "count": 301
+            },
+            "shipMotionCpuMs": {
+              "mean": 0.146,
+              "max": 0.3,
+              "count": 301
+            },
+            "worldVisualsCpuMs": {
+              "mean": 0.519,
+              "max": 0.9,
+              "count": 301
+            },
+            "projectileUpdateMs": {
+              "mean": 1.447,
+              "max": 12.5,
+              "count": 301
+            },
+            "instrumentsCpuMs": {
+              "mean": 0.683,
+              "max": 1.5,
+              "count": 301
+            },
+            "frameLogicCpuMs": {
+              "mean": 2.923,
+              "max": 14,
+              "count": 301
+            },
+            "renderCpuMs": {
+              "mean": 8.761,
+              "max": 22.1,
+              "count": 301
+            },
+            "sceneDrawCpuMs": {
+              "mean": 5.838,
+              "max": 10.8,
+              "count": 301
+            },
+            "frameMs": {
+              "mean": 16.658,
+              "max": 23.5,
+              "count": 301,
+              "framesOver50ms": 0
+            },
+            "flakActive": {
+              "mean": 438,
+              "max": 438,
+              "count": 301
+            },
+            "cannonActive": {
+              "mean": 0,
+              "max": 0,
+              "count": 301
+            },
+            "cannonDrawn": {
+              "mean": 0,
+              "max": 0,
+              "count": 301
+            },
+            "cannonHidden": {
+              "mean": 0,
+              "max": 0,
+              "count": 301
+            },
+            "projectileLights": {
+              "mean": 0,
+              "max": 0,
+              "count": 301
+            },
+            "activeMeshes": {
+              "mean": 199.113,
+              "max": 202,
+              "count": 301
+            },
+            "width": {
+              "mean": 2920,
+              "max": 2920,
+              "count": 301
+            },
+            "height": {
+              "mean": 1440,
+              "max": 1440,
+              "count": 301
+            },
+            "fov": {
+              "mean": 0.86,
+              "max": 0.86,
+              "count": 301
+            },
+            "diagnosticContextMs": {
+              "mean": 0.04,
+              "max": 0.1,
+              "count": 5
+            },
+            "jsonParseMs": {
+              "mean": 0.168,
+              "max": 0.3,
+              "count": 50
+            },
+            "streamMs": {
+              "mean": 7.158,
+              "max": 11.3,
+              "count": 50
+            },
+            "messageChars": {
+              "mean": 119978.6,
+              "max": 120078,
+              "count": 50
+            }
+          }
+        },
+        {
+          "at": "2026-10-24T10:35:46.675Z",
+          "metrics": {
+            "controlsCpuMs": {
+              "mean": 0.01,
+              "max": 0.1,
+              "count": 300
+            },
+            "shipMotionCpuMs": {
+              "mean": 0.139,
+              "max": 0.3,
+              "count": 300
+            },
+            "worldVisualsCpuMs": {
+              "mean": 0.518,
+              "max": 0.9,
+              "count": 300
+            },
+            "projectileUpdateMs": {
+              "mean": 1.252,
+              "max": 6.8,
+              "count": 300
+            },
+            "instrumentsCpuMs": {
+              "mean": 0.635,
+              "max": 1.3,
+              "count": 300
+            },
+            "frameLogicCpuMs": {
+              "mean": 2.657,
+              "max": 8.4,
+              "count": 300
+            },
+            "renderCpuMs": {
+              "mean": 8.324,
+              "max": 16.1,
+              "count": 300
+            },
+            "sceneDrawCpuMs": {
+              "mean": 5.667,
+              "max": 10.9,
+              "count": 300
+            },
+            "frameMs": {
+              "mean": 16.675,
+              "max": 20.9,
+              "count": 300,
+              "framesOver50ms": 0
+            },
+            "flakActive": {
+              "mean": 438,
+              "max": 438,
+              "count": 300
+            },
+            "cannonActive": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonDrawn": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonHidden": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "projectileLights": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "activeMeshes": {
+              "mean": 201.093,
+              "max": 204,
+              "count": 300
+            },
+            "width": {
+              "mean": 2920,
+              "max": 2920,
+              "count": 300
+            },
+            "height": {
+              "mean": 1440,
+              "max": 1440,
+              "count": 300
+            },
+            "fov": {
+              "mean": 0.86,
+              "max": 0.86,
+              "count": 300
+            },
+            "diagnosticContextMs": {
+              "mean": 0.06,
+              "max": 0.1,
+              "count": 5
+            },
+            "jsonParseMs": {
+              "mean": 0.144,
+              "max": 0.3,
+              "count": 50
+            },
+            "streamMs": {
+              "mean": 6.016,
+              "max": 8,
+              "count": 50
+            },
+            "messageChars": {
+              "mean": 119966.3,
+              "max": 120047,
+              "count": 50
+            }
+          }
+        },
+        {
+          "at": "2026-10-24T10:35:51.677Z",
+          "metrics": {
+            "controlsCpuMs": {
+              "mean": 0.013,
+              "max": 0.1,
+              "count": 300
+            },
+            "shipMotionCpuMs": {
+              "mean": 0.137,
+              "max": 0.3,
+              "count": 300
+            },
+            "worldVisualsCpuMs": {
+              "mean": 0.513,
+              "max": 0.8,
+              "count": 300
+            },
+            "projectileUpdateMs": {
+              "mean": 1.24,
+              "max": 6.3,
+              "count": 300
+            },
+            "instrumentsCpuMs": {
+              "mean": 0.63,
+              "max": 1.3,
+              "count": 300
+            },
+            "frameLogicCpuMs": {
+              "mean": 2.637,
+              "max": 7.7,
+              "count": 300
+            },
+            "renderCpuMs": {
+              "mean": 8.265,
+              "max": 15.5,
+              "count": 300
+            },
+            "sceneDrawCpuMs": {
+              "mean": 5.628,
+              "max": 10.5,
+              "count": 300
+            },
+            "frameMs": {
+              "mean": 16.674,
+              "max": 18.6,
+              "count": 300,
+              "framesOver50ms": 0
+            },
+            "flakActive": {
+              "mean": 438,
+              "max": 438,
+              "count": 300
+            },
+            "cannonActive": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonDrawn": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonHidden": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "projectileLights": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "activeMeshes": {
+              "mean": 201.673,
+              "max": 205,
+              "count": 300
+            },
+            "width": {
+              "mean": 2920,
+              "max": 2920,
+              "count": 300
+            },
+            "height": {
+              "mean": 1440,
+              "max": 1440,
+              "count": 300
+            },
+            "fov": {
+              "mean": 0.86,
+              "max": 0.86,
+              "count": 300
+            },
+            "jsonParseMs": {
+              "mean": 0.16,
+              "max": 0.3,
+              "count": 50
+            },
+            "streamMs": {
+              "mean": 6.216,
+              "max": 7.8,
+              "count": 50
+            },
+            "messageChars": {
+              "mean": 119970.1,
+              "max": 120069,
+              "count": 50
+            },
+            "diagnosticContextMs": {
+              "mean": 0.02,
+              "max": 0.1,
+              "count": 5
+            }
+          }
+        }
+      ]
+    },
+    {
+      "label": "450-projectiles-detailed",
+      "settings": {
+        "projectiles": 450,
+        "hudPlayers": 30,
+        "shots": true
+      },
+      "reports": [
+        {
+          "at": "2026-10-24T10:36:56.348Z",
+          "metrics": {
+            "controlsCpuMs": {
+              "mean": 0.012,
+              "max": 0.2,
+              "count": 300
+            },
+            "shipMotionCpuMs": {
+              "mean": 0.145,
+              "max": 0.3,
+              "count": 300
+            },
+            "worldVisualsCpuMs": {
+              "mean": 0.547,
+              "max": 1,
+              "count": 300
+            },
+            "projectileUpdateMs": {
+              "mean": 1.256,
+              "max": 7.7,
+              "count": 300
+            },
+            "instrumentsCpuMs": {
+              "mean": 0.661,
+              "max": 2.3,
+              "count": 300
+            },
+            "frameLogicCpuMs": {
+              "mean": 2.729,
+              "max": 8.9,
+              "count": 300
+            },
+            "renderCpuMs": {
+              "mean": 8.531,
+              "max": 18.3,
+              "count": 300
+            },
+            "sceneDrawCpuMs": {
+              "mean": 5.803,
+              "max": 10.9,
+              "count": 300
+            },
+            "frameMs": {
+              "mean": 16.674,
+              "max": 19.2,
+              "count": 300,
+              "framesOver50ms": 0
+            },
+            "flakActive": {
+              "mean": 438,
+              "max": 438,
+              "count": 300
+            },
+            "cannonActive": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonDrawn": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonHidden": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "projectileLights": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "activeMeshes": {
+              "mean": 202.56,
+              "max": 206,
+              "count": 300
+            },
+            "width": {
+              "mean": 2920,
+              "max": 2920,
+              "count": 300
+            },
+            "height": {
+              "mean": 1440,
+              "max": 1440,
+              "count": 300
+            },
+            "fov": {
+              "mean": 0.86,
+              "max": 0.86,
+              "count": 300
+            },
+            "diagnosticContextMs": {
+              "mean": 0.02,
+              "max": 0.1,
+              "count": 5
+            },
+            "jsonParseMs": {
+              "mean": 0.14,
+              "max": 0.2,
+              "count": 50
+            },
+            "snapshotHudCpuMs": {
+              "mean": 0.35,
+              "max": 0.6,
+              "count": 50
+            },
+            "muzzleEffectsBatchCpuMs": {
+              "mean": 5,
+              "max": 7.7,
+              "count": 50
+            },
+            "projectileSyncCpuMs": {
+              "mean": 0.188,
+              "max": 0.3,
+              "count": 50
+            },
+            "streamMs": {
+              "mean": 5.938,
+              "max": 8.8,
+              "count": 50
+            },
+            "messageChars": {
+              "mean": 120082.14,
+              "max": 120233,
+              "count": 50
+            }
+          }
+        },
+        {
+          "at": "2026-10-24T10:37:01.350Z",
+          "metrics": {
+            "controlsCpuMs": {
+              "mean": 0.011,
+              "max": 0.1,
+              "count": 300
+            },
+            "shipMotionCpuMs": {
+              "mean": 0.143,
+              "max": 0.3,
+              "count": 300
+            },
+            "worldVisualsCpuMs": {
+              "mean": 0.549,
+              "max": 1,
+              "count": 300
+            },
+            "projectileUpdateMs": {
+              "mean": 1.229,
+              "max": 5.7,
+              "count": 300
+            },
+            "instrumentsCpuMs": {
+              "mean": 0.659,
+              "max": 1.5,
+              "count": 300
+            },
+            "frameLogicCpuMs": {
+              "mean": 2.704,
+              "max": 7.1,
+              "count": 300
+            },
+            "renderCpuMs": {
+              "mean": 8.521,
+              "max": 15.4,
+              "count": 300
+            },
+            "sceneDrawCpuMs": {
+              "mean": 5.816,
+              "max": 11.2,
+              "count": 300
+            },
+            "frameMs": {
+              "mean": 16.674,
+              "max": 22,
+              "count": 300,
+              "framesOver50ms": 0
+            },
+            "flakActive": {
+              "mean": 438,
+              "max": 438,
+              "count": 300
+            },
+            "cannonActive": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonDrawn": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonHidden": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "projectileLights": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "activeMeshes": {
+              "mean": 204.21,
+              "max": 208,
+              "count": 300
+            },
+            "width": {
+              "mean": 2920,
+              "max": 2920,
+              "count": 300
+            },
+            "height": {
+              "mean": 1440,
+              "max": 1440,
+              "count": 300
+            },
+            "fov": {
+              "mean": 0.86,
+              "max": 0.86,
+              "count": 300
+            },
+            "diagnosticContextMs": {
+              "mean": 0.06,
+              "max": 0.1,
+              "count": 5
+            },
+            "jsonParseMs": {
+              "mean": 0.156,
+              "max": 0.3,
+              "count": 50
+            },
+            "snapshotHudCpuMs": {
+              "mean": 0.356,
+              "max": 0.6,
+              "count": 50
+            },
+            "muzzleEffectsBatchCpuMs": {
+              "mean": 4.844,
+              "max": 5.7,
+              "count": 50
+            },
+            "projectileSyncCpuMs": {
+              "mean": 0.168,
+              "max": 0.3,
+              "count": 50
+            },
+            "streamMs": {
+              "mean": 5.766,
+              "max": 6.7,
+              "count": 50
+            },
+            "messageChars": {
+              "mean": 120112.66,
+              "max": 120250,
+              "count": 50
+            }
+          }
+        },
+        {
+          "at": "2026-10-24T10:37:06.349Z",
+          "metrics": {
+            "controlsCpuMs": {
+              "mean": 0.011,
+              "max": 0.1,
+              "count": 300
+            },
+            "shipMotionCpuMs": {
+              "mean": 0.141,
+              "max": 0.3,
+              "count": 300
+            },
+            "worldVisualsCpuMs": {
+              "mean": 0.528,
+              "max": 1,
+              "count": 300
+            },
+            "projectileUpdateMs": {
+              "mean": 1.278,
+              "max": 7,
+              "count": 300
+            },
+            "instrumentsCpuMs": {
+              "mean": 0.687,
+              "max": 1.8,
+              "count": 300
+            },
+            "frameLogicCpuMs": {
+              "mean": 2.759,
+              "max": 8.6,
+              "count": 300
+            },
+            "renderCpuMs": {
+              "mean": 8.586,
+              "max": 16.8,
+              "count": 300
+            },
+            "sceneDrawCpuMs": {
+              "mean": 5.827,
+              "max": 11,
+              "count": 300
+            },
+            "frameMs": {
+              "mean": 16.682,
+              "max": 22.9,
+              "count": 300,
+              "framesOver50ms": 0
+            },
+            "flakActive": {
+              "mean": 438,
+              "max": 438,
+              "count": 300
+            },
+            "cannonActive": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonDrawn": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "cannonHidden": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "projectileLights": {
+              "mean": 0,
+              "max": 0,
+              "count": 300
+            },
+            "activeMeshes": {
+              "mean": 204.78,
+              "max": 207,
+              "count": 300
+            },
+            "width": {
+              "mean": 2920,
+              "max": 2920,
+              "count": 300
+            },
+            "height": {
+              "mean": 1440,
+              "max": 1440,
+              "count": 300
+            },
+            "fov": {
+              "mean": 0.86,
+              "max": 0.86,
+              "count": 300
+            },
+            "diagnosticContextMs": {
+              "mean": 0.08,
+              "max": 0.1,
+              "count": 5
+            },
+            "jsonParseMs": {
+              "mean": 0.156,
+              "max": 0.3,
+              "count": 50
+            },
+            "snapshotHudCpuMs": {
+              "mean": 0.368,
+              "max": 0.6,
+              "count": 50
+            },
+            "muzzleEffectsBatchCpuMs": {
+              "mean": 4.652,
+              "max": 5.9,
+              "count": 50
+            },
+            "projectileSyncCpuMs": {
+              "mean": 0.176,
+              "max": 0.3,
+              "count": 50
+            },
+            "streamMs": {
+              "mean": 5.622,
+              "max": 6.8,
+              "count": 50
+            },
+            "messageChars": {
+              "mean": 120083.54,
+              "max": 120227,
+              "count": 50
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
