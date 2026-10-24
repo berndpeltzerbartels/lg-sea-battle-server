@@ -4,7 +4,7 @@
   "clientBaseCommit": "7007994",
   "instrumentation": "Local optional perf-log=1 CPU timers, compatible with existing metrics.",
   "limitations": [
-    "This is Chrome, not a recording of the user's active Firefox session.",
+    "This is a separate Chrome session, not a recording of the user's actual playing browser.",
     "Only CPU wall time is measured. sceneDrawCpuMs includes engine render preparation, the earlier light-priority callback and graphics-driver submission, not isolated GPU elapsed time.",
     "Most synthetic projectiles were outside the current view. Explosions, water impacts, cannon smoke and a moving camera were not reproduced.",
     "All measured steady-state windows stayed near 60 FPS. The complete loss of input was not reproduced.",
