@@ -426,7 +426,21 @@ public final class GameSession {
         if (fleet == null) {
             return;
         }
-        fleet.assignNextShipToPlayer(playerId, vehicleType);
+        var assigned = fleet.assignNextShipToPlayer(playerId, vehicleType);
+        if (isTwoShipDuel() && assigned.isEmpty()) throw duelSlotUnavailable();
+    }
+
+    private boolean isTwoShipDuel() {
+        return "two-ship-duel".equals(id);
+    }
+
+    private IllegalArgumentException duelSlotUnavailable() {
+        return new IllegalArgumentException("Spezialmenü 9 hat genau ein Schiff pro Farbe. Bitte Light und Dark wählen; ein belegtes oder gesunkenes Schiff kann nicht zusätzlich angelegt werden.");
+    }
+
+    private Ship additionalPlayerShip(Fleet fleet, String player, Vector2 position, double heading, String vehicle, double y) {
+        if (isTwoShipDuel()) throw duelSlotUnavailable();
+        return fleet.assignAdditionalShipToPlayer(player, position, heading, vehicle, y);
     }
 
     public synchronized void addTeams(GameSetup setup) {
@@ -439,7 +453,9 @@ public final class GameSession {
     public synchronized void restorePlayer(String player, String team, String vehicle, ShipSnapshot previous, int score) {
         Fleet fleet = fleets.get(team);
         if (fleet == null) throw new IllegalArgumentException("Unknown team");
-        if (previous != null) {
+        if (isTwoShipDuel()) {
+            fleet.assignNextShipToPlayer(player, vehicle).orElseThrow(this::duelSlotUnavailable);
+        } else if (previous != null) {
             fleets.values().forEach(f -> f.removeUnoccupiedShipAt(previous));
             Vector2 position = new Vector2(previous.x(), previous.z());
             // A remaining crew keeps its hull; place a departing member alongside, never inside it.
@@ -481,7 +497,7 @@ public final class GameSession {
         Optional<Ship> assignedShip = fleet.assignedShip(update.playerId());
         Ship ship = assignedShip
                 .or(() -> fleet.assignNextShipToPlayer(update.playerId()))
-                .orElseGet(() -> fleet.assignAdditionalShipToPlayer(
+                .orElseGet(() -> additionalPlayerShip(fleet,
                         update.playerId(),
                         new Vector2(update.x(), update.z()),
                         update.heading(),
@@ -505,7 +521,7 @@ public final class GameSession {
 
         Ship ship = fleet.assignedShip(request.playerId())
                 .or(() -> fleet.assignNextShipToPlayer(request.playerId()))
-                .orElseGet(() -> fleet.assignAdditionalShipToPlayer(
+                .orElseGet(() -> additionalPlayerShip(fleet,
                         request.playerId(),
                         new Vector2(request.x(), request.z()),
                         request.heading(),

@@ -25,10 +25,10 @@ public class CrewService {
         }
         game.activateTeam(account.team());
         String player = "player-" + account.alias() + "-" + UUID.randomUUID().toString().substring(0, 12);
-        players.register(player, account.alias(), account.nickname(), account.team(), account.id());
         ReturnState previous = returnsByAccount.get(account.id());
         game.restorePlayer(player, account.team(), vehicle, previous == null ? null : previous.ship(),
                 retainedScore(previous));
+        players.register(player, account.alias(), account.nickname(), account.team(), account.id());
         return player;
     }
 

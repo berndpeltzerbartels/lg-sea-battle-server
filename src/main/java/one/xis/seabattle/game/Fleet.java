@@ -58,7 +58,7 @@ final class Fleet {
                 .toList();
         Optional<Ship> availableShip = randomShip(availableShips);
         if (availableShip.isEmpty() && ships.size() == 1) {
-            availableShip = activeShips().stream().findFirst();
+            availableShip = activeShips().stream().filter(ship -> ship.isServerSimulated() || playerId.equals(ship.controlledBy())).findFirst();
         }
         availableShip.ifPresent(ship -> {
             if (vehicleType != null) {
