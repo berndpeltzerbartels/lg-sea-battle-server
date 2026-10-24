@@ -1,0 +1,15 @@
+{
+  "method": "Local Chrome replay of public world: 40 stationary ships, 105 landmasses, 30 HUD players, 450 configured flak projectiles (438 active), 10Hz snapshots, canvas 2920x1440. CPU timings; not GPU measurements or live multiplayer validation.",
+  "baselineSource": "client-profile-2026-10-24.json, detailed 450 projectile case",
+  "beforeMs": {"muzzleEffectsBatchCpuMs": 4.832, "streamMs": 5.775, "renderCpuMs": 8.546, "projectileUpdateMs": 1.285},
+  "afterWindowsMs": [
+    {"muzzleEffectsBatchCpuMs": 0.064, "streamMs": 1.028, "renderCpuMs": 5.920, "projectileUpdateMs": 0.440},
+    {"muzzleEffectsBatchCpuMs": 0.050, "streamMs": 0.940, "renderCpuMs": 5.958, "projectileUpdateMs": 0.457},
+    {"muzzleEffectsBatchCpuMs": 0.054, "streamMs": 0.970, "renderCpuMs": 6.035, "projectileUpdateMs": 0.469}
+  ],
+  "afterFrameMsMean": 16.674,
+  "afterFramesOver50ms": 0,
+  "browserCrewCheck": "Own-ship remote flak and cannon events each produced a visible flash and separate crew light targeting 61 ship meshes. Both overlap, fade to zero after 400ms, and all four lights stay enabled.",
+  "limits": "Short steady-state windows on Apple M4 Pro. Mostly off-screen projectiles, stationary ships. Does not establish performance on user hardware or prove previous input lock resolved.",
+  "validation": "201 unit tests pass, production build passes; 1000-shot test verifies zero runtime light membership resyncs, light enable toggles or mesh light sorts. Concurrent flash geometry is not capped; only idle geometry is bounded."
+}
