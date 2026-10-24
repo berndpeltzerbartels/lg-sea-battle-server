@@ -12,5 +12,6 @@
     "large": 516.1,
     "small": 25.9
   },
-  "conclusion": "The smaller load had substantially lower measured request latency and no failed network requests. The cause of the user input lock and the browser rendering experience are not established by these measurements."
+  "conclusion": "The smaller load had substantially lower measured request latency and no failed network requests. The user reported that it still stuttered but remained controllable. The cause of the complete input lock in the larger trial and of remaining stutter is not established by these measurements.",
+  "reportedExperienceInSmallTrial": "Still stutters, but remains controllable (user selected feedback option 2)."
 }

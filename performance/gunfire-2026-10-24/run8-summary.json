@@ -222,5 +222,6 @@
     "Input activity was reported every 30 seconds. All seven test players were explicitly unregistered at the end.",
     "The raw sampler phase column assumes a 60-second no-fire phase; for this run that label is ignored, because firing began immediately. CPU sampling includes startup and cleanup effects.",
     "100% CPU represents one core of four. The public round can add a return ship under normal-game rules; the normal startup flag remained 20 vehicles per fleet."
-  ]
+  ],
+  "userReportedExperience": "Ruckelt, bleibt aber bedienbar (option 2 in the live-test feedback)."
 }
