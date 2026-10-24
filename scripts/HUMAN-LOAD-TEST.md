@@ -12,6 +12,8 @@ cannon every second, and torpedoes every five seconds while on the bridge with a
 Stations rotate with staggered phases: bridge 16 s, flak 7 s, cannon 7 s. No one fires
 weapons assigned to another station. Firing requests are independent of movement requests.
 SSE reconnects after failures; commands pause without a recent active-ship snapshot.
+While actively moving or aiming, players report input activity every 30 seconds so runs
+longer than five minutes do not expire as inactive.
 Ship death/respawn and crew revisions are followed from server snapshots.
 
 If the confirmed ship position advances less than two units over six seconds at any station,

@@ -87,12 +87,21 @@ const command = (client, fields = {}) => ({ playerId: client.playerId, shipId: c
   revision: client.crew.revision, station: client.crew.station, ...fields });
 
 async function play(client, started, scale) {
-  let nextMotion = 0, nextShot = 0, motionPending = false;
+  let nextMotion = 0, nextShot = 0, nextActivity = 0, motionPending = false;
   const pending = new Set();
   try {
     while (!stopping && seconds() - started < duration) {
       const now = seconds(), elapsed = now - started;
       if (!client.ship || !client.crew || now - client.receivedAt > 2) { await sleep(50); continue; }
+      // Motion and shots represent real input, but the server deliberately does
+      // not treat ordinary state traffic as activity. Match the browser's signal.
+      if (now >= nextActivity) {
+        nextActivity = now + 30;
+        const activity = request('/game/crew/activity', { playerId: client.playerId }, 'activity')
+          .catch(error => { client.errors++; console.error(error.message); });
+        pending.add(activity);
+        activity.finally(() => pending.delete(activity));
+      }
       observeNavigation(client.ship, client.nav, elapsed);
       const station = client.nav.recovery ? 'bridge' : stationAt(elapsed, client.index);
       if (station !== client.crew.station) {

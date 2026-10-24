@@ -1,0 +1,226 @@
+{
+  "date": "2026-10-24",
+  "host": "Netcup 159.195.63.236",
+  "serverCommit": "8cb2cce",
+  "publicUrl": "https://kuestenkrieg.de",
+  "simulatedPlayers": 7,
+  "additionalHumanPlayersObserved": 1,
+  "targetTotalHumanPlayers": 8,
+  "durationSeconds": 360,
+  "fireAfterSeconds": 0,
+  "completed": true,
+  "metrics": {
+    "/game/config": {
+      "requests": 1,
+      "meanMs": 150.4,
+      "p95Ms": 150.4,
+      "maxMs": 150.4,
+      "statuses": {
+        "200": 1
+      }
+    },
+    "register": {
+      "requests": 7,
+      "meanMs": 152.9,
+      "p95Ms": 233.8,
+      "maxMs": 365.1,
+      "statuses": {
+        "200": 7
+      }
+    },
+    "/game/world": {
+      "requests": 7,
+      "meanMs": 47.7,
+      "p95Ms": 49.9,
+      "maxMs": 51.2,
+      "statuses": {
+        "200": 7
+      }
+    },
+    "/game/version": {
+      "requests": 7,
+      "meanMs": 5.7,
+      "p95Ms": 6.8,
+      "maxMs": 7.6,
+      "statuses": {
+        "200": 7
+      }
+    },
+    "/game/session/player-T523D-8685c218-ae5": {
+      "requests": 1,
+      "meanMs": 2.8,
+      "p95Ms": 2.8,
+      "maxMs": 2.8,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/state": {
+      "requests": 7,
+      "meanMs": 11.4,
+      "p95Ms": 13.1,
+      "maxMs": 15.3,
+      "statuses": {
+        "200": 7
+      }
+    },
+    "crew": {
+      "requests": 7,
+      "meanMs": 3.7,
+      "p95Ms": 4.6,
+      "maxMs": 4.6,
+      "statuses": {
+        "200": 7
+      }
+    },
+    "/game/session/player-T498A-c1c17d4d-4bd": {
+      "requests": 1,
+      "meanMs": 2.3,
+      "p95Ms": 2.3,
+      "maxMs": 2.3,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-T1EC5-e4815107-cbe": {
+      "requests": 1,
+      "meanMs": 4.2,
+      "p95Ms": 4.2,
+      "maxMs": 4.2,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-TA99E-512202eb-8ce": {
+      "requests": 1,
+      "meanMs": 3.0,
+      "p95Ms": 3.0,
+      "maxMs": 3.0,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-T4EE5-b3c9938d-ab0": {
+      "requests": 1,
+      "meanMs": 1.9,
+      "p95Ms": 1.9,
+      "maxMs": 1.9,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-T8A07-d54bb379-af7": {
+      "requests": 1,
+      "meanMs": 2.8,
+      "p95Ms": 2.8,
+      "maxMs": 2.8,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-T7C87-e481f118-f44": {
+      "requests": 1,
+      "meanMs": 1.5,
+      "p95Ms": 1.5,
+      "maxMs": 1.5,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "activity": {
+      "requests": 84,
+      "meanMs": 22.0,
+      "p95Ms": 147.2,
+      "maxMs": 360.4,
+      "statuses": {
+        "204": 84
+      }
+    },
+    "motion": {
+      "requests": 6585,
+      "meanMs": 7.8,
+      "p95Ms": 17.4,
+      "maxMs": 235.5,
+      "statuses": {
+        "200": 6584,
+        "409": 1
+      }
+    },
+    "torpedo": {
+      "requests": 382,
+      "meanMs": 11.7,
+      "p95Ms": 28.8,
+      "maxMs": 74.1,
+      "statuses": {
+        "200": 382
+      }
+    },
+    "station": {
+      "requests": 197,
+      "meanMs": 4.7,
+      "p95Ms": 10.3,
+      "maxMs": 18.3,
+      "statuses": {
+        "200": 197
+      }
+    },
+    "flak": {
+      "requests": 9006,
+      "meanMs": 10.5,
+      "p95Ms": 25.9,
+      "maxMs": 213.7,
+      "statuses": {
+        "200": 9002,
+        "409": 4
+      }
+    },
+    "aim": {
+      "requests": 3138,
+      "meanMs": 10.5,
+      "p95Ms": 25.9,
+      "maxMs": 133.0,
+      "statuses": {
+        "200": 3137,
+        "409": 1
+      }
+    },
+    "cannon": {
+      "requests": 385,
+      "meanMs": 16.2,
+      "p95Ms": 34.1,
+      "maxMs": 51.0,
+      "statuses": {
+        "200": 384,
+        "409": 1
+      }
+    },
+    "leave": {
+      "requests": 7,
+      "meanMs": 691.6,
+      "p95Ms": 1092.1,
+      "maxMs": 1308.4,
+      "statuses": {
+        "204": 7
+      }
+    }
+  },
+  "samples": {
+    "count": 361,
+    "javaCpuMeanPercentOfOneCore": 41.94,
+    "maxRssMiB": 552.12,
+    "maxProjectiles": 287,
+    "minObservedHumanShips": 1,
+    "maxObservedHumanShips": 8
+  },
+  "observedShotsFromTestShips": 4971,
+  "sseErrors": 0,
+  "networkRequestFailures": 0,
+  "notes": [
+    "User actively joined the public game to judge controls and visual smoothness; actual human presence varied during the run.",
+    "No game reset or service restart between the 30-player and smaller runs. Existing bots remained active.",
+    "The test generator ran on the same server through public HTTPS. Request latency is not Internet client latency or browser frame timing.",
+    "Input activity was reported every 30 seconds. All seven test players were explicitly unregistered at the end.",
+    "The raw sampler phase column assumes a 60-second no-fire phase; for this run that label is ignored, because firing began immediately. CPU sampling includes startup and cleanup effects.",
+    "100% CPU represents one core of four. The public round can add a return ship under normal-game rules; the normal startup flag remained 20 vehicles per fleet."
+  ]
+}

@@ -1,0 +1,432 @@
+{
+  "date": "2026-10-24",
+  "host": "Netcup 159.195.63.236",
+  "serverCommit": "8cb2cce",
+  "publicUrl": "https://kuestenkrieg.de",
+  "simulatedPlayers": 30,
+  "plannedDurationSeconds": 360,
+  "fireAfterSeconds": 60,
+  "stoppedEarly": true,
+  "reason": "User reported that game remained running but became unusable and stopped responding to controls; reduced test to eight total human players.",
+  "metrics": {
+    "/game/config": {
+      "requests": 1,
+      "meanMs": 171.2,
+      "p95Ms": 171.2,
+      "maxMs": 171.2,
+      "statuses": {
+        "200": 1
+      }
+    },
+    "register": {
+      "requests": 30,
+      "meanMs": 246.3,
+      "p95Ms": 562.8,
+      "maxMs": 789.3,
+      "statuses": {
+        "200": 30
+      }
+    },
+    "/game/world": {
+      "requests": 30,
+      "meanMs": 48.3,
+      "p95Ms": 60.8,
+      "maxMs": 70.0,
+      "statuses": {
+        "200": 30
+      }
+    },
+    "/game/version": {
+      "requests": 30,
+      "meanMs": 6.7,
+      "p95Ms": 11.8,
+      "maxMs": 18.7,
+      "statuses": {
+        "200": 30
+      }
+    },
+    "/game/session/player-T5F7A-e5d54673-ce9": {
+      "requests": 1,
+      "meanMs": 3.3,
+      "p95Ms": 3.3,
+      "maxMs": 3.3,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/state": {
+      "requests": 30,
+      "meanMs": 12.4,
+      "p95Ms": 15.6,
+      "maxMs": 21.4,
+      "statuses": {
+        "200": 30
+      }
+    },
+    "crew": {
+      "requests": 30,
+      "meanMs": 11.5,
+      "p95Ms": 7.7,
+      "maxMs": 202.4,
+      "statuses": {
+        "200": 30
+      }
+    },
+    "/game/session/player-T1729-5ea90c5c-726": {
+      "requests": 1,
+      "meanMs": 4.1,
+      "p95Ms": 4.1,
+      "maxMs": 4.1,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-T186C-57e10bb2-699": {
+      "requests": 1,
+      "meanMs": 3.6,
+      "p95Ms": 3.6,
+      "maxMs": 3.6,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-T1DEF-222d5e36-7a5": {
+      "requests": 1,
+      "meanMs": 4.4,
+      "p95Ms": 4.4,
+      "maxMs": 4.4,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-TE49C-ec786d42-be6": {
+      "requests": 1,
+      "meanMs": 2.0,
+      "p95Ms": 2.0,
+      "maxMs": 2.0,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-T04E0-d17a9648-32c": {
+      "requests": 1,
+      "meanMs": 4.4,
+      "p95Ms": 4.4,
+      "maxMs": 4.4,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-T3350-37dba469-d68": {
+      "requests": 1,
+      "meanMs": 1.9,
+      "p95Ms": 1.9,
+      "maxMs": 1.9,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-T763A-389576fa-6b0": {
+      "requests": 1,
+      "meanMs": 3.5,
+      "p95Ms": 3.5,
+      "maxMs": 3.5,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-T3501-31fc8066-5c0": {
+      "requests": 1,
+      "meanMs": 2.0,
+      "p95Ms": 2.0,
+      "maxMs": 2.0,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-T0C21-977be06e-bd8": {
+      "requests": 1,
+      "meanMs": 2.2,
+      "p95Ms": 2.2,
+      "maxMs": 2.2,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-T999C-85d171b1-07e": {
+      "requests": 1,
+      "meanMs": 2.6,
+      "p95Ms": 2.6,
+      "maxMs": 2.6,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-TD03F-299d048b-dd4": {
+      "requests": 1,
+      "meanMs": 3.0,
+      "p95Ms": 3.0,
+      "maxMs": 3.0,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-T5D79-0d58cb7d-b1c": {
+      "requests": 1,
+      "meanMs": 2.2,
+      "p95Ms": 2.2,
+      "maxMs": 2.2,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-T4A07-19cb5f6e-601": {
+      "requests": 1,
+      "meanMs": 2.1,
+      "p95Ms": 2.1,
+      "maxMs": 2.1,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-TEA13-415d7f50-f1e": {
+      "requests": 1,
+      "meanMs": 2.3,
+      "p95Ms": 2.3,
+      "maxMs": 2.3,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-T2C6A-c035cc8a-dbf": {
+      "requests": 1,
+      "meanMs": 2.1,
+      "p95Ms": 2.1,
+      "maxMs": 2.1,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-T621B-9ea630f5-ede": {
+      "requests": 1,
+      "meanMs": 3.4,
+      "p95Ms": 3.4,
+      "maxMs": 3.4,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-T5C83-bb5ac38f-641": {
+      "requests": 1,
+      "meanMs": 3.5,
+      "p95Ms": 3.5,
+      "maxMs": 3.5,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-TBAA6-d3290520-ee2": {
+      "requests": 1,
+      "meanMs": 4.1,
+      "p95Ms": 4.1,
+      "maxMs": 4.1,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-TF3E1-54b280ab-b5b": {
+      "requests": 1,
+      "meanMs": 3.9,
+      "p95Ms": 3.9,
+      "maxMs": 3.9,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-T4100-9ccc1e85-294": {
+      "requests": 1,
+      "meanMs": 2.4,
+      "p95Ms": 2.4,
+      "maxMs": 2.4,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-T7A7B-e3dbefd4-3af": {
+      "requests": 1,
+      "meanMs": 2.8,
+      "p95Ms": 2.8,
+      "maxMs": 2.8,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-TA772-cf5b08c1-d0f": {
+      "requests": 1,
+      "meanMs": 3.4,
+      "p95Ms": 3.4,
+      "maxMs": 3.4,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-T7CE4-d37842fa-820": {
+      "requests": 1,
+      "meanMs": 3.2,
+      "p95Ms": 3.2,
+      "maxMs": 3.2,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-T2140-435f4524-401": {
+      "requests": 1,
+      "meanMs": 1.8,
+      "p95Ms": 1.8,
+      "maxMs": 1.8,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-T5AC2-0b34c7ea-89b": {
+      "requests": 1,
+      "meanMs": 1.9,
+      "p95Ms": 1.9,
+      "maxMs": 1.9,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-T9483-d78f79a6-ef4": {
+      "requests": 1,
+      "meanMs": 2.1,
+      "p95Ms": 2.1,
+      "maxMs": 2.1,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-TDDF1-c2a86d6e-6a0": {
+      "requests": 1,
+      "meanMs": 3.4,
+      "p95Ms": 3.4,
+      "maxMs": 3.4,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-T1155-d3fcac3b-4be": {
+      "requests": 1,
+      "meanMs": 4.8,
+      "p95Ms": 4.8,
+      "maxMs": 4.8,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "/game/session/player-T3D3B-5579de42-033": {
+      "requests": 1,
+      "meanMs": 2.2,
+      "p95Ms": 2.2,
+      "maxMs": 2.2,
+      "statuses": {
+        "204": 1
+      }
+    },
+    "motion": {
+      "requests": 17795,
+      "meanMs": 170.1,
+      "p95Ms": 442.4,
+      "maxMs": 1703.3,
+      "statuses": {
+        "0": 21,
+        "200": 17753,
+        "409": 21
+      }
+    },
+    "station": {
+      "requests": 695,
+      "meanMs": 119.3,
+      "p95Ms": 366.0,
+      "maxMs": 1509.2,
+      "statuses": {
+        "200": 695
+      }
+    },
+    "aim": {
+      "requests": 9915,
+      "meanMs": 167.5,
+      "p95Ms": 441.5,
+      "maxMs": 1864.8,
+      "statuses": {
+        "0": 8,
+        "200": 9895,
+        "409": 12
+      }
+    },
+    "torpedo": {
+      "requests": 942,
+      "meanMs": 239.5,
+      "p95Ms": 485.6,
+      "maxMs": 1879.2,
+      "statuses": {
+        "0": 1,
+        "200": 936,
+        "409": 5
+      }
+    },
+    "flak": {
+      "requests": 21760,
+      "meanMs": 246.5,
+      "p95Ms": 516.1,
+      "maxMs": 1838.3,
+      "statuses": {
+        "0": 72,
+        "200": 21617,
+        "409": 71
+      }
+    },
+    "cannon": {
+      "requests": 1096,
+      "meanMs": 241.3,
+      "p95Ms": 492.8,
+      "maxMs": 1245.6,
+      "statuses": {
+        "0": 3,
+        "200": 1091,
+        "409": 2
+      }
+    },
+    "leave": {
+      "requests": 30,
+      "meanMs": 2642.7,
+      "p95Ms": 5041.6,
+      "maxMs": 5482.5,
+      "statuses": {
+        "204": 30
+      }
+    }
+  },
+  "samplePhases": {
+    "no-test-player-fire": {
+      "samples": 60,
+      "javaCpuMeanPercentOfOneCore": 48.64,
+      "maxRssMiB": 536.36,
+      "maxProjectiles": 3
+    },
+    "test-player-fire": {
+      "samples": 185,
+      "javaCpuMeanPercentOfOneCore": 198.24,
+      "maxRssMiB": 550.82,
+      "maxProjectiles": 500
+    }
+  },
+  "notes": [
+    "Live public game, no reset by test driver. Existing bots remained active.",
+    "HTTP/SSE generator ran on the same server through public HTTPS; this consumes extra CPU and local network latency is not Internet client latency.",
+    "Activity was signaled by a separate helper for exactly the 30 test player IDs during this run.",
+    "HTTP status 0 denotes a failed request; 409 includes commands racing death/respawn and is retained rather than hidden.",
+    "Sampling includes startup and shutdown; CPU 100% means one logical CPU core out of four."
+  ],
+  "additionalHumanPlayersObserved": 1
+}

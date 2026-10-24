@@ -1,0 +1,16 @@
+{
+  "serverCommit": "8cb2cce",
+  "conditions": "Sequential public-game trials; 30 simulated players first, then 7 simulated players plus up to 1 observing human. Not a controlled rendering benchmark.",
+  "reportedSymptomInLargeTrial": "After initially working, the user reported that the game became unusable and controls stopped responding while the simulation continued.",
+  "largeTrialNetworkFailures": 105,
+  "smallTrialNetworkFailures": 0,
+  "motionP95Ms": {
+    "large": 442.4,
+    "small": 17.4
+  },
+  "flakP95Ms": {
+    "large": 516.1,
+    "small": 25.9
+  },
+  "conclusion": "The smaller load had substantially lower measured request latency and no failed network requests. The cause of the user input lock and the browser rendering experience are not established by these measurements."
+}

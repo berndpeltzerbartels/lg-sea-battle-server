@@ -1,0 +1,36 @@
+READY: 7 players, 360s, https://kuestenkrieg.de; bridge/flak/cannon cycles, all three weapons, no reset.
+Running 30s: active=7, recoveries=1, observed shots=520
+Running 60s: active=7, recoveries=4, observed shots=996
+Running 90s: active=5, recoveries=6, observed shots=1555
+Running 120s: active=7, recoveries=6, observed shots=1998
+Running 150s: active=7, recoveries=8, observed shots=2420
+Running 180s: active=7, recoveries=10, observed shots=2912
+Running 210s: active=7, recoveries=14, observed shots=3335
+Running 240s: active=7, recoveries=19, observed shots=3676
+Running 270s: active=7, recoveries=25, observed shots=3890
+Running 300s: active=6, recoveries=24, observed shots=4139
+Running 330s: active=7, recoveries=18, observed shots=4576
+Running 360s: active=5, recoveries=20, observed shots=4971
+FINISHED. endpoint count avg_ms p95_ms max_ms statuses
+/game/config 1 150.4 150.4 150.4 {"200":1}
+register 7 152.9 233.8 365.1 {"200":7}
+/game/world 7 47.7 49.9 51.2 {"200":7}
+/game/version 7 5.7 6.8 7.6 {"200":7}
+/game/session/player-T523D-8685c218-ae5 1 2.8 2.8 2.8 {"204":1}
+/game/state 7 11.4 13.1 15.3 {"200":7}
+crew 7 3.7 4.6 4.6 {"200":7}
+/game/session/player-T498A-c1c17d4d-4bd 1 2.3 2.3 2.3 {"204":1}
+/game/session/player-T1EC5-e4815107-cbe 1 4.2 4.2 4.2 {"204":1}
+/game/session/player-TA99E-512202eb-8ce 1 3.0 3.0 3.0 {"204":1}
+/game/session/player-T4EE5-b3c9938d-ab0 1 1.9 1.9 1.9 {"204":1}
+/game/session/player-T8A07-d54bb379-af7 1 2.8 2.8 2.8 {"204":1}
+/game/session/player-T7C87-e481f118-f44 1 1.5 1.5 1.5 {"204":1}
+activity 84 22.0 147.2 360.4 {"204":84}
+motion 6585 7.8 17.4 235.5 {"200":6584,"409":1}
+torpedo 382 11.7 28.8 74.1 {"200":382}
+station 197 4.7 10.3 18.3 {"200":197}
+flak 9006 10.5 25.9 213.7 {"200":9002,"409":4}
+aim 3138 10.5 25.9 133.0 {"200":3137,"409":1}
+cannon 385 16.2 34.1 51.0 {"200":384,"409":1}
+leave 7 691.6 1092.1 1308.4 {"204":7}
+SSE [{"alias":"T523D","messages":3614,"errors":0,"connections":1,"observedShots":803,"recoveries":1},{"alias":"T498A","messages":3613,"errors":0,"connections":1,"observedShots":930,"recoveries":0},{"alias":"T1EC5","messages":3609,"errors":0,"connections":1,"observedShots":533,"recoveries":0},{"alias":"TA99E","messages":3608,"errors":0,"connections":1,"observedShots":825,"recoveries":3},{"alias":"T4EE5","messages":3606,"errors":0,"connections":1,"observedShots":496,"recoveries":10},{"alias":"T8A07","messages":3604,"errors":0,"connections":1,"observedShots":790,"recoveries":5},{"alias":"T7C87","messages":3602,"errors":0,"connections":1,"observedShots":594,"recoveries":1}]

@@ -1,0 +1,162 @@
+PHASE: NO TEST-PLAYER FIRE for 60s; same players then enable weapons.
+READY: 30 players, 360s, https://kuestenkrieg.de; bridge/flak/cannon cycles, all three weapons, no reset.
+Running 30s: active=29, recoveries=4, observed shots=7
+PHASE: TEST-PLAYER FIRE ENABLED now.
+Running 60s: active=30, recoveries=15, observed shots=8
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+Running 90s: active=28, recoveries=23, observed shots=1781
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+Running 120s: active=30, recoveries=24, observed shots=3382
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+Running 150s: active=28, recoveries=24, observed shots=5133
+Running 180s: active=28, recoveries=32, observed shots=6781
+fetch failed
+fetch failed
+Running 210s: active=29, recoveries=38, observed shots=8508
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+Running 240s: active=29, recoveries=42, observed shots=10167
+fetch failed
+fetch failed
+fetch failed
+fetch failed
+Running 270s: active=30, recoveries=51, observed shots=11722
+FINISHED. endpoint count avg_ms p95_ms max_ms statuses
+/game/config 1 171.2 171.2 171.2 {"200":1}
+register 30 246.3 562.8 789.3 {"200":30}
+/game/world 30 48.3 60.8 70.0 {"200":30}
+/game/version 30 6.7 11.8 18.7 {"200":30}
+/game/session/player-T5F7A-e5d54673-ce9 1 3.3 3.3 3.3 {"204":1}
+/game/state 30 12.4 15.6 21.4 {"200":30}
+crew 30 11.5 7.7 202.4 {"200":30}
+/game/session/player-T1729-5ea90c5c-726 1 4.1 4.1 4.1 {"204":1}
+/game/session/player-T186C-57e10bb2-699 1 3.6 3.6 3.6 {"204":1}
+/game/session/player-T1DEF-222d5e36-7a5 1 4.4 4.4 4.4 {"204":1}
+/game/session/player-TE49C-ec786d42-be6 1 2.0 2.0 2.0 {"204":1}
+/game/session/player-T04E0-d17a9648-32c 1 4.4 4.4 4.4 {"204":1}
+/game/session/player-T3350-37dba469-d68 1 1.9 1.9 1.9 {"204":1}
+/game/session/player-T763A-389576fa-6b0 1 3.5 3.5 3.5 {"204":1}
+/game/session/player-T3501-31fc8066-5c0 1 2.0 2.0 2.0 {"204":1}
+/game/session/player-T0C21-977be06e-bd8 1 2.2 2.2 2.2 {"204":1}
+/game/session/player-T999C-85d171b1-07e 1 2.6 2.6 2.6 {"204":1}
+/game/session/player-TD03F-299d048b-dd4 1 3.0 3.0 3.0 {"204":1}
+/game/session/player-T5D79-0d58cb7d-b1c 1 2.2 2.2 2.2 {"204":1}
+/game/session/player-T4A07-19cb5f6e-601 1 2.1 2.1 2.1 {"204":1}
+/game/session/player-TEA13-415d7f50-f1e 1 2.3 2.3 2.3 {"204":1}
+/game/session/player-T2C6A-c035cc8a-dbf 1 2.1 2.1 2.1 {"204":1}
+/game/session/player-T621B-9ea630f5-ede 1 3.4 3.4 3.4 {"204":1}
+/game/session/player-T5C83-bb5ac38f-641 1 3.5 3.5 3.5 {"204":1}
+/game/session/player-TBAA6-d3290520-ee2 1 4.1 4.1 4.1 {"204":1}
+/game/session/player-TF3E1-54b280ab-b5b 1 3.9 3.9 3.9 {"204":1}
+/game/session/player-T4100-9ccc1e85-294 1 2.4 2.4 2.4 {"204":1}
+/game/session/player-T7A7B-e3dbefd4-3af 1 2.8 2.8 2.8 {"204":1}
+/game/session/player-TA772-cf5b08c1-d0f 1 3.4 3.4 3.4 {"204":1}
+/game/session/player-T7CE4-d37842fa-820 1 3.2 3.2 3.2 {"204":1}
+/game/session/player-T2140-435f4524-401 1 1.8 1.8 1.8 {"204":1}
+/game/session/player-T5AC2-0b34c7ea-89b 1 1.9 1.9 1.9 {"204":1}
+/game/session/player-T9483-d78f79a6-ef4 1 2.1 2.1 2.1 {"204":1}
+/game/session/player-TDDF1-c2a86d6e-6a0 1 3.4 3.4 3.4 {"204":1}
+/game/session/player-T1155-d3fcac3b-4be 1 4.8 4.8 4.8 {"204":1}
+/game/session/player-T3D3B-5579de42-033 1 2.2 2.2 2.2 {"204":1}
+motion 17795 170.1 442.4 1703.3 {"0":21,"200":17753,"409":21}
+station 695 119.3 366.0 1509.2 {"200":695}
+aim 9915 167.5 441.5 1864.8 {"0":8,"200":9895,"409":12}
+torpedo 942 239.5 485.6 1879.2 {"0":1,"200":936,"409":5}
+flak 21760 246.5 516.1 1838.3 {"0":72,"200":21617,"409":71}
+cannon 1096 241.3 492.8 1245.6 {"0":3,"200":1091,"409":2}
+leave 30 2642.7 5041.6 5482.5 {"204":30}
+SSE [{"alias":"T5F7A","messages":1433,"errors":0,"connections":1,"observedShots":157,"recoveries":5},{"alias":"T1729","messages":1431,"errors":0,"connections":1,"observedShots":364,"recoveries":0},{"alias":"T186C","messages":1422,"errors":0,"connections":1,"observedShots":430,"recoveries":1},{"alias":"T1DEF","messages":1416,"errors":0,"connections":1,"observedShots":417,"recoveries":1},{"alias":"TE49C","messages":1415,"errors":0,"connections":1,"observedShots":518,"recoveries":0},{"alias":"T04E0","messages":1412,"errors":0,"connections":1,"observedShots":277,"recoveries":3},{"alias":"T3350","messages":1410,"errors":0,"connections":1,"observedShots":416,"recoveries":2},{"alias":"T763A","messages":1405,"errors":0,"connections":1,"observedShots":501,"recoveries":1},{"alias":"T3501","messages":1399,"errors":0,"connections":1,"observedShots":537,"recoveries":0},{"alias":"T0C21","messages":1396,"errors":0,"connections":1,"observedShots":549,"recoveries":0},{"alias":"T999C","messages":1394,"errors":0,"connections":1,"observedShots":480,"recoveries":1},{"alias":"TD03F","messages":1390,"errors":0,"connections":1,"observedShots":245,"recoveries":2},{"alias":"T5D79","messages":1388,"errors":0,"connections":1,"observedShots":251,"recoveries":6},{"alias":"T4A07","messages":1384,"errors":0,"connections":1,"observedShots":500,"recoveries":0},{"alias":"TEA13","messages":1383,"errors":0,"connections":1,"observedShots":496,"recoveries":0},{"alias":"T2C6A","messages":1378,"errors":0,"connections":1,"observedShots":241,"recoveries":5},{"alias":"T621B","messages":1378,"errors":0,"connections":1,"observedShots":426,"recoveries":0},{"alias":"T5C83","messages":1373,"errors":0,"connections":1,"observedShots":513,"recoveries":0},{"alias":"TBAA6","messages":1373,"errors":0,"connections":1,"observedShots":233,"recoveries":5},{"alias":"TF3E1","messages":1373,"errors":0,"connections":1,"observedShots":429,"recoveries":1},{"alias":"T4100","messages":1372,"errors":0,"connections":1,"observedShots":503,"recoveries":0},{"alias":"T7A7B","messages":1370,"errors":0,"connections":1,"observedShots":225,"recoveries":3},{"alias":"TA772","messages":1370,"errors":0,"connections":1,"observedShots":534,"recoveries":0},{"alias":"T7CE4","messages":1368,"errors":0,"connections":1,"observedShots":413,"recoveries":2},{"alias":"T2140","messages":1368,"errors":0,"connections":1,"observedShots":456,"recoveries":1},{"alias":"T5AC2","messages":1344,"errors":0,"connections":1,"observedShots":105,"recoveries":7},{"alias":"T9483","messages":1343,"errors":0,"connections":1,"observedShots":537,"recoveries":0},{"alias":"TDDF1","messages":1344,"errors":0,"connections":1,"observedShots":386,"recoveries":1},{"alias":"T1155","messages":1341,"errors":0,"connections":1,"observedShots":454,"recoveries":2},{"alias":"T3D3B","messages":1341,"errors":0,"connections":1,"observedShots":375,"recoveries":4}]
