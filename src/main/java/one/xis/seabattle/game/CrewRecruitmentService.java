@@ -113,7 +113,7 @@ public class CrewRecruitmentService {
         }
         requests.put(key(request.accountId(), request.crewId()), request.withStatus(decision,
                 accept ? nowMillis() + 120_000 : request.expiresAt()));
-        if (!accept) retryAfter.put(new RetryKey(request.accountId(), request.crewId()), nowMillis() + 900_000);
+        if (!accept) retryAfter.put(new RetryKey(request.accountId(), request.crewId()), nowMillis() + 300_000);
     }
 
     private GameSnapshot refresh() {
@@ -136,7 +136,7 @@ public class CrewRecruitmentService {
                 long expiredAt = Math.min(nowMillis(), request.expiresAt());
                 boolean timedOut = !unavailable && nowMillis() >= request.expiresAt();
                 retryAfter.put(new RetryKey(request.accountId(), request.crewId()),
-                        expiredAt + (timedOut ? 900_000 : 120_000));
+                        expiredAt + (timedOut ? 60_000 : 120_000));
                 return request.withStatus(timedOut ? "Abgelehnt" : "Abgelaufen", request.expiresAt());
             }
             if (request.pending()) {

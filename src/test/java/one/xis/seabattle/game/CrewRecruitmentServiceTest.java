@@ -35,7 +35,7 @@ class CrewRecruitmentServiceTest {
     }
 
     @Test
-    void declineBlocksForFifteenMinutesAndExpiryPublishesSse() {
+    void declineBlocksForFiveMinutesAndExpiryPublishesSse() {
         String ship = captain("CAP", "light", "torpedo-boat");
         var recipient = new Account("CAP", "Captain", "CAP", "light", null);
         service.request(applicant, ship);
@@ -43,7 +43,7 @@ class CrewRecruitmentServiceTest {
         service.decide(recipient, oldId, false);
         service.publishChanges();
         int count = events.size();
-        clock.now += 899_999;
+        clock.now += 299_999;
         service.publishChanges();
         assertEquals(count, events.size());
         assertThrows(IllegalArgumentException.class, () -> service.request(applicant, ship));
@@ -56,7 +56,7 @@ class CrewRecruitmentServiceTest {
     }
 
     @Test
-    void unansweredRequestIsDeclinedAndBlockedForFifteenMinutesFromDeadline() {
+    void unansweredRequestIsDeclinedAndBlockedForOneMinuteFromDeadline() {
         String ship = captain("CAP", "light", "torpedo-boat");
         var recipient = new Account("CAP", "Captain", "CAP", "light", null);
         service.request(applicant, ship);
@@ -71,7 +71,7 @@ class CrewRecruitmentServiceTest {
         assertEquals("Abgelehnt", service.requests(applicant).get(0).status());
         assertTrue(service.inbox(recipient).isEmpty());
         assertThrows(IllegalArgumentException.class, () -> service.decide(recipient, id, true));
-        clock.now += 899_999;
+        clock.now += 59_999;
         assertThrows(IllegalArgumentException.class, () -> service.request(applicant, ship));
         clock.now++;
         assertDoesNotThrow(() -> service.request(applicant, ship));
