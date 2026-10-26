@@ -278,10 +278,12 @@ public class CrewService {
     public synchronized View join(String recipient, Account applicant) {
         Crew c = crew(recipient);
         if (c == null || !c.team.equals(applicant.team())) throw new IllegalArgumentException("Schiff nicht verfuegbar.");
+        // Refresh the crew's ship after respawn before validating admission.
+        view(recipient);
         if (players.isAliasRegistered(applicant.alias()) || hasAccount(applicant.id())) throw new IllegalArgumentException("Bereits an Bord.");
         String station = STATIONS.stream().filter(s -> c.members.values().stream().noneMatch(m -> s.equals(m.station())))
                 .findFirst().orElseThrow(() -> new IllegalArgumentException("Alle Positionen sind belegt."));
-        if (game.snapshot().ships().stream().noneMatch(s -> s.id().equals(c.shipId) && "active".equals(s.state())))
+        if (game.snapshot().ships().stream().noneMatch(s -> s.id().equals(c.shipId) && c.controller.equals(s.controlledBy()) && "active".equals(s.state())))
             throw new IllegalArgumentException("Schiff nicht aktiv.");
         String player = "player-" + applicant.alias() + "-" + UUID.randomUUID().toString().substring(0, 12);
         players.register(player, applicant.alias(), applicant.nickname(), applicant.team(), applicant.id());

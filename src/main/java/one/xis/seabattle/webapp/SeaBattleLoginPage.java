@@ -65,6 +65,15 @@ public class SeaBattleLoginPage {
         );
     }
 
+    @ModelData("vehicleHandbook")
+    HandbookLink vehicleHandbook(@NullAllowed @LocalStorage("vehicleType") String vehicleType) {
+        boolean submarine = "submarine".equals(normalizeVehicleType(vehicleType));
+        return new HandbookLink("/sea-battle/handbuch/" + (submarine ? "u-boot" : "torpedoboot") + "/index.html",
+                submarine ? "U-Boot kennenlernen" : "Torpedoboot kennenlernen");
+    }
+
+    public record HandbookLink(String href, String label) {}
+
     @ModelData("enlisting")
     boolean enlisting(@NullAllowed @QueryParameter("mode") String mode) {
         return "crew".equals(mode);

@@ -95,6 +95,28 @@ class CrewRecruitmentServiceTest {
         assertDoesNotThrow(() -> service.request(applicant, next));
     }
 
+    @Test
+    void pendingRequestSurvivesLossOfShipAndCanBeAcceptedAfterRespawn() {
+        String ship = captain("CAP", "light", "torpedo-boat");
+        var recipient = new Account("CAP", "Captain", "CAP", "light", null);
+        service.request(applicant, ship);
+        var before = service.requests(applicant).get(0);
+        game.releasePlayer("player-CAP-test");
+        service.publishChanges();
+        assertEquals("Offen", service.requests(applicant).get(0).status());
+        assertEquals(before.id(), service.inbox(recipient).get(0).id());
+        assertThrows(IllegalArgumentException.class, () -> service.decide(recipient, before.id(), true));
+        assertEquals("Offen", service.requests(applicant).get(0).status());
+        String respawn = captain("CAP", "light", "torpedo-boat");
+        var after = service.requests(applicant).get(0);
+        assertEquals(respawn, after.shipId());
+        assertEquals(before.expiresAt(), after.expiresAt());
+        service.decide(recipient, before.id(), true);
+        assertEquals(1, service.requests(applicant).size());
+        assertEquals("Angenommen", service.requests(applicant).get(0).status());
+        assertTrue(crew.hasAccount(applicant.id()));
+    }
+
     private String captain(String alias, String team, String type) {
         String id = "player-" + alias + "-test";
         players.register(id, alias, alias, team, alias);
@@ -179,6 +201,8 @@ class CrewRecruitmentServiceTest {
         service.ships(applicant);
         assertThrows(IllegalArgumentException.class, () -> service.request(applicant, first));
         assertThrows(IllegalArgumentException.class, () -> service.request(applicant, second));
+        crew.leave("player-CAP-test");
+        players.unregisterPlayer("player-CAP-test");
         game.releasePlayer("player-CAP-test");
         assertEquals("Abgelaufen", service.requests(applicant).get(0).status());
         assertThrows(IllegalArgumentException.class, () -> service.request(applicant, first));
@@ -233,6 +257,8 @@ class CrewRecruitmentServiceTest {
         var another = new Account("another", "Another", "TWO", "light", null);
         service.request(another, ship);
         String nextId = service.inbox(recipient).get(0).id();
+        crew.leave("player-CAP-test");
+        players.unregisterPlayer("player-CAP-test");
         game.releasePlayer("player-CAP-test");
         assertThrows(IllegalArgumentException.class, () -> service.decide(recipient, nextId, true));
         assertEquals("Abgelaufen", service.requests(another).get(0).status());

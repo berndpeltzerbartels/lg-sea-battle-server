@@ -54,7 +54,7 @@ public class CrewRecruitmentService {
         return snapshot.ships().stream().filter(ship -> eligible(ship, account))
                 .map(ship -> {
                     boolean blocked = retryAfter.containsKey(new RetryKey(account.id(), crew.identity(ship.controlledBy())));
-                    var previous = requests.get(key(account.id(), ship.id()));
+                    var previous = requests.get(key(account.id(), crew.identity(ship.controlledBy())));
                     String status = previous != null && previous.pending() ? previous.status()
                             : blocked ? "Wartezeit" : "Verfuegbar";
                     return new ShipOption(ship.id(), ship.teamId(), crewNames(ship.controlledBy()),
@@ -81,8 +81,8 @@ public class CrewRecruitmentService {
             throw new IllegalArgumentException("Die Wartezeit fuer diese Besatzung ist noch nicht abgelaufen.");
         }
         // Reinsert so the latest attempt remains last in the applicant's history.
-        requests.remove(key(account.id(), ship.id()));
-        requests.put(key(account.id(), ship.id()), new Request(account.id(), ship.id(),
+        requests.remove(key(account.id(), crew.identity(ship.controlledBy())));
+        requests.put(key(account.id(), crew.identity(ship.controlledBy())), new Request(account.id(), ship.id(),
                 ship.controlledBy(), "Offen", nowMillis() + 120_000,
                 UUID.randomUUID().toString(), account.nickname(), account.alias(), crew.identity(ship.controlledBy())));
     }
@@ -111,7 +111,7 @@ public class CrewRecruitmentService {
             crew.join(contact, boarded);
             accounts.saveAccount(boarded);
         }
-        requests.put(key(request.accountId(), request.shipId()), request.withStatus(decision,
+        requests.put(key(request.accountId(), request.crewId()), request.withStatus(decision,
                 accept ? nowMillis() + 120_000 : request.expiresAt()));
         if (!accept) retryAfter.put(new RetryKey(request.accountId(), request.crewId()), nowMillis() + 900_000);
     }
@@ -130,15 +130,19 @@ public class CrewRecruitmentService {
                 retryAfter.put(new RetryKey(request.accountId(), request.crewId()), nowMillis() + 120_000);
                 return request.withStatus("Abgelaufen", request.expiresAt());
             }
-            boolean unavailable = snapshot.ships().stream().noneMatch(ship -> ship.id().equals(request.shipId())
-                    && "active".equals(ship.state()) && Objects.equals(ship.controlledBy(), crew.contact(request.crewId()))
-                    && players.isRegisteredPlayer(ship.controlledBy()));
+            String contact = crew.contact(request.crewId());
+            boolean unavailable = !crew.exists(request.crewId()) || !players.isRegisteredPlayer(contact);
             if (request.pending() && (nowMillis() >= request.expiresAt() || unavailable)) {
                 long expiredAt = Math.min(nowMillis(), request.expiresAt());
                 boolean timedOut = !unavailable && nowMillis() >= request.expiresAt();
                 retryAfter.put(new RetryKey(request.accountId(), request.crewId()),
                         expiredAt + (timedOut ? 900_000 : 120_000));
                 return request.withStatus(timedOut ? "Abgelehnt" : "Abgelaufen", request.expiresAt());
+            }
+            if (request.pending()) {
+                var currentShip = snapshot.ships().stream().filter(ship -> contact.equals(ship.controlledBy())
+                        && "active".equals(ship.state()) && "torpedo-boat".equals(ship.vehicleType())).findFirst();
+                if (currentShip.isPresent()) return request.withShip(currentShip.get().id(), contact);
             }
             return request;
         });
@@ -154,7 +158,7 @@ public class CrewRecruitmentService {
                 && !account.id().equals(players.accountIdForPlayer(ship.controlledBy()));
     }
 
-    private String key(String accountId, String shipId) { return accountId + ":" + shipId; }
+    private String key(String accountId, String crewId) { return accountId + ":" + crewId; }
     private String crewNames(String controller) {
         return crew.members(controller).stream().map(CrewService.Member::name)
                 .collect(java.util.stream.Collectors.joining(", "));
@@ -164,6 +168,9 @@ public class CrewRecruitmentService {
     public record Request(String accountId, String shipId, String recipientPlayerId, String status, long expiresAt,
                           String id, String nickname, String alias, String crewId) {
         boolean pending() { return status.equals("Offen"); }
+        Request withShip(String shipId, String recipientPlayerId) {
+            return new Request(accountId, shipId, recipientPlayerId, status, expiresAt, id, nickname, alias, crewId);
+        }
         Request withStatus(String status, long expiresAt) {
             return new Request(accountId, shipId, recipientPlayerId, status, expiresAt, id, nickname, alias, crewId);
         }

@@ -281,12 +281,14 @@
     </section>
 
     <section class="start-card">
-        <nav aria-label="Einsteigen" style="display:flex;gap:24px">
+        <nav aria-label="Einsteigen" style="display:flex;gap:16px 24px;flex-wrap:wrap">
             <a xis:page="/start.html" style="color:#a8eeed">Eigenes Schiff</a>
             <a xis:page="/start.html" style="color:#a8eeed">Anheuern<xis:parameter name="mode" value="crew"/></a>
+            <a href="/sea-battle/handbuch/index.html" target="_blank" rel="noopener" style="color:#a8eeed">Spielanleitung</a>
         </nav>
         <form xis:binding="enlist" xis:if="enlisting">
             <h2>Anheuern</h2>
+            <p><a href="/sea-battle/handbuch/torpedoboot/index.html" target="_blank" rel="noopener" style="color:#a8eeed">Torpedoboot kennenlernen ↗</a></p>
             <xis:global-messages/>
             <input type="hidden" xis:binding="id">
             <div class="field">
@@ -344,11 +346,12 @@
 
             <div class="field">
                 <label for="vehicleType" xis:binding="vehicleType" xis:error-class="error">Einsteigen</label>
-                <select id="vehicleType" xis:binding="vehicleType" xis:error-class="error">
+                <select id="vehicleType" xis:binding="vehicleType" xis:error-class="error" onchange="var guide=document.getElementById('vehicleGuide');var sub=this.value==='submarine';guide.href='/sea-battle/handbuch/'+(sub?'u-boot':'torpedoboot')+'/index.html';guide.textContent=(sub?'U-Boot':'Torpedoboot')+' kennenlernen ↗';">
                     <option value="torpedo-boat">Eigenes Torpedoboot</option>
                     <option value="submarine">Eigenes U-Boot</option>
                 </select>
                 <div class="message" xis:message-for="vehicleType"></div>
+                <p><a id="vehicleGuide" href="${vehicleHandbook.href}" target="_blank" rel="noopener" style="color:#a8eeed">${vehicleHandbook.label} ↗</a></p>
             </div>
 
             <button type="submit" xis:action="startGame">Einsteigen</button>
