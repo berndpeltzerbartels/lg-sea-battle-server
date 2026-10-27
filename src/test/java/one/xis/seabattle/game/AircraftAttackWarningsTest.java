@@ -55,6 +55,14 @@ class AircraftAttackWarningsTest {
         var turning=session(500,Math.PI,"human");tick(turning);
         assertTrue(turning.snapshot().aircraftWarnings().isEmpty());
     }
+    @Test void surfacedHumanSubmarineReceivesTheAircraftAttackWarning() {
+        var session=session(500,0,"human");
+        session.applyPlayerState(new PlayerStateUpdate("human","light",0,500,0,0,0,2,0,0,true,
+                "submarine",-.78,0,null,null,null,null,"surface"),new NavigationService(),sea);
+        tick(session);
+        assertEquals("achtern",session.snapshot().aircraftWarnings().get("boat").direction());
+    }
+
     @Test void botRecipientsDoNotReceiveOrTrackAdditionalWarnings() {
         var session=session(500,0,"bot");tick(session);
         assertTrue(session.snapshot().aircraftWarnings().isEmpty());

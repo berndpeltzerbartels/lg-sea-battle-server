@@ -122,6 +122,17 @@ class PeriscopeWarningsTest {
         assertTrue(warnings.snapshot().isEmpty());
     }
 
+    @Test void humanSubmarineReceivesSightingsOnSurfaceAndAtPeriscopeDepth() {
+        for (double y : new double[] { -.78, -5.58 }) {
+            var detector = new PeriscopeWarnings();
+            Ship own = ship("own-sub", "light", "captain", 0, 0, y, 0, true,
+                    y < -1 ? "periscope" : "surface");
+            Ship target = sub("enemy", 0, 10, -5.58, 0, "periscope");
+            detector.update(0, List.of(own), radar.visibilityCache(sea, List.of(own, target)), sea);
+            assertEquals("voraus", detector.snapshot().get("own-sub").direction());
+        }
+    }
+
     @Test void noHumanObserversRequireNoContactSearch() {
         warnings.update(0, List.of(), null, sea);
         assertTrue(warnings.snapshot().isEmpty());
