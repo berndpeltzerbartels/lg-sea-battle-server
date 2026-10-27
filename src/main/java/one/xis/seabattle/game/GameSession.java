@@ -174,6 +174,7 @@ public final class GameSession {
     private final String instanceId = java.util.UUID.randomUUID().toString();
     private final WorldMap worldMap;
     private final PeriscopeWarnings periscopeWarnings = new PeriscopeWarnings();
+    private final AircraftAttackWarnings aircraftWarnings = new AircraftAttackWarnings();
     private final WorldMap scoutPlaneObstacleMap;
     private final Map<String, Fleet> fleets;
     private final List<Vector2> respawnCandidates;
@@ -320,7 +321,8 @@ public final class GameSession {
                 instanceId,
                 List.copyOf(depthCharges),
                 depthChargeControls(),
-                periscopeWarnings.snapshot()
+                periscopeWarnings.snapshot(),
+                aircraftWarnings.snapshot()
         );
     }
 
@@ -840,6 +842,7 @@ public final class GameSession {
                 .toList();
         RadarService.VisibilityCache visibilityCache = radarService.visibilityCache(worldMap, activeShips);
         periscopeWarnings.update(nowSeconds, humanSurfaceShips, visibilityCache, worldMap);
+        aircraftWarnings.expire(nowSeconds);
         boolean checkDepthCharges = nowSeconds >= nextBotDepthChargeCheck;
         if (checkDepthCharges) nextBotDepthChargeCheck = nowSeconds + .5;
         Map<String, Integer> scoutPlaneTargetReservations = new LinkedHashMap<>();
@@ -945,6 +948,10 @@ public final class GameSession {
         applyScoutPlaneBotCommand(plane, MathSupport.normalizeAngle(plane.heading() + targetBearing));
         if (Math.abs(targetBearing) > BOT_SCOUT_PLANE_ATTACK_ARC) {
             return;
+        }
+        if (isHumanControlled(ship) && "active".equals(ship.state()) && !ship.teamId().equals(plane.teamId())
+                && (!ship.isSubmarine() || ship.y() + SubmarinePeriscopeGeometry.topAboveRoot(ship.y()) > 0)) {
+            aircraftWarnings.observe(nowSeconds, plane, ship);
         }
 
         if (preferTorpedoAttack

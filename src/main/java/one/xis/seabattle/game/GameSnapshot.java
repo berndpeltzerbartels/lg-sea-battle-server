@@ -23,6 +23,7 @@ public record GameSnapshot(
         String instanceId,
         List<DepthChargeSnapshot> depthCharges,
         Map<String, DepthChargeControlSnapshot> depthChargeControls,
-        Map<String, PeriscopeWarnings.Warning> periscopeWarnings
+        Map<String, PeriscopeWarnings.Warning> periscopeWarnings,
+        Map<String, AircraftAttackWarnings.Warning> aircraftWarnings
 ) {
 }

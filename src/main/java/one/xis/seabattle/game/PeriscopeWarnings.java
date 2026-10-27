@@ -65,10 +65,7 @@ public final class PeriscopeWarnings {
                 }
             }
             if (nearest != null && !next.containsKey(observer.id())) {
-                double bearing = Math.atan2(nearest.position().x() - observer.position().x(),
-                        nearest.position().z() - observer.position().z()) - observer.heading();
-                int sector = Math.floorMod((int) Math.round(bearing / (Math.PI / 4)), 8);
-                next.put(observer.id(), new Warning(java.util.UUID.randomUUID().toString(), DIRECTIONS[sector], newContacts,
+                next.put(observer.id(), new Warning(java.util.UUID.randomUUID().toString(), direction(observer, nearest), newContacts,
                         now + NOTICE_SECONDS));
                 contacts.values().stream().filter(contact -> contact.lastSeen == now)
                         .forEach(contact -> contact.announced = true);
@@ -77,4 +74,11 @@ public final class PeriscopeWarnings {
         contactsByObserver.keySet().retainAll(observers);
         published = Map.copyOf(next);
     }
+    static String direction(Ship observer, Ship contact) {
+        double bearing = Math.atan2(contact.position().x() - observer.position().x(),
+                contact.position().z() - observer.position().z()) - observer.heading();
+        int sector = Math.floorMod((int) Math.round(bearing / (Math.PI / 4)), 8);
+        return DIRECTIONS[sector];
+    }
+
 }
