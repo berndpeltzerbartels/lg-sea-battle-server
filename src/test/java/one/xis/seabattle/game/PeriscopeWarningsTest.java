@@ -133,6 +133,30 @@ class PeriscopeWarningsTest {
         }
     }
 
+    @Test void surfacedHumanSubmarineReceivesEnemyPeriscopeWarningThroughGameSession() {
+        ShipSetup own = new ShipSetup("own-sub", "light", new Vector2(0, 0), 0, "captain", 2, 0, 99,
+                "submarine", 0);
+        ShipSetup enemy = new ShipSetup("enemy-sub", "dark", new Vector2(0, 10), 0, "enemy", 2, 0, 99,
+                "submarine", 0);
+        ShipSetup friendly = new ShipSetup("friendly-sub", "light", new Vector2(10, 0), 0, "friend", 2, 0, 99,
+                "submarine", 0);
+        GameSession session = new GameSession(new GameSetup("surfaced-sub-warning", sea,
+                List.of(new FleetSetup("light", List.of(own, friendly)), new FleetSetup("dark", List.of(enemy))),
+                List.of(new Vector2(1000, 1000))));
+        NavigationService navigation = new NavigationService();
+        session.applyPlayerState(new PlayerStateUpdate("captain", "light", 0, 0, 0, 0, 0, 2, 0, 0,
+                true, "submarine", -.78, 0, null, null, null, null, "surface"), navigation, sea);
+        session.applyPlayerState(new PlayerStateUpdate("enemy", "dark", 0, 10, 0, 0, 0, 2, 0, 0,
+                true, "submarine", -5.58, 0, null, null, null, null, "periscope"), navigation, sea);
+        session.applyPlayerState(new PlayerStateUpdate("friend", "light", 10, 0, 0, 0, 0, 2, 0, 0,
+                true, "submarine", -5.58, 0, null, null, null, null, "periscope"), navigation, sea);
+        session.update(.1, radar, navigation, sea);
+        var warning = session.snapshot().periscopeWarnings().get("own-sub");
+        assertNotNull(warning);
+        assertEquals("voraus", warning.direction());
+        assertEquals(1, warning.count(), "The friendly periscope must not be included");
+    }
+
     @Test void noHumanObserversRequireNoContactSearch() {
         warnings.update(0, List.of(), null, sea);
         assertTrue(warnings.snapshot().isEmpty());
