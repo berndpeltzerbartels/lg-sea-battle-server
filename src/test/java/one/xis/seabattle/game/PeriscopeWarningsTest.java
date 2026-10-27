@@ -1,6 +1,8 @@
 package one.xis.seabattle.game;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import java.util.ArrayList;
 import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
@@ -122,14 +124,15 @@ class PeriscopeWarningsTest {
         assertTrue(warnings.snapshot().isEmpty());
     }
 
-    @Test void humanSubmarineReceivesSightingsOnSurfaceAndAtPeriscopeDepth() {
-        for (double y : new double[] { -.78, -5.58 }) {
+    @Test void humanSubmarineReceivesSightingsOnlyWhenPhysicallySurfaced() {
+        for (double y : new double[] { -.78, -3, -5.58, -19.26 }) {
             var detector = new PeriscopeWarnings();
             Ship own = ship("own-sub", "light", "captain", 0, 0, y, 0, true,
                     y < -1 ? "periscope" : "surface");
             Ship target = sub("enemy", 0, 10, -5.58, 0, "periscope");
             detector.update(0, List.of(own), radar.visibilityCache(sea, List.of(own, target)), sea);
-            assertEquals("voraus", detector.snapshot().get("own-sub").direction());
+            if (y == -.78) assertEquals("voraus", detector.snapshot().get("own-sub").direction());
+            else assertTrue(detector.snapshot().isEmpty());
         }
     }
 
@@ -155,6 +158,59 @@ class PeriscopeWarningsTest {
         assertNotNull(warning);
         assertEquals("voraus", warning.direction());
         assertEquals(1, warning.count(), "The friendly periscope must not be included");
+    }
+
+    @ParameterizedTest
+    @ValueSource(doubles = { -5.58, -19.26 })
+    void surfacingReannouncesAnEnemyAlreadyPresentWhileDiving(double initialY) {
+        ShipSetup own = new ShipSetup("own-sub", "light", new Vector2(0, 0), 0, "captain", 2, 0, 99,
+                "submarine", 0);
+        ShipSetup enemy = new ShipSetup("enemy-sub", "dark", new Vector2(0, 15), 0, "enemy", 2, 0, 99,
+                "submarine", 0);
+        GameSession session = new GameSession(new GameSetup("surfacing-warning", sea,
+                List.of(new FleetSetup("light", List.of(own)), new FleetSetup("dark", List.of(enemy))),
+                List.of(new Vector2(1000, 1000))));
+        NavigationService navigation = new NavigationService();
+        session.applyPlayerState(new PlayerStateUpdate("enemy", "dark", 0, 15, 0, 0, 0, 2, 0, 0,
+                true, "submarine", -5.58, 0, null, null, null, null, "periscope"), navigation, sea);
+        setObserverDepth(session, navigation, initialY, initialY < -10 ? "submerged" : "periscope");
+        session.update(1.1, radar, navigation, sea);
+        assertFalse(session.snapshot().periscopeWarnings().containsKey("own-sub"));
+        // Coming from deep water, ascend through periscope depth. The enemy never leaves.
+        setObserverDepth(session, navigation, -5.58, "periscope");
+        session.update(1.1, radar, navigation, sea);
+        assertFalse(session.snapshot().periscopeWarnings().containsKey("own-sub"));
+        for (int i = 0; i < 8; i++) session.update(1.1, radar, navigation, sea);
+        assertFalse(session.snapshot().periscopeWarnings().containsKey("own-sub"));
+        // Selecting Surface alone must not reset sightings before actually reaching the surface.
+        setObserverDepth(session, navigation, -5.58, "surface");
+        session.update(1.1, radar, navigation, sea);
+        assertFalse(session.snapshot().periscopeWarnings().containsKey("own-sub"));
+        setObserverDepth(session, navigation, -3, "surface");
+        session.update(1.1, radar, navigation, sea);
+        assertFalse(session.snapshot().periscopeWarnings().containsKey("own-sub"));
+        setObserverDepth(session, navigation, -.78, "surface");
+        session.update(1.1, radar, navigation, sea);
+        var warning = session.snapshot().periscopeWarnings().get("own-sub");
+        assertNotNull(warning, "Surfacing must warn again about the nearby enemy periscope");
+        assertEquals("voraus", warning.direction());
+        session.update(1.1, radar, navigation, sea);
+        assertEquals(warning.id(), session.snapshot().periscopeWarnings().get("own-sub").id(),
+                "Remaining surfaced must not repeat the notification every second");
+        // Even a brief dive must discard the old delivered-contact history.
+        setObserverDepth(session, navigation, initialY, initialY < -10 ? "submerged" : "periscope");
+        session.update(1.1, radar, navigation, sea);
+        assertFalse(session.snapshot().periscopeWarnings().containsKey("own-sub"));
+        setObserverDepth(session, navigation, -.78, "surface");
+        session.update(1.1, radar, navigation, sea);
+        var resurfaced = session.snapshot().periscopeWarnings().get("own-sub");
+        assertNotNull(resurfaced);
+        assertNotEquals(warning.id(), resurfaced.id());
+    }
+
+    private void setObserverDepth(GameSession session, NavigationService navigation, double y, String selectedDepth) {
+        session.applyPlayerState(new PlayerStateUpdate("captain", "light", 0, 0, 0, 0, 0, 2, 0, 0,
+                true, "submarine", y, 0, null, null, null, null, selectedDepth), navigation, sea);
     }
 
     @Test void noHumanObserversRequireNoContactSearch() {

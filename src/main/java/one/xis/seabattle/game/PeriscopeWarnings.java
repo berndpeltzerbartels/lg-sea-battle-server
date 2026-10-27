@@ -14,6 +14,8 @@ public final class PeriscopeWarnings {
     private static final double NOTICE_SECONDS = 6;
     private static final String[] DIRECTIONS = {"voraus", "Steuerbord voraus", "Steuerbord", "Steuerbord achtern",
             "achtern", "Backbord achtern", "Backbord", "Backbord voraus"};
+    // Match the surface endpoint tolerance, using physical depth rather than the selected order.
+    private static final double SURFACE_BAND_BOTTOM = -(0.26 + 0.08) * SeaBattleGameConfig.TORPEDO_BOAT_SCALE;
     private final Map<String, Map<String, Contact>> contactsByObserver = new HashMap<>();
     private Map<String, Warning> published = Map.of();
     private double nextCheck;
@@ -39,7 +41,7 @@ public final class PeriscopeWarnings {
         Set<String> observers = new HashSet<>();
         for (Ship observer : humanShips) {
             if (!"active".equals(observer.state()) || observer.isScoutPlane()
-                    || observer.isSubmarine() && observer.y() + SubmarinePeriscopeGeometry.topAboveRoot(observer.y()) <= 0) continue;
+                    || observer.isSubmarine() && observer.y() < SURFACE_BAND_BOTTOM) continue;
             observers.add(observer.id());
             Map<String, Contact> contacts = contactsByObserver.computeIfAbsent(observer.id(), key -> new HashMap<>());
             contacts.values().removeIf(contact -> now - contact.lastSeen >= CONTACT_RESET_SECONDS);
@@ -71,6 +73,8 @@ public final class PeriscopeWarnings {
                         .forEach(contact -> contact.announced = true);
             }
         }
+        // Submerged observers are removed, including their delivered-contact history.
+        // A nearby enemy is therefore announced afresh after physically surfacing.
         contactsByObserver.keySet().retainAll(observers);
         published = Map.copyOf(next);
     }
