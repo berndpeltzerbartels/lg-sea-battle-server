@@ -34,7 +34,7 @@ class PeriscopeWarningsTest {
             PeriscopeWarnings detector = new PeriscopeWarnings();
             Ship target = sub(controller, -5, -5, -5.58, 0, "periscope");
             detector.update(0, List.of(observer), radar.visibilityCache(sea, List.of(observer, target)), sea);
-            assertEquals("Backbord achteraus", detector.snapshot().get("boat").direction());
+            assertEquals("Backbord achtern", detector.snapshot().get("boat").direction());
         }
     }
 

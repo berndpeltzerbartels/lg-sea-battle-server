@@ -116,7 +116,6 @@ public final class GameSession {
     private static final double RAM_IMPACT_STOP_HOLD_SECONDS = 0.65;
     private static final double RAM_SURFACE_KEEL_Y = (-.26 - .05) * TORPEDO_BOAT_MODEL_SCALE;
     private static final double RAM_SUBMARINE_HULL_TOP = .62 * TORPEDO_BOAT_MODEL_SCALE;
-    private static final double RAM_SUBMARINE_MAST_TOP = (.66 + .64 * .9 - .012 + .986 * .9) * TORPEDO_BOAT_MODEL_SCALE;
     private static final double BOT_SHIP_AVOID_RANGE = 86.0;
     private static final double BOT_SHIP_AVOID_CORRIDOR = 3.15 * TORPEDO_BOAT_MODEL_SCALE;
     private static final double BOT_BOT_DEADLOCK_AVOID_RANGE = 54.0;
@@ -1999,7 +1998,7 @@ public final class GameSession {
 
     // Compare actual model heights with the surface hull's keel, never the dive command.
     private boolean ramBelowSurface(Ship ship) {
-        return ship.isSubmarine() && ship.y() + RAM_SUBMARINE_MAST_TOP < RAM_SURFACE_KEEL_Y;
+        return ship.isSubmarine() && ship.y() + SubmarinePeriscopeGeometry.topAboveRoot(ship.y()) < RAM_SURFACE_KEEL_Y;
     }
 
     private boolean ramAtPeriscopeDepth(Ship ship) {
@@ -2714,6 +2713,14 @@ public final class GameSession {
     }
 
     private Optional<FlakTargetHit> flakProjectileHitsShip(FlakProjectile projectile, Ship ship) {
+        if (ship.isSubmarine()) {
+            double t = SubmarinePeriscopeGeometry.hitParameter(ship, projectile.previousX(), projectile.previousY(),
+                    projectile.previousZ(), projectile.x(), projectile.y(), projectile.z());
+            if (Double.isFinite(t)) return Optional.of(new FlakTargetHit(ship, FlakShipHitArea.CRITICAL.reason(), true,
+                    projectile.previousX() + (projectile.x() - projectile.previousX()) * t,
+                    projectile.previousY() + (projectile.y() - projectile.previousY()) * t,
+                    projectile.previousZ() + (projectile.z() - projectile.previousZ()) * t));
+        }
         double dx = projectile.x() - projectile.previousX();
         double dy = projectile.y() - projectile.previousY();
         double dz = projectile.z() - projectile.previousZ();

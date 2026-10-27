@@ -8,15 +8,12 @@ import java.util.Set;
 
 /** Ship-wide sightings for human crews; independent of occupied stations or target controller. */
 public final class PeriscopeWarnings {
-    // Matches the visible mast in submarineModel.js, relative to the submarine root.
-    private static final double MAST_TOP = (0.66 + 0.64 * 0.9 - 0.012 + 0.986 * 0.9)
-            * SeaBattleGameConfig.TORPEDO_BOAT_SCALE;
     // Effective periscope depth starts 0.08 model units before the settled depth (main.js).
     private static final double PERISCOPE_BAND_TOP = -(0.26 + 1.52) * SeaBattleGameConfig.TORPEDO_BOAT_SCALE;
     private static final double CONTACT_RESET_SECONDS = 10;
     private static final double NOTICE_SECONDS = 6;
-    private static final String[] DIRECTIONS = {"voraus", "Steuerbord voraus", "Steuerbord", "Steuerbord achteraus",
-            "achteraus", "Backbord achteraus", "Backbord", "Backbord voraus"};
+    private static final String[] DIRECTIONS = {"voraus", "Steuerbord voraus", "Steuerbord", "Steuerbord achtern",
+            "achtern", "Backbord achtern", "Backbord", "Backbord voraus"};
     private final Map<String, Map<String, Contact>> contactsByObserver = new HashMap<>();
     private Map<String, Warning> published = Map.of();
     private double nextCheck;
@@ -42,7 +39,7 @@ public final class PeriscopeWarnings {
         Set<String> observers = new HashSet<>();
         for (Ship observer : humanShips) {
             if (!"active".equals(observer.state()) || observer.isScoutPlane()
-                    || observer.isSubmarine() && observer.y() + MAST_TOP <= 0) continue;
+                    || observer.isSubmarine() && observer.y() + SubmarinePeriscopeGeometry.topAboveRoot(observer.y()) <= 0) continue;
             observers.add(observer.id());
             Map<String, Contact> contacts = contactsByObserver.computeIfAbsent(observer.id(), key -> new HashMap<>());
             contacts.values().removeIf(contact -> now - contact.lastSeen >= CONTACT_RESET_SECONDS);
@@ -55,7 +52,7 @@ public final class PeriscopeWarnings {
             for (Ship target : visibility.candidates(observer, 300)) {
                 if (target.teamId().equals(observer.teamId()) || !"active".equals(target.state())
                         || !target.isSubmarine() || target.y() > PERISCOPE_BAND_TOP
-                        || target.y() + MAST_TOP <= 0) continue;
+                        || target.y() + SubmarinePeriscopeGeometry.topAboveRoot(target.y()) <= 0) continue;
                 double distance = observer.position().distanceTo(target.position());
                 // Use the existing forward-detection sensitivity uniformly around the ship.
                 if (distance > GameSession.botPeriscopeRamDetectionRange(target) * .8
