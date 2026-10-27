@@ -22,6 +22,7 @@ public record GameSnapshot(
         Map<String, Integer> killsByPlayer,
         String instanceId,
         List<DepthChargeSnapshot> depthCharges,
-        Map<String, DepthChargeControlSnapshot> depthChargeControls
+        Map<String, DepthChargeControlSnapshot> depthChargeControls,
+        Map<String, PeriscopeWarnings.Warning> periscopeWarnings
 ) {
 }

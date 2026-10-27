@@ -174,6 +174,7 @@ public final class GameSession {
     private final String id;
     private final String instanceId = java.util.UUID.randomUUID().toString();
     private final WorldMap worldMap;
+    private final PeriscopeWarnings periscopeWarnings = new PeriscopeWarnings();
     private final WorldMap scoutPlaneObstacleMap;
     private final Map<String, Fleet> fleets;
     private final List<Vector2> respawnCandidates;
@@ -319,7 +320,8 @@ public final class GameSession {
                 Map.copyOf(killsByPlayer),
                 instanceId,
                 List.copyOf(depthCharges),
-                depthChargeControls()
+                depthChargeControls(),
+                periscopeWarnings.snapshot()
         );
     }
 
@@ -838,6 +840,7 @@ public final class GameSession {
                 .filter(this::isHumanControlled)
                 .toList();
         RadarService.VisibilityCache visibilityCache = radarService.visibilityCache(worldMap, activeShips);
+        periscopeWarnings.update(nowSeconds, humanSurfaceShips, visibilityCache, worldMap);
         boolean checkDepthCharges = nowSeconds >= nextBotDepthChargeCheck;
         if (checkDepthCharges) nextBotDepthChargeCheck = nowSeconds + .5;
         Map<String, Integer> scoutPlaneTargetReservations = new LinkedHashMap<>();
@@ -1321,7 +1324,7 @@ public final class GameSession {
                 && !torpedoLaunchWouldHitFriendlyShip(ship, muzzle, ship.heading());
     }
 
-    private double botPeriscopeRamDetectionRange(Ship target) {
+    static double botPeriscopeRamDetectionRange(Ship target) {
         double speed = Math.abs(target.speed());
         double slowSpeed = Math.abs(EngineOrders.speedFor(ENGINE_SLOW));
         double oneThirdSpeed = Math.abs(EngineOrders.speedFor(ENGINE_ONE_THIRD));
@@ -1351,7 +1354,7 @@ public final class GameSession {
         );
     }
 
-    private double mix(double start, double end, double ratio) {
+    private static double mix(double start, double end, double ratio) {
         return start + (end - start) * MathSupport.clamp(ratio, 0, 1);
     }
 

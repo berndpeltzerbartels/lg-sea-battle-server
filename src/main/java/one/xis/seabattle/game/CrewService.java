@@ -57,7 +57,6 @@ public class CrewService {
         final Map<String, AimRequest> aimRequests = new LinkedHashMap<>();
         final Map<String, Long> vacantSince = new HashMap<>();
         long lookoutReset;
-        SubmarineWarning submarineWarning;
         Crew(String controller, ShipSnapshot ship) {
             this.controller = controller;
             this.shipId = ship.id();
@@ -65,28 +64,7 @@ public class CrewService {
         }
     }
     public record Member(String playerId, String name, String station, long revision) {}
-    public record View(String id, String shipId, String controller, String station, long revision, List<Member> members, List<AimRequest> aimRequests, long lookoutReset, SubmarineWarning submarineWarning, ShipSnapshot ship) {}
-    public record SubmarineWarning(String id, String sender, long expiresAt, String kind) {}
-    public record WarningCommand(String playerId, String shipId, long revision) {}
-
-    public synchronized View warnSubmarine(WarningCommand command) {
-        return warnCrew(command, "submarine");
-    }
-
-    public synchronized View warnAircraft(WarningCommand command) {
-        return warnCrew(command, "aircraft");
-    }
-
-    private View warnCrew(WarningCommand command, String kind) {
-        Crew c = authorized(new Command(command.playerId(), command.shipId(), command.revision(), null, null, null, null), null);
-        requireActive(c);
-        long now = aimNowMillis();
-        if (c.submarineWarning != null && c.submarineWarning.expiresAt() - now > 5000)
-            throw new IllegalArgumentException("Warnung bereits gesendet.");
-        c.submarineWarning = new SubmarineWarning(UUID.randomUUID().toString(), c.members.get(command.playerId()).name(),
-                now + 10000, kind);
-        return view(command.playerId());
-    }
+    public record View(String id, String shipId, String controller, String station, long revision, List<Member> members, List<AimRequest> aimRequests, long lookoutReset, ShipSnapshot ship) {}
     public record AimRequest(String id, String shipId, String requester, long requesterRevision,
                              String recipient, long recipientRevision, String weapon, double yaw, double pitch,
                              long expiresAt, String status) {
@@ -271,8 +249,7 @@ public class CrewService {
         Member m = c.members.get(player);
         expireAimRequests(c);
         return new View(c.id, c.shipId, c.controller, m.station(), m.revision(), List.copyOf(c.members.values()),
-                c.aimRequests.values().stream().filter(r -> r.requester().equals(player) || r.recipient().equals(player)).toList(), c.lookoutReset,
-                c.submarineWarning != null && c.submarineWarning.expiresAt() > aimNowMillis() ? c.submarineWarning : null, ship);
+                c.aimRequests.values().stream().filter(r -> r.requester().equals(player) || r.recipient().equals(player)).toList(), c.lookoutReset, ship);
     }
 
     public synchronized View join(String recipient, Account applicant) {
