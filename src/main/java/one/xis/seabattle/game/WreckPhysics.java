@@ -2,7 +2,6 @@ package one.xis.seabattle.game;
 
 /** Deterministic hull motion, shared as parameters with the renderer. No rigid-body engine. */
 final class WreckPhysics {
-    static final double DRAG = .35;
     static final double DURATION = 19;
     static final double SINK_DEPTH = 32 + 2.35 * SeaBattleGameConfig.TORPEDO_BOAT_SCALE;
     private static final double SCALE = SeaBattleGameConfig.TORPEDO_BOAT_SCALE;
@@ -15,10 +14,9 @@ final class WreckPhysics {
         age = Math.max(0, age);
         double t = MathSupport.clamp(age / wreck.sinkSeconds(), 0, 1);
         double ease = t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
-        double travel = s.speed() * -Math.expm1(-wreck.driftDrag()*age) / wreck.driftDrag();
         boolean submerged = "submarine".equals(s.vehicleType()) && s.y() < -.88;
-        return new Pose(s.x()+Math.sin(s.heading())*travel, ("torpedo-boat".equals(s.vehicleType()) ? -.2*SCALE : s.y())-ease*wreck.sinkDepth(),
-                s.z()+Math.cos(s.heading())*travel, submerged ? 0 : -.28*ease, s.heading(),
+        return new Pose(s.x(), ("torpedo-boat".equals(s.vehicleType()) ? -.2*SCALE : s.y())-ease*wreck.sinkDepth(),
+                s.z(), submerged ? 0 : -.28*ease, s.heading(),
                 submerged ? 0 : wreck.sinkSide()*(.12+1.45*ease));
     }
 

@@ -3107,7 +3107,7 @@ public final class GameSession {
                 double endAge=Math.min(age,wreck.sinkSeconds());
                 double span=endAge-startAge;
                 double travel = Math.hypot(current.x()-previous.x(),current.z()-previous.z())
-                        + Math.abs(current.y()-previous.y()) + Math.abs(wreck.ship().speed())*span + 12*span
+                        + Math.abs(current.y()-previous.y()) + 12*span
                         + Math.abs(MathSupport.normalizeAngle(current.heading()-previous.heading()))*16;
                 int steps = Math.max(1, (int)Math.ceil(travel/.6));
                 // Cheap swept broad phase before any hull samples.

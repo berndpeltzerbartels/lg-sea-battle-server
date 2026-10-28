@@ -7,11 +7,12 @@ class WreckPhysicsTest {
     private ShipSnapshot ship(String type,double x,double y,double z,double speed) {
         return new ShipSnapshot("test","red",x,z,0,speed,0,0,2,"active","player",12,type,y,0,0,0,0,"submerged",1);
     }
-    @Test void wreckCoastsSeveralTimesFurtherWithoutAnInstantStop() {
+    @Test void wreckSinksAtTheImpactPositionRegardlessOfItsFormerSpeed() {
         var w=new ShipWreckSnapshot("wreck",0,ship("torpedo-boat",0,0,0,17.5));
         var p=WreckPhysics.pose(w,5);
-        assertEquals(41.31130282747774,p.z(),.00001);
-        assertTrue(p.z()>35);assertEquals(-39.65,WreckPhysics.pose(w,19).y(),.00001);
+        assertEquals(0,p.z(),.00001);
+        assertEquals(0,p.x(),.00001);
+        assertEquals(-39.65,WreckPhysics.pose(w,19).y(),.00001);
     }
     @Test void fallingHullHitsDeepSubmarineLaterNotAtTheMomentOfDestruction() {
         var w=new ShipWreckSnapshot("wreck",0,ship("torpedo-boat",0,0,0,0));
@@ -27,9 +28,9 @@ class WreckPhysicsTest {
             assertFalse(WreckPhysics.hits(w,age,ship("submarine",0,-52,0,0)));
         }
     }
-    @Test void coastingWreckCanReachASubmarineOutsideItsOriginalFootprint() {
+    @Test void wreckDoesNotDriftIntoASubmarineOutsideItsOriginalFootprint() {
         var w=new ShipWreckSnapshot("wreck",0,ship("torpedo-boat",0,0,0,17.5));
         var sub=ship("submarine",0,-6,42,0);
-        assertFalse(WreckPhysics.hits(w,0,sub));assertTrue(WreckPhysics.hits(w,6,sub));
+        assertFalse(WreckPhysics.hits(w,0,sub));assertFalse(WreckPhysics.hits(w,6,sub));
     }
 }
