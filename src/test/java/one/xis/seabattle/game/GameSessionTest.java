@@ -2114,7 +2114,7 @@ class GameSessionTest {
         ));
         shipEntity(session, "dark-U1").applyPlayerState(
                 new PlayerStateUpdate("player-dark-sub", "dark", 0, 0, 0, 0, 0, ENGINE_STOP, 0, 0,
-                        false, "submarine", 0, 0, null, null, null, null, "submerged"),
+                        false, "submarine", -19.26, 0, null, null, null, null, "submerged"),
                 navigationService,
                 session.worldMap()
         );
@@ -2123,7 +2123,10 @@ class GameSessionTest {
         GameSnapshot snapshot = tickUntilShipState(session, "dark-S1", "sunk", 2);
 
         assertEquals("sunk", findShip(snapshot, "dark-S1").state());
-        assertEquals("sunk", findShip(snapshot, "dark-U1").state());
+        assertEquals("active", findShip(snapshot, "dark-U1").state(), "Not a magic kill at the instant the surface ship dies");
+        snapshot=tickUntilShipState(session,"dark-U1","sunk",15);
+        assertEquals("sunk",findShip(snapshot,"dark-U1").state());
+        assertTrue(snapshot.ramHits().stream().anyMatch(h -> "wreck-collision".equals(h.reason()) && h.targetShipId().equals("dark-U1")));
     }
 
     @Test
@@ -2399,8 +2402,11 @@ class GameSessionTest {
         session.update(0.05, radarService, navigationService, session.worldMap());
 
         ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
-        assertEquals(ENGINE_FULL, attacker.engineOrder());
+        assertEquals(ENGINE_FLANK, attacker.engineOrder());
         assertTrue(session.snapshot().torpedoes().isEmpty());
+        for(int i=0;i<50;i++)session.update(.1,radarService,navigationService,session.worldMap());
+        assertTrue(findShip(session.snapshot(),"red-1").speed()>EngineOrders.speedFor(ENGINE_FULL),
+                "A committed ram attack must accelerate past the former 12-knot limit");
     }
 
     @Test
@@ -2424,10 +2430,10 @@ class GameSessionTest {
     void periscopeTargetSelectionDependsOnObserversHeading() throws Exception {
         for (double rotation : new double[]{0, Math.PI / 2, Math.PI, -Math.PI / 2}) {
             for (double[] sample : new double[][]{
-                    {0, 180, 1}, {0, 220, 0}, {0, 60, 1},
+                    {0, 180, 1}, {0, 300, 0}, {0, 60, 1},
                     {0, 60, 0, 0}, {0, 10, 1, 0},
                     {Math.PI / 2, 60, 1}, {-Math.PI / 2, 60, 1},
-                    {Math.PI / 2, 100, 0}, {Math.PI, 5, 0},
+                    {Math.PI / 2, 120, 0}, {Math.PI, 5, 0},
                     {Math.PI * .75, 5, 0}}) {
                 double bearing = rotation + sample[0];
                 double x = Math.sin(bearing) * sample[1];
@@ -2460,13 +2466,13 @@ class GameSessionTest {
                 new WorldMap(9097, List.of()),
                 List.of(
                         new FleetSetup("red", List.of(
-                                ship("red-1", "red", 0, -260, 0, "bot", ENGINE_STOP, 0)
+                                ship("red-1", "red", 0, -320, 0, "bot", ENGINE_STOP, 0)
                         )),
                         new FleetSetup("blue", List.of(
                                 ship("blue-sub", "blue", 0, 0, 0, "player-blue", ENGINE_TWO_THIRDS, 0, 99, "submarine")
                         ))
                 ),
-                List.of(new Vector2(0, -260), new Vector2(0, 0))
+                List.of(new Vector2(0, -320), new Vector2(0, 0))
         ));
         session.updatePlayerState(
                 new PlayerStateUpdate("player-blue", "blue", 0, 0, 0, 10.4, 0, ENGINE_TWO_THIRDS, 0, 0, true,
@@ -5306,6 +5312,93 @@ class GameSessionTest {
         chooseBotTarget.setAccessible(true);
         return ((Optional<Ship>) chooseBotTarget.invoke(session, shipEntity(session, shipId), targets))
                 .map(Ship::id);
+    }
+
+    @Test
+    void ramAttackOnSurfacedSubmarineUsesHighestGearWithoutChangingOrdinaryBoatCombat() throws Exception {
+        GameSession session=new GameSession(new GameSetup("ram-top-gear",new WorldMap(80012,List.of()),
+                List.of(new FleetSetup("red",List.of(ship("boat","red",0,0,0,"bot",ENGINE_HALF,0,99))),
+                        new FleetSetup("blue",List.of(ship("sub","blue",0,90,Math.PI,"player-sub",ENGINE_STOP,0,99,"submarine")))),
+                List.of(new Vector2(900,900))));
+        assertEquals(ENGINE_FLANK,botAttackEngineOrder(session,"boat","sub",90,0));
+        session.update(.1,radarService,navigationService,session.worldMap());
+        assertEquals(ENGINE_FLANK,findShip(session.snapshot(),"boat").engineOrder());
+    }
+
+    @Test
+    void submarineCrossingTheWreckBetweenTicksIsHitAndOnlyOnce() throws Exception {
+        GameSession session=wreckCrossingSession();
+        sinkShip(session,"wreck-source");
+        session.updateIdle(6,radarService,navigationService,session.worldMap());
+        assertEquals("active",findShip(session.snapshot(),"crossing-sub").state());
+        shipEntity(session,"crossing-sub").applyPlayerState(new PlayerStateUpdate("player-sub","blue",40,0,0,0,0,
+                ENGINE_STOP,0,0,true,"submarine",-6,0,null,null,null,null,"periscope"),navigationService,session.worldMap());
+        session.updateIdle(.1,radarService,navigationService,session.worldMap());
+        assertEquals("sunk",findShip(session.snapshot(),"crossing-sub").state());
+        assertEquals(1,session.snapshot().ramHits().stream().filter(h -> "wreck-collision".equals(h.reason())).count());
+        session.updateIdle(.1,radarService,navigationService,session.worldMap());
+        assertEquals(1,session.snapshot().ramHits().stream().filter(h -> "wreck-collision".equals(h.reason())).count());
+    }
+
+    @Test
+    void wreckPassingDownThroughSubmarineBetweenLargeTicksStillKillsIt() throws Exception {
+        GameSession session=wreckCrossingSession();
+        shipEntity(session,"crossing-sub").applyPlayerState(new PlayerStateUpdate("player-sub","blue",0,0,0,0,0,
+                ENGINE_STOP,0,0,true,"submarine",-19.26,0,null,null,null,null,"submerged"),navigationService,session.worldMap());
+        sinkShip(session,"wreck-source");
+        session.updateIdle(20,radarService,navigationService,session.worldMap());
+        assertEquals("sunk",findShip(session.snapshot(),"crossing-sub").state());
+        assertEquals("active",findShip(session.snapshot(),"wreck-source").state(),"The fleet replacement is independent of the old sinking hull");
+        assertTrue(session.snapshot().ramHits().stream().anyMatch(h -> "wreck-collision".equals(h.reason())));
+    }
+
+    private GameSession wreckCrossingSession() {
+        var world=new WorldMap(80013,List.of());
+        return new GameSession(new GameSetup("wreck-crossing",world,List.of(
+                new FleetSetup("red",List.of(ship("wreck-source","red",0,0,0,"player-source",ENGINE_STOP,0,99),
+                        ship("distant","red",1000,1000,0,"scenario",ENGINE_STOP,0,99))),
+                new FleetSetup("blue",List.of(new ShipSetup("crossing-sub","blue",new Vector2(-40,0),0,"player-sub",
+                        ENGINE_STOP,0,99,"submarine",-6)))),List.of(new Vector2(1500,1500),new Vector2(-1500,-1500))));
+    }
+
+    @Test
+    void explosionDangerUsesThreeQuarterHullLengthsAndActualShooterPosition() throws Exception {
+        double range=(3.68+4.2)*TORPEDO_BOAT_MODEL_SCALE*.75;
+        for(double side : new double[]{range-.1,range+.1}) {
+            GameSession session=new GameSession(new GameSetup("blast-boundary",new WorldMap(80014,List.of()),
+                    List.of(new FleetSetup("red",List.of(ship("sub","red",0,0,0,"player-sub",ENGINE_STOP,0,99,"submarine")))),
+                    List.of(new Vector2(1000,1000))));
+            Torpedo torpedo=new Torpedo("test-blast","red","sub",new Vector2(side+.62*TORPEDO_BOAT_MODEL_SCALE,0),0,30,0,1000);
+            Method blast=GameSession.class.getDeclaredMethod("sinkPointBlankSubmarineShooter",Torpedo.class);
+            blast.setAccessible(true);blast.invoke(session,torpedo);
+            assertEquals(side<range?"sunk":"active",findShip(session.snapshot(),"sub").state());
+        }
+    }
+
+    @Test
+    void periscopeSightRangesMatchAllActualSpeedStagesAndKeepBearingLimits() throws Exception {
+        double length=(3.68+4.2)*TORPEDO_BOAT_MODEL_SCALE;
+        double[] speeds={0,.9*10/13.5,2.93*10/13.5,6.18*10/13.5,10.4*10/13.5,12*10/13.5,10};
+        double[] lengths={2,2,4,6,8,10,12};
+        Method visible=GameSession.class.getDeclaredMethod("isVisiblePeriscopeRamContact",Ship.class,Ship.class);
+        visible.setAccessible(true);
+        for(int i=0;i<speeds.length;i++) {
+            GameSession session=new GameSession(new GameSetup("sight-stage",new WorldMap(80015,List.of()),
+                    List.of(new FleetSetup("red",List.of(ship("observer","red",0,0,0,"bot",ENGINE_STOP,0,99))),
+                            new FleetSetup("blue",List.of(ship("sub","blue",0,length*lengths[i]-.1,0,"player-sub",ENGINE_STOP,0,99,"submarine")))),
+                    List.of(new Vector2(2000,2000))));
+            Ship target=shipEntity(session,"sub"),observer=shipEntity(session,"observer");
+            target.applyPlayerState(new PlayerStateUpdate("player-sub","blue",0,length*lengths[i]-.1,0,speeds[i],0,
+                    ENGINE_STOP,0,0,true,"submarine",-5.58,0,null,null,null,null,"periscope"),navigationService,session.worldMap());
+            assertEquals(length*lengths[i],GameSession.botPeriscopeRamDetectionRange(target)*.8,.0001);
+            assertEquals(true,visible.invoke(session,observer,target));
+            target.applyPlayerState(new PlayerStateUpdate("player-sub","blue",0,length*lengths[i]+.1,0,speeds[i],0,
+                    ENGINE_STOP,0,0,true,"submarine",-5.58,0,null,null,null,null,"periscope"),navigationService,session.worldMap());
+            assertEquals(false,visible.invoke(session,observer,target));
+            target.applyPlayerState(new PlayerStateUpdate("player-sub","blue",0,-5,0,speeds[i],0,
+                    ENGINE_STOP,0,0,true,"submarine",-5.58,0,null,null,null,null,"periscope"),navigationService,session.worldMap());
+            assertEquals(false,visible.invoke(session,observer,target));
+        }
     }
 
     private int botAttackEngineOrder(GameSession session, String shipId, String targetId,

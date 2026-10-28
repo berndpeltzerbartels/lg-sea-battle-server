@@ -70,9 +70,9 @@ class PeriscopeWarningsTest {
     }
 
     @Test void quietSubmarinesAreOnlyDetectedAtShortRange() {
-        check(0, sub("enemy", 0, 40, -5.58, 0, "periscope"));
+        check(0, sub("enemy", 0, 60, -5.58, 0, "periscope"));
         assertTrue(warnings.snapshot().isEmpty());
-        check(1, sub("enemy", 0, 40, -5.58, EngineOrders.speedFor(5), "periscope"));
+        check(1, sub("enemy", 0, 60, -5.58, EngineOrders.speedFor(5), "periscope"));
         assertFalse(warnings.snapshot().isEmpty());
     }
 

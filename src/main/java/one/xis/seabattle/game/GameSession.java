@@ -135,10 +135,12 @@ public final class GameSession {
     private static final double BOT_TORPEDO_INCOMING_ARC = 0.34;
     private static final double BOT_TORPEDO_THREAT_CORRIDOR = 8.0 * TORPEDO_BOAT_MODEL_SCALE;
     private static final double BOT_PERISCOPE_RAM_SHIP_LENGTH = (TORPEDO_BOAT_BOW_Z - TORPEDO_BOAT_STERN_Z) * TORPEDO_BOAT_MODEL_SCALE;
-    private static final double SUBMARINE_POINT_BLANK_TORPEDO_DANGER_RANGE = BOT_PERISCOPE_RAM_SHIP_LENGTH * 0.2;
-    private static final double BOT_PERISCOPE_RAM_HALF_SPEED_RANGE = 150.0;
-    private static final double BOT_PERISCOPE_RAM_TWO_THIRDS_SPEED_RANGE = 250.0;
-    private static final double BOT_PERISCOPE_RAM_FULL_SPEED_RANGE = 300.0;
+    private static final double SUBMARINE_POINT_BLANK_TORPEDO_DANGER_RANGE = BOT_PERISCOPE_RAM_SHIP_LENGTH * 0.75;
+    private static final double BOT_PERISCOPE_AHEAD_FACTOR = .8;
+    // Actual speeds at periscope depth: Slow, 1/3, Half, 2/3, 3/4 and Full.
+    private static final double[] PERISCOPE_SIGHT_SPEEDS = {.9*10/13.5, 2.93*10/13.5,
+            6.18*10/13.5, 10.4*10/13.5, 12*10/13.5, 10};
+    private static final double[] PERISCOPE_SIGHT_LENGTHS = {2,4,6,8,10,12};
     private static final double BOT_RADAR_INTERCEPT_RANGE = 360;
     private static final double BOT_HUMAN_TARGET_PRIORITY_CLEARANCE = 320;
     private static final double BOT_RETURN_TO_LAND_DISTANCE = 720;
@@ -186,6 +188,8 @@ public final class GameSession {
     private final List<Torpedo> torpedoes = new ArrayList<>();
     private final List<ShipWreckSnapshot> wrecks = new ArrayList<>();
     private long nextWreckId;
+    private final Map<String, ShipSnapshot> previousWreckTargets = new HashMap<>();
+    private double previousWreckCheckTime;
     private record PendingDepthCharge(String shipId, String playerId, int lane, double at) {}
     private final List<PendingDepthCharge> pendingDepthCharges = new ArrayList<>();
     private final List<DepthChargeSnapshot> depthCharges = new ArrayList<>();
@@ -783,6 +787,7 @@ public final class GameSession {
         updateFlakHits();
         updateFlakTerrainImpacts(worldMap);
         updateRamCollisions();
+        updateWreckCollisions();
         torpedoes.removeIf(torpedo -> !torpedoVisibleInWorld(torpedo));
         torpedoImpacts.removeIf(impact -> nowSeconds - impact.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
         bombs.removeIf(bomb -> !"falling".equals(bomb.state()));
@@ -812,6 +817,7 @@ public final class GameSession {
         updateFlakProjectiles(deltaSeconds);
         updateFlakHits();
         updateFlakTerrainImpacts(worldMap);
+        updateWreckCollisions();
         torpedoes.removeIf(torpedo -> !torpedoVisibleInWorld(torpedo));
         torpedoImpacts.removeIf(impact -> nowSeconds - impact.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
         bombs.removeIf(bomb -> !"falling".equals(bomb.state()));
@@ -1339,33 +1345,16 @@ public final class GameSession {
     }
 
     static double botPeriscopeRamDetectionRange(Ship target) {
-        double speed = Math.abs(target.speed());
-        double slowSpeed = Math.abs(EngineOrders.speedFor(ENGINE_SLOW));
-        double oneThirdSpeed = Math.abs(EngineOrders.speedFor(ENGINE_ONE_THIRD));
-        double halfSpeed = Math.abs(EngineOrders.speedFor(ENGINE_HALF));
-        double twoThirdsSpeed = Math.abs(EngineOrders.speedFor(ENGINE_TWO_THIRDS));
-        double fullSpeed = Math.abs(EngineOrders.speedFor(ENGINE_FULL));
-        if (speed <= slowSpeed) {
-            return BOT_PERISCOPE_RAM_SHIP_LENGTH;
+        double speed=Math.abs(target.speed());
+        double lengths=PERISCOPE_SIGHT_LENGTHS[0];
+        if (speed <= PERISCOPE_SIGHT_SPEEDS[0]) return BOT_PERISCOPE_RAM_SHIP_LENGTH*lengths/BOT_PERISCOPE_AHEAD_FACTOR;
+        for(int i=1;i<PERISCOPE_SIGHT_SPEEDS.length;i++) {
+            lengths=mix(PERISCOPE_SIGHT_LENGTHS[i-1],PERISCOPE_SIGHT_LENGTHS[i],
+                    (speed-PERISCOPE_SIGHT_SPEEDS[i-1])/(PERISCOPE_SIGHT_SPEEDS[i]-PERISCOPE_SIGHT_SPEEDS[i-1]));
+            if(speed<=PERISCOPE_SIGHT_SPEEDS[i])break;
         }
-        if (speed <= oneThirdSpeed) {
-            return BOT_PERISCOPE_RAM_SHIP_LENGTH * 3.0;
-        }
-        if (speed <= halfSpeed) {
-            return BOT_PERISCOPE_RAM_HALF_SPEED_RANGE;
-        }
-        if (speed <= twoThirdsSpeed) {
-            return mix(
-                    BOT_PERISCOPE_RAM_HALF_SPEED_RANGE,
-                    BOT_PERISCOPE_RAM_TWO_THIRDS_SPEED_RANGE,
-                    (speed - halfSpeed) / (twoThirdsSpeed - halfSpeed)
-            );
-        }
-        return mix(
-                BOT_PERISCOPE_RAM_TWO_THIRDS_SPEED_RANGE,
-                BOT_PERISCOPE_RAM_FULL_SPEED_RANGE,
-                MathSupport.clamp((speed - twoThirdsSpeed) / (fullSpeed - twoThirdsSpeed), 0, 1)
-        );
+        // This base range is multiplied by the bearing factor at the observer.
+        return BOT_PERISCOPE_RAM_SHIP_LENGTH*lengths/BOT_PERISCOPE_AHEAD_FACTOR;
     }
 
     private static double mix(double start, double end, double ratio) {
@@ -1585,7 +1574,7 @@ public final class GameSession {
         if (distance < 1e-9) return true;
         double forward = (dx * Math.sin(observer.heading()) + dz * Math.cos(observer.heading())) / distance;
         if (forward < -1e-9) return false;
-        double directionFactor = .3 + .5 * MathSupport.clamp(forward, 0, 1);
+        double directionFactor = .3 + (BOT_PERISCOPE_AHEAD_FACTOR-.3) * MathSupport.clamp(forward, 0, 1);
         return distance <= botPeriscopeRamDetectionRange(target) * directionFactor;
     }
 
@@ -1900,11 +1889,12 @@ public final class GameSession {
             return ship.submarineBot().attackEngineOrder(ship, target, distance, targetBearing);
         }
         if (target.isAtPeriscopeDepth()) {
-            return ENGINE_FULL;
+            return ship.isSubmarine() ? ENGINE_FULL : ENGINE_FLANK;
         }
         double absoluteBearing = Math.abs(targetBearing);
         if (distance < BOT_RAM_RANGE) {
-            return absoluteBearing <= Math.toRadians(30) ? ENGINE_HALF : ENGINE_FULL;
+            return target.isSubmarine() && !ship.isSubmarine() ? ENGINE_FLANK
+                    : absoluteBearing <= Math.toRadians(30) ? ENGINE_HALF : ENGINE_FULL;
         }
         if (isHumanControlled(target) && Math.abs(ship.speed()) < 0.8 && distance <= BOT_APPROACH_SLOW_RANGE) {
             return ENGINE_FULL;
@@ -2405,6 +2395,7 @@ public final class GameSession {
             Vector2 landImpact = torpedoLandImpact(torpedo, navigationService, worldMap);
             if (landImpact != null) {
                 torpedo.hit();
+                sinkPointBlankSubmarineShooter(torpedo);
                 recordTorpedoImpact(torpedo, "land-hit", null, landImpact);
                 continue;
             }
@@ -2445,10 +2436,17 @@ public final class GameSession {
         shooterShip(torpedo.shipId())
                 .filter(Ship::isSubmarine)
                 .filter(ship -> "active".equals(ship.state()))
-                .filter(ship -> torpedo.runDistance() <= SUBMARINE_POINT_BLANK_TORPEDO_DANGER_RANGE)
-                .filter(ship -> torpedo.y() >= -1
-                        || Math.abs(torpedo.y() - (ship.y() + .2 * TORPEDO_BOAT_MODEL_SCALE)) <= .5 * TORPEDO_BOAT_MODEL_SCALE)
+                .filter(ship -> distanceFromTorpedoToSubmarineHull(torpedo, ship) <= SUBMARINE_POINT_BLANK_TORPEDO_DANGER_RANGE)
                 .ifPresent(this::sinkShip);
+    }
+
+    private double distanceFromTorpedoToSubmarineHull(Torpedo torpedo, Ship ship) {
+        LocalHullPoint p=localHullPoint(torpedo.position(),ship);
+        double dx=Math.max(0,Math.abs(p.right())-.62)*TORPEDO_BOAT_MODEL_SCALE;
+        double dz=Math.max(0,Math.abs(p.forward())-5.02)*TORPEDO_BOAT_MODEL_SCALE;
+        double dy=Math.max(ship.y()-.3*TORPEDO_BOAT_MODEL_SCALE-torpedo.y(),
+                torpedo.y()-(ship.y()+.51*TORPEDO_BOAT_MODEL_SCALE));
+        return Math.sqrt(dx*dx+dz*dz+Math.max(0,dy)*Math.max(0,dy));
     }
 
     private Optional<Ship> shooterShip(String shipId) {
@@ -3055,7 +3053,6 @@ public final class GameSession {
         if (ship.isScoutPlane()) {
             clearBotScoutPlaneAttackState(ship);
         }
-        sinkSubmarinesUnderSinkingSurfaceShip(ship);
         destroyedShipsByTeam.merge(ship.teamId(), 1, Integer::sum);
         if (scoreDelta != null) {
             killsByPlayer.merge(creditedPlayerId, scoreDelta, Integer::sum);
@@ -3067,17 +3064,55 @@ public final class GameSession {
         return true;
     }
 
-    private void sinkSubmarinesUnderSinkingSurfaceShip(Ship sinkingShip) {
-        if (sinkingShip.isSubmarine() || sinkingShip.isScoutPlane()) {
-            return;
+    private void updateWreckCollisions() {
+        List<Ship> targets = allShips().stream().filter(ship -> "active".equals(ship.state()))
+                .filter(ship -> !ship.isScoutPlane()).toList();
+        List<ShipWreckSnapshot> hazards = List.copyOf(wrecks);
+        double elapsed = Math.max(0, nowSeconds - previousWreckCheckTime);
+        for (Ship target : targets) {
+            ShipSnapshot current = target.snapshot();
+            ShipSnapshot previous = previousWreckTargets.get(target.id());
+            if (previous == null || previous.lifeId() != current.lifeId()) previous = current;
+            for (ShipWreckSnapshot wreck : hazards) {
+                if (!"active".equals(target.state())) break;
+                if (!"torpedo-boat".equals(wreck.ship().vehicleType())) continue;
+                double age = nowSeconds - wreck.sunkAt();
+                if (age < 0 || age-elapsed >= wreck.sinkSeconds()) continue;
+                double startAge=Math.max(0,age-elapsed);
+                double endAge=Math.min(age,wreck.sinkSeconds());
+                double span=endAge-startAge;
+                double travel = Math.hypot(current.x()-previous.x(),current.z()-previous.z())
+                        + Math.abs(current.y()-previous.y()) + Math.abs(wreck.ship().speed())*span + 12*span
+                        + Math.abs(MathSupport.normalizeAngle(current.heading()-previous.heading()))*16;
+                int steps = Math.max(1, (int)Math.ceil(travel/.6));
+                // Cheap swept broad phase before any hull samples.
+                WreckPhysics.Pose end = WreckPhysics.pose(wreck, endAge);
+                if (Math.hypot(end.x()-current.x(),end.z()-current.z()) > 38+travel) continue;
+                for (int i=0;i<=steps;i++) {
+                    double f=i/(double)steps;
+                    double sampleAge=startAge+span*f;
+                    double targetF=elapsed>0 ? MathSupport.clamp((wreck.sunkAt()+sampleAge-previousWreckCheckTime)/elapsed,0,1) : 1;
+                    ShipSnapshot sample = interpolateWreckTarget(previous,current,targetF);
+                    if (!WreckPhysics.hits(wreck,sampleAge,sample)) continue;
+                    if (sinkShip(target, null)) {
+                        ramHits.add(new RamHitSnapshot("wreck-hit-"+wreck.id()+"-"+target.id()+"-"+current.lifeId(),
+                                wreck.ship().teamId(),wreck.ship().id(),target.id(),sample.x(),sample.z(),nowSeconds,"wreck-collision"));
+                    }
+                    break;
+                }
+            }
         }
-        allShips().stream()
-                .filter(ship -> "active".equals(ship.state()))
-                .filter(Ship::isSubmarine)
-                .filter(ship -> !ship.isOnSurface())
-                .filter(ship -> pointInsideShipHull(ship.position(), sinkingShip, SUBMERGED_SUBMARINE_RAM_RADIUS / TORPEDO_BOAT_MODEL_SCALE))
-                .toList()
-                .forEach(this::sinkShip);
+        previousWreckTargets.clear();
+        allShips().stream().filter(ship -> "active".equals(ship.state()))
+                .forEach(ship -> previousWreckTargets.put(ship.id(),ship.snapshot()));
+        previousWreckCheckTime=nowSeconds;
+    }
+
+    private ShipSnapshot interpolateWreckTarget(ShipSnapshot a, ShipSnapshot b, double f) {
+        return new ShipSnapshot(b.id(),b.teamId(),a.x()+(b.x()-a.x())*f,a.z()+(b.z()-a.z())*f,
+                a.heading()+MathSupport.normalizeAngle(b.heading()-a.heading())*f,b.speed(),b.turnVelocity(),
+                b.rudderDegrees(),b.engineOrder(),b.state(),b.controlledBy(),b.torpedoesRemaining(),b.vehicleType(),
+                a.y()+(b.y()-a.y())*f,b.flakYaw(),b.flakPitch(),b.cannonYaw(),b.cannonPitch(),b.depthState(),b.lifeId());
     }
 
     private void recordRamHit(Ship attacker, Ship target) {
@@ -3138,7 +3173,8 @@ public final class GameSession {
                 .forEach(ship -> {
                     Vector2 position = findRespawnPosition(ship, navigationService, worldMap, radarService, reservedRespawnPositions);
                     if (navigationService.isShipBlocked(position, ship.heading(), worldMap)
-                            || activeShipsTooClose(position, reservedRespawnPositions)) {
+                            || activeShipsTooClose(position, reservedRespawnPositions)
+                            || spawnOverlapsWreck(ship, position, worldMap)) {
                         return;
                     }
                     prepareBotVehicleTypeForRespawn(ship);
@@ -3146,6 +3182,15 @@ public final class GameSession {
                     double heading = respawnHeading(ship, position, worldMap);
                     ship.respawn(position, heading, nowSeconds);
                 });
+    }
+
+    private boolean spawnOverlapsWreck(Ship ship, Vector2 position, WorldMap worldMap) {
+        ShipSnapshot s=ship.snapshot();
+        ShipSnapshot spawn=new ShipSnapshot(s.id(),s.teamId(),position.x(),position.z(),respawnHeading(ship,position,worldMap),0,0,0,2,
+                "active",s.controlledBy(),s.torpedoesRemaining(),s.vehicleType(),0,s.flakYaw(),s.flakPitch(),
+                s.cannonYaw(),s.cannonPitch(),"surface",s.lifeId()+1);
+        return wrecks.stream().filter(w -> "torpedo-boat".equals(w.ship().vehicleType()))
+                .anyMatch(w -> WreckPhysics.hits(w,nowSeconds-w.sunkAt(),spawn));
     }
 
     private double respawnHeading(Ship ship, Vector2 position, WorldMap worldMap) {
@@ -3223,7 +3268,8 @@ public final class GameSession {
             Vector2 candidate = candidates.get(index);
             RespawnChoice choice = new RespawnChoice(index, candidate);
             boolean sameAsLast = index == lastRespawnCandidateIndex;
-            boolean blocked = navigationService.isShipBlocked(candidate, ship.heading(), worldMap);
+            boolean blocked = navigationService.isShipBlocked(candidate, ship.heading(), worldMap)
+                    || spawnOverlapsWreck(ship,candidate,worldMap);
             boolean activeShipsTooClose = activeShipsTooClose(candidate, reservedRespawnPositions);
             double distanceToHumans = distanceToNearestHumanShip(candidate);
             boolean tooCloseToHuman = distanceToHumans <= radarService.range() + RESPAWN_HUMAN_RADAR_MARGIN;

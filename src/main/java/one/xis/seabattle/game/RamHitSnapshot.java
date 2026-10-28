@@ -1,12 +1,8 @@
 package one.xis.seabattle.game;
 
-public record RamHitSnapshot(
-        String id,
-        String teamId,
-        String shipId,
-        String targetShipId,
-        double x,
-        double z,
-        double t
-) {
+public record RamHitSnapshot(String id, String teamId, String shipId, String targetShipId,
+                             double x, double z, double t, String reason) {
+    public RamHitSnapshot(String id, String teamId, String shipId, String targetShipId, double x, double z, double t) {
+        this(id,teamId,shipId,targetShipId,x,z,t,"ram");
+    }
 }
