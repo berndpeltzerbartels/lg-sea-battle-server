@@ -154,6 +154,7 @@ public final class GameSession {
     private static final boolean SCOUT_PLANE_EXPERIMENT_PEACEFUL_BOTS = false;
     private static final boolean TEMPORARILY_DISABLE_BOTS = false;
     private static final double RESPAWN_DELAY_SECONDS = 8;
+    private static final double WRECK_VISIBILITY_SECONDS = 35;
     private static final double RESPAWN_HUMAN_RADAR_MARGIN = 120;
     private static final double RESPAWN_MIN_SHIP_DISTANCE = 170;
     private static final double TORPEDO_IMPACT_VISIBILITY_SECONDS = 3.0;
@@ -183,6 +184,8 @@ public final class GameSession {
     private final Map<String, Double> nextFlakFireTimeByShipId = new LinkedHashMap<>();
     private final Map<String, Double> nextCannonFireTimeByShipId = new LinkedHashMap<>();
     private final List<Torpedo> torpedoes = new ArrayList<>();
+    private final List<ShipWreckSnapshot> wrecks = new ArrayList<>();
+    private long nextWreckId;
     private record PendingDepthCharge(String shipId, String playerId, int lane, double at) {}
     private final List<PendingDepthCharge> pendingDepthCharges = new ArrayList<>();
     private final List<DepthChargeSnapshot> depthCharges = new ArrayList<>();
@@ -285,7 +288,7 @@ public final class GameSession {
                 state,
                 MathSupport.round(nowSeconds),
                 allShips().stream()
-                        .filter(ship -> ship.isVisibleInSnapshot(nowSeconds))
+                        .filter(Ship::isVisibleInSnapshot)
                         .map(Ship::snapshot)
                         .toList(),
                 torpedoes.stream()
@@ -322,7 +325,8 @@ public final class GameSession {
                 List.copyOf(depthCharges),
                 depthChargeControls(),
                 periscopeWarnings.snapshot(),
-                aircraftWarnings.snapshot()
+                aircraftWarnings.snapshot(),
+                List.copyOf(wrecks)
         );
     }
 
@@ -751,6 +755,10 @@ public final class GameSession {
             return;
         }
         nowSeconds += deltaSeconds;
+        // Refill fleet slots before combat. Deaths during this tick are replaced
+        // on the next tick, without waiting for their visual wrecks to disappear.
+        respawnSunkShips(navigationService, worldMap, radarService);
+        wrecks.removeIf(wreck -> nowSeconds - wreck.sunkAt() >= WRECK_VISIBILITY_SECONDS);
         updateDepthCharges();
         if (!TEMPORARILY_DISABLE_BOTS) {
             commandBots(radarService, navigationService, worldMap);
@@ -775,7 +783,6 @@ public final class GameSession {
         updateFlakHits();
         updateFlakTerrainImpacts(worldMap);
         updateRamCollisions();
-        respawnSunkShips(navigationService, worldMap, radarService);
         torpedoes.removeIf(torpedo -> !torpedoVisibleInWorld(torpedo));
         torpedoImpacts.removeIf(impact -> nowSeconds - impact.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
         bombs.removeIf(bomb -> !"falling".equals(bomb.state()));
@@ -796,6 +803,8 @@ public final class GameSession {
             return;
         }
         nowSeconds += deltaSeconds;
+        respawnSunkShips(navigationService, worldMap, radarService);
+        wrecks.removeIf(wreck -> nowSeconds - wreck.sunkAt() >= WRECK_VISIBILITY_SECONDS);
         updateDepthCharges();
         updateTorpedoes(deltaSeconds, navigationService, worldMap);
         Set<String> releasedBombIds = releasePendingBombs();
@@ -803,7 +812,6 @@ public final class GameSession {
         updateFlakProjectiles(deltaSeconds);
         updateFlakHits();
         updateFlakTerrainImpacts(worldMap);
-        respawnSunkShips(navigationService, worldMap, radarService);
         torpedoes.removeIf(torpedo -> !torpedoVisibleInWorld(torpedo));
         torpedoImpacts.removeIf(impact -> nowSeconds - impact.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
         bombs.removeIf(bomb -> !"falling".equals(bomb.state()));
@@ -3034,12 +3042,16 @@ public final class GameSession {
 
     private boolean sinkShip(Ship ship, String creditedPlayerId) {
         String sunkController = ship.controlledBy();
+        ShipSnapshot wreckShip = ship.snapshot();
         Integer scoreDelta = isHumanController(creditedPlayerId)
                 ? scoreDeltaFor(creditedPlayerId, ship.teamId())
                 : null;
-        if (!ship.sink(nowSeconds + RESPAWN_DELAY_SECONDS)) {
+        if (!ship.sink(nowSeconds + (ship.isBotControlled() ? 0 : RESPAWN_DELAY_SECONDS))) {
             return false;
         }
+        wrecks.add(new ShipWreckSnapshot("wreck-" + nextWreckId++, nowSeconds, wreckShip));
+        // A hard bound also covers unusual mass-destruction scenarios.
+        if (wrecks.size() > 256) wrecks.remove(0);
         if (ship.isScoutPlane()) {
             clearBotScoutPlaneAttackState(ship);
         }
@@ -3124,12 +3136,12 @@ public final class GameSession {
         allShips().stream()
                 .filter(ship -> ship.isReadyToRespawn(nowSeconds))
                 .forEach(ship -> {
-                    prepareBotVehicleTypeForRespawn(ship);
                     Vector2 position = findRespawnPosition(ship, navigationService, worldMap, radarService, reservedRespawnPositions);
                     if (navigationService.isShipBlocked(position, ship.heading(), worldMap)
                             || activeShipsTooClose(position, reservedRespawnPositions)) {
                         return;
                     }
+                    prepareBotVehicleTypeForRespawn(ship);
                     reservedRespawnPositions.add(position);
                     double heading = respawnHeading(ship, position, worldMap);
                     ship.respawn(position, heading, nowSeconds);

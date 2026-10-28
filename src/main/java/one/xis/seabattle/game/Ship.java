@@ -38,6 +38,7 @@ final class Ship {
     private int torpedoesRemaining = TORPEDO_STOCK;
     private double nextFireTime;
     private double respawnAtSeconds = Double.POSITIVE_INFINITY;
+    private long lifeId;
     private double glancingRamBackoffUntilSeconds = Double.NEGATIVE_INFINITY;
     private Vector2 glancingRamBackoffTarget;
     private double botScoutPlaneTargetY = BOT_SCOUT_PLANE_Y;
@@ -413,11 +414,14 @@ final class Ship {
         return "sunk".equals(state) && nowSeconds >= respawnAtSeconds;
     }
 
-    boolean isVisibleInSnapshot(double nowSeconds) {
-        return "active".equals(state) || ("sunk".equals(state) && nowSeconds < respawnAtSeconds);
+    boolean isVisibleInSnapshot() {
+        // Pending replacements remain visible as inactive slots even when all
+        // safe spawn points are occupied; visual wrecks have a separate lifetime.
+        return "active".equals(state) || "sunk".equals(state);
     }
 
     void respawn(Vector2 position, double heading, double nowSeconds) {
+        lifeId++;
         botEscapeUntil = 0;
         botReverseUntil = 0;
         submarineBot = new SubmarineBot();
@@ -460,7 +464,8 @@ final class Ship {
                 MathSupport.round(flakPitch),
                 MathSupport.round(cannonYaw),
                 MathSupport.round(cannonPitch),
-                isSubmarine() ? depthState : DEPTH_SURFACE
+                isSubmarine() ? depthState : DEPTH_SURFACE,
+                lifeId
         );
     }
 

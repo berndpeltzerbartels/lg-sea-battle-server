@@ -4680,7 +4680,7 @@ class GameSessionTest {
         sinkShip(session, "red-a");
         sinkShip(session, "red-b");
 
-        session.update(8.1, radarService, navigationService, session.worldMap());
+        session.updateIdle(.05, radarService, navigationService, session.worldMap());
         GameSnapshot snapshot = session.snapshot();
 
         assertEquals("active", findShip(snapshot, "red-a").state());
@@ -4688,6 +4688,49 @@ class GameSessionTest {
         assertTrue(distanceBetween(snapshot, "red-a", "red-b") >= 170);
         assertEquals(0, findShip(snapshot, "red-a").x(), 0.001);
         assertEquals(5000, findShip(snapshot, "red-b").x(), 0.001);
+    }
+
+    @Test
+    void botReplacementIsImmediateAndWreckRetainsItsOwnIdentityAndPosition() throws Exception {
+        GameSession session = new GameSession(new GameSetup("immediate-replacement",
+                new WorldMap(90712, List.of()),
+                List.of(new FleetSetup("red", List.of(
+                        ship("red-bot", "red", 0, 0, 0, "bot", ENGINE_STOP, 0, 0)))),
+                List.of(new Vector2(1000, 0), new Vector2(-1000, 0))));
+        sinkShip(session, "red-bot");
+        sinkShip(session, "red-bot");
+        assertEquals(1, session.snapshot().wrecks().size(), "duplicate death must not create another wreck");
+        ShipWreckSnapshot firstWreck = session.snapshot().wrecks().get(0);
+        session.updateIdle(.05, radarService, navigationService, session.worldMap());
+        assertEquals("active", findShip(session.snapshot(), "red-bot").state());
+        assertEquals(1, session.snapshot().ships().size(), "replacement reuses the fleet slot");
+        assertEquals(1000, findShip(session.snapshot(), "red-bot").x(), .001);
+        assertEquals(firstWreck.ship().lifeId() + 1, findShip(session.snapshot(), "red-bot").lifeId());
+        assertEquals(0, firstWreck.ship().x(), .001);
+        assertEquals(firstWreck, session.snapshot().wrecks().get(0));
+        sinkShip(session, "red-bot");
+        session.updateIdle(.05, radarService, navigationService, session.worldMap());
+        assertEquals("active", findShip(session.snapshot(), "red-bot").state());
+        assertEquals(2, session.snapshot().wrecks().size());
+        assertNotEquals(firstWreck.id(), session.snapshot().wrecks().get(1).id());
+        assertEquals(1, session.snapshot().ships().size());
+        session.updateIdle(36, radarService, navigationService, session.worldMap());
+        assertTrue(session.snapshot().wrecks().isEmpty());
+    }
+
+    @Test
+    void humanDeathRetainsRespawnDelayAndRecordsOriginalController() throws Exception {
+        GameSession session = new GameSession(new GameSetup("human-replacement-delay",
+                new WorldMap(90713, List.of()),
+                List.of(new FleetSetup("red", List.of(
+                        ship("red-human", "red", 0, 0, 0, "player-BPB", ENGINE_STOP, 0, 0)))),
+                List.of(new Vector2(1000, 0))));
+        sinkShip(session, "red-human");
+        session.updateIdle(.05, radarService, navigationService, session.worldMap());
+        assertEquals("sunk", findShip(session.snapshot(), "red-human").state());
+        assertEquals("player-BPB", session.snapshot().wrecks().get(0).ship().controlledBy());
+        session.updateIdle(8, radarService, navigationService, session.worldMap());
+        assertEquals("active", findShip(session.snapshot(), "red-human").state());
     }
 
     @Test
@@ -4706,7 +4749,7 @@ class GameSessionTest {
         session.update(8.1, radarService, navigationService, session.worldMap());
         GameSnapshot snapshot = session.snapshot();
 
-        assertNull(findShip(snapshot, "red-sunk"));
+        assertEquals("sunk", findShip(snapshot, "red-sunk").state());
         assertEquals("active", findShip(snapshot, "red-active").state());
     }
 

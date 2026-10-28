@@ -24,6 +24,7 @@ public record GameSnapshot(
         List<DepthChargeSnapshot> depthCharges,
         Map<String, DepthChargeControlSnapshot> depthChargeControls,
         Map<String, PeriscopeWarnings.Warning> periscopeWarnings,
-        Map<String, AircraftAttackWarnings.Warning> aircraftWarnings
+        Map<String, AircraftAttackWarnings.Warning> aircraftWarnings,
+        List<ShipWreckSnapshot> wrecks
 ) {
 }
