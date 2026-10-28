@@ -5326,6 +5326,114 @@ class GameSessionTest {
     }
 
     @Test
+    void boatContinuesLastObservedSubmarineCourseForTenSecondsWithoutTrackingHiddenTurns() throws Exception {
+        GameSession session = submarineAttackContinuationSession();
+        Ship boat = shipEntity(session, "boat");
+        commandAttackBot(session, 0);
+        var observed = boat.botSubmarineAttackCourse;
+        assertNotNull(observed);
+        assertEquals(ENGINE_FLANK, boat.snapshot().engineOrder());
+        hideAttackSubmarine(session, 800, -500, Math.PI);
+        commandAttackBot(session, 1);
+        assertSame(observed, boat.botSubmarineAttackCourse);
+        assertEquals(ENGINE_FLANK, boat.snapshot().engineOrder());
+        assertEquals(0, boat.snapshot().rudderDegrees(), "Follow the observed northbound line, not the hidden turn");
+        commandAttackBot(session, 9.99);
+        assertEquals(ENGINE_FLANK, boat.snapshot().engineOrder());
+        commandAttackBot(session, 10);
+        assertNull(boat.botSubmarineAttackCourse);
+        assertNotEquals(ENGINE_FLANK, boat.snapshot().engineOrder(), "Resume normal navigation when the attack expires");
+    }
+
+    @Test
+    void attackContinuationJoinsObservedCourseAndReacquiresVisibleSubmarine() throws Exception {
+        GameSession session = submarineAttackContinuationSession();
+        Ship boat = shipEntity(session, "boat");
+        Ship sub = shipEntity(session, "sub");
+        sub.applyPlayerState(new PlayerStateUpdate("player-sub", "blue", 0, 70, Math.PI / 2, 8, 0,
+                ENGINE_TWO_THIRDS, 0, 0, true, "submarine", -5.58, 0,
+                null, null, null, null, "periscope"), navigationService, session.worldMap());
+        commandAttackBot(session, 0);
+        hideAttackSubmarine(session, -800, -500, Math.PI);
+        commandAttackBot(session, 1);
+        assertTrue(boat.snapshot().rudderDegrees() > 0, "Join the eastbound course observed before contact was lost");
+        sub.applyPlayerState(new PlayerStateUpdate("player-sub", "blue", -20, 70, 0, 8, 0,
+                ENGINE_TWO_THIRDS, 0, 0, true, "submarine", -5.58, 0,
+                null, null, null, null, "periscope"), navigationService, session.worldMap());
+        commandAttackBot(session, 2);
+        assertTrue(boat.snapshot().rudderDegrees() < 0, "A fresh visible contact supersedes the remembered line");
+        assertEquals(12, boat.botSubmarineAttackCourse.until(), .0001);
+        boat.respawn(new Vector2(0, 0), 0, 3);
+        assertNull(boat.botSubmarineAttackCourse, "A replacement boat must not inherit the old attack");
+    }
+
+    @Test
+    void hiddenSubmarineWithoutPreviousRamApproachDoesNotStartAnAttackContinuation() throws Exception {
+        GameSession session = submarineAttackContinuationSession();
+        hideAttackSubmarine(session, 0, 70, 0);
+        commandAttackBot(session, 0);
+        Ship boat = shipEntity(session, "boat");
+        assertNull(boat.botSubmarineAttackCourse);
+        assertNotEquals(ENGINE_FLANK, boat.snapshot().engineOrder());
+    }
+
+    @Test
+    void existingEscapeManoeuvreTakesPriorityOverAttackContinuation() throws Exception {
+        GameSession session = submarineAttackContinuationSession();
+        commandAttackBot(session, 0);
+        hideAttackSubmarine(session, 0, 70, 0);
+        Ship boat = shipEntity(session, "boat");
+        var course = boat.botSubmarineAttackCourse;
+        boat.botReverseUntil = 5;
+        commandAttackBot(session, 1);
+        assertEquals(ENGINE_FULL_ASTERN, boat.snapshot().engineOrder());
+        assertSame(course, boat.botSubmarineAttackCourse, "Safety must not extend or update the remembered attack");
+    }
+
+    @Test
+    void depthChargesStillReleaseDuringTheContinuedAttack() throws Exception {
+        GameSession session = submarineAttackContinuationSession();
+        commandAttackBot(session, 0);
+        hideAttackSubmarine(session, 0, 12, 0);
+        commandAttackBot(session, 1);
+        var cache = radarService.visibilityCache(session.worldMap(),
+                List.of(shipEntity(session, "boat"), shipEntity(session, "sub")));
+        Method charges = GameSession.class.getDeclaredMethod("tryBotDepthCharges", Ship.class,
+                RadarService.VisibilityCache.class);
+        charges.setAccessible(true);
+        charges.invoke(session, shipEntity(session, "boat"), cache);
+        assertFalse(session.snapshot().depthCharges().isEmpty());
+        assertEquals(ENGINE_FLANK, shipEntity(session, "boat").snapshot().engineOrder());
+    }
+
+    private GameSession submarineAttackContinuationSession() {
+        return new GameSession(new GameSetup("submarine-attack-continuation", new WorldMap(80016, List.of()),
+                List.of(new FleetSetup("red", List.of(ship("boat", "red", 0, 0, 0, "bot", ENGINE_STOP, 0, 99))),
+                        new FleetSetup("blue", List.of(new ShipSetup("sub", "blue", new Vector2(0, 70), 0,
+                                "player-sub", ENGINE_TWO_THIRDS, 0, 99, "submarine", -5.58)))),
+                List.of(new Vector2(2000, 2000))));
+    }
+
+    private void hideAttackSubmarine(GameSession session, double x, double z, double heading) throws Exception {
+        shipEntity(session, "sub").applyPlayerState(new PlayerStateUpdate("player-sub", "blue", x, z, heading, 8, 0,
+                ENGINE_TWO_THIRDS, 0, 0, true, "submarine", -19.26, 0,
+                null, null, null, null, "submerged"), navigationService, session.worldMap());
+    }
+
+    private void commandAttackBot(GameSession session, double time) throws Exception {
+        Field clock = GameSession.class.getDeclaredField("nowSeconds");
+        clock.setAccessible(true);
+        clock.setDouble(session, time);
+        List<Ship> ships = List.of(shipEntity(session, "boat"), shipEntity(session, "sub"));
+        var cache = radarService.visibilityCache(session.worldMap(), ships);
+        Method command = GameSession.class.getDeclaredMethod("commandBot", Ship.class,
+                RadarService.VisibilityCache.class, NavigationService.class, WorldMap.class, List.class, List.class);
+        command.setAccessible(true);
+        command.invoke(session, ships.get(0), cache, navigationService, session.worldMap(),
+                List.of(ships.get(1)), ships);
+    }
+
+    @Test
     void submarineCrossingTheWreckBetweenTicksIsHitAndOnlyOnce() throws Exception {
         GameSession session=wreckCrossingSession();
         sinkShip(session,"wreck-source");

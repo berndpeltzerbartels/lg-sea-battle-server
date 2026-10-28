@@ -128,6 +128,7 @@ public final class GameSession {
     private static final double BOT_CLOSE_MANEUVER_RANGE = 130;
     private static final double BOT_APPROACH_SLOW_RANGE = 230;
     private static final double BOT_AIM_ERROR = 0.025;
+    private static final double BOT_SUBMARINE_ATTACK_CONTINUATION_SECONDS = 10;
     private static final double BOT_RAM_RANGE = 34 * BOT_SHIP_TACTICAL_SCALE;
     private static final double BOT_TORPEDO_EVADE_RANGE = 115 * BOT_SHIP_TACTICAL_SCALE;
     private static final double BOT_TORPEDO_LOOKOUT_FORWARD_OFFSET = 4.5 * TORPEDO_BOAT_MODEL_SCALE;
@@ -1328,12 +1329,32 @@ public final class GameSession {
         }
 
         Optional<Ship> target = chooseBotTarget(ship, visibleTargets(ship, visibilityCache));
+        var attackCourse = ship.botSubmarineAttackCourse;
+        if (attackCourse != null) {
+            if (nowSeconds >= attackCourse.until()
+                    || target.filter(contact -> contact.id().equals(attackCourse.targetId())).isPresent()) {
+                ship.botSubmarineAttackCourse = null;
+            } else {
+                continueSubmarineAttack(ship, attackCourse, navigationService, worldMap);
+                return;
+            }
+        }
         if (target.isEmpty()) {
             moveWithoutTarget(ship, navigationService, worldMap, humanSurfaceShips);
             return;
         }
 
         aimAtTarget(ship, target.get(), navigationService, worldMap);
+    }
+
+    private void continueSubmarineAttack(Ship ship, Ship.SubmarineAttackCourse course,
+                                         NavigationService navigationService, WorldMap worldMap) {
+        // Join the last observed course, then look ahead along it. No hidden target lookup or path history.
+        Vector2 forward = Vector2.fromHeading(course.heading());
+        Vector2 offset = ship.position().subtract(course.position());
+        double along = offset.x() * forward.x() + offset.z() * forward.z();
+        Vector2 ahead = course.position().add(forward.scale(Math.max(0, along) + 60));
+        steerToward(ship, ahead, ENGINE_FLANK, navigationService, worldMap);
     }
 
     private boolean submarineHasAscentShot(Ship ship, Ship target) {
@@ -1874,6 +1895,10 @@ public final class GameSession {
         int maxRudder = distance < BOT_CLOSE_MANEUVER_RANGE ? 35 : 26;
         int rudder = (int) Math.round(MathSupport.clamp(steerError / rudderScale, -1, 1) * maxRudder);
         int engineOrder = botAttackEngineOrder(ship, target, distance, targetBearing);
+        if (!ship.isSubmarine() && target.isSubmarine() && engineOrder == ENGINE_FLANK) {
+            ship.botSubmarineAttackCourse = new Ship.SubmarineAttackCourse(target.id(), target.position(),
+                    target.heading(), nowSeconds + BOT_SUBMARINE_ATTACK_CONTINUATION_SECONDS);
+        }
         if (ship.isSubmarine() && !ship.isOnSurface() && ship.speed() < 0) rudder = -rudder;
         applyBotCommand(ship, engineOrder, rudder, navigationService, worldMap);
 

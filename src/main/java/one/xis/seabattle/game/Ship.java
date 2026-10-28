@@ -52,6 +52,9 @@ final class Ship {
     double botEscapeHeading;
     double botEscapeUntil;
     double botReverseUntil;
+    // Only observations from an actual ram approach; never updated from a hidden submarine.
+    record SubmarineAttackCourse(String targetId, Vector2 position, double heading, double until) {}
+    SubmarineAttackCourse botSubmarineAttackCourse;
 
     SubmarineBot submarineBot() {
         return submarineBot;
@@ -424,6 +427,7 @@ final class Ship {
         lifeId++;
         botEscapeUntil = 0;
         botReverseUntil = 0;
+        botSubmarineAttackCourse = null;
         submarineBot = new SubmarineBot();
         this.position = position;
         this.heading = MathSupport.normalizeAngle(heading);
