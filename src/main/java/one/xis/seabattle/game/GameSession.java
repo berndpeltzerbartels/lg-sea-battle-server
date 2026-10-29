@@ -1311,7 +1311,11 @@ public final class GameSession {
                 && plan.target != null && plan.target.lifeId() == plan.targetLife && "active".equals(plan.target.state())
                 && observedBotTarget(ship, plan, visibilityCache) == null;
         if (plan.targetDue(tick) && !followingLostSubmarine) {
-            plan.target = chooseBotTarget(ship, visibleTargets(ship, visibilityCache)).orElse(null);
+            Ship nextTarget = chooseBotTarget(ship, visibleTargets(ship, visibilityCache)).orElse(null);
+            if (nextTarget != plan.target || nextTarget != null && nextTarget.lifeId() != plan.targetLife) {
+                plan.trackingPeriscope = false;
+            }
+            plan.target = nextTarget;
             plan.targetLife = plan.target == null ? -1 : plan.target.lifeId();
         }
         Ship contact = observedBotTarget(ship, plan, visibilityCache);
@@ -1354,10 +1358,18 @@ public final class GameSession {
 
     private Ship observedBotTarget(Ship ship, BotNavigation plan, RadarService.VisibilityCache cache) {
         Ship target = plan.target;
-        if (target == null || target.lifeId() != plan.targetLife || !"active".equals(target.state())) return null;
-        if (ship.isFullySubmerged()) return isUnderwaterBotContact(ship, target) && target.isFullySubmerged() ? target : null;
+        if (target == null || target.lifeId() != plan.targetLife || !"active".equals(target.state())) {
+            plan.trackingPeriscope = false;
+            return null;
+        }
+        if (ship.isFullySubmerged()) {
+            plan.trackingPeriscope = false;
+            return isUnderwaterBotContact(ship, target) && target.isFullySubmerged() ? target : null;
+        }
+        // Forget tracking as soon as the mast submerges or leaves range, not when the search timer expires.
+        plan.trackingPeriscope = isVisiblePeriscopeRamContact(ship, target, plan.trackingPeriscope);
         return isStrategicHumanContact(ship, target) || cache.isVisible(ship, target, RadarService.RADAR_RANGE)
-                || isVisiblePeriscopeRamContact(ship, target) ? target : null;
+                || plan.trackingPeriscope ? target : null;
     }
 
     private double bearingTo(Ship ship, Vector2 position) {
@@ -1599,7 +1611,9 @@ public final class GameSession {
                 .filter(target -> !target.isScoutPlane())
                 .filter(target -> isStrategicHumanContact(ship, target)
                         || visibilityCache.isVisible(ship, target, RadarService.RADAR_RANGE)
-                        || isVisiblePeriscopeRamContact(ship, target))
+                        || isVisiblePeriscopeRamContact(ship, target,
+                            ship.botNavigation.trackingPeriscope && ship.botNavigation.target == target
+                                    && ship.botNavigation.targetLife == target.lifeId()))
                 .toList();
     }
 
@@ -1610,6 +1624,10 @@ public final class GameSession {
     }
 
     private boolean isVisiblePeriscopeRamContact(Ship observer, Ship target) {
+        return isVisiblePeriscopeRamContact(observer, target, false);
+    }
+
+    private boolean isVisiblePeriscopeRamContact(Ship observer, Ship target, boolean tracking) {
         // The depth order changes immediately; visibility changes only when the mast actually submerges.
         if (!target.isSubmarine() || target.isOnSurface()
                 || target.y() + SubmarinePeriscopeGeometry.topAboveRoot(target.y()) <= 0) return false;
@@ -1617,6 +1635,7 @@ public final class GameSession {
         double dz = target.position().z() - observer.position().z();
         double distance = Math.hypot(dx, dz);
         if (distance < 1e-9) return true;
+        if (tracking) return distance <= botPeriscopeRamDetectionRange(target) * BOT_PERISCOPE_AHEAD_FACTOR;
         double forward = (dx * Math.sin(observer.heading()) + dz * Math.cos(observer.heading())) / distance;
         if (forward < -1e-9) return false;
         double directionFactor = .3 + (BOT_PERISCOPE_AHEAD_FACTOR-.3) * MathSupport.clamp(forward, 0, 1);

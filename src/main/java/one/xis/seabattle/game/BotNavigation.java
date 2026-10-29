@@ -17,6 +17,7 @@ final class BotNavigation {
     private long nextTarget = -1, nextRoute = -1, nextEncounter = -1;
     Ship target;
     long targetLife;
+    boolean trackingPeriscope;
     Course route, encounter, near;
     private int encounterClearChecks;
     double previousSubmarineEcho;

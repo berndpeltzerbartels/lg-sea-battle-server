@@ -5814,6 +5814,63 @@ class GameSessionTest {
     }
 
     @Test
+    void acquiredPeriscopeRemainsVisibleAtTheSideAndBehindAcrossScheduledTargetSearches() throws Exception {
+        var session = submarineAttackContinuationSession();
+        Ship boat = shipEntity(session, "boat");
+        showAttackPeriscope(session, 0, 70);
+        commandAttackBot(session, 0);
+        assertTrue(boat.botNavigation.trackingPeriscope);
+        for (int step = 1; step <= 6; step++) {
+            double x = step % 2 == 0 ? 0 : 120, z = step % 2 == 0 ? -70 : 0;
+            showAttackPeriscope(session, x, z);
+            commandAttackBot(session, step * 2.1);
+            assertTrue(boat.botNavigation.trackingPeriscope);
+            assertEquals(new Vector2(x, z), boat.botSubmarineAttackCourse.position(),
+                    "Refresh from the live contact, rather than blindly following the old line");
+        }
+    }
+
+    @Test
+    void divingOrLeavingRangeClearsTrackingAndReturningBehindRequiresANewDirectionalSighting() throws Exception {
+        for (boolean dive : new boolean[]{true, false}) {
+            var session = submarineAttackContinuationSession();
+            Ship boat = shipEntity(session, "boat");
+            showAttackPeriscope(session, 0, 70);
+            commandAttackBot(session, 0);
+            assertTrue(boat.botNavigation.trackingPeriscope);
+            var lastSeen = boat.botSubmarineAttackCourse;
+            if (dive) hideAttackSubmarine(session, 0, 70, 0);
+            else showAttackPeriscope(session, 0, 1000);
+            commandAttackBot(session, .5);
+            assertFalse(boat.botNavigation.trackingPeriscope);
+            assertSame(lastSeen, boat.botSubmarineAttackCourse, "The separate short search still remembers only the old course");
+            showAttackPeriscope(session, 0, -70);
+            commandAttackBot(session, 2.1);
+            assertFalse(boat.botNavigation.trackingPeriscope, "No automatic rear reacquisition after contact was lost");
+            assertSame(lastSeen, boat.botSubmarineAttackCourse);
+            showAttackPeriscope(session, 0, 70);
+            commandAttackBot(session, 4.2);
+            assertTrue(boat.botNavigation.trackingPeriscope, "Normal forward detection reacquires the contact");
+            assertEquals(14.2, boat.botSubmarineAttackCourse.until(), .0001);
+        }
+    }
+
+    @Test
+    void anUnseenPeriscopeBehindTheBoatDoesNotStartRoundaboutTracking() throws Exception {
+        var session = submarineAttackContinuationSession();
+        showAttackPeriscope(session, 0, -70);
+        commandAttackBot(session, 0);
+        assertNull(shipEntity(session, "boat").botNavigation.target);
+        assertFalse(shipEntity(session, "boat").botNavigation.trackingPeriscope);
+    }
+
+    private void showAttackPeriscope(GameSession session, double x, double z) throws Exception {
+        shipEntity(session, "sub").applyPlayerState(new PlayerStateUpdate("player-sub", "blue", x, z, 0, 8, 0,
+                ENGINE_TWO_THIRDS, 0, 0, true, "submarine", -5.58, 0,
+                null, null, null, null, "periscope"), navigationService, session.worldMap());
+    }
+
+    @Test
     void periscopeSightRangesMatchAllActualSpeedStagesAndKeepBearingLimits() throws Exception {
         double length=(3.68+4.2)*TORPEDO_BOAT_MODEL_SCALE;
         double[] speeds={0,.9*10/13.5,2.93*10/13.5,6.18*10/13.5,10.4*10/13.5,12*10/13.5,10};
