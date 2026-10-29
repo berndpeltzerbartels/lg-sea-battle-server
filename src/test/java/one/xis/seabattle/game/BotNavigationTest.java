@@ -113,6 +113,20 @@ class BotNavigationTest {
         assertTrue(a.position().z() > 110 && b.position().z() < -110, "Both boats continue beyond the encounter");
     }
 
+    @Test void islandCornerChoosesTheShortTurnBackRatherThanFollowingTheLongForwardCoast() {
+        // North is ahead. The island extends much farther north; its southern end is just behind us.
+        Ship ship = boat("corner", -65, -150, 0, 0);
+        Landmass island = new Landmass("island", "long-island", 0, 0, 80, 220, 80, 220, 96, 264,
+                null, 1, null, null, null, List.of(), List.of(), List.of());
+        WorldMap map = new WorldMap(3, List.of(island));
+        assertFalse(navigation.isShipBlocked(ship.position(), ship.heading(), map));
+        var direct = new BotNavigation.Course(Math.PI / 2, 7); // Enemy on the opposite coast at (65, -150).
+        var course = BotNavigation.freeRoute(ship, direct, BotNavigation.ROUTE_RANGE, navigation, map);
+        assertTrue(Math.cos(course.heading()) < 0,
+                "Turn back around the nearby southern tip instead of sailing north around the distant end: " + course);
+        assertEquals(7, course.engineOrder());
+    }
+
     @Test void islandInsideTheRouteIsAvoidedEvenWhenItsFarEndpointIsClear() {
         Ship ship = boat("route", 0, 0, 0, 12);
         Landmass island = new Landmass("island", "middle", 0, 150, 25, 20, 25, 20, 30, 24,

@@ -5525,6 +5525,30 @@ class GameSessionTest {
     }
 
     @Test
+    void boatAtIslandCornerActuallyTurnsBackAndReachesEnemyAroundTheShortEnd() {
+        var map = new WorldMap(9106, List.of(testIsland("long-island", 0, 0, 80, 220)));
+        var session = new GameSession(new GameSetup("short-island-detour", map, List.of(
+                new FleetSetup("red", List.of(ship("boat", "red", -65, -150, 0, "bot", ENGINE_STOP, 0, 9999))),
+                new FleetSetup("blue", List.of(ship("enemy", "blue", 65, -150, 0, "scenario", ENGINE_STOP, 0, 9999)))),
+                List.of(new Vector2(-500, -500), new Vector2(500, -500))));
+        boolean passedSouthernTip = false, reached = false;
+        double furthestNorth = -150;
+        for (int tick = 0; tick < 1200; tick++) {
+            session.update(.1, radarService, navigationService, map);
+            var snapshot = session.snapshot();
+            var boat = findShip(snapshot, "boat");
+            furthestNorth = Math.max(furthestNorth, boat.z());
+            passedSouthernTip |= boat.z() < -220;
+            assertFalse(navigationService.isShipBlocked(new Vector2(boat.x(), boat.z()), boat.heading(), map),
+                    "The actual turn must stay navigable, not merely its destination");
+            if (distanceBetween(snapshot, "boat", "enemy") < 55) { reached = true; break; }
+        }
+        assertTrue(passedSouthernTip, "Must go around the close southern end");
+        assertTrue(furthestNorth < 100, "Must not take the long way north around the island: " + furthestNorth);
+        assertTrue(reached, "Must reach the enemy rather than reverse forever beside the coast: " + session.snapshot().ships());
+    }
+
+    @Test
     void targetIsHeldBetweenScheduledSelectionsAndRecycledShipIsNotFollowed() throws Exception {
         GameSession session = submarineAttackContinuationSession();
         commandAttackBot(session, 0);
