@@ -1312,7 +1312,8 @@ public final class GameSession {
         Ship contact = observedBotTarget(ship, plan, visibilityCache);
         if (contact != null) {
             double distance = ship.position().distanceTo(contact.position());
-            if (!ship.isSubmarine() && contact.isSubmarine() && distance <= BotNavigation.RADAR_RING) {
+            if (!ship.isSubmarine() && contact.isSubmarine() && isHumanControlled(contact)
+                    && distance <= BotNavigation.RADAR_RING) {
                 ship.botSubmarineAttackCourse = new Ship.SubmarineAttackCourse(contact.id(), contact.position(),
                         contact.heading(), nowSeconds + BOT_SUBMARINE_ATTACK_CONTINUATION_SECONDS);
             } else {
@@ -1740,7 +1741,10 @@ public final class GameSession {
         if (target != null && ship.isSubmarine() && !ship.isOnSurface()) {
             return ship.submarineBot().attackEngineOrder(ship, target, distance, targetBearing);
         }
-        if (target != null && target.isAtPeriscopeDepth()) {
+        // Normal surface travel: reserve the fast approach for a human opponent.
+        // This also covers the map-centre fallback (no target) and enemy bot periscopes.
+        if (!humanTarget) return ENGINE_HALF;
+        if (target.isAtPeriscopeDepth()) {
             return ship.isSubmarine() ? ENGINE_FULL : ENGINE_FLANK;
         }
         // Distance alone determines when a surface boat must use its full pursuit speed.
@@ -1762,9 +1766,6 @@ public final class GameSession {
             if (absoluteBearing <= BOT_CLOSE_FIRE_ARC) {
                 return ENGINE_HALF;
             }
-            return ENGINE_FULL;
-        }
-        if (!humanTarget && distance <= BOT_RADAR_INTERCEPT_RANGE) {
             return ENGINE_FULL;
         }
         if (distance > BOT_RADAR_INTERCEPT_RANGE) {

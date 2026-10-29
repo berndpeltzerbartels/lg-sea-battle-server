@@ -2259,7 +2259,7 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        assertEquals(ENGINE_FULL, findShip(session.snapshot(), "light-2").engineOrder());
+        assertEquals(ENGINE_HALF, findShip(session.snapshot(), "light-2").engineOrder());
     }
 
     @Test
@@ -2278,7 +2278,7 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        assertEquals(ENGINE_FLANK, findShip(session.snapshot(), "light-2").engineOrder());
+        assertEquals(ENGINE_HALF, findShip(session.snapshot(), "light-2").engineOrder());
     }
 
     @Test
@@ -2373,7 +2373,7 @@ class GameSessionTest {
         session.update(0.05, radarService, navigationService, session.worldMap());
 
         ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
-        assertEquals(ENGINE_FULL, attacker.engineOrder());
+        assertEquals(ENGINE_HALF, attacker.engineOrder());
         assertTrue(attacker.rudderDegrees() > 0);
     }
 
@@ -2620,7 +2620,7 @@ class GameSessionTest {
         session.update(0.05, radarService, navigationService, session.worldMap());
 
         ShipSnapshot friendly = findShip(session.snapshot(), "red-friendly");
-        assertEquals(ENGINE_FULL, friendly.engineOrder());
+        assertEquals(ENGINE_HALF, friendly.engineOrder());
         assertTrue(Math.abs(friendly.rudderDegrees()) > 0);
     }
 
@@ -5337,6 +5337,39 @@ class GameSessionTest {
     }
 
     @Test
+    void surfaceBoatUsesHalfSpeedAgainstBotsEvenAtRamRangeAndAtDistantPeriscopes() throws Exception {
+        var session = fastSubmarinePursuitSession();
+        Ship target = shipEntity(session, "sub");
+        target.controlledBy("bot");
+        for (String depth : new String[]{"surface", "periscope"}) {
+            target.applyPlayerState(new PlayerStateUpdate("bot", "blue", 0, 200, 0, 0, 0,
+                    ENGINE_STOP, 0, 0, true, "submarine", depth.equals("surface") ? -.78 : -5.58, 0,
+                    null, null, null, null, depth), navigationService, session.worldMap());
+            for (double distance : new double[]{30, 100, 200, 400, 600, 1500}) {
+                for (double bearing : new double[]{0, Math.PI / 2, Math.PI}) {
+                    assertEquals(ENGINE_HALF, botAttackEngineOrder(session, "boat", "sub", distance, bearing));
+                }
+            }
+        }
+    }
+
+    @Test
+    void targetSelectionPrefersADistantHumanExceptWhenAnEnemyBotIsVeryClose() throws Exception {
+        for (double botDistance : new double[]{240, 320, 321, 600}) {
+            var session = new GameSession(new GameSetup("human-choice", new WorldMap(9120, List.of()),
+                    List.of(new FleetSetup("red", List.of(ship("attacker", "red", 0, 0, 0, "bot", ENGINE_STOP, 0, 99))),
+                            new FleetSetup("blue", List.of(
+                                    ship("human", "blue", -1500, 0, 0, "player-human", ENGINE_STOP, 0, 99),
+                                    ship("enemy-bot", "blue", botDistance, 0, 0, "bot", ENGINE_STOP, 0, 99)))),
+                    List.of(new Vector2(2000, 2000))));
+            session.update(.1, radarService, navigationService, session.worldMap());
+            assertEquals(botDistance <= 320 ? "enemy-bot" : "human",
+                    shipEntity(session, "attacker").botNavigation.target.id(),
+                    "Human priority must affect the selected target, including beyond normal radar range");
+        }
+    }
+
+    @Test
     void boatUsesTopGearFromOneRadarRingRegardlessOfTargetMotion() throws Exception {
         var session = fastSubmarinePursuitSession();
         Ship target = shipEntity(session, "sub");
@@ -5546,9 +5579,9 @@ class GameSessionTest {
                         ship("red-a", "red", 0, 0, 0, "bot", ENGINE_FULL, 0, 999),
                         ship("red-b", "red", 0, 36, Math.PI, "bot", ENGINE_FULL, 0, 999)))),
                 List.of(new Vector2(1000, 1000))));
-        for (int tick = 0; tick < 500; tick++) session.update(.1, radarService, navigationService, session.worldMap());
+        for (int tick = 0; tick < 600; tick++) session.update(.1, radarService, navigationService, session.worldMap());
         var snapshot = session.snapshot();
-        assertTrue(distanceBetween(snapshot, "red-a", "red-b") > 100,
+        assertTrue(distanceBetween(snapshot, "red-a", "red-b") > 2 * BotNavigation.SHIP_LENGTH,
                 "Both boats must leave their close encounter rather than shunt in place: " + snapshot.ships());
         for (var ship : snapshot.ships()) assertTrue(Math.hypot(ship.x(), ship.z()) > 150,
                 "Both boats must make progress toward map centre: " + snapshot.ships());
@@ -5559,7 +5592,7 @@ class GameSessionTest {
     }
 
     @Test
-    void untargetedBoatReturnsToMapCenterRatherThanNearestLandAtHigherPatrolSpeed() throws Exception {
+    void untargetedBoatReturnsToMapCenterAtHalfSpeedAtEveryDistance() throws Exception {
         var map = new WorldMap(9104, List.of(testIsland("west", -800, 0, 50, 50),
                 testIsland("east", 800, 0, 50, 50)));
         var session = new GameSession(new GameSetup("center-patrol", map,
@@ -5570,7 +5603,7 @@ class GameSessionTest {
         course.setAccessible(true);
         var fallback = (BotNavigation.Course) course.invoke(session, boat, null, map);
         assertEquals(Math.atan2(900, 100), fallback.heading(), .00001);
-        assertEquals(ENGINE_FLANK, fallback.engineOrder());
+        assertEquals(ENGINE_HALF, fallback.engineOrder());
         boat.respawn(new Vector2(0, -100), 0, 0);
         fallback = (BotNavigation.Course) course.invoke(session, boat, null, map);
         assertEquals(ENGINE_HALF, fallback.engineOrder());
