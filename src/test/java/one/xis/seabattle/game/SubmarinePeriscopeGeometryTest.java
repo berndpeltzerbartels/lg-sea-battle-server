@@ -12,21 +12,24 @@ class SubmarinePeriscopeGeometryTest {
                 new NavigationService(), new WorldMap(1, List.of()));
         return ship;
     }
-    @Test void exposedPrimaryMastIsTwentyPercentHigherAndWidthDoesNotChange() {
-        double oldHeight = SubmarinePeriscopeGeometry.TOP * 3 - 5.58;
-        double newHeight = SubmarinePeriscopeGeometry.topAboveRoot(-5.58) - 5.58;
-        assertEquals(oldHeight * 1.2, newHeight, 1e-10);
+    @Test void trialMakesTheWholeMastAndItsExtensionThirtyPercentLarger() {
+        double oldHeight = .986 * .9 + (SubmarinePeriscopeGeometry.BASE + .986 * .9 - 1.86) * .2;
+        double newHeight = SubmarinePeriscopeGeometry.topAboveRoot(-5.58) / 3 - SubmarinePeriscopeGeometry.BASE;
+        assertEquals(oldHeight * 1.3, newHeight, 1e-10);
+        assertEquals(.019 * 1.3, SubmarinePeriscopeGeometry.RADIUS, 1e-10);
         assertEquals(0, SubmarinePeriscopeGeometry.lift(-.78), 1e-10);
         assertEquals(0, SubmarinePeriscopeGeometry.lift(-19.26), 1e-10);
     }
-    @Test void fastShotsHitTheExtendedTipWithoutThickeningTheCylinder() {
+    @Test void fastShotsHitTheExtendedTipAndTheTrialWidthButMissOutsideIt() {
         Ship ship = submarine(0);
         double y = -5.58 + (SubmarinePeriscopeGeometry.TOP + SubmarinePeriscopeGeometry.EXTRA_LIFT / 2) * 3;
         double z = .022 * 3;
         double hit = SubmarinePeriscopeGeometry.hitParameter(ship, -10, y, z, 10, y, z);
         assertTrue(Double.isFinite(hit));
         assertTrue(hit > .49 && hit < .51);
-        assertFalse(Double.isFinite(SubmarinePeriscopeGeometry.hitParameter(ship, -10, y, z + .058, 10, y, z + .058)));
+        assertTrue(Double.isFinite(SubmarinePeriscopeGeometry.hitParameter(ship, -10, y, z + .065, 10, y, z + .065)),
+                "New outer rim is genuinely hittable rather than just drawn thicker");
+        assertFalse(Double.isFinite(SubmarinePeriscopeGeometry.hitParameter(ship, -10, y, z + SubmarinePeriscopeGeometry.RADIUS * 3 + .001, 10, y, z + SubmarinePeriscopeGeometry.RADIUS * 3 + .001)));
         double above = -5.58 + SubmarinePeriscopeGeometry.topAboveRoot(-5.58) + .001;
         assertFalse(Double.isFinite(SubmarinePeriscopeGeometry.hitParameter(ship, -10, above, z, 10, above, z)));
     }
@@ -34,6 +37,6 @@ class SubmarinePeriscopeGeometryTest {
         Ship ship = submarine(Math.PI / 2);
         double x = .022 * 3;
         assertTrue(Double.isFinite(SubmarinePeriscopeGeometry.hitParameter(ship, x, 2, 0, x, -4, 0)));
-        assertFalse(Double.isFinite(SubmarinePeriscopeGeometry.hitParameter(ship, x, 2, .058, x, -4, .058)));
+        assertFalse(Double.isFinite(SubmarinePeriscopeGeometry.hitParameter(ship, x, 2, .08, x, -4, .08)));
     }
 }

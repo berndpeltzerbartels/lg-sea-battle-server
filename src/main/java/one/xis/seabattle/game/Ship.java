@@ -55,6 +55,7 @@ final class Ship {
     // Only observations from an actual ram approach; never updated from a hidden submarine.
     record SubmarineAttackCourse(String targetId, Vector2 position, double heading, double until) {}
     SubmarineAttackCourse botSubmarineAttackCourse;
+    BotNavigation botNavigation;
 
     SubmarineBot submarineBot() {
         return submarineBot;
@@ -68,6 +69,7 @@ final class Ship {
 
     Ship(String id, String teamId, Vector2 position, double heading, String controlledBy) {
         this.id = id;
+        botNavigation = new BotNavigation(id);
         this.teamId = teamId;
         this.position = position;
         this.heading = heading;
@@ -125,6 +127,8 @@ final class Ship {
     void controlledBy(String controlledBy) {
         if (!java.util.Objects.equals(this.controlledBy, controlledBy)) {
             submarineBot = new SubmarineBot();
+            botNavigation = new BotNavigation(id);
+            botSubmarineAttackCourse = null;
         }
         this.controlledBy = controlledBy;
     }
@@ -145,6 +149,8 @@ final class Ship {
     Vector2 position() {
         return position;
     }
+
+    long lifeId() { return lifeId; }
 
     double heading() {
         return heading;
@@ -428,6 +434,7 @@ final class Ship {
         botEscapeUntil = 0;
         botReverseUntil = 0;
         botSubmarineAttackCourse = null;
+        botNavigation = new BotNavigation(id);
         submarineBot = new SubmarineBot();
         this.position = position;
         this.heading = MathSupport.normalizeAngle(heading);

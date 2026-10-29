@@ -134,10 +134,12 @@ class SubmarineBotTest {
 
     @Test
     void respawnPreparationDoesNotTurnSubmarineIntoSurfaceShip() throws Exception {
-        Ship ship = submarine();
+        GameSession session = new GameSession(new GameSetup("dense-land", new WorldMap(99009, List.of()),
+                List.of(new FleetSetup("light", List.of(new ShipSetup("sub", "light", new Vector2(0, 0),
+                        Math.PI, "bot", 2, 0, 999, "submarine", 0)))), List.of()));
+        var all = GameSession.class.getDeclaredMethod("allShips"); all.setAccessible(true);
+        Ship ship = (Ship) ((List<?>) all.invoke(session)).get(0);
         ship.sink(1);
-        GameSession session = new GameSession(new GameSetup("dense-land",
-                new WorldMap(99009, List.of()), List.of(), List.of()));
         var prepare = GameSession.class.getDeclaredMethod("prepareBotVehicleTypeForRespawn", Ship.class);
         prepare.setAccessible(true);
         prepare.invoke(session, ship);

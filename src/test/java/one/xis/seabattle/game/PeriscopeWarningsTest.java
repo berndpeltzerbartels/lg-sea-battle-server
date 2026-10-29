@@ -57,7 +57,7 @@ class PeriscopeWarningsTest {
         sunk.sink(0);
         check(1, sunk);
         assertTrue(warnings.snapshot().isEmpty());
-        Ship hidden = sub("enemy", 0, 10, -6.5, 0, "periscope");
+        Ship hidden = sub("enemy", 0, 10, -8, 0, "periscope");
         check(2, hidden);
         assertTrue(warnings.snapshot().isEmpty());
     }

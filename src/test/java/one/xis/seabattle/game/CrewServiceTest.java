@@ -319,6 +319,19 @@ class CrewServiceTest {
         assertEquals(1, game.snapshot().ships().stream().filter(s -> captain.equals(s.controlledBy())).count());
     }
 
+    @Test void changingToAircraftAndBackDoesNotCreateMultipleFriendlySubmarines() {
+        var account = new Account("captain", "Captain", "CAP", "light", null);
+        game.activateTeam("light");
+        long original = game.snapshot().ships().stream().filter(s -> "light".equals(s.teamId()))
+                .filter(s -> "submarine".equals(s.vehicleType())).count();
+        crew.startOwnShip(account, "submarine");
+        crew.startOwnShip(account, "scout-plane");
+        crew.startOwnShip(account, "submarine");
+        long current = game.snapshot().ships().stream().filter(s -> "light".equals(s.teamId()))
+                .filter(s -> "submarine".equals(s.vehicleType())).count();
+        assertEquals(original, current, "One player changing vehicle must not multiply submarine fleet slots");
+    }
+
     @Test void teamAndVehicleChangesPreservePersonalScoreAndPosition() {
         var first = start();
         var origin = ship(first.shipId());

@@ -31,6 +31,10 @@ class BotDepthChargeTest {
         for (String depth : List.of("periscope", "submerged")) {
             var s = session("bot", "torpedo-boat", "dark", depth, 8);
             tick(s, 0);
+            assertTrue(s.snapshot().depthCharges().isEmpty(), "Wait while first acquiring the echo");
+            position(s, "dark", depth, 12);
+            s.updateIdle(.5, radar, navigation, s.worldMap());
+            tick(s, 0);
             assertEquals(1, s.snapshot().depthCharges().size());
             assertEquals("boat", s.snapshot().depthCharges().get(0).shipId());
             assertEquals(24, s.snapshot().depthCharges().get(0).radius());
@@ -45,10 +49,14 @@ class BotDepthChargeTest {
         for (var s : List.of(
                 session("bot", "torpedo-boat", "light", "submerged", 8),
                 session("bot", "torpedo-boat", "dark", "surface", 8),
-                session("bot", "torpedo-boat", "dark", "submerged", 13),
+                session("bot", "torpedo-boat", "dark", "submerged", 200),
                 session("captain", "torpedo-boat", "dark", "submerged", 8),
                 session("bot", "submarine", "dark", "submerged", 8),
                 session("bot", "scout-plane", "dark", "submerged", 8))) {
+            tick(s, 0);
+            var target = s.snapshot().ships().stream().filter(ship -> ship.id().equals("sub")).findFirst().orElseThrow();
+            position(s, target.teamId(), target.depthState(), target.x() + 4);
+            s.updateIdle(.5, radar, navigation, s.worldMap());
             tick(s, 0);
             assertTrue(s.snapshot().depthCharges().isEmpty());
         }
@@ -61,6 +69,9 @@ class BotDepthChargeTest {
         tick(s, .1);
         assertTrue(s.snapshot().depthCharges().isEmpty());
         tick(s, .4);
+        assertTrue(s.snapshot().depthCharges().isEmpty(), "Echo is still rising");
+        position(s, "dark", "submerged", 12);
+        tick(s, .5);
         assertEquals(1, s.snapshot().depthCharges().size());
         for (int i = 0; i < 10; i++) tick(s, .1);
         assertEquals(1, s.snapshot().depthCharges().size());
@@ -70,6 +81,9 @@ class BotDepthChargeTest {
     @Test void exportVictimNotificationBrowserFixture() throws Exception {
         var s = session("bot", "torpedo-boat", "dark", "submerged", 8);
         var before = s.snapshot();
+        tick(s, 0);
+        position(s, "dark", "submerged", 12);
+        s.updateIdle(.5, radar, navigation, s.worldMap());
         tick(s, 0);
         s.updateIdle(2.5, radar, navigation, s.worldMap());
         var after = s.snapshot();

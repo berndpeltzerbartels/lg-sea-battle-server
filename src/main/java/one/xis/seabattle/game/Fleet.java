@@ -13,17 +13,21 @@ final class Fleet {
 
     private final String teamId;
     private final List<Ship> ships;
+    private final int intendedSubmarineCount;
     private final Map<String, String> activeShipIdByPlayerId = new HashMap<>();
     private final Set<String> additionalHumanShipIds = new HashSet<>();
 
     Fleet(String teamId, List<Ship> ships) {
         this.teamId = teamId;
         this.ships = new ArrayList<>(ships);
+        intendedSubmarineCount = (int) ships.stream().filter(Ship::isSubmarine).count();
     }
 
     String teamId() {
         return teamId;
     }
+
+    int intendedSubmarineCount() { return intendedSubmarineCount; }
 
     List<Ship> ships() {
         return ships;
@@ -56,7 +60,10 @@ final class Fleet {
                 .filter(ship -> "bot".equals(ship.controlledBy()))
                 .filter(ship -> !ship.isScoutPlane())
                 .toList();
-        Optional<Ship> availableShip = randomShip(availableShips);
+        // Prefer the chosen type instead of permanently converting another fleet slot on every login.
+        List<Ship> matchingShips = vehicleType == null ? List.of() : availableShips.stream()
+                .filter(ship -> vehicleType.equals(ship.vehicleType())).toList();
+        Optional<Ship> availableShip = randomShip(matchingShips.isEmpty() ? availableShips : matchingShips);
         if (availableShip.isEmpty() && ships.size() == 1) {
             availableShip = activeShips().stream().filter(ship -> ship.isServerSimulated() || playerId.equals(ship.controlledBy())).findFirst();
         }
