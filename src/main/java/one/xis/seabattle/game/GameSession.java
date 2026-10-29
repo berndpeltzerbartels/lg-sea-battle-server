@@ -116,10 +116,6 @@ public final class GameSession {
     private static final double RAM_IMPACT_STOP_HOLD_SECONDS = 0.65;
     private static final double RAM_SURFACE_KEEL_Y = (-.26 - .05) * TORPEDO_BOAT_MODEL_SCALE;
     private static final double RAM_SUBMARINE_HULL_TOP = .62 * TORPEDO_BOAT_MODEL_SCALE;
-    private static final double BOT_SHIP_AVOID_RANGE = 86.0;
-    private static final double BOT_SHIP_AVOID_CORRIDOR = 3.15 * TORPEDO_BOAT_MODEL_SCALE;
-    private static final double BOT_BOT_DEADLOCK_AVOID_RANGE = 54.0;
-    private static final double BOT_BOT_DEADLOCK_BACKOFF_RANGE = 38.0;
     private static final double BOT_FIRE_ARC = 0.16;
     private static final double BOT_CLOSE_FIRE_ARC = 1.15;
     private static final double BOT_FIRE_MIN_RANGE = 65 * BOT_SHIP_TACTICAL_SCALE;
@@ -144,16 +140,8 @@ public final class GameSession {
     private static final double[] PERISCOPE_SIGHT_LENGTHS = {2,4,6,8,10,12};
     private static final double BOT_RADAR_INTERCEPT_RANGE = 360;
     private static final double BOT_HUMAN_TARGET_PRIORITY_CLEARANCE = 320;
-    private static final double BOT_RETURN_TO_LAND_DISTANCE = 720;
     private static final double BOT_PATROL_LAND_DISTANCE = 470;
-    private static final double BOT_ESCORT_JOIN_RANGE = 680;
-    private static final double BOT_ESCORT_MIN_DISTANCE = 95;
-    private static final double BOT_ESCORT_TARGET_DISTANCE = 150;
-    private static final double BOT_FRIENDLY_HUMAN_COMBAT_RADIUS = 420;
-    private static final double BOT_FRIENDLY_HUMAN_TARGET_DRIFT_WEIGHT = 0.8;
     private static final double BOT_GLANCING_RAM_BACKOFF_SECONDS = 2.85;
-    private static final double BOT_IDLE_WAKE_INTERVAL_SECONDS = 16.0;
-    private static final double BOT_IDLE_WAKE_DURATION_SECONDS = 8.0;
     private static final boolean SCOUT_PLANE_EXPERIMENT_PEACEFUL_BOTS = false;
     private static final boolean TEMPORARILY_DISABLE_BOTS = false;
     private static final double RESPAWN_DELAY_SECONDS = 8;
@@ -877,7 +865,7 @@ public final class GameSession {
                             commandScoutPlaneBot(ship, activeShips, worldMap, scoutPlaneTargetReservations);
                         } else {
                             if (checkDepthCharges) tryBotDepthCharges(ship, visibilityCache);
-                            commandBot(ship, visibilityCache, navigationService, worldMap, humanSurfaceShips, surfaceShips);
+                            commandBot(ship, visibilityCache, navigationService, worldMap, surfaceShips);
                         }
                     });
             if (parallelBotNavigation) {
@@ -1292,7 +1280,7 @@ public final class GameSession {
     }
 
     private void commandBot(Ship ship, RadarService.VisibilityCache visibilityCache, NavigationService navigationService,
-                            WorldMap worldMap, List<Ship> humanSurfaceShips, List<Ship> surfaceShips) {
+                            WorldMap worldMap, List<Ship> surfaceShips) {
         Vector2 retreatFrom = null;
         if (ship.isSubmarine()) {
             List<Ship> contacts = ship.isFullySubmerged()
@@ -1307,54 +1295,84 @@ public final class GameSession {
                     .anyMatch(target -> submarineHasAscentShot(ship, target));
             retreatFrom = ship.submarineBot().update(ship, contacts, nowSeconds, shotOpportunity);
         }
-        if (escapeBlockedWater(ship, navigationService, worldMap)) {
-            return;
+        BotNavigation plan = ship.botNavigation;
+        long tick = (long) Math.floor(nowSeconds * 10 + 1e-6);
+        if (plan.targetDue(tick)) {
+            plan.target = chooseBotTarget(ship, visibleTargets(ship, visibilityCache)).orElse(null);
+            plan.targetLife = plan.target == null ? -1 : plan.target.lifeId();
         }
-        if (avoidFriendlyBotDeadlock(ship, surfaceShips)
-                || avoidShipAhead(ship, surfaceShips, navigationService, worldMap)) {
-            return;
+        Ship contact = observedBotTarget(ship, plan, visibilityCache);
+        if (contact != null) {
+            double distance = ship.position().distanceTo(contact.position());
+            int order = botAttackEngineOrder(ship, contact, distance, relativeBearing(ship, contact.position()));
+            if (!ship.isSubmarine() && contact.isSubmarine() && order == ENGINE_FLANK) {
+                ship.botSubmarineAttackCourse = new Ship.SubmarineAttackCourse(contact.id(), contact.position(),
+                        contact.heading(), nowSeconds + BOT_SUBMARINE_ATTACK_CONTINUATION_SECONDS);
+            } else {
+                ship.botSubmarineAttackCourse = null;
+            }
+        } else if (ship.botSubmarineAttackCourse != null && nowSeconds >= ship.botSubmarineAttackCourse.until()) {
+            ship.botSubmarineAttackCourse = null;
         }
-        if (retreatFrom != null) {
-            steerAwayFrom(ship, retreatFrom, ENGINE_FULL, navigationService, worldMap);
-            return;
+        if (plan.routeDue(tick)) {
+            BotNavigation.Course desired = desiredBotCourse(ship, contact, worldMap);
+            plan.route = BotNavigation.freeRoute(ship, desired, BotNavigation.ROUTE_RANGE, navigationService, worldMap);
         }
+        if (plan.encounterDue(tick)) plan.planEncounter(ship, surfaceShips, navigationService, worldMap);
+        plan.checkNear(ship, surfaceShips, navigationService, worldMap);
 
+        // Emergency rules have highest priority. They never overwrite a stored route/encounter plan.
+        if (escapeBlockedWater(ship, navigationService, worldMap)) return;
         Optional<Torpedo> threat = visibleIncomingTorpedo(ship);
         if (threat.isPresent()) {
             evadeTorpedo(ship, threat.get(), navigationService, worldMap);
             return;
         }
-        if (ship.applyGlancingRamBackoff(nowSeconds)) {
-            return;
+        if (ship.applyGlancingRamBackoff(nowSeconds)) return;
+        BotNavigation.Course urgent = retreatFrom == null ? null
+                : new BotNavigation.Course(bearingTo(ship, ship.position().add(ship.position().subtract(retreatFrom))), ENGINE_FULL);
+        BotNavigation.Course selected = plan.selected(urgent);
+        if (selected != null) {
+            ship.applyCommand(selected.engineOrder(), BotHelm.rudder(ship.heading(), ship.turnVelocity(),
+                    ship.speed(), selected.heading()));
         }
-
-        Optional<Ship> target = chooseBotTarget(ship, visibleTargets(ship, visibilityCache));
-        var attackCourse = ship.botSubmarineAttackCourse;
-        if (attackCourse != null) {
-            if (nowSeconds >= attackCourse.until()
-                    || target.filter(contact -> contact.id().equals(attackCourse.targetId())).isPresent()) {
-                ship.botSubmarineAttackCourse = null;
-            } else {
-                continueSubmarineAttack(ship, attackCourse, navigationService, worldMap);
-                return;
-            }
-        }
-        if (target.isEmpty()) {
-            moveWithoutTarget(ship, navigationService, worldMap, humanSurfaceShips);
-            return;
-        }
-
-        aimAtTarget(ship, target.get(), navigationService, worldMap);
+        if (contact != null) fireBotWeapons(ship, contact);
     }
 
-    private void continueSubmarineAttack(Ship ship, Ship.SubmarineAttackCourse course,
-                                         NavigationService navigationService, WorldMap worldMap) {
-        // Join the last observed course, then look ahead along it. No hidden target lookup or path history.
-        Vector2 forward = Vector2.fromHeading(course.heading());
-        Vector2 offset = ship.position().subtract(course.position());
-        double along = offset.x() * forward.x() + offset.z() * forward.z();
-        Vector2 ahead = course.position().add(forward.scale(Math.max(0, along) + 60));
-        steerToward(ship, ahead, ENGINE_FLANK, navigationService, worldMap);
+    private Ship observedBotTarget(Ship ship, BotNavigation plan, RadarService.VisibilityCache cache) {
+        Ship target = plan.target;
+        if (target == null || target.lifeId() != plan.targetLife || !"active".equals(target.state())) return null;
+        if (ship.isFullySubmerged()) return isUnderwaterBotContact(ship, target) && target.isFullySubmerged() ? target : null;
+        return isStrategicHumanContact(ship, target) || cache.isVisible(ship, target, RadarService.RADAR_RANGE)
+                || isVisiblePeriscopeRamContact(ship, target) ? target : null;
+    }
+
+    private double bearingTo(Ship ship, Vector2 position) {
+        Vector2 offset = position.subtract(ship.position());
+        return offset.x() == 0 && offset.z() == 0 ? ship.heading() : Math.atan2(offset.x(), offset.z());
+    }
+
+    private BotNavigation.Course desiredBotCourse(Ship ship, Ship contact, WorldMap worldMap) {
+        if (contact != null) {
+            double distance = ship.position().distanceTo(contact.position());
+            return new BotNavigation.Course(bearingTo(ship, contact.position()),
+                    botAttackEngineOrder(ship, contact, distance, relativeBearing(ship, contact.position())));
+        }
+        var attack = ship.botSubmarineAttackCourse;
+        if (attack != null) {
+            Vector2 forward = Vector2.fromHeading(attack.heading());
+            Vector2 offset = ship.position().subtract(attack.position());
+            double along = offset.x() * forward.x() + offset.z() * forward.z();
+            return new BotNavigation.Course(bearingTo(ship, attack.position().add(forward.scale(Math.max(0, along) + 60))), ENGINE_FLANK);
+        }
+        // Lost/destroyed contact: keep the last course until the next scheduled target selection.
+        if (ship.botNavigation.target != null && ship.botNavigation.route != null) return ship.botNavigation.route;
+        Optional<Vector2> land = nearestLandCenter(ship.position(), worldMap);
+        if (land.isPresent() && ship.position().distanceTo(land.get()) > BOT_PATROL_LAND_DISTANCE) {
+            return new BotNavigation.Course(bearingTo(ship, land.get()), ENGINE_HALF);
+        }
+        return new BotNavigation.Course(MathSupport.normalizeAngle(ship.heading()
+                + Math.sin(nowSeconds * .055 + stablePhase(ship.id())) * .12), ENGINE_HALF);
     }
 
     private boolean submarineHasAscentShot(Ship ship, Ship target) {
@@ -1380,30 +1398,6 @@ public final class GameSession {
 
     private static double mix(double start, double end, double ratio) {
         return start + (end - start) * MathSupport.clamp(ratio, 0, 1);
-    }
-
-    private void moveWithoutTarget(Ship ship, NavigationService navigationService, WorldMap worldMap,
-                                   List<Ship> humanSurfaceShips) {
-        if (escortHumanLeader(ship, navigationService, worldMap)) {
-            return;
-        }
-        if (moveDuringIdleWake(ship, navigationService, worldMap, humanSurfaceShips)) {
-            return;
-        }
-
-        Optional<Vector2> nearestLandCenter = nearestLandCenter(ship.position(), worldMap);
-        double nearestLandDistance = nearestLandCenter
-                .map(center -> ship.position().distanceTo(center))
-                .orElse(0.0);
-        if (nearestLandDistance > BOT_RETURN_TO_LAND_DISTANCE && nearestLandCenter.isPresent()) {
-            steerToward(ship, nearestLandCenter.get(), ENGINE_TWO_THIRDS, navigationService, worldMap);
-            return;
-        }
-        if (nearestLandDistance > BOT_PATROL_LAND_DISTANCE && nearestLandCenter.isPresent()) {
-            steerToward(ship, nearestLandCenter.get(), ENGINE_HALF, navigationService, worldMap);
-            return;
-        }
-        patrol(ship, navigationService, worldMap);
     }
 
     private boolean escapeBlockedWater(Ship ship, NavigationService navigationService, WorldMap worldMap) {
@@ -1521,8 +1515,7 @@ public final class GameSession {
     }
 
     private int rudderTowardHeading(Ship ship, double heading) {
-        double targetBearing = MathSupport.normalizeAngle(heading - ship.heading());
-        return (int) Math.round(MathSupport.clamp(targetBearing / 0.58, -1, 1) * 35);
+        return BotHelm.rudder(ship.heading(), ship.turnVelocity(), 1, heading);
     }
 
     private void applyBotCommand(Ship ship, int engineOrder, int rudder, NavigationService navigationService, WorldMap worldMap) {
@@ -1640,16 +1633,7 @@ public final class GameSession {
     }
 
     private double botTargetScore(Ship ship, Ship target) {
-        return ship.position().distanceTo(target.position())
-                + friendlyHumanDriftPenalty(nearestHumanControlledSurfaceTeamShip(ship), target.position(), BOT_FRIENDLY_HUMAN_TARGET_DRIFT_WEIGHT);
-    }
-
-    private double friendlyHumanDriftPenalty(Optional<Ship> human, Vector2 targetPosition, double weight) {
-        if (human.isEmpty()) {
-            return 0;
-        }
-        double distanceToHumanArea = targetPosition.distanceTo(human.get().position());
-        return Math.max(0, distanceToHumanArea - BOT_FRIENDLY_HUMAN_COMBAT_RADIUS) * weight;
+        return ship.position().distanceTo(target.position());
     }
 
     private Optional<Torpedo> visibleIncomingTorpedo(Ship ship) {
@@ -1700,143 +1684,12 @@ public final class GameSession {
         applyBotCommand(ship, ENGINE_FULL, rudder, navigationService, worldMap);
     }
 
-    private void patrol(Ship ship, NavigationService navigationService, WorldMap worldMap) {
-        double wander = Math.sin(nowSeconds * 0.055 + stablePhase(ship.id())) * 8;
-        applyBotCommand(ship, ENGINE_HALF, (int) Math.round(wander), navigationService, worldMap);
-    }
-
     private Optional<Vector2> nearestLandCenter(Vector2 position, WorldMap worldMap) {
         return worldMap.landmasses().stream()
                 .map(landmass -> new Vector2(landmass.x(), landmass.z()))
                 .min((left, right) -> Double.compare(
                         position.distanceTo(left),
                         position.distanceTo(right)
-                ));
-    }
-
-    private void steerToward(Ship ship, Vector2 target, int engineOrder, NavigationService navigationService, WorldMap worldMap) {
-        double targetBearing = relativeBearing(ship, target);
-        int rudder = (int) Math.round(MathSupport.clamp(targetBearing / 0.7, -1, 1) * 35);
-        applyBotCommand(ship, engineOrder, rudder, navigationService, worldMap);
-    }
-
-    private boolean escortHumanLeader(Ship ship, NavigationService navigationService, WorldMap worldMap) {
-        Optional<Ship> leader = nearestHumanControlledSurfaceTeamShip(ship);
-        if (leader.isEmpty()) {
-            return false;
-        }
-
-        Ship human = leader.get();
-        double distanceToHuman = ship.position().distanceTo(human.position());
-        if (distanceToHuman > BOT_ESCORT_JOIN_RANGE) {
-            return false;
-        }
-        if (distanceToHuman < BOT_ESCORT_MIN_DISTANCE) {
-            int engineOrder = Math.abs(human.speed()) < 0.8 ? idleWakeEngineOrder(ship, ENGINE_STOP) : ENGINE_SLOW;
-            steerAwayFrom(ship, human.position(), engineOrder, navigationService, worldMap);
-            return true;
-        }
-
-        Vector2 escortPoint = escortPointFor(ship, human);
-        double distanceToEscortPoint = ship.position().distanceTo(escortPoint);
-        int engineOrder = escortEngineOrder(ship, distanceToEscortPoint, human.speed());
-        steerToward(ship, escortPoint, engineOrder, navigationService, worldMap);
-        return true;
-    }
-
-    private Optional<Ship> nearestHumanControlledSurfaceTeamShip(Ship ship) {
-        return activeTeamShips(ship.teamId()).stream()
-                .filter(this::isHumanControlled)
-                .filter(Ship::isOnSurface)
-                .min((left, right) -> Double.compare(
-                        ship.position().distanceTo(left.position()),
-                        ship.position().distanceTo(right.position())
-                ));
-    }
-
-    private boolean moveDuringIdleWake(Ship ship, NavigationService navigationService, WorldMap worldMap,
-                                       List<Ship> humanSurfaceShips) {
-        if (!botIdleWakeActive(ship)) {
-            return false;
-        }
-        Optional<Ship> humanTarget = nearestHumanControlledEnemyShip(ship, humanSurfaceShips);
-        if (humanTarget.isPresent()) {
-            steerToward(ship, humanTarget.get().position(), ENGINE_FULL, navigationService, worldMap);
-            return true;
-        }
-        patrol(ship, navigationService, worldMap);
-        return true;
-    }
-
-    private boolean avoidShipAhead(Ship ship, List<Ship> surfaceShips, NavigationService navigationService, WorldMap worldMap) {
-        Optional<Ship> obstacle = surfaceShips.stream()
-                .filter(candidate -> ramDepthMode(ship, candidate) != RamDepthMode.NONE)
-                .filter(candidate -> !candidate.id().equals(ship.id()))
-                .filter(candidate -> "active".equals(candidate.state()))
-                .filter(candidate -> candidate.teamId().equals(ship.teamId()))
-                .filter(this::isHumanControlled)
-                .filter(candidate -> ship.position().distanceTo(candidate.position()) <= BOT_SHIP_AVOID_RANGE)
-                .filter(candidate -> isShipAheadInCollisionCorridor(ship, candidate))
-                .min(Comparator.comparingDouble(candidate -> ship.position().distanceTo(candidate.position())));
-        if (obstacle.isEmpty()) {
-            return false;
-        }
-
-        double distance = ship.position().distanceTo(obstacle.get().position());
-        int engineOrder = distance < 34 ? ENGINE_ONE_THIRD : ENGINE_HALF;
-        steerAwayFrom(ship, obstacle.get().position(), engineOrder, navigationService, worldMap);
-        return true;
-    }
-
-    private boolean avoidFriendlyBotDeadlock(Ship ship, List<Ship> surfaceShips) {
-        if (!ship.isBotControlled()) {
-            return false;
-        }
-        Optional<Ship> obstacle = surfaceShips.stream()
-                .filter(candidate -> ramDepthMode(ship, candidate) != RamDepthMode.NONE)
-                .filter(candidate -> !candidate.id().equals(ship.id()))
-                .filter(candidate -> "active".equals(candidate.state()))
-                .filter(candidate -> candidate.teamId().equals(ship.teamId()))
-                .filter(Ship::isBotControlled)
-                .filter(candidate -> ship.position().distanceTo(candidate.position()) <= BOT_BOT_DEADLOCK_AVOID_RANGE)
-                .filter(candidate -> isShipAheadInCollisionCorridor(ship, candidate))
-                .min(Comparator.comparingDouble(candidate -> ship.position().distanceTo(candidate.position())));
-        if (obstacle.isEmpty() || hasBotDeadlockRightOfWay(ship, obstacle.get())) {
-            return false;
-        }
-
-        double distance = ship.position().distanceTo(obstacle.get().position());
-        int engineOrder = distance <= BOT_BOT_DEADLOCK_BACKOFF_RANGE ? ENGINE_FULL_ASTERN : ENGINE_SLOW;
-        ship.applyCommand(engineOrder, stableBotDeadlockAvoidanceRudder(ship));
-        return true;
-    }
-
-    private boolean hasBotDeadlockRightOfWay(Ship ship, Ship obstacle) {
-        return ship.id().compareTo(obstacle.id()) < 0;
-    }
-
-    private int stableBotDeadlockAvoidanceRudder(Ship ship) {
-        return stablePhase(ship.id()) % 2.0 >= 1.0 ? 35 : -35;
-    }
-
-    private boolean isShipAheadInCollisionCorridor(Ship ship, Ship obstacle) {
-        Vector2 forward = Vector2.fromHeading(ship.heading());
-        Vector2 toObstacle = obstacle.position().subtract(ship.position());
-        double along = toObstacle.x() * forward.x() + toObstacle.z() * forward.z();
-        if (along <= 0 || along > BOT_SHIP_AVOID_RANGE) {
-            return false;
-        }
-        double lateral = Math.abs(toObstacle.x() * forward.z() - toObstacle.z() * forward.x());
-        return lateral <= BOT_SHIP_AVOID_CORRIDOR;
-    }
-
-    private Optional<Ship> nearestHumanControlledEnemyShip(Ship ship, List<Ship> humanSurfaceShips) {
-        return humanSurfaceShips.stream()
-                .filter(target -> !target.teamId().equals(ship.teamId()))
-                .filter(target -> target.isOnSurface() || isVisiblePeriscopeRamContact(ship, target))
-                .min((left, right) -> Double.compare(
-                        ship.position().distanceTo(left.position()),
-                        ship.position().distanceTo(right.position())
                 ));
     }
 
@@ -1847,61 +1700,11 @@ public final class GameSession {
                 .toList();
     }
 
-    private Vector2 escortPointFor(Ship ship, Ship leader) {
-        double side = stablePhase(ship.id()) % 2.0 >= 1.0 ? 1.0 : -1.0;
-        double lane = 70 + (stablePhase(ship.id()) % 0.8) * 36;
-        double sternOffset = BOT_ESCORT_TARGET_DISTANCE + (stablePhase(ship.id()) % 0.6) * 45;
-        Vector2 forward = Vector2.fromHeading(leader.heading());
-        Vector2 right = new Vector2(Math.cos(leader.heading()), -Math.sin(leader.heading()));
-        return leader.position()
-                .add(forward.scale(-sternOffset))
-                .add(right.scale(side * lane));
-    }
-
-    private int escortEngineOrder(Ship ship, double distanceToEscortPoint, double leaderSpeed) {
-        if (distanceToEscortPoint < 45 && Math.abs(leaderSpeed) < 0.8) {
-            return idleWakeEngineOrder(ship, ENGINE_STOP);
-        }
-        if (distanceToEscortPoint < 90) {
-            return Math.abs(leaderSpeed) < 2.5 ? ENGINE_SLOW : ENGINE_HALF;
-        }
-        if (distanceToEscortPoint < 180) {
-            return ENGINE_HALF;
-        }
-        return ENGINE_FLANK;
-    }
-
-    private int idleWakeEngineOrder(Ship ship, int restingEngineOrder) {
-        return botIdleWakeActive(ship) ? ENGINE_SLOW : restingEngineOrder;
-    }
-
-    private boolean botIdleWakeActive(Ship ship) {
-        double phase = stablePhase(ship.id()) % BOT_IDLE_WAKE_INTERVAL_SECONDS;
-        double cycleTime = (nowSeconds + phase) % BOT_IDLE_WAKE_INTERVAL_SECONDS;
-        return cycleTime < BOT_IDLE_WAKE_DURATION_SECONDS;
-    }
-
-    private void steerAwayFrom(Ship ship, Vector2 point, int engineOrder, NavigationService navigationService, WorldMap worldMap) {
-        Vector2 away = ship.position().add(ship.position().subtract(point).normalized().scale(130));
-        steerToward(ship, away, engineOrder, navigationService, worldMap);
-    }
-
-    private void aimAtTarget(Ship ship, Ship target, NavigationService navigationService, WorldMap worldMap) {
+    private void fireBotWeapons(Ship ship, Ship target) {
         double distance = ship.position().distanceTo(target.position());
         double targetBearing = relativeBearing(ship, target.position());
-        double aimError = Math.sin(nowSeconds * 0.11 + stablePhase(ship.id())) * BOT_AIM_ERROR;
+        double aimError = Math.sin(nowSeconds * .11 + stablePhase(ship.id())) * BOT_AIM_ERROR;
         double steerError = MathSupport.normalizeAngle(targetBearing + aimError);
-        double rudderScale = distance < BOT_CLOSE_MANEUVER_RANGE ? 0.58 : 0.82;
-        int maxRudder = distance < BOT_CLOSE_MANEUVER_RANGE ? 35 : 26;
-        int rudder = (int) Math.round(MathSupport.clamp(steerError / rudderScale, -1, 1) * maxRudder);
-        int engineOrder = botAttackEngineOrder(ship, target, distance, targetBearing);
-        if (!ship.isSubmarine() && target.isSubmarine() && engineOrder == ENGINE_FLANK) {
-            ship.botSubmarineAttackCourse = new Ship.SubmarineAttackCourse(target.id(), target.position(),
-                    target.heading(), nowSeconds + BOT_SUBMARINE_ATTACK_CONTINUATION_SECONDS);
-        }
-        if (ship.isSubmarine() && !ship.isOnSurface() && ship.speed() < 0) rudder = -rudder;
-        applyBotCommand(ship, engineOrder, rudder, navigationService, worldMap);
-
         boolean closeInFront = distance <= BOT_CLOSE_FIRE_RANGE && Math.abs(targetBearing) <= BOT_CLOSE_FIRE_ARC;
         boolean aimedShot = distance >= BOT_FIRE_MIN_RANGE && distance <= BOT_FIRE_MAX_RANGE && Math.abs(steerError) <= BOT_FIRE_ARC;
         if (!SCOUT_PLANE_EXPERIMENT_PEACEFUL_BOTS && !target.isAtPeriscopeDepth() && (closeInFront || aimedShot)) {

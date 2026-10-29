@@ -66,20 +66,19 @@ class UnderwaterBotCombatTest {
     }
 
     @Test
-    void friendlyDeepHumanAndBotTriggerExistingCollisionAvoidance() throws Exception {
-        GameSession session = new GameSession(new GameSetup("avoid", map, List.of(), List.of()));
+    void friendlyDeepHumanAndBotTriggerNearAvoidanceButSurfaceShipDoesNot() {
         Ship sub = submarine("z-sub", "light", 0, true);
         Ship friend = submarine("a-friend", "light", 25, true);
-        var botAvoid = GameSession.class.getDeclaredMethod("avoidFriendlyBotDeadlock", Ship.class, List.class);
-        botAvoid.setAccessible(true);
-        assertEquals(true, botAvoid.invoke(session, sub, List.of(friend)));
+        var plan = sub.botNavigation;
+        plan.route = new BotNavigation.Course(0, 7);
+        plan.checkNear(sub, List.of(friend), navigation, map);
+        assertNotNull(plan.near);
         friend.controlledBy("player");
-        var humanAvoid = GameSession.class.getDeclaredMethod("avoidShipAhead", Ship.class, List.class,
-                NavigationService.class, WorldMap.class);
-        humanAvoid.setAccessible(true);
-        assertEquals(true, humanAvoid.invoke(session, sub, List.of(friend), navigation, map));
+        plan.checkNear(sub, List.of(friend), navigation, map);
+        assertNotNull(plan.near);
         Ship surfaceFriend = new Ship("surface", "light", new Vector2(0, 25), 0, "player");
-        assertEquals(false, humanAvoid.invoke(session, sub, List.of(surfaceFriend), navigation, map));
+        plan.checkNear(sub, List.of(surfaceFriend), navigation, map);
+        assertNull(plan.near);
     }
 
     private Ship submarine(String id, String team, double z, boolean deep) {
