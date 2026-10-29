@@ -2191,6 +2191,29 @@ class GameSessionTest {
     }
 
     @Test
+    void botDoesNotLaunchWhenItsForwardTubeAlreadyOverlapsAFriendDirectlyAhead() throws Exception {
+        for (double speed : new double[]{0, 10, 17.5}) {
+            for (double gap : new double[]{8, 10, 12, 14, 15, 20, 30, 50}) {
+                var session = new GameSession(new GameSetup("friendly-tube-overlap", new WorldMap(9140, List.of()),
+                        List.of(new FleetSetup("red", List.of(
+                                        ship("shooter", "red", 0, 0, 0, "bot", ENGINE_STOP, 0, 0),
+                                        ship("friend", "red", 0, gap, 0, "player-friend", ENGINE_STOP, 0, 99))),
+                                new FleetSetup("blue", List.of(ship("target", "blue", 0, 260, 0, "player-target", ENGINE_STOP, 0, 99)))),
+                        List.of(new Vector2(2000, 2000))));
+                for (String id : List.of("shooter", "friend")) {
+                    String player = id.equals("shooter") ? "bot" : "player-friend";
+                    shipEntity(session, id).applyPlayerState(new PlayerStateUpdate(player, "red", 0, id.equals("shooter") ? 0 : gap,
+                            0, speed, 0, ENGINE_FLANK, 0, 0, true, "torpedo-boat", 0, 0,
+                            null, null, null, null, "surface"), navigationService, session.worldMap());
+                }
+                assertFalse(fireTorpedoAtTargetForTest(session, "shooter", "target"),
+                        "Must not shoot into a friend's hull, including when its centre is behind the tube: gap=" + gap);
+                assertTrue(session.snapshot().torpedoes().isEmpty());
+            }
+        }
+    }
+
+    @Test
     void botTorpedoStillAvoidsFriendlyShipInLine() throws Exception {
         GameSession session = new GameSession(new GameSetup(
                 "bot-friendly-torpedo-line-block-test",

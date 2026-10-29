@@ -3355,7 +3355,9 @@ public final class GameSession {
         double broadRadius = (TORPEDO_BROAD_PHASE_RADIUS + margin) * TORPEDO_BOAT_MODEL_SCALE;
         Vector2 toFriendly = target.position().subtract(muzzlePosition);
         double along = toFriendly.x() * forward.x() + toFriendly.z() * forward.z();
-        if (along < 0 || along > maxRange) {
+        // A centre behind the muzzle can still have its bow around/in front of the tube.
+        // Reject only when the entire bounding hull lies outside the forward firing segment.
+        if (along < -broadRadius || along > maxRange + broadRadius) {
             return false;
         }
         double lateral = Math.abs(toFriendly.x() * right.x() + toFriendly.z() * right.z());
