@@ -566,7 +566,7 @@ class GameSessionTest {
                 List.of(new Vector2(0, 0), new Vector2(0, 520))
         ));
 
-        assertEquals(ENGINE_FULL, botAttackEngineOrder(session, "red-1", "blue-1", 520, 0),
+        assertEquals(ENGINE_FLANK, botAttackEngineOrder(session, "red-1", "blue-1", 520, 0),
                 "Auf Distanz sollen Bots im Angriff weiter Vollgas fahren duerfen.");
     }
 
@@ -2323,7 +2323,7 @@ class GameSessionTest {
         session.update(0.05, radarService, navigationService, session.worldMap());
 
         ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
-        assertEquals(ENGINE_FULL, attacker.engineOrder());
+        assertEquals(ENGINE_FLANK, attacker.engineOrder());
         assertTrue(attacker.rudderDegrees() < 0);
     }
 
@@ -2347,7 +2347,7 @@ class GameSessionTest {
         session.update(0.05, radarService, navigationService, session.worldMap());
 
         ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
-        assertEquals(ENGINE_FULL, attacker.engineOrder());
+        assertEquals(ENGINE_FLANK, attacker.engineOrder());
         assertTrue(attacker.rudderDegrees() < 0);
     }
 
@@ -2548,7 +2548,7 @@ class GameSessionTest {
         session.update(0.05, radarService, navigationService, session.worldMap());
 
         ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
-        assertEquals(ENGINE_FULL, attacker.engineOrder());
+        assertEquals(ENGINE_FLANK, attacker.engineOrder());
         assertTrue(attacker.rudderDegrees() < 0);
     }
 
@@ -2641,7 +2641,7 @@ class GameSessionTest {
         session.update(0.05, radarService, navigationService, session.worldMap());
 
         ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
-        assertEquals(ENGINE_FULL, attacker.engineOrder());
+        assertEquals(ENGINE_FLANK, attacker.engineOrder());
         assertTrue(attacker.rudderDegrees() > 0);
     }
 
@@ -5301,24 +5301,25 @@ class GameSessionTest {
     }
 
     @Test
-    void recedingFastSubmarineRequestsTopGearAtEveryAttackDistance() throws Exception {
+    void boatUsesTopGearFromOneRadarRingRegardlessOfTargetMotion() throws Exception {
         var session = fastSubmarinePursuitSession();
         Ship target = shipEntity(session, "sub");
-        target.applyPlayerState(new PlayerStateUpdate("player-sub", "blue", 0, 600, 0, 13.5, 0,
-                ENGINE_FLANK, 0, 0, true, "submarine", -.78, 0,
-                null, null, null, null, "surface"), navigationService, session.worldMap());
-        for (double distance : new double[]{90, 180, 300, 600, 1200}) {
-            assertEquals(ENGINE_FLANK, botAttackEngineOrder(session, "boat", "sub", distance, 0));
+        for (double heading : new double[]{0, Math.PI / 2, Math.PI}) {
+            for (double speed : new double[]{0, 6.18, 13.5}) {
+                target.applyPlayerState(new PlayerStateUpdate("player-sub", "blue", 0, 600, heading, speed, 0,
+                        ENGINE_FLANK, 0, 0, true, "submarine", -.78, 0,
+                        null, null, null, null, "surface"), navigationService, session.worldMap());
+                for (double distance : new double[]{BotNavigation.RADAR_RING, BotNavigation.RADAR_RING + .1, 1200}) {
+                    assertEquals(ENGINE_FLANK, botAttackEngineOrder(session, "boat", "sub", distance, 0));
+                }
+                assertEquals(ENGINE_FULL, botAttackEngineOrder(session, "boat", "sub", BotNavigation.RADAR_RING - .1, 0),
+                        "Below the threshold use normal approach orders, regardless of target motion");
+            }
         }
-        target.applyPlayerState(new PlayerStateUpdate("player-sub", "blue", 0, 600, Math.PI, 13.5, 0,
-                ENGINE_FLANK, 0, 0, true, "submarine", -.78, 0,
-                null, null, null, null, "surface"), navigationService, session.worldMap());
-        assertEquals(ENGINE_FULL, botAttackEngineOrder(session, "boat", "sub", 600, 0),
-                "An approaching target does not require the fast-pursuit rule");
     }
 
     @Test
-    void boatClosesGapToHumanSubmarineAtFullSurfaceSpeedWithScheduledNavigation() {
+    void boatKeepsFullSpeedSubmarineWithinOneRadarRingWithScheduledNavigation() {
         var session = fastSubmarinePursuitSession();
         for (int tick = 0; tick < 600; tick++) {
             double z = 600 + tick * .1 * 13.5;
@@ -5330,10 +5331,10 @@ class GameSessionTest {
         var snapshot = session.snapshot();
         var boat = findShip(snapshot, "boat");
         assertEquals("active", boat.state());
-        assertEquals(ENGINE_FLANK, boat.engineOrder());
-        assertTrue(boat.speed() > 15.5, "The pursuer actually accelerates beyond submarine surface speed");
-        assertTrue(distanceBetween(snapshot, "boat", "sub") < 450,
-                "The gap must shrink, including normal acceleration from rest: " + distanceBetween(snapshot, "boat", "sub"));
+        assertTrue(boat.speed() > 12, "The pursuer uses its speed advantage rather than falling behind indefinitely");
+        assertTrue(distanceBetween(snapshot, "boat", "sub") < BotNavigation.RADAR_RING + 20,
+                "Keep the fleeing submarine around the threshold, allowing acceleration and the one-second course interval: "
+                        + distanceBetween(snapshot, "boat", "sub"));
     }
 
     private GameSession fastSubmarinePursuitSession() {
