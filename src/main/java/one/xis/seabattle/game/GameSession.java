@@ -140,7 +140,6 @@ public final class GameSession {
     private static final double[] PERISCOPE_SIGHT_LENGTHS = {2,4,6,8,10,12};
     private static final double BOT_RADAR_INTERCEPT_RANGE = 360;
     private static final double BOT_HUMAN_TARGET_PRIORITY_CLEARANCE = 320;
-    private static final double BOT_PATROL_LAND_DISTANCE = 470;
     private static final double BOT_GLANCING_RAM_BACKOFF_SECONDS = 2.85;
     private static final boolean SCOUT_PLANE_EXPERIMENT_PEACEFUL_BOTS = false;
     private static final boolean TEMPORARILY_DISABLE_BOTS = false;
@@ -170,6 +169,7 @@ public final class GameSession {
     private final WorldMap scoutPlaneObstacleMap;
     private final Map<String, Fleet> fleets;
     private final List<Vector2> respawnCandidates;
+    private final Vector2 patrolCenter;
     private final Map<String, Integer> destroyedShipsByTeam = new LinkedHashMap<>();
     private final Map<String, Integer> killsByPlayer = new LinkedHashMap<>();
     private final Map<String, Double> nextFlakFireTimeByShipId = new LinkedHashMap<>();
@@ -252,6 +252,7 @@ public final class GameSession {
         );
         this.fleets = createFleets(setup.fleets());
         this.respawnCandidates = List.copyOf(setup.respawnCandidates());
+        this.patrolCenter = mapCenter(worldMap, respawnCandidates);
         this.fleets.keySet().forEach(teamId -> destroyedShipsByTeam.put(teamId, 0));
     }
 
@@ -496,7 +497,7 @@ public final class GameSession {
 
         Optional<Ship> assignedShip = fleet.assignedShip(update.playerId());
         Ship ship = assignedShip
-                .or(() -> fleet.assignNextShipToPlayer(update.playerId()))
+                .or(() -> fleet.assignNextShipToPlayer(update.playerId(), update.vehicleType()))
                 .orElseGet(() -> additionalPlayerShip(fleet,
                         update.playerId(),
                         new Vector2(update.x(), update.z()),
@@ -520,7 +521,7 @@ public final class GameSession {
         }
 
         Ship ship = fleet.assignedShip(request.playerId())
-                .or(() -> fleet.assignNextShipToPlayer(request.playerId()))
+                .or(() -> fleet.assignNextShipToPlayer(request.playerId(), request.vehicleType()))
                 .orElseGet(() -> additionalPlayerShip(fleet,
                         request.playerId(),
                         new Vector2(request.x(), request.z()),
@@ -1367,12 +1368,28 @@ public final class GameSession {
         }
         // Lost/destroyed contact: keep the last course until the next scheduled target selection.
         if (ship.botNavigation.target != null && ship.botNavigation.route != null) return ship.botNavigation.route;
-        Optional<Vector2> land = nearestLandCenter(ship.position(), worldMap);
-        if (land.isPresent() && ship.position().distanceTo(land.get()) > BOT_PATROL_LAND_DISTANCE) {
-            return new BotNavigation.Course(bearingTo(ship, land.get()), ENGINE_HALF);
+        // The map centre is just a navigation destination; use the normal approach rules.
+        double distance = ship.position().distanceTo(patrolCenter);
+        return new BotNavigation.Course(bearingTo(ship, patrolCenter),
+                botAttackEngineOrder(ship, null, distance, relativeBearing(ship, patrolCenter)));
+    }
+
+    private static Vector2 mapCenter(WorldMap map, List<Vector2> spawns) {
+        double minX = Double.POSITIVE_INFINITY, maxX = Double.NEGATIVE_INFINITY;
+        double minZ = Double.POSITIVE_INFINITY, maxZ = Double.NEGATIVE_INFINITY;
+        for (Landmass land : map.landmasses()) {
+            minX = Math.min(minX, land.x() - Math.abs(land.rx()));
+            maxX = Math.max(maxX, land.x() + Math.abs(land.rx()));
+            minZ = Math.min(minZ, land.z() - Math.abs(land.rz()));
+            maxZ = Math.max(maxZ, land.z() + Math.abs(land.rz()));
         }
-        return new BotNavigation.Course(MathSupport.normalizeAngle(ship.heading()
-                + Math.sin(nowSeconds * .055 + stablePhase(ship.id())) * .12), ENGINE_HALF);
+        if (map.landmasses().isEmpty()) {
+            for (Vector2 spawn : spawns) {
+                minX = Math.min(minX, spawn.x()); maxX = Math.max(maxX, spawn.x());
+                minZ = Math.min(minZ, spawn.z()); maxZ = Math.max(maxZ, spawn.z());
+            }
+        }
+        return Double.isFinite(minX) ? new Vector2((minX + maxX) / 2, (minZ + maxZ) / 2) : new Vector2(0, 0);
     }
 
     private boolean submarineHasAscentShot(Ship ship, Ship target) {
@@ -1713,10 +1730,11 @@ public final class GameSession {
     }
 
     private int botAttackEngineOrder(Ship ship, Ship target, double distance, double targetBearing) {
-        if (ship.isSubmarine() && !ship.isOnSurface()) {
+        boolean humanTarget = target != null && isHumanControlled(target);
+        if (target != null && ship.isSubmarine() && !ship.isOnSurface()) {
             return ship.submarineBot().attackEngineOrder(ship, target, distance, targetBearing);
         }
-        if (target.isAtPeriscopeDepth()) {
+        if (target != null && target.isAtPeriscopeDepth()) {
             return ship.isSubmarine() ? ENGINE_FULL : ENGINE_FLANK;
         }
         // Distance alone determines when a surface boat must use its full pursuit speed.
@@ -1725,10 +1743,10 @@ public final class GameSession {
         }
         double absoluteBearing = Math.abs(targetBearing);
         if (distance < BOT_RAM_RANGE) {
-            return target.isSubmarine() && !ship.isSubmarine() ? ENGINE_FLANK
+            return target != null && target.isSubmarine() && !ship.isSubmarine() ? ENGINE_FLANK
                     : absoluteBearing <= Math.toRadians(30) ? ENGINE_HALF : ENGINE_FULL;
         }
-        if (isHumanControlled(target) && Math.abs(ship.speed()) < 0.8 && distance <= BOT_APPROACH_SLOW_RANGE) {
+        if (humanTarget && Math.abs(ship.speed()) < 0.8 && distance <= BOT_APPROACH_SLOW_RANGE) {
             return ENGINE_FULL;
         }
         if (distance < BOT_CLOSE_MANEUVER_RANGE) {
@@ -1740,7 +1758,7 @@ public final class GameSession {
             }
             return ENGINE_FULL;
         }
-        if (!isHumanControlled(target) && distance <= BOT_RADAR_INTERCEPT_RANGE) {
+        if (!humanTarget && distance <= BOT_RADAR_INTERCEPT_RANGE) {
             return ENGINE_FULL;
         }
         if (distance > BOT_RADAR_INTERCEPT_RANGE) {
@@ -3032,7 +3050,14 @@ public final class GameSession {
     }
 
     private void prepareBotVehicleTypeForRespawn(Ship ship) {
-        if (!ship.isBotControlled() || ship.isSubmarine()) {
+        if (!ship.isBotControlled()) return;
+        // Count every fleet slot, including destroyed boats awaiting their replacement.
+        // Otherwise overlapping deaths can refill the same submarine quota repeatedly.
+        Fleet fleet = fleets.get(ship.teamId());
+        long otherSubmarines = teamShips(ship.teamId()).stream()
+                .filter(other -> other != ship).filter(Ship::isSubmarine).count();
+        if (otherSubmarines < fleet.intendedSubmarineCount()) {
+            ship.vehicleType("submarine");
             return;
         }
         if (!allowsDynamicScoutPlanes()) {

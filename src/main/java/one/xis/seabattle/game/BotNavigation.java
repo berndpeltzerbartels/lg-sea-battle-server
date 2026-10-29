@@ -152,6 +152,18 @@ final class BotNavigation {
             double dx = other.position().x() - ship.position().x(), dz = other.position().z() - ship.position().z();
             double d2 = dx * dx + dz * dz;
             if (d2 > range * range) continue;
+            if (d2 < clearance * clearance) {
+                // At an existing close contact, equal velocities do not mean the hulls are clear.
+                // The trailing boat yields; crossing boats use stable right of way. Never both shunt.
+                if (!other.isBotControlled()) return false;
+                double alignment = Math.cos(ship.heading() - other.heading());
+                double along = dx * (Math.sin(ship.heading()) + Math.sin(other.heading()))
+                        + dz * (Math.cos(ship.heading()) + Math.cos(other.heading()));
+                boolean yield = alignment > .5 && Math.abs(along) > 1
+                        ? along > 0 : ship.id().compareTo(other.id()) > 0;
+                if (yield) return false;
+                continue;
+            }
             double rvx = Math.sin(other.heading()) * other.speed() - vx;
             double rvz = Math.cos(other.heading()) * other.speed() - vz;
             double relative2 = rvx * rvx + rvz * rvz;

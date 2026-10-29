@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
 
@@ -470,7 +471,7 @@ class GameSessionTest {
     }
 
     @Test
-    void botPatrolsInsteadOfUsingAnUnlimitedIdleHumanHunt() {
+    void botPatrolsInsteadOfUsingAnUnlimitedIdleHumanHunt() throws Exception {
         GameSession session = new GameSession(new GameSetup(
                 "idle-bot-human-hunt-wake-test",
                 new WorldMap(90312, List.of()),
@@ -489,13 +490,14 @@ class GameSessionTest {
         for (double elapsed = 0; elapsed < 70; elapsed += 0.25) {
             session.update(0.25, radarService, navigationService, session.worldMap());
             ShipSnapshot bot = findShip(session.snapshot(), "red-1");
-            if (bot != null && bot.engineOrder() == ENGINE_HALF) {
+            if (bot != null && bot.engineOrder() >= ENGINE_HALF) {
                 patrolled = true;
                 break;
             }
         }
 
-        assertTrue(patrolled, "No target beyond acquisition range: keep patrolling");
+        assertTrue(patrolled, "No target beyond acquisition range: keep moving toward the centre");
+        assertNull(shipEntity(session, "red-1").botNavigation.target);
     }
 
     @Test
@@ -523,7 +525,7 @@ class GameSessionTest {
     }
 
     @Test
-    void idleBotPatrolKeepsHalfSpeedAndOnlyUsesSmallCourseCorrections() {
+    void centerFallbackStartsWithNormalApproachSpeedInsteadOfWaiting() {
         GameSession session = new GameSession(new GameSetup(
                 "idle-bot-calm-patrol-test",
                 new WorldMap(90314, List.of()),
@@ -2257,7 +2259,7 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        assertEquals(ENGINE_HALF, findShip(session.snapshot(), "light-2").engineOrder());
+        assertEquals(ENGINE_FULL, findShip(session.snapshot(), "light-2").engineOrder());
     }
 
     @Test
@@ -2276,7 +2278,7 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        assertEquals(ENGINE_HALF, findShip(session.snapshot(), "light-2").engineOrder());
+        assertEquals(ENGINE_FLANK, findShip(session.snapshot(), "light-2").engineOrder());
     }
 
     @Test
@@ -4241,7 +4243,7 @@ class GameSessionTest {
                 List.of(new Vector2(0, 0))));
         for (int tick = 0; tick < 160; tick++) {
             session.update(.1, radarService, navigationService, session.worldMap());
-            assertEquals(ENGINE_HALF, findShip(session.snapshot(), "red-1").engineOrder());
+            assertTrue(findShip(session.snapshot(), "red-1").engineOrder() >= ENGINE_HALF);
         }
     }
 
@@ -4378,7 +4380,7 @@ class GameSessionTest {
         session.update(0.05, radarService, navigationService, session.worldMap());
 
         ShipSnapshot bot = findShip(session.snapshot(), "red-bot");
-        assertEquals(ENGINE_HALF, bot.engineOrder(),
+        assertTrue(bot.engineOrder() >= ENGINE_HALF,
                 "Ein eigener Bot soll ein U-Boot auf Sehrohrtiefe nicht wie einen aufgetauchten Flottenführer eskortieren.");
     }
 
@@ -5373,7 +5375,7 @@ class GameSessionTest {
         commandAttackBot(session, 10);
         assertNull(boat.botSubmarineAttackCourse);
         commandAttackBot(session, 11);
-        assertNotEquals(ENGINE_FLANK, boat.snapshot().engineOrder(), "Resume normal navigation when the attack expires");
+        assertTrue(boat.snapshot().rudderDegrees() > 0, "After the attack expires resume the normal course toward map centre");
     }
 
     @Test
@@ -5405,7 +5407,7 @@ class GameSessionTest {
         commandAttackBot(session, 0);
         Ship boat = shipEntity(session, "boat");
         assertNull(boat.botSubmarineAttackCourse);
-        assertNotEquals(ENGINE_FLANK, boat.snapshot().engineOrder());
+        assertNull(boat.botNavigation.target);
     }
 
     @Test
@@ -5473,10 +5475,52 @@ class GameSessionTest {
         for (int tick = 0; tick < 400; tick++) session.update(.1, radarService, navigationService, session.worldMap());
         var snapshot = session.snapshot();
         assertTrue(distanceBetween(snapshot, "red-a", "red-b") > 100,
-                "Both boats must leave the close encounter rather than shunt in place");
+                "Both boats must leave their close encounter rather than shunt in place: " + snapshot.ships());
+        for (var ship : snapshot.ships()) assertTrue(Math.hypot(ship.x(), ship.z()) > 150,
+                "Both boats must make progress toward map centre: " + snapshot.ships());
         for (var ship : snapshot.ships()) {
             assertEquals("active", ship.state());
             assertTrue(Math.abs(ship.speed()) > 2);
+        }
+    }
+
+    @Test
+    void untargetedBoatReturnsToMapCenterRatherThanNearestLandAtHigherPatrolSpeed() throws Exception {
+        var map = new WorldMap(9104, List.of(testIsland("west", -800, 0, 50, 50),
+                testIsland("east", 800, 0, 50, 50)));
+        var session = new GameSession(new GameSetup("center-patrol", map,
+                List.of(new FleetSetup("red", List.of(ship("boat", "red", -900, -100, 0, "bot", ENGINE_STOP, 0, 999)))),
+                List.of()));
+        Ship boat = shipEntity(session, "boat");
+        Method course = GameSession.class.getDeclaredMethod("desiredBotCourse", Ship.class, Ship.class, WorldMap.class);
+        course.setAccessible(true);
+        var fallback = (BotNavigation.Course) course.invoke(session, boat, null, map);
+        assertEquals(Math.atan2(900, 100), fallback.heading(), .00001);
+        assertEquals(ENGINE_FLANK, fallback.engineOrder());
+        boat.respawn(new Vector2(0, -100), 0, 0);
+        fallback = (BotNavigation.Course) course.invoke(session, boat, null, map);
+        assertEquals(ENGINE_HALF, fallback.engineOrder());
+    }
+
+    @Test
+    void repeatedPlayerSubmarineDeathsAndReentriesKeepTheFleetComposition() throws Exception {
+        var boats = new ArrayList<ShipSetup>();
+        for (int i = 0; i < 6; i++) boats.add(ship("red-" + i, "red", i * 400, 0, 0, "bot", ENGINE_STOP, 0,
+                9999, i < 2 ? "submarine" : "torpedo-boat"));
+        var spawns = new ArrayList<Vector2>();
+        for (int i = 0; i < 10; i++) spawns.add(new Vector2(i * 400, 1000));
+        var session = new GameSession(new GameSetup("stable-submarine-fleet", new WorldMap(9105, List.of()),
+                List.of(new FleetSetup("red", boats)), spawns));
+        for (int death = 0; death < 20; death++) {
+            var snapshot = session.updatePlayerState(new PlayerStateUpdate("player-sub", "red", 0, 0, 0, 0, 0,
+                    ENGINE_STOP, 0, 0, true, "submarine", 0, 0,
+                    null, null, null, null, "surface"), navigationService, session.worldMap());
+            var own = snapshot.ships().stream().filter(ship -> "player-sub".equals(ship.controlledBy())).findFirst().orElseThrow();
+            assertEquals(2, snapshot.ships().stream().filter(ship -> "submarine".equals(ship.vehicleType())).count());
+            sinkShip(session, own.id());
+            session.updateIdle(9, radarService, navigationService, session.worldMap());
+            assertEquals(2, session.snapshot().ships().stream().filter(ship -> "submarine".equals(ship.vehicleType())).count());
+            assertEquals(6, session.snapshot().ships().size());
         }
     }
 

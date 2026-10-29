@@ -141,6 +141,18 @@ class BotNavigationTest {
         assertNull(ship.botNavigation.target);
     }
 
+    @Test void equalSpeedAtCloseRangeDoesNotHideAnOverlappingHull() {
+        Ship rear = boat("rear", 0, 0, 0, 12), front = boat("front", 0, 17, 0, 12);
+        var ships = List.of(rear, front);
+        for (Ship ship : ships) {
+            ship.botNavigation.route = new BotNavigation.Course(0, 7);
+            ship.botNavigation.checkNear(ship, ships, navigation, water);
+        }
+        assertNotNull(rear.botNavigation.near);
+        assertNull(front.botNavigation.near);
+        assertTrue(rear.botNavigation.selected(null).engineOrder() < front.botNavigation.selected(null).engineOrder());
+    }
+
     @Test void clearWaterDoesNotRunTerrainChecksAndRecedingTrafficDoesNotTriggerAvoidance() {
         Ship a = boat("a", 0, 0, 0, 12), b = boat("b", 0, 100, 0, 17.5);
         var plan = a.botNavigation;
