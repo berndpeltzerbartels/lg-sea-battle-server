@@ -190,7 +190,7 @@ public final class GameSession {
     private int nextDepthChargeId;
     static final double DEPTH_CHARGE_RADIUS = 24;
     static final double DEPTH_CHARGE_RELOAD = 4.8;
-    private static final double BOT_DEPTH_CHARGE_DETECTION_RADIUS = 12;
+    private static final double BOT_DEPTH_CHARGE_DETECTION_RADIUS = 6 * BotNavigation.SHIP_LENGTH;
     private double nextBotDepthChargeCheck;
     private final List<TorpedoImpactSnapshot> torpedoImpacts = new ArrayList<>();
     private final List<Bomb> bombs = new ArrayList<>();
@@ -883,19 +883,24 @@ public final class GameSession {
     }
 
     private void tryBotDepthCharges(Ship ship, RadarService.VisibilityCache visibilityCache) {
-        if (ship.isSubmarine() || hasPendingDepthCharges(ship.id())) return;
+        if (ship.isSubmarine()) return;
+        double strength = 0;
+        for (Ship target : visibilityCache.candidates(ship, BOT_DEPTH_CHARGE_DETECTION_RADIUS)) {
+            if (!"active".equals(target.state()) || target.teamId().equals(ship.teamId())
+                    || !target.isSubmarine() || target.isOnSurface() || target.y() >= -1) continue;
+            double distance = ship.position().distanceTo(target.position());
+            strength = Math.max(strength, 1 - distance / BOT_DEPTH_CHARGE_DETECTION_RADIUS);
+        }
+        double previous = ship.botNavigation.previousSubmarineEcho;
+        ship.botNavigation.previousSubmarineEcho = strength;
+        // Like the visible echo meter: strongest at the closest pass, independent of speed.
+        // No signal, first contact, steady or growing signal: do not drop.
+        if (strength <= 0 || previous <= 0 || strength >= previous - 1e-6) return;
+        if (hasPendingDepthCharges(ship.id())) return;
         var reload = depthChargeReloads.get(ship.id());
         if (reload != null && (reload.queuedPlayer != null
                 || java.util.Arrays.stream(reload.readyAt).anyMatch(t -> nowSeconds < t))) return;
-        for (Ship target : visibilityCache.candidates(ship, BOT_DEPTH_CHARGE_DETECTION_RADIUS)) {
-            if ("active".equals(target.state()) && !target.teamId().equals(ship.teamId())
-                    && target.isSubmarine() && !target.isOnSurface()
-                    && target.y() < -1
-                    && ship.position().distanceTo(target.position()) <= BOT_DEPTH_CHARGE_DETECTION_RADIUS) {
-                dropDepthCharges(ship.controlledBy(), ship.controlledBy(), ship.id());
-                return;
-            }
-        }
+        dropDepthCharges(ship.controlledBy(), ship.controlledBy(), ship.id());
     }
 
     private void commandScoutPlaneBot(Ship plane, List<Ship> activeShips, WorldMap worldMap,
@@ -1743,9 +1748,11 @@ public final class GameSession {
         if (target != null && ship.isSubmarine() && !ship.isOnSurface()) {
             return ship.submarineBot().attackEngineOrder(ship, target, distance, targetBearing);
         }
-        // Normal surface travel: reserve the fast approach for a human opponent.
-        // This also covers the map-centre fallback (no target) and enemy bot periscopes.
-        if (!humanTarget) return ENGINE_HALF;
+        if (target == null) return ENGINE_HALF; // Map-centre patrol stays relaxed.
+        if (!humanTarget) {
+            if (distance <= BOT_APPROACH_SLOW_RANGE) return ENGINE_HALF;
+            return distance <= BotNavigation.RADAR_RING ? ENGINE_TWO_THIRDS : ENGINE_FULL;
+        }
         if (target.isAtPeriscopeDepth()) {
             return ship.isSubmarine() ? ENGINE_FULL : ENGINE_FLANK;
         }

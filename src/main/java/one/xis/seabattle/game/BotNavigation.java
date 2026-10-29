@@ -19,6 +19,7 @@ final class BotNavigation {
     long targetLife;
     Course route, encounter, near;
     private int encounterClearChecks;
+    double previousSubmarineEcho;
 
     BotNavigation(String shipId) { phase = Math.floorMod(shipId.hashCode(), 20); }
 

@@ -2402,7 +2402,7 @@ class GameSessionTest {
         session.update(0.05, radarService, navigationService, session.worldMap());
 
         ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
-        assertEquals(ENGINE_HALF, attacker.engineOrder());
+        assertEquals(ENGINE_TWO_THIRDS, attacker.engineOrder());
         assertTrue(attacker.rudderDegrees() > 0);
     }
 
@@ -5366,7 +5366,7 @@ class GameSessionTest {
     }
 
     @Test
-    void surfaceBoatUsesHalfSpeedAgainstBotsEvenAtRamRangeAndAtDistantPeriscopes() throws Exception {
+    void surfaceBoatUsesModerateDistanceBasedSpeedsAgainstBotsIncludingPeriscopes() throws Exception {
         var session = fastSubmarinePursuitSession();
         Ship target = shipEntity(session, "sub");
         target.controlledBy("bot");
@@ -5374,9 +5374,10 @@ class GameSessionTest {
             target.applyPlayerState(new PlayerStateUpdate("bot", "blue", 0, 200, 0, 0, 0,
                     ENGINE_STOP, 0, 0, true, "submarine", depth.equals("surface") ? -.78 : -5.58, 0,
                     null, null, null, null, depth), navigationService, session.worldMap());
-            for (double distance : new double[]{30, 100, 200, 400, 600, 1500}) {
+            for (double distance : new double[]{30, 100, 200, 230, 230.1, 400, BotNavigation.RADAR_RING, BotNavigation.RADAR_RING + .1, 600, 1500}) {
                 for (double bearing : new double[]{0, Math.PI / 2, Math.PI}) {
-                    assertEquals(ENGINE_HALF, botAttackEngineOrder(session, "boat", "sub", distance, bearing));
+                    int expected = distance <= 230 ? ENGINE_HALF : distance <= BotNavigation.RADAR_RING ? ENGINE_TWO_THIRDS : ENGINE_FULL;
+                    assertEquals(expected, botAttackEngineOrder(session, "boat", "sub", distance, bearing));
                 }
             }
         }
@@ -5560,6 +5561,61 @@ class GameSessionTest {
     }
 
     @Test
+    void botDropsChargesOnlyWhenTheLiveSonarSignalStartsFalling() throws Exception {
+        var session = submarineAttackContinuationSession();
+        for (double distance : new double[]{100, 60, 20, 20}) {
+            hideAttackSubmarine(session, 0, distance, 0);
+            tryDepthChargesForTest(session);
+            assertTrue(session.snapshot().depthCharges().isEmpty(), "Rising/steady echo at " + distance);
+        }
+        hideAttackSubmarine(session, 0, 23, 0);
+        tryDepthChargesForTest(session);
+        assertFalse(session.snapshot().depthCharges().isEmpty(), "First decrease after passing the sonar maximum");
+        int count = session.snapshot().depthCharges().size();
+        hideAttackSubmarine(session, 0, 30, 0);
+        tryDepthChargesForTest(session);
+        assertEquals(count, session.snapshot().depthCharges().size(), "Keep the ordinary salvo and reload limits");
+    }
+
+    @Test
+    void losingSonarCompletelyDoesNotTriggerABlindSalvoAndReacquisitionStartsFresh() throws Exception {
+        var session = submarineAttackContinuationSession();
+        commandAttackBot(session, 0); // Remembered attack must not authorize a blind drop.
+        tryDepthChargesForTest(session);
+        for (double distance : new double[]{200, 190, 160, 80}) {
+            hideAttackSubmarine(session, 0, distance, 0);
+            tryDepthChargesForTest(session);
+            assertTrue(session.snapshot().depthCharges().isEmpty(), "No blind drop / no drop on first returning signal");
+        }
+        hideAttackSubmarine(session, 0, 90, 0);
+        tryDepthChargesForTest(session);
+        assertFalse(session.snapshot().depthCharges().isEmpty(), "A new decreasing live signal may trigger normally");
+    }
+
+    @Test
+    void controllerChangesAndRespawnsClearThePreviousSonarSample() throws Exception {
+        var session = submarineAttackContinuationSession();
+        Ship boat = shipEntity(session, "boat");
+        hideAttackSubmarine(session, 0, 70, 0);
+        tryDepthChargesForTest(session);
+        assertTrue(boat.botNavigation.previousSubmarineEcho > 0);
+        boat.controlledBy("player-crew");
+        boat.controlledBy("bot");
+        assertEquals(0, boat.botNavigation.previousSubmarineEcho);
+        tryDepthChargesForTest(session);
+        boat.respawn(new Vector2(0, 0), 0, 0);
+        assertEquals(0, boat.botNavigation.previousSubmarineEcho);
+    }
+
+    private void tryDepthChargesForTest(GameSession session) throws Exception {
+        var cache = radarService.visibilityCache(session.worldMap(),
+                List.of(shipEntity(session, "boat"), shipEntity(session, "sub")));
+        Method charges = GameSession.class.getDeclaredMethod("tryBotDepthCharges", Ship.class, RadarService.VisibilityCache.class);
+        charges.setAccessible(true);
+        charges.invoke(session, shipEntity(session, "boat"), cache);
+    }
+
+    @Test
     void depthChargesStillReleaseDuringTheContinuedAttack() throws Exception {
         GameSession session = submarineAttackContinuationSession();
         commandAttackBot(session, 0);
@@ -5571,6 +5627,11 @@ class GameSessionTest {
                 RadarService.VisibilityCache.class);
         charges.setAccessible(true);
         charges.invoke(session, shipEntity(session, "boat"), cache);
+        assertTrue(session.snapshot().depthCharges().isEmpty(), "First signal does not drop prematurely");
+        hideAttackSubmarine(session, 0, 8, 0);
+        tryDepthChargesForTest(session);
+        hideAttackSubmarine(session, 0, 12, 0);
+        tryDepthChargesForTest(session);
         assertFalse(session.snapshot().depthCharges().isEmpty());
         assertEquals(ENGINE_FLANK, shipEntity(session, "boat").snapshot().engineOrder());
     }
