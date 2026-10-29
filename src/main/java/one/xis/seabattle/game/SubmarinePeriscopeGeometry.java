@@ -2,9 +2,11 @@ package one.xis.seabattle.game;
 
 /** Dimensions shared with the visible cylinders in the client submarine model. */
 final class SubmarinePeriscopeGeometry {
+    static final double SIZE_SCALE = 1.3; // Match the local client mast trial.
+    static final double RADIUS = .019 * SIZE_SCALE;
     static final double BASE = .66 + .64 * .9 - .012;
-    static final double TOP = BASE + .986 * .9;
-    static final double EXTRA_LIFT = (TOP - 1.86) * .2;
+    static final double TOP = BASE + .986 * .9 * SIZE_SCALE;
+    static final double EXTRA_LIFT = (BASE + .986 * .9 - 1.86) * .2 * SIZE_SCALE;
     private static final double SCALE = SeaBattleGameConfig.TORPEDO_BOAT_SCALE;
 
     static double lift(double rootY) {
@@ -28,7 +30,7 @@ final class SubmarinePeriscopeGeometry {
         double best = Double.POSITIVE_INFINITY;
         for (int i = 0; i < 2; i++) {
             double centerZ = .04 + ((i == 0 ? .02 : .2) - .04) * .9;
-            double top = BASE + (i == 0 ? .986 : .816) * .9 + lift(ship.y());
+            double top = BASE + (i == 0 ? .986 : .816) * .9 * SIZE_SCALE + lift(ship.y());
             double low = 0, high = 1;
             if (Math.abs(dy) < 1e-12) {
                 if (y < BASE || y > top) continue;
@@ -38,7 +40,7 @@ final class SubmarinePeriscopeGeometry {
             }
             double a = dx * dx + dz * dz;
             double b = 2 * (x * dx + (z - centerZ) * dz);
-            double c = x * x + (z - centerZ) * (z - centerZ) - .019 * .019;
+            double c = x * x + (z - centerZ) * (z - centerZ) - RADIUS * RADIUS;
             if (a < 1e-12) { if (c > 0) continue; }
             else {
                 double discriminant = b * b - 4 * a * c;
