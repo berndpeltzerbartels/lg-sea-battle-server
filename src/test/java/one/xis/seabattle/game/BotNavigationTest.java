@@ -91,6 +91,35 @@ class BotNavigationTest {
         assertNull(plan.encounter);
     }
 
+    @Test void friendlyAvoidanceAlwaysTurnsToPortAndStopsWhenNoPortCourseIsFree() {
+        Ship own = boat("own", 0, 0, 0, 12), other = boat("other", 0, 60, Math.PI, 12);
+        var plan = own.botNavigation;
+        plan.route = new BotNavigation.Course(0, 7);
+        plan.planEncounter(own, List.of(own, other), navigation, water);
+        assertNotNull(plan.encounter);
+        assertTrue(plan.encounter.heading() < 0, "Only port, even if a previous plan favoured starboard");
+        other.respawn(new Vector2(0, 17), 0, 0);
+        other.controlledBy("human");
+        plan.checkNear(own, List.of(own, other), navigation, water);
+        assertNotNull(plan.near);
+        assertEquals(2, plan.near.engineOrder(), "Blocked escape must order stop instead of Slow");
+        assertEquals(own.heading(), plan.near.heading(), "Do not turn right as a fallback");
+    }
+
+    @Test void anIslandBlockingPortOrdersStopEvenThoughStarboardIsOpen() {
+        Ship own = boat("own", 0, 0, 0, 12), other = boat("other", 0, 150, Math.PI, 12);
+        Landmass coast = new Landmass("island", "west-coast", -200, 0, 190, 500, 190, 500, 228, 600,
+                null, 1, null, null, null, List.of(), List.of(), List.of());
+        WorldMap map = new WorldMap(4, List.of(coast));
+        assertFalse(navigation.isShipBlocked(own.position(), 0, map));
+        assertFalse(navigation.isShipBlocked(new Vector2(50, 100), 0, map), "Starboard would be open");
+        own.botNavigation.route = new BotNavigation.Course(0, 7);
+        own.botNavigation.planEncounter(own, List.of(own, other), navigation, map);
+        assertNotNull(own.botNavigation.encounter);
+        assertEquals(2, own.botNavigation.encounter.engineOrder());
+        assertEquals(0, own.botNavigation.encounter.heading());
+    }
+
     @Test void headOnFriendlyBoatsPassAndKeepMovingInsteadOfAlternatingForwardReverse() {
         Ship a = boat("a", 0, -110, 0, 12), b = boat("b", 0, 110, Math.PI, 12);
         List<Ship> ships = List.of(a, b);

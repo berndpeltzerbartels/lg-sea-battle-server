@@ -3527,7 +3527,7 @@ class GameSessionTest {
         ShipSnapshot yielding = findShip(session.snapshot(), "red-b");
         assertNotEquals(ENGINE_FULL_ASTERN, rightOfWay.engineOrder());
         assertTrue(yielding.engineOrder() >= ENGINE_STOP);
-        assertTrue(rightOfWay.rudderDegrees() > 0);
+        assertTrue(rightOfWay.rudderDegrees() < 0, "Pass to port");
         assertTrue(Math.abs(yielding.rudderDegrees()) == 35);
     }
 
@@ -5392,6 +5392,46 @@ class GameSessionTest {
     }
 
     @Test
+    void divingFromASlowerSurfaceApproachKeepsTheLastSeenAttackForTenSeconds() throws Exception {
+        GameSession session = submarineAttackContinuationSession();
+        Ship sub = shipEntity(session, "sub"), boat = shipEntity(session, "boat");
+        sub.applyPlayerState(new PlayerStateUpdate("player-sub", "blue", 0, 200, 0, 0, 0,
+                ENGINE_STOP, 0, 0, true, "submarine", -.78, 0,
+                null, null, null, null, "surface"), navigationService, session.worldMap());
+        commandAttackBot(session, 0);
+        assertNotEquals(ENGINE_FLANK, boat.snapshot().engineOrder(), "This approach did not yet use top gear");
+        var lastSeen = boat.botSubmarineAttackCourse;
+        assertNotNull(lastSeen, "Remember a close submarine attack even before the ram sprint");
+        sub.applyPlayerState(new PlayerStateUpdate("player-sub", "blue", 0, 200, 0, 0, 0,
+                ENGINE_STOP, 0, 0, true, "submarine", -5.58, 0,
+                null, null, null, null, "periscope"), navigationService, session.worldMap());
+        for (double t : new double[]{1, 2, 4, 6, 8, 9.9}) {
+            commandAttackBot(session, t);
+            assertSame(lastSeen, boat.botSubmarineAttackCourse, "Scheduled target searches must not abandon this attack");
+            assertEquals(ENGINE_FLANK, boat.snapshot().engineOrder());
+            assertEquals(0, boat.snapshot().rudderDegrees());
+        }
+        commandAttackBot(session, 10.1);
+        assertNull(boat.botSubmarineAttackCourse, "Hidden contacts do not extend the timer");
+    }
+
+    @Test
+    void periscopeContactUsesActualMastHeightDuringADiveInsteadOfTheDepthOrder() throws Exception {
+        GameSession session = submarineAttackContinuationSession();
+        Ship sub = shipEntity(session, "sub"), boat = shipEntity(session, "boat");
+        Method visible = GameSession.class.getDeclaredMethod("isVisiblePeriscopeRamContact", Ship.class, Ship.class);
+        visible.setAccessible(true);
+        for (String order : new String[]{"periscope", "submerged"}) {
+            for (double y : new double[]{-5.58, -8}) {
+                sub.applyPlayerState(new PlayerStateUpdate("player-sub", "blue", 0, 35, 0, 0, 0,
+                        ENGINE_STOP, 0, 0, true, "submarine", y, 0,
+                        null, null, null, null, order), navigationService, session.worldMap());
+                assertEquals(y > -6, visible.invoke(session, boat, sub), "depth order=" + order + ", actual y=" + y);
+            }
+        }
+    }
+
+    @Test
     void boatContinuesLastObservedSubmarineCourseForTenSecondsWithoutTrackingHiddenTurns() throws Exception {
         GameSession session = submarineAttackContinuationSession();
         Ship boat = shipEntity(session, "boat");
@@ -5506,7 +5546,7 @@ class GameSessionTest {
                         ship("red-a", "red", 0, 0, 0, "bot", ENGINE_FULL, 0, 999),
                         ship("red-b", "red", 0, 36, Math.PI, "bot", ENGINE_FULL, 0, 999)))),
                 List.of(new Vector2(1000, 1000))));
-        for (int tick = 0; tick < 400; tick++) session.update(.1, radarService, navigationService, session.worldMap());
+        for (int tick = 0; tick < 500; tick++) session.update(.1, radarService, navigationService, session.worldMap());
         var snapshot = session.snapshot();
         assertTrue(distanceBetween(snapshot, "red-a", "red-b") > 100,
                 "Both boats must leave their close encounter rather than shunt in place: " + snapshot.ships());

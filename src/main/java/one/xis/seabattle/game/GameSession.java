@@ -1298,22 +1298,26 @@ public final class GameSession {
         }
         BotNavigation plan = ship.botNavigation;
         long tick = (long) Math.floor(nowSeconds * 10 + 1e-6);
-        if (plan.targetDue(tick)) {
+        if (ship.botSubmarineAttackCourse != null && nowSeconds >= ship.botSubmarineAttackCourse.until()) {
+            ship.botSubmarineAttackCourse = null;
+            if (observedBotTarget(ship, plan, visibilityCache) == null) plan.target = null;
+        }
+        boolean followingLostSubmarine = ship.botSubmarineAttackCourse != null
+                && plan.target != null && plan.target.lifeId() == plan.targetLife && "active".equals(plan.target.state())
+                && observedBotTarget(ship, plan, visibilityCache) == null;
+        if (plan.targetDue(tick) && !followingLostSubmarine) {
             plan.target = chooseBotTarget(ship, visibleTargets(ship, visibilityCache)).orElse(null);
             plan.targetLife = plan.target == null ? -1 : plan.target.lifeId();
         }
         Ship contact = observedBotTarget(ship, plan, visibilityCache);
         if (contact != null) {
             double distance = ship.position().distanceTo(contact.position());
-            int order = botAttackEngineOrder(ship, contact, distance, relativeBearing(ship, contact.position()));
-            if (!ship.isSubmarine() && contact.isSubmarine() && order == ENGINE_FLANK) {
+            if (!ship.isSubmarine() && contact.isSubmarine() && distance <= BotNavigation.RADAR_RING) {
                 ship.botSubmarineAttackCourse = new Ship.SubmarineAttackCourse(contact.id(), contact.position(),
                         contact.heading(), nowSeconds + BOT_SUBMARINE_ATTACK_CONTINUATION_SECONDS);
             } else {
                 ship.botSubmarineAttackCourse = null;
             }
-        } else if (ship.botSubmarineAttackCourse != null && nowSeconds >= ship.botSubmarineAttackCourse.until()) {
-            ship.botSubmarineAttackCourse = null;
         }
         if (plan.routeDue(tick)) {
             BotNavigation.Course desired = desiredBotCourse(ship, contact, worldMap);
@@ -1598,7 +1602,9 @@ public final class GameSession {
     }
 
     private boolean isVisiblePeriscopeRamContact(Ship observer, Ship target) {
-        if (!target.isAtPeriscopeDepth()) return false;
+        // The depth order changes immediately; visibility changes only when the mast actually submerges.
+        if (!target.isSubmarine() || target.isOnSurface()
+                || target.y() + SubmarinePeriscopeGeometry.topAboveRoot(target.y()) <= 0) return false;
         double dx = target.position().x() - observer.position().x();
         double dz = target.position().z() - observer.position().z();
         double distance = Math.hypot(dx, dz);

@@ -127,19 +127,16 @@ final class BotNavigation {
 
     private Course avoidTraffic(Ship ship, Course intended, List<Ship> ships, double range,
                                 double horizon, double clearance, NavigationService navigation, WorldMap world) {
-        // Both opposing boats prefer starboard. Retain that side for the active manoeuvre.
-        double previous = near != null ? near.heading : encounter != null ? encounter.heading : intended.heading;
-        int preferred = MathSupport.normalizeAngle(previous - intended.heading) < -.01 ? -1 : 1;
+        // A single passing side prevents two friends from changing their minds together.
+        // If port is blocked, stop rather than creep ahead or switch to starboard.
         double distance = range == NEAR_RANGE ? Math.max(16, Math.abs(ship.speed()) * 2) : range;
         for (int step = 1; step <= 9; step++) {
-            for (int side : new int[]{preferred, -preferred}) {
-                Course proposal = new Course(MathSupport.normalizeAngle(intended.heading + side * step * Math.PI / 18),
-                        range == NEAR_RANGE ? Math.min(5, intended.engineOrder) : intended.engineOrder);
-                if (trafficClear(ship, proposal, ships, range, horizon, clearance)
-                        && pathClear(ship, proposal.heading, distance, navigation, world)) return proposal;
-            }
+            Course proposal = new Course(MathSupport.normalizeAngle(intended.heading - step * Math.PI / 18),
+                    range == NEAR_RANGE ? Math.min(5, intended.engineOrder) : intended.engineOrder);
+            if (trafficClear(ship, proposal, ships, range, horizon, clearance)
+                    && pathClear(ship, proposal.heading, distance, navigation, world)) return proposal;
         }
-        return new Course(MathSupport.normalizeAngle(ship.heading() + preferred * Math.PI / 2), 3);
+        return new Course(ship.heading(), 2);
     }
 
     private static boolean trafficClear(Ship ship, Course course, List<Ship> ships,
