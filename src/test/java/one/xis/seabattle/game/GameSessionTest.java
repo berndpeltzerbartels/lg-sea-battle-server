@@ -5303,6 +5303,40 @@ class GameSessionTest {
     }
 
     @Test
+    void periscopePursuitClosesAtTheActualSpeedDifferenceAndRamsWithinTheExpectedTime() throws Exception {
+        for (int lengths : new int[]{3, 6, 12}) {
+            double startGap = lengths * BotNavigation.SHIP_LENGTH - 1;
+            var map = new WorldMap(9107, List.of());
+            var session = new GameSession(new GameSetup("timed-periscope-pursuit", map, List.of(
+                    new FleetSetup("red", List.of(ship("boat", "red", 0, 0, 0, "bot", ENGINE_FLANK, 0, 9999))),
+                    new FleetSetup("blue", List.of(new ShipSetup("sub", "blue", new Vector2(0, startGap), 0,
+                            "player-sub", ENGINE_FLANK, 0, 9999, "submarine", -5.58)))), List.of()));
+            double caughtAt = Double.NaN, gapAtTen = Double.NaN, gapAtTwenty = Double.NaN;
+            for (int tick = 0; tick < 500; tick++) {
+                double t = tick * .1;
+                session.updatePlayerState(new PlayerStateUpdate("player-sub", "blue", 0, startGap + 10 * t, 0, 10, 0,
+                        ENGINE_FLANK, 0, 0, true, "submarine", -5.58, 0,
+                        null, null, null, null, "periscope"), navigationService, map);
+                session.update(.1, radarService, navigationService, map);
+                var state = session.snapshot();
+                var sub = findShip(state, "sub");
+                if ("sunk".equals(sub.state())) { caughtAt = t + .1; break; }
+                var boat = findShip(state, "boat");
+                assertEquals(ENGINE_FLANK, boat.engineOrder(), "A visible periscope must keep the ram approach at top gear");
+                if (tick == 99) gapAtTen = distanceBetween(state, "boat", "sub");
+                if (tick == 199) gapAtTwenty = distanceBetween(state, "boat", "sub");
+            }
+            // Start from rest: allow full normal acceleration plus the hull's collision geometry.
+            double upperBound = Math.max(15, startGap / (17.5 - 10) + 8);
+            assertTrue(Double.isFinite(caughtAt) && caughtAt <= upperBound,
+                    lengths + " lengths: catch=" + caughtAt + "s, expected at most " + upperBound);
+            if (lengths == 12) assertEquals(7.5, (gapAtTen - gapAtTwenty) / 10, .1,
+                    "After acceleration the gap closes at 17.5 minus 10, not just the displayed engine order");
+            System.out.printf(java.util.Locale.ROOT, "Periscope pursuit: start=%d lengths, submarine=10, boat=17.5, caught=%.1fs%n", lengths, caughtAt);
+        }
+    }
+
+    @Test
     void boatUsesTopGearFromOneRadarRingRegardlessOfTargetMotion() throws Exception {
         var session = fastSubmarinePursuitSession();
         Ship target = shipEntity(session, "sub");
