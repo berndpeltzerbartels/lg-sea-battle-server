@@ -2162,6 +2162,35 @@ class GameSessionTest {
     }
 
     @Test
+    void botDoesNotWasteATorpedoOnAnEnemyBehindAnIslandButCanFirePastAnIsland() throws Exception {
+        for (double islandX : new double[]{0, 100}) {
+            var map = new WorldMap(9130, List.of(testIsland("obstacle", islandX, 110, 25, 25)));
+            var session = new GameSession(new GameSetup("blocked-shot", map,
+                    List.of(new FleetSetup("red", List.of(ship("shooter", "red", 0, 0, 0, "bot", ENGINE_STOP, 0, 0))),
+                            new FleetSetup("blue", List.of(ship("target", "blue", 0, 260, 0, "player-target", ENGINE_STOP, 0, 99)))),
+                    List.of(new Vector2(2000, 2000))));
+            assertEquals(islandX != 0, fireTorpedoAtTargetForTest(session, "shooter", "target"));
+            if (islandX == 0) assertTrue(shipEntity(session, "shooter").canFire(0), "A withheld shot consumes no reload");
+        }
+    }
+
+    @Test
+    void botWithholdsTorpedoForANearbyFriendCrossingItsFutureTrackButAllowsARecedingFriend() throws Exception {
+        for (double heading : new double[]{Math.PI / 2, -Math.PI / 2}) {
+            var session = new GameSession(new GameSetup("moving-friend-shot", new WorldMap(9131, List.of()),
+                    List.of(new FleetSetup("red", List.of(
+                                    ship("shooter", "red", 0, 0, 0, "bot", ENGINE_STOP, 0, 0),
+                                    ship("friend", "red", -30, 55, heading, "player-friend", ENGINE_STOP, 0, 99))),
+                            new FleetSetup("blue", List.of(ship("target", "blue", 0, 260, 0, "player-target", ENGINE_STOP, 0, 99)))),
+                    List.of(new Vector2(2000, 2000))));
+            shipEntity(session, "friend").applyPlayerState(new PlayerStateUpdate("player-friend", "red", -30, 55, heading, 17.5, 0,
+                    ENGINE_FLANK, 0, 0, true, "torpedo-boat", 0, 0, null, null, null, null, "surface"), navigationService, session.worldMap());
+            assertEquals(heading < 0, fireTorpedoAtTargetForTest(session, "shooter", "target"),
+                    "Only a friend moving into the nearby firing corridor blocks this shot");
+        }
+    }
+
+    @Test
     void botTorpedoStillAvoidsFriendlyShipInLine() throws Exception {
         GameSession session = new GameSession(new GameSetup(
                 "bot-friendly-torpedo-line-block-test",

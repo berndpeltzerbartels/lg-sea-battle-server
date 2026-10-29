@@ -1320,7 +1320,8 @@ public final class GameSession {
                 ship.botSubmarineAttackCourse = null;
             }
         }
-        if (plan.routeDue(tick)) {
+        boolean routeUpdated = plan.routeDue(tick);
+        if (routeUpdated) {
             BotNavigation.Course desired = desiredBotCourse(ship, contact, worldMap);
             plan.route = BotNavigation.freeRoute(ship, desired, BotNavigation.ROUTE_RANGE, navigationService, worldMap);
         }
@@ -1342,7 +1343,8 @@ public final class GameSession {
             ship.applyCommand(selected.engineOrder(), BotHelm.rudder(ship.heading(), ship.turnVelocity(),
                     ship.speed(), selected.heading()));
         }
-        if (contact != null) fireBotWeapons(ship, contact);
+        // Reuse the staggered one-second route slot; blocked shots must not rescan terrain every tick.
+        if (contact != null && routeUpdated) fireBotWeapons(ship, contact);
     }
 
     private Ship observedBotTarget(Ship ship, BotNavigation plan, RadarService.VisibilityCache cache) {
@@ -3230,6 +3232,7 @@ public final class GameSession {
         if (target != null && !torpedoLineHitsShipAtDepth(muzzlePosition, forward, target, launchY)) {
             return false;
         }
+        if (target != null && botTorpedoPathBlockedByLand(muzzlePosition, target.position())) return false;
         if (target != null && torpedoLaunchWouldHitFriendlyShip(ship, muzzlePosition, heading, launchY)) {
             return false;
         }
@@ -3275,15 +3278,41 @@ public final class GameSession {
         return torpedoLaunchWouldHitFriendlyShip(shooter, muzzlePosition, heading, .05);
     }
 
+    private boolean botTorpedoPathBlockedByLand(Vector2 start, Vector2 end) {
+        // Only just before a possible shot. Most islands can be rejected with four comparisons.
+        double minX = Math.min(start.x(), end.x()), maxX = Math.max(start.x(), end.x());
+        double minZ = Math.min(start.z(), end.z()), maxZ = Math.max(start.z(), end.z());
+        var obstacles = new ArrayList<Landmass>();
+        for (Landmass land : worldMap.landmasses()) {
+            if (land.x() + Math.abs(land.rx()) * 1.51 < minX || land.x() - Math.abs(land.rx()) * 1.51 > maxX
+                    || land.z() + Math.abs(land.rz()) * 1.51 < minZ || land.z() - Math.abs(land.rz()) * 1.51 > maxZ) continue;
+            obstacles.add(land);
+        }
+        return !obstacles.isEmpty() && LandGeometry.lineIntersectsBlockedLand(start, end,
+                new WorldMap(worldMap.version(), obstacles));
+    }
+
     private boolean torpedoLaunchWouldHitFriendlyShip(Ship shooter, Vector2 muzzlePosition, double heading, double launchY) {
         Vector2 forward = Vector2.fromHeading(heading);
-        return allShips().stream()
-                .filter(ship -> "active".equals(ship.state()))
-                .filter(ship -> !ship.isScoutPlane())
-                .filter(ship -> !ship.id().equals(shooter.id()))
-                .filter(ship -> ship.teamId().equals(shooter.teamId()))
-                .filter(ship -> torpedoDepthCanDamageShip(launchY, ship))
-                .anyMatch(ship -> torpedoLineHitsShipAtDepth(muzzlePosition, forward, ship, launchY));
+        double torpedoSpeed = SHIP_TORPEDO_BASE_SPEED + Math.max(0, shooter.speed()) * SHIP_TORPEDO_SPEED_GAIN;
+        double nearbyRange = 3 * BotNavigation.SHIP_LENGTH;
+        double clearance = BotNavigation.SHIP_LENGTH * .65;
+        for (Ship friend : allShips()) {
+            if (!"active".equals(friend.state()) || friend.isScoutPlane() || friend == shooter
+                    || !friend.teamId().equals(shooter.teamId()) || !torpedoDepthCanDamageShip(launchY, friend)) continue;
+            if (torpedoLineHitsShipAtDepth(muzzlePosition, forward, friend, launchY)) return true;
+            double dx = friend.position().x() - muzzlePosition.x(), dz = friend.position().z() - muzzlePosition.z();
+            if (dx * dx + dz * dz > nearbyRange * nearbyRange) continue;
+            // One relative-motion calculation, not a trajectory simulation or a second fleet scan.
+            double vx = Math.sin(friend.heading()) * friend.speed() - forward.x() * torpedoSpeed;
+            double vz = Math.cos(friend.heading()) * friend.speed() - forward.z() * torpedoSpeed;
+            double closing = dx * vx + dz * vz;
+            if (closing >= 0) continue;
+            double t = MathSupport.clamp(-closing / Math.max(.001, vx * vx + vz * vz), 0, 2);
+            double x = dx + vx * t, z = dz + vz * t;
+            if (x * x + z * z < clearance * clearance) return true;
+        }
+        return false;
     }
 
     private boolean torpedoLineHitsShipAtDepth(Vector2 start, Vector2 forward, Ship target, double y) {
