@@ -1719,6 +1719,12 @@ public final class GameSession {
         if (target.isAtPeriscopeDepth()) {
             return ship.isSubmarine() ? ENGINE_FULL : ENGINE_FLANK;
         }
+        // Cruise/close-combat orders must not let a faster receding target open the gap forever.
+        // Use the target's motion along the line of sight, not its speed alone (crossing/approaching ships differ).
+        double recedingSpeed = target.speed() * Math.cos(target.heading() - ship.heading() - targetBearing);
+        if (!ship.isSubmarine() && recedingSpeed >= EngineOrders.speedFor(ENGINE_HALF)) {
+            return ENGINE_FLANK;
+        }
         double absoluteBearing = Math.abs(targetBearing);
         if (distance < BOT_RAM_RANGE) {
             return target.isSubmarine() && !ship.isSubmarine() ? ENGINE_FLANK

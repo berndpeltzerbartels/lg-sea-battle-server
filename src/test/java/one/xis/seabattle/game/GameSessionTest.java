@@ -5301,6 +5301,49 @@ class GameSessionTest {
     }
 
     @Test
+    void recedingFastSubmarineRequestsTopGearAtEveryAttackDistance() throws Exception {
+        var session = fastSubmarinePursuitSession();
+        Ship target = shipEntity(session, "sub");
+        target.applyPlayerState(new PlayerStateUpdate("player-sub", "blue", 0, 600, 0, 13.5, 0,
+                ENGINE_FLANK, 0, 0, true, "submarine", -.78, 0,
+                null, null, null, null, "surface"), navigationService, session.worldMap());
+        for (double distance : new double[]{90, 180, 300, 600, 1200}) {
+            assertEquals(ENGINE_FLANK, botAttackEngineOrder(session, "boat", "sub", distance, 0));
+        }
+        target.applyPlayerState(new PlayerStateUpdate("player-sub", "blue", 0, 600, Math.PI, 13.5, 0,
+                ENGINE_FLANK, 0, 0, true, "submarine", -.78, 0,
+                null, null, null, null, "surface"), navigationService, session.worldMap());
+        assertEquals(ENGINE_FULL, botAttackEngineOrder(session, "boat", "sub", 600, 0),
+                "An approaching target does not require the fast-pursuit rule");
+    }
+
+    @Test
+    void boatClosesGapToHumanSubmarineAtFullSurfaceSpeedWithScheduledNavigation() {
+        var session = fastSubmarinePursuitSession();
+        for (int tick = 0; tick < 600; tick++) {
+            double z = 600 + tick * .1 * 13.5;
+            session.updatePlayerState(new PlayerStateUpdate("player-sub", "blue", 0, z, 0, 13.5, 0,
+                    ENGINE_FLANK, 0, 0, true, "submarine", -.78, 0,
+                    null, null, null, null, "surface"), navigationService, session.worldMap());
+            session.update(.1, radarService, navigationService, session.worldMap());
+        }
+        var snapshot = session.snapshot();
+        var boat = findShip(snapshot, "boat");
+        assertEquals("active", boat.state());
+        assertEquals(ENGINE_FLANK, boat.engineOrder());
+        assertTrue(boat.speed() > 15.5, "The pursuer actually accelerates beyond submarine surface speed");
+        assertTrue(distanceBetween(snapshot, "boat", "sub") < 450,
+                "The gap must shrink, including normal acceleration from rest: " + distanceBetween(snapshot, "boat", "sub"));
+    }
+
+    private GameSession fastSubmarinePursuitSession() {
+        return new GameSession(new GameSetup("fast-submarine-pursuit", new WorldMap(80017, List.of()),
+                List.of(new FleetSetup("red", List.of(ship("boat", "red", 0, 0, 0, "bot", ENGINE_HALF, 0, 9999))),
+                        new FleetSetup("blue", List.of(ship("sub", "blue", 0, 600, 0, "player-sub", ENGINE_FLANK, 0, 9999, "submarine")))),
+                List.of(new Vector2(2000, 2000))));
+    }
+
+    @Test
     void ramAttackOnSurfacedSubmarineUsesHighestGearWithoutChangingOrdinaryBoatCombat() throws Exception {
         GameSession session=new GameSession(new GameSetup("ram-top-gear",new WorldMap(80012,List.of()),
                 List.of(new FleetSetup("red",List.of(ship("boat","red",0,0,0,"bot",ENGINE_HALF,0,99))),
