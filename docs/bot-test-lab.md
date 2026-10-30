@@ -151,3 +151,53 @@ Zusätzlich zur Vorschau entstehen pro Algorithmus `benchmark.csv`-Dateien. Vor 
 Ausgegeben werden Mittelwert sowie p95/p99 je Durchlauf; die Java-API enthält auch Median und Maximum. Vorschau, Ausgabe und Momentaufnahmen liegen außerhalb der gemessenen Zeit. Die Java-API unterstützt zudem `scenario.withThreads(2, true)` für die vorhandenen Parallelisierungsoptionen; nicht parallel im Sinn mehrerer Benchmark-Prozesse starten.
 
 Mehrere Durchläufe vergleichen und die Reihenfolge wechseln. Änderungen an Verhalten und Weg verändern auch den Arbeitsaufwand. Ein Algorithmus, der stehen bleibt oder nicht schießt, kann schneller sein, ohne besser zu sein. Kampfszenarien mit zufälligem Respawn sind nicht vollständig deterministisch; gleiche Eingaben garantieren dann keinen identischen Verlauf. Für isolierte Planungstests zunächst einfache Szenarien ohne frühe Treffer verwenden. Diese Werte messen keine Browsergrafik, Netzwerkverzögerung oder Produktionslast.
+
+## Zielauswahl unabhängig ersetzen
+
+Zielauswahl und Bot-Berechnungsrunde sind zwei getrennte Schnittstellen. Du kannst nur eine davon ersetzen oder beide kombinieren. Solange deine Berechnungsrunde `runStandard()` verwendet, greift die konfigurierte Zielauswahl an den bisherigen Auswahlstellen.
+
+```java
+public interface BotTargetSelection {
+    String select(BotTargetSituation situation, long tickId);
+}
+```
+
+Eingaben:
+
+- `observer()` / `observerId()`: das auswählende Schiff oder Flugzeug.
+- `candidates()`: unveränderliche Momentaufnahmen der nach den **bestehenden** Wahrnehmungsregeln zulässigen Gegner. Anders als `BotSituation.ships()` ist das keine Liste aller Schiffe. Darin können auch die bisherigen strategisch erkannten menschlichen Überwassergegner außerhalb der normalen Sichtweite stehen.
+- `currentTargetId()`: bisher gespeichertes Navigationsziel von Boot/U-Boot, eventuell `null`. Flugzeuge speichern dieses Navigationsziel nicht und liefern hier `null`. Die ID allein garantiert keinen aktuellen Kontakt.
+- `timeSeconds()` und die übergebene `tickId`.
+- `standardTargetId()`: auf Wunsch die bisherige Zielgewichtung verwenden. Das Ergebnis wird pro Auswahlaufruf nur einmal berechnet. Bei Booten bleibt die menschliche Zielpriorität erhalten; bei Flugzeugen deren Verteilung und Angriffshistorie.
+
+Rückgabe: eine ID aus `candidates()` oder `null`, wenn kein Ziel gewählt werden soll. Eine fremde, befreundete oder gar nicht gelieferte Ziel-ID wird mit einem Fehler abgewiesen. Damit kann eine versehentlich falsche Auswahl nicht stillschweigend zu einem Angriff führen. Der Kontext ist nur während `select()` gültig. Eine Instanz darf eigene Zustände halten; die Factory erzeugt sie für jede neue Spielsitzung erneut.
+
+Die Auswahl ändert die Gewichtung **innerhalb** der Kandidatenliste. Sie verändert weder Erkennungsreichweiten noch den bisherigen Takt: Boote/U-Boote wählen weiterhin versetzt alle 20 Takte, Flugzeuge derzeit jede Runde. Die bestehende kurze Verfolgung eines gerade verlorenen U-Boot-Kontakts kann eine Neuauswahl vorübergehend aussetzen. Kollisionsvermeidung, Tauchtaktik, Steuerung und unmittelbare Gefahren behalten ihren Vorrang. Das vermeidet, dass die neue Schnittstelle unbeabsichtigt die Spielregeln ändert.
+
+Ein bewusst einfaches Beispiel findet sich in `src/test/java/one/xis/seabattle/game/NearestTargetSelection.java`: Es nimmt immer den nächstgelegenen zulässigen Gegner, ohne zusätzliche menschliche Zielpriorität. Du kannst dort eine eigene Bewertung einsetzen.
+
+```java
+BotScenario scenario = BotScenario.parse(script)
+        .withTargetSelection(NearestTargetSelection::new);
+
+// Vorhandene Navigation und Kampfentscheidungen, eigene Zielgewichtung:
+BotTestRun run = scenario.run(BotCalculation::standard, 600);
+
+assertTrue(run.targetDecisions().stream()
+        .filter(d -> d.observerId().equals("light-S1"))
+        .allMatch(d -> "dark-S2".equals(d.targetId())));
+```
+
+Über die Kommandozeile:
+
+```sh
+./gradlew runBotScenario \
+  -PtargetSelection=one.xis.seabattle.game.NearestTargetSelection \
+  -Poutput=build/naechstes-ziel -Prounds=5
+```
+
+`-PtargetSelection` wählt die Zielauswahl, `-Palgorithm` weiterhin die gesamte Bot-Berechnungsrunde. Beide sind standardmäßig `standard`. Ersetzt eine eigene Berechnungsrunde die Standardlogik vollständig, ruft sie die eingebaute Zielauswahl nicht automatisch auf.
+
+Im Bericht zeigen gelbe gestrichelte Linien und die Spalte **Letzte Zielwahl** die zuletzt ausgewählte Ziel-ID. Das ist ein Auswahlprotokoll, kein garantierter aktueller Sichtkontakt. `targets.csv` protokolliert jeden tatsächlichen Aufruf mit Tick, Zeit, Beobachter, vorherigem Ziel, gewähltem Ziel, dessen Lebens-ID und Kandidatenzahl. `run.targetDecisions()` macht dieselben Entscheidungen für eigene JUnit-Prüfungen zugänglich. Ein fehlendes Ziel steht dort als `null` und in der CSV als leeres Feld.
+
+`benchmark.csv` und `run.timing().targetSelection()` messen zusätzlich die Zeit **innerhalb der Auswahlimplementierung**. Kandidatensuche, Erkennungsprüfung und nachfolgende Navigation liegen außerhalb dieser Teilmessung und bleiben in der Bot-/Gesamtrundenmessung enthalten. Die Zielzeit wird je Simulationstakt summiert; Takte ohne Auswahl zählen mit null. `targetSelectionCalls` gibt zusätzlich die Anzahl tatsächlicher Auswahlaufrufe an. Die Teilmessung ist in der Bot-Zeit enthalten und darf nicht nochmals addiert werden. Bei vielen Takten ohne Auswahl können p95/p99 null sein. Das Auswahlprotokoll wird nur für den sichtbaren Probelauf gesammelt, nicht während der anschließenden Benchmark-Durchläufe.

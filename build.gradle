@@ -193,5 +193,6 @@ tasks.register('runBotScenario', JavaExec) {
             project.findProperty('output') ?: 'build/bot-scenario',
             project.findProperty('ticks') ?: '600',
             project.findProperty('algorithm') ?: 'standard',
-            project.findProperty('rounds') ?: '0']
+            project.findProperty('rounds') ?: '0',
+            project.findProperty('targetSelection') ?: 'standard']
 }

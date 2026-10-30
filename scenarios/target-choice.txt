@@ -1,0 +1,12 @@
+# Zielauswahl: Spieler bevorzugen oder den näheren Bot angreifen?
+# Links wählt Schiff 1. Schiff 2 ist näher, Schiff 3 ist menschlich.
+scenario: target-choice
+cell: 100
+map:
+....................
+.1...2.....3........
+....................
+objects:
+1: boat light bot [heading: 90]
+2: boat dark bot [heading: 270]
+3: boat dark human

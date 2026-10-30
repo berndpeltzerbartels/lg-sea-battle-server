@@ -217,6 +217,7 @@ public final class GameSession {
     private String state = "running";
 
     private final BotCalculation botCalculation;
+    private final BotTargetSelection targetSelection;
     private final int simulationThreads;
     private final boolean parallelBotNavigation;
     private Map<Ship, BotCommand> plannedBotEscapes;
@@ -245,7 +246,13 @@ public final class GameSession {
     }
 
     GameSession(GameSetup setup, int simulationThreads, boolean parallelBotNavigation, BotCalculation calculation) {
+        this(setup, simulationThreads, parallelBotNavigation, calculation, BotTargetSelection.standard());
+    }
+
+    GameSession(GameSetup setup, int simulationThreads, boolean parallelBotNavigation, BotCalculation calculation,
+                BotTargetSelection targetSelection) {
         this.botCalculation = Objects.requireNonNull(calculation, "calculation");
+        this.targetSelection = Objects.requireNonNull(targetSelection, "targetSelection");
         if (simulationThreads != 1 && simulationThreads != 2) {
             throw new IllegalArgumentException("simulationThreads must be 1 or 2");
         }
@@ -1152,10 +1159,14 @@ public final class GameSession {
                 .filter(ship -> !ship.isFullySubmerged())
                 .filter(ship -> !ship.isAtPeriscopeDepth())
                 .toList();
-        if (candidates.isEmpty()) {
-            return Optional.empty();
-        }
+        long tick = (long) Math.floor(nowSeconds * 10 + 1e-6);
+        return Optional.ofNullable(selectBotTarget(plane, candidates, tick,
+                () -> chooseScoutPlaneTarget(plane, candidates, targetReservations).orElse(null)));
+    }
 
+    private Optional<Ship> chooseScoutPlaneTarget(Ship plane, List<Ship> candidates,
+                                                  Map<String, Integer> targetReservations) {
+        if (candidates.isEmpty()) return Optional.empty();
         List<Ship> preferredCandidates = candidates.stream()
                 .filter(ship -> !isHumanControlled(ship))
                 .toList();
@@ -1337,7 +1348,8 @@ public final class GameSession {
         if (targetSelectionDue && !followingLostSubmarine) {
             List<Ship> targets = visibleTargets(ship, visibilityCache);
             if (!ship.isSubmarine()) reportSubmarineSightings(ship, targets, visibilityCache);
-            Ship nextTarget = chooseBotTarget(ship, targets).orElse(null);
+            Ship nextTarget = selectBotTarget(ship, targets, tick,
+                    () -> chooseBotTarget(ship, targets).orElse(null));
             if (nextTarget != plan.target || nextTarget != null && nextTarget.lifeId() != plan.targetLife) {
                 plan.trackingPeriscope = false;
             }
@@ -1717,6 +1729,14 @@ public final class GameSession {
         return isHumanControlled(target)
                 && target.isOnSurface()
                 && observer.position().distanceTo(target.position()) > RadarService.RADAR_RANGE;
+    }
+
+    private Ship selectBotTarget(Ship observer, List<Ship> candidates, long tick,
+                                 java.util.function.Supplier<Ship> standard) {
+        String previous = observer.isScoutPlane() || observer.botNavigation.target == null ? null
+                : observer.botNavigation.target.id();
+        BotTargetSituation situation = new BotTargetSituation(observer, candidates, previous, nowSeconds, standard);
+        return situation.resolve(targetSelection.select(situation, tick));
     }
 
     private Optional<Ship> chooseBotTarget(Ship ship, List<Ship> targets) {

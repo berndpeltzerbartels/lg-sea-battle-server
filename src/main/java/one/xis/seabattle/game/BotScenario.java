@@ -12,8 +12,10 @@ public final class BotScenario {
     private final ScenarioDefinition definition;
     private final int threads;
     private final boolean parallelNavigation;
+    private final Supplier<BotTargetSelection> targetSelection;
 
-    private BotScenario(String script, int threads, boolean parallelNavigation) {
+    private BotScenario(String script, int threads, boolean parallelNavigation, Supplier<BotTargetSelection> targetSelection) {
+        this.targetSelection = Objects.requireNonNull(targetSelection, "targetSelection");
         this.script = script;
         this.definition = ScenarioScriptParser.parseDefinition(script);
         if (!definition.actions().isEmpty())
@@ -23,10 +25,15 @@ public final class BotScenario {
         this.parallelNavigation = parallelNavigation;
     }
 
-    public static BotScenario parse(String script) { return new BotScenario(script, 1, false); }
+    public static BotScenario parse(String script) { return new BotScenario(script, 1, false, BotTargetSelection::standard); }
 
     public BotScenario withThreads(int threads, boolean parallelNavigation) {
-        return new BotScenario(script, threads, parallelNavigation);
+        return new BotScenario(script, threads, parallelNavigation, targetSelection);
+    }
+
+    /** Independent of the navigation/calculation implementation; recreated for each run. */
+    public BotScenario withTargetSelection(Supplier<BotTargetSelection> implementation) {
+        return new BotScenario(script, threads, parallelNavigation, implementation);
     }
 
     public BotTestRun run(Supplier<BotCalculation> implementation, int ticks) {
@@ -48,6 +55,10 @@ public final class BotScenario {
     private BotTestRun execute(Supplier<BotCalculation> factory, int ticks, boolean capture) {
         if (ticks < 1) throw new IllegalArgumentException("ticks must be positive");
         BotCalculation calculation = Objects.requireNonNull(factory.get(), "algorithm factory result");
+        BotTargetSelection selector = Objects.requireNonNull(targetSelection.get(), "target selection factory result");
+        long[] targetNanos = new long[ticks];
+        long[] targetCalls = {0};
+        List<BotTestRun.TargetDecision> decisions = new ArrayList<>();
         long[] botNanos = new long[ticks];
         long[] roundNanos = new long[ticks];
         int[] index = {0};
@@ -56,7 +67,19 @@ public final class BotScenario {
             calculation.calculate(situation, tickId);
             botNanos[index[0]] = System.nanoTime() - start;
         };
-        GameSession session = new GameSession(definition.setup(), threads, parallelNavigation, measured);
+        BotTargetSelection measuredSelection = (situation, tickId) -> {
+            long start = System.nanoTime();
+            String selected = selector.select(situation, tickId);
+            targetNanos[index[0]] += System.nanoTime() - start;
+            targetCalls[0]++;
+            if (capture) {
+                Ship target = situation.resolve(selected);
+                decisions.add(new BotTestRun.TargetDecision(tickId, situation.timeSeconds(), situation.observerId(),
+                        situation.currentTargetId(), selected, target == null ? -1 : target.lifeId(), situation.candidateCount()));
+            }
+            return selected;
+        };
+        GameSession session = new GameSession(definition.setup(), threads, parallelNavigation, measured, measuredSelection);
         NavigationService navigation = new NavigationService();
         RadarService radar = new RadarService();
         initialize(session, navigation);
@@ -72,7 +95,7 @@ public final class BotScenario {
             GameSnapshot snapshot = session.snapshot();
             if (capture) frames.add(BotTestRun.frame(snapshot));
         }
-        return new BotTestRun(script, frames, BotTestRun.Timing.of(botNanos, roundNanos));
+        return new BotTestRun(script, frames, decisions, BotTestRun.Timing.of(botNanos, targetNanos, roundNanos, targetCalls[0]));
     }
 
     private void initialize(GameSession session, NavigationService navigation) {

@@ -8,8 +8,14 @@ import java.util.List;
 import java.util.Locale;
 
 /** Captured every tick, including the initial state. Assertions can inspect any frame. */
-public record BotTestRun(String script, List<Frame> frames, Timing timing) {
-    public BotTestRun { frames = List.copyOf(frames); }
+public record BotTestRun(String script, List<Frame> frames, List<TargetDecision> targetDecisions, Timing timing) {
+    public BotTestRun {
+        frames = List.copyOf(frames);
+        targetDecisions = List.copyOf(targetDecisions);
+    }
+
+    public record TargetDecision(long tickId, double seconds, String observerId, String previousTargetId,
+                                 String targetId, long targetLifeId, int candidateCount) {}
 
     public record Frame(double seconds, List<ShipSnapshot> ships, int torpedoes, int bombs, int wrecks) {
         public Frame { ships = List.copyOf(ships); }
@@ -51,9 +57,9 @@ public record BotTestRun(String script, List<Frame> frames, Timing timing) {
         }
     }
 
-    public record Timing(Distribution bots, Distribution completeRound) {
-        static Timing of(long[] bots, long[] rounds) {
-            return new Timing(Distribution.of(bots), Distribution.of(rounds));
+    public record Timing(Distribution bots, Distribution targetSelection, Distribution completeRound, long targetSelectionCalls) {
+        static Timing of(long[] bots, long[] targets, long[] rounds, long calls) {
+            return new Timing(Distribution.of(bots), Distribution.of(targets), Distribution.of(rounds), calls);
         }
     }
 
@@ -67,6 +73,13 @@ public record BotTestRun(String script, List<Frame> frames, Timing timing) {
                     s.speed(), s.engineOrder(), s.rudderDegrees(), s.depthState(), s.y(), s.state(), s.lifeId()));
         }
         Files.writeString(directory.resolve("trace.csv"), csv);
+        StringBuilder choices = new StringBuilder("tick,seconds,observer,previousTarget,target,targetLife,candidates\n");
+        for (TargetDecision choice : targetDecisions) {
+            choices.append(String.format(Locale.ROOT, "%d,%.4f,%s,%s,%s,%d,%d%n", choice.tickId(), choice.seconds(),
+                    choice.observerId(), choice.previousTargetId() == null ? "" : choice.previousTargetId(),
+                    choice.targetId() == null ? "" : choice.targetId(), choice.targetLifeId(), choice.candidateCount()));
+        }
+        Files.writeString(directory.resolve("targets.csv"), choices);
         Files.writeString(directory.resolve("index.html"), BotScenarioReport.html(this));
     }
 }
