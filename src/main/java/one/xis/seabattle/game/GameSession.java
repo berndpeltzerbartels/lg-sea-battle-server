@@ -216,6 +216,7 @@ public final class GameSession {
     private double nextBotScoutPlaneTorpedoTime;
     private String state = "running";
 
+    private final BotCalculation botCalculation;
     private final int simulationThreads;
     private final boolean parallelBotNavigation;
     private Map<Ship, BotCommand> plannedBotEscapes;
@@ -240,6 +241,11 @@ public final class GameSession {
     }
 
     GameSession(GameSetup setup, int simulationThreads, boolean parallelBotNavigation) {
+        this(setup, simulationThreads, parallelBotNavigation, BotCalculation.standard());
+    }
+
+    GameSession(GameSetup setup, int simulationThreads, boolean parallelBotNavigation, BotCalculation calculation) {
+        this.botCalculation = Objects.requireNonNull(calculation, "calculation");
         if (simulationThreads != 1 && simulationThreads != 2) {
             throw new IllegalArgumentException("simulationThreads must be 1 or 2");
         }
@@ -757,7 +763,8 @@ public final class GameSession {
         wrecks.removeIf(wreck -> nowSeconds - wreck.sunkAt() >= WRECK_VISIBILITY_SECONDS);
         updateDepthCharges();
         if (!TEMPORARILY_DISABLE_BOTS) {
-            commandBots(radarService, navigationService, worldMap);
+            long botTickId = (long) Math.floor(nowSeconds * 10 + 1e-6);
+            botCalculation.calculate(new BotSituation(this, radarService, navigationService, worldMap), botTickId);
             if (simulationThreads == 1) {
                 allShips().stream()
                         .filter(this::isMotionIntegratedOnServer)
@@ -829,7 +836,11 @@ public final class GameSession {
         return ship.isServerSimulated() || (!ship.isScoutPlane() && isHumanController(ship.controlledBy()));
     }
 
-    private void commandBots(RadarService radarService, NavigationService navigationService, WorldMap worldMap) {
+    double calculationTime() { return nowSeconds; }
+
+    List<Ship> calculationShips() { return allShips(); }
+
+    void calculateStandardBots(RadarService radarService, NavigationService navigationService, WorldMap worldMap) {
         if ("side-view-sandbox".equals(id)) {
             return;
         }

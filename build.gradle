@@ -181,3 +181,17 @@ tasks.register('compileDirectBenchmarkNative', Exec) {
                 outputFile.absolutePath
     }
 }
+
+// Isolated simulation only: no HTTP listener and no scheduled game loop.
+tasks.register('runBotScenario', JavaExec) {
+    group = 'verification'
+    description = 'Runs a text-grid bot scenario and writes a playback/CSV report; optional benchmark.'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'one.xis.seabattle.game.BotScenarioMain'
+    dependsOn testClasses
+    args = [project.findProperty('scenario') ?: 'scenarios/island-corner.txt',
+            project.findProperty('output') ?: 'build/bot-scenario',
+            project.findProperty('ticks') ?: '600',
+            project.findProperty('algorithm') ?: 'standard',
+            project.findProperty('rounds') ?: '0']
+}
