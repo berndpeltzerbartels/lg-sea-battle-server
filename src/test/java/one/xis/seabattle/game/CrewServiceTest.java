@@ -319,6 +319,38 @@ class CrewServiceTest {
         assertEquals(1, game.snapshot().ships().stream().filter(s -> captain.equals(s.controlledBy())).count());
     }
 
+    @Test void soloReentriesUseExistingRandomSubmarineSlotsInsteadOfRestoringTheRememberedPosition() {
+        var account = new Account("captain", "Captain", "CAP", "light", null);
+        String player = crew.startOwnShip(account, "submarine");
+        game.restorePersonalScore(player, 7);
+        int fleetSize = game.snapshot().ships().size();
+        for (int entry = 0; entry < 8; entry++) {
+            crew.departForSelection("captain");
+            assertTrue(players.players().isEmpty());
+            var candidates = game.snapshot().ships().stream()
+                    .filter(s -> "light".equals(s.teamId()) && "bot".equals(s.controlledBy())
+                            && "active".equals(s.state()) && "submarine".equals(s.vehicleType()))
+                    .map(ShipSnapshot::id).collect(java.util.stream.Collectors.toSet());
+            assertTrue(candidates.size() > 1, "The real fleet offers multiple submarine start locations");
+            player = crew.startOwnShip(account, "submarine");
+            String currentPlayer = player;
+            var own = game.snapshot().ships().stream().filter(s -> currentPlayer.equals(s.controlledBy())).findFirst().orElseThrow();
+            assertTrue(candidates.contains(own.id()), "A fresh solo entry must use the fleet lottery instead of a fixed-position extra ship");
+            assertEquals(fleetSize, game.snapshot().ships().size());
+            assertEquals(7, game.snapshot().killsByPlayer().get(player), "Position variety does not discard retained personal points");
+        }
+    }
+
+    @Test void changingVehicleWhileAlreadyPlayingAloneKeepsTheCurrentPosition() {
+        var account = new Account("captain", "Captain", "CAP", "light", null);
+        String player = crew.startOwnShip(account, "submarine");
+        var origin = game.snapshot().ships().stream().filter(s -> player.equals(s.controlledBy())).findFirst().orElseThrow();
+        String changed = crew.startOwnShip(account, "torpedo-boat");
+        var own = game.snapshot().ships().stream().filter(s -> changed.equals(s.controlledBy())).findFirst().orElseThrow();
+        assertEquals(origin.x(), own.x());
+        assertEquals(origin.z(), own.z());
+    }
+
     @Test void changingToAircraftAndBackDoesNotCreateMultipleFriendlySubmarines() {
         var account = new Account("captain", "Captain", "CAP", "light", null);
         game.activateTeam("light");
@@ -334,6 +366,7 @@ class CrewServiceTest {
 
     @Test void teamAndVehicleChangesPreservePersonalScoreAndPosition() {
         var first = start();
+        crew.startOwnShip(account("OTHER"), "torpedo-boat"); // This round remains occupied while the captain is away.
         var origin = ship(first.shipId());
         game.restorePersonalScore(captain, 7);
         var teamScores = game.snapshot().destroyedShipsByTeam();
@@ -358,6 +391,7 @@ class CrewServiceTest {
 
     @Test void personalScoreExpiresAfterFiveMinutesAwayButPositionAndTeamScoresRemain() {
         var first = start();
+        crew.startOwnShip(account("OTHER"), "torpedo-boat"); // This round remains occupied while the captain is away.
         var origin = ship(first.shipId());
         game.restorePersonalScore(captain, 7);
         var teamScores = game.snapshot().destroyedShipsByTeam();

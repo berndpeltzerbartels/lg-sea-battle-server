@@ -19,6 +19,8 @@ public class CrewService {
     private final Map<String, ReturnState> returnsByAccount = new HashMap<>();
 
     public synchronized String startOwnShip(Account account, String vehicle) {
+        // Capture before departure: an active player changing vehicles is continuing the same game.
+        boolean soloStart = players.players().isEmpty();
         departForSelection(account.id());
         if ("finished".equals(game.snapshot().state())) {
             game.resetCurrentSetup();
@@ -26,7 +28,7 @@ public class CrewService {
         game.activateTeam(account.team());
         String player = "player-" + account.alias() + "-" + UUID.randomUUID().toString().substring(0, 12);
         ReturnState previous = returnsByAccount.get(account.id());
-        game.restorePlayer(player, account.team(), vehicle, previous == null ? null : previous.ship(),
+        game.restorePlayer(player, account.team(), vehicle, soloStart || previous == null ? null : previous.ship(),
                 retainedScore(previous));
         players.register(player, account.alias(), account.nickname(), account.team(), account.id());
         return player;
