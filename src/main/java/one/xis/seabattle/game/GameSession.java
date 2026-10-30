@@ -1497,6 +1497,19 @@ public final class GameSession {
                 || navigationService.isShipBlocked(ship.position().add(forward.scale(14)), ship.heading(), worldMap)
                 || navigationService.isShipBlocked(farLookAhead, ship.heading(), worldMap);
 
+        if (nowSeconds < ship.botForwardEscapeUntil) {
+            return new BotCommand(ENGINE_ONE_THIRD, rudderTowardHeading(ship, ship.botEscapeHeading));
+        }
+        // A failed reverse is a new situation: discard the old heading and plan farther once.
+        if ((nowSeconds < ship.botReverseUntil || ship.speed() < -.5)
+                && navigationService.isShipMovementBlocked(ship.position(), ship.heading(), -1, worldMap)) {
+            ship.botReverseUntil = 0;
+            ship.botEscapeHeading = chooseSafeEscapeHeading(ship, navigationService, worldMap, true);
+            ship.botEscapeUntil = nowSeconds + 12;
+            ship.botForwardEscapeUntil = nowSeconds + 6;
+            return new BotCommand(ENGINE_ONE_THIRD, rudderTowardHeading(ship, ship.botEscapeHeading));
+        }
+
         // Collision rollback leaves the current position clear even when the next step is blocked.
         // Back away before attempting the turn, and finish that manoeuvre before chasing again.
         if ((nowSeconds < ship.botReverseUntil || (blockedNear && Math.abs(ship.speed()) < .5))
@@ -1556,12 +1569,16 @@ public final class GameSession {
     }
 
     private double chooseSafeEscapeHeading(Ship ship, NavigationService navigationService, WorldMap worldMap) {
+        return chooseSafeEscapeHeading(ship, navigationService, worldMap, false);
+    }
+
+    private double chooseSafeEscapeHeading(Ship ship, NavigationService navigationService, WorldMap worldMap, boolean farther) {
         double bestHeading = MathSupport.normalizeAngle(ship.heading() + Math.PI);
         double bestScore = Double.NEGATIVE_INFINITY;
         for (int step = -12; step <= 12; step += 1) {
             double offset = step * (Math.PI / 12.0);
             double heading = MathSupport.normalizeAngle(ship.heading() + offset);
-            double score = escapeCourseScore(ship, heading, navigationService, worldMap);
+            double score = escapeCourseScore(ship, heading, navigationService, worldMap, farther);
             if (score > bestScore) {
                 bestScore = score;
                 bestHeading = heading;
@@ -1570,10 +1587,11 @@ public final class GameSession {
         return bestHeading;
     }
 
-    private double escapeCourseScore(Ship ship, double heading, NavigationService navigationService, WorldMap worldMap) {
+    private double escapeCourseScore(Ship ship, double heading, NavigationService navigationService, WorldMap worldMap, boolean farther) {
         double score = 0;
         Vector2 forward = Vector2.fromHeading(heading);
-        double[] distances = {4, 8, 12, 18, 34, 58, 88, 128, 170};
+        double[] distances = farther ? new double[]{4, 8, 12, 18, 34, 58, 88, 128, 170, 240, 320, BotNavigation.ROUTE_RANGE}
+                : new double[]{4, 8, 12, 18, 34, 58, 88, 128, 170};
         for (int index = 0; index < distances.length; index += 1) {
             Vector2 sample = ship.position().add(forward.scale(distances[index]));
             if (navigationService.isShipBlocked(sample, heading, worldMap)) {

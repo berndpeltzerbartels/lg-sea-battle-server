@@ -52,6 +52,7 @@ final class Ship {
     double botEscapeHeading;
     double botEscapeUntil;
     double botReverseUntil;
+    double botForwardEscapeUntil;
     // Only observations from an actual ram approach; never updated from a hidden submarine.
     record SubmarineAttackCourse(String targetId, Vector2 position, double heading, double until) {}
     SubmarineAttackCourse botSubmarineAttackCourse;
@@ -433,6 +434,7 @@ final class Ship {
         lifeId++;
         botEscapeUntil = 0;
         botReverseUntil = 0;
+        botForwardEscapeUntil = 0;
         botSubmarineAttackCourse = null;
         botNavigation = new BotNavigation(id);
         submarineBot = new SubmarineBot();
