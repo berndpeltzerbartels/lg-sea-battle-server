@@ -44,7 +44,7 @@ final class BotScenarioReport {
                 const seekMax=frames.length-1;seek.max=seekMax;
                 document.getElementById('source').textContent=data.run.script;
                 const tm=data.run.timing, decisions=data.run.targetDecisions;
-                document.getElementById('timing').textContent=`Mittlere Bot-Runde: ${tm.bots.meanMs.toFixed(3)} ms · davon Zielauswahl: ${tm.targetSelection.meanMs.toFixed(3)} ms · Gesamtrunde: ${tm.completeRound.meanMs.toFixed(3)} ms · p99: ${tm.completeRound.p99Ms.toFixed(3)} ms`;
+                document.getElementById('timing').textContent=`Mittlere Steuerberechnung: ${tm.bots.meanMs.toFixed(3)} ms · Zielauswahl: ${tm.targetSelection.meanMs.toFixed(3)} ms · Gesamtrunde: ${tm.completeRound.meanMs.toFixed(3)} ms · p99: ${tm.completeRound.p99Ms.toFixed(3)} ms`;
                 let loX=Infinity,loZ=Infinity,hiX=-Infinity,hiZ=-Infinity;
                 function bound(x,z){loX=Math.min(loX,x);loZ=Math.min(loZ,z);hiX=Math.max(hiX,x);hiZ=Math.max(hiZ,z)}
                 const grid=data.grid,cell=grid.cellSize,left=-grid.columns*cell/2,top=-grid.rows*cell/2;

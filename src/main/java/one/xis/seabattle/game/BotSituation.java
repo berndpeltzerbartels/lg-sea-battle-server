@@ -11,15 +11,17 @@ public final class BotSituation {
     private final RadarService radar;
     private final NavigationService navigation;
     private final WorldMap world;
+    private final GameSession.BotRound round;
     private List<ShipSnapshot> snapshots;
     private java.util.Map<String, Ship> bots;
     private boolean standardCalled;
 
-    BotSituation(GameSession session, RadarService radar, NavigationService navigation, WorldMap world) {
+    BotSituation(GameSession session, RadarService radar, NavigationService navigation, WorldMap world, GameSession.BotRound round) {
         this.session = session;
         this.radar = radar;
         this.navigation = navigation;
         this.world = world;
+        this.round = round;
     }
 
     public double timeSeconds() { return session.calculationTime(); }
@@ -50,11 +52,14 @@ public final class BotSituation {
         bot(shipId).botDepth(depth);
     }
 
-    /** Run production decisions once, for example before applying experimental steering overrides. */
-    public void runStandard() {
+    /** Run existing movement/combat controls once, using this round’s already prepared goals. */
+    public void runStandard() { runStandard(round.goals()); }
+
+    /** Existing movement/combat controls using the already selected navigation destinations. */
+    public void runStandard(java.util.Map<String, BotGoal> goals) {
         if (standardCalled) throw new IllegalStateException("Production calculation already ran this round");
         standardCalled = true;
-        session.calculateStandardBots(radar, navigation, world);
+        session.calculateStandardBots(radar, navigation, world, round, goals);
     }
 
     private Ship bot(String id) {

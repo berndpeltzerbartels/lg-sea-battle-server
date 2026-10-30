@@ -102,17 +102,49 @@ final class BotTargetSelectionTest {
         for (var timing : timings) {
             assertTrue(timing.targetSelectionCalls() >= 2);
             assertTrue(timing.targetSelection().meanMs() > 0);
-            assertTrue(timing.bots().meanMs() >= timing.targetSelection().meanMs());
+            assertTrue(timing.completeRound().meanMs() >= timing.targetSelection().meanMs());
         }
     }
 
     @Test
-    void navigationReplacementDoesNotForceTargetSelection() {
-        BotTestRun run = BotScenario.parse(SCENE).withTargetSelection(() -> (s, tick) -> {
-            fail("A replacement calculation need not invoke production target selection"); return null;
-        }).run(StraightAheadCalculation::new, 3);
-        assertTrue(run.targetDecisions().isEmpty());
-        assertEquals(0, run.timing().targetSelectionCalls());
+    void targetSelectionRunsBeforeIndependentMovementAndGoalsPersistBetweenSelections() {
+        AtomicInteger selections = new AtomicInteger();
+        List<Long> movementTicks = new ArrayList<>();
+        List<java.util.Map<String, BotGoal>> received = new ArrayList<>();
+        String moving = SCENE.replace("3: boat dark human", "3: boat dark human [heading: 90, speed: 6]");
+        BotTestRun run = BotScenario.parse(moving).withTargetSelection(() -> (s, tick) -> {
+            selections.incrementAndGet();
+            return s.observerId().equals("light-S1") ? "dark-S3" : s.standardTargetId();
+        }).run(() -> (s, tick, goals) -> {
+            assertTrue(selections.get() >= 2, "ALL initial selections precede the first movement callback");
+            assertEquals(java.util.Set.of("light-S1", "dark-S2"), goals.keySet());
+            BotGoal goal = goals.get("light-S1");
+            assertEquals("dark-S3", goal.targetShipId());
+            assertEquals(BotGoal.Kind.ENEMY, goal.kind());
+            ShipSnapshot target = s.ships().stream().filter(ship -> ship.id().equals("dark-S3")).findFirst().orElseThrow();
+            assertEquals(target.x(), goal.x(), .001);
+            assertThrows(UnsupportedOperationException.class, goals::clear);
+            movementTicks.add(tick);
+            received.add(goals);
+            // Own controller consumes only the assigned goal, without calling runStandard().
+            ShipSnapshot own = s.ships().get(0);
+            double direction = Math.atan2(goal.x() - own.x(), goal.z() - own.z());
+            s.steer(own.id(), 5, (int) Math.round(Math.toDegrees(direction - own.heading())));
+        }, 30);
+        assertEquals(30, movementTicks.size());
+        assertTrue(selections.get() < movementTicks.size());
+        assertFalse(run.targetDecisions().isEmpty());
+        assertTrue(received.get(29).get("light-S1").x() > received.get(0).get("light-S1").x());
+        assertTrue(run.displacement('1') > 0);
+    }
+
+    @Test
+    void noEnemyProducesAnExplicitPatrolGoalForCustomMovement() {
+        BotScenario.parse(SCENE).withTargetSelection(() -> (s, tick) -> null)
+                .run(() -> (s, tick, goals) -> {
+                    assertEquals(BotGoal.Kind.PATROL, goals.get("light-S1").kind());
+                    assertNull(goals.get("light-S1").targetShipId());
+                }, 2);
     }
 
     @Test

@@ -27,7 +27,7 @@ final class BotScenarioTest {
     @Test
     void alternateAlgorithmReceivesTicksAndMovesThroughTheRealPhysics() {
         List<Long> ticks = new ArrayList<>();
-        BotTestRun run = BotScenario.parse(OPEN).run(() -> (situation, tick) -> {
+        BotTestRun run = BotScenario.parse(OPEN).run(() -> (situation, tick, goals) -> {
             ticks.add(tick);
             assertEquals(tick * .1, situation.timeSeconds(), 1e-8);
             situation.steer("light-S1", 8, 0);
@@ -71,7 +71,7 @@ final class BotScenarioTest {
                 1: boat light bot [heading: 90]
                 2: boat dark human
                 """;
-        BotTestRun run = BotScenario.parse(island).run(() -> (s, tick) -> {
+        BotTestRun run = BotScenario.parse(island).run(() -> (s, tick, goals) -> {
             assertTrue(s.isLand(-0, -25));
             assertTrue(s.isHullBlocked(0, -25, Math.PI/2));
             assertThrows(IllegalArgumentException.class, () -> s.steer("dark-S2", 8, 0));
@@ -88,7 +88,7 @@ final class BotScenarioTest {
         var timings = BotScenario.parse(OPEN).benchmark(() -> {
             instances.incrementAndGet();
             AtomicInteger calls = new AtomicInteger();
-            return (s, tick) -> {
+            return (s, tick, goals) -> {
                 assertEquals(calls.incrementAndGet(), tick);
                 if (tick == 1) assertEquals(-100, s.ships().get(0).x());
                 s.steer("light-S1", 5, 0);
@@ -105,7 +105,7 @@ final class BotScenarioTest {
 
     @Test
     void defaultCanBeDecoratedButNotExecutedTwicePerRound() {
-        BotScenario.parse(OPEN).run(() -> (s, tick) -> {
+        BotScenario.parse(OPEN).run(() -> (s, tick, goals) -> {
             s.runStandard();
             assertThrows(IllegalStateException.class, s::runStandard);
             s.steer("light-S1", 2, 0);
@@ -114,7 +114,7 @@ final class BotScenarioTest {
 
     @Test
     void outputContainsTraceInitialSituationAndOfflinePlayback(@TempDir Path temp) throws Exception {
-        BotTestRun run = BotScenario.parse(OPEN).run(() -> (s, t) -> s.steer("light-S1", 8, 0), 10);
+        BotTestRun run = BotScenario.parse(OPEN).run(() -> (s, t, goals) -> s.steer("light-S1", 8, 0), 10);
         run.writeReport(temp);
         assertEquals(OPEN, Files.readString(temp.resolve("scenario.txt")));
         assertEquals(23, Files.readAllLines(temp.resolve("trace.csv")).size());

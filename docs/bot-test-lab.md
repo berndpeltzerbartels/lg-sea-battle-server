@@ -68,11 +68,11 @@ Die Schnittstelle lautet:
 
 ```java
 public interface BotCalculation {
-    void calculate(BotSituation situation, long tickId);
+    void calculate(BotSituation situation, long tickId, Map<String, BotGoal> goals);
 }
 ```
 
-Eine Implementierung wird einmal je Spielsitzung erzeugt und einmal je aktiver Simulationsrunde aufgerufen. Die erste normale Runde hat Tick-ID 1; eine Runde dauert 0,1 Sekunden. Zustände und Zwischenergebnisse dürfen als Felder der Implementierung gehalten werden. Für jeden unabhängigen Durchlauf eine **neue Instanz** liefern.
+Eine Bewegungsimplementierung wird einmal je Spielsitzung erzeugt und einmal je aktiver Simulationsrunde aufgerufen, nachdem die Ziele aller Bots vorbereitet sind. Die erste normale Runde hat Tick-ID 1; eine Runde dauert 0,1 Sekunden. Zustände und Zwischenergebnisse dürfen als Felder der Implementierung gehalten werden. Für jeden unabhängigen Durchlauf eine **neue Instanz** liefern.
 
 `BotSituation` bietet:
 
@@ -81,9 +81,9 @@ Eine Implementierung wird einmal je Spielsitzung erzeugt und einmal je aktiver S
 - `isLand(x, z)` und `isHullBlocked(x, z, heading)`: vorhandene Land-/Rumpfprüfung verwenden.
 - `steer(shipId, engineOrder, rudderDegrees)`: Gas und Ruder eines aktiven Bots setzen; die bisherigen Grenzwerte bleiben wirksam.
 - `dive(shipId, depth)`: Tauchtiefe eines Bot-U-Boots setzen.
-- `runStandard()`: bisherige Bot-Berechnung einmal ausführen, zum Beispiel vor eigenen gezielten Korrekturen.
+- `runStandard(goals)`: vorhandene Navigation und Kampfsteuerung mit den übergebenen Zielen ausführen. Dabei wird die Zielauswahl nicht erneut aufgerufen. `runStandard()` verwendet dieselbe vorbereitete Sammlung als Kurzform.
 
-`ships()` hält den Stand seines ersten Aufrufs in dieser Runde fest. Den Kontext nur innerhalb von `calculate()` verwenden und nicht für spätere Runden speichern. Befehle wirken direkt auf die Spielsituation; separate Ergebnisobjekte sind nicht nötig. Bewegung und Treffer werden anschließend vom bestehenden Backend berechnet. Eine reine Ersatzimplementierung mit `steer()` schießt nicht automatisch; für Versuche mit dem vorhandenen Kampfverhalten `runStandard()` verwenden.
+`ships()` hält den Stand seines ersten Aufrufs in dieser Runde fest. Den Kontext nur innerhalb von `calculate()` verwenden und nicht für spätere Runden speichern. Befehle wirken direkt auf die Spielsituation; separate Ergebnisobjekte sind nicht nötig. Bewegung und Treffer werden anschließend vom bestehenden Backend berechnet. Eine reine Ersatzimplementierung mit `steer()` schießt nicht automatisch; für Versuche mit dem vorhandenen Kampfverhalten `runStandard(goals)` verwenden.
 
 Die Standardimplementierung verwendet weiter dieselben Wahrnehmungs-, Waffen- und Navigationsregeln. Ihre Einbindung kopiert weder Welt noch Flotten; die zusätzliche Kontextinstanz pro Runde enthält nur Referenzen. Momentaufnahmen entstehen nur, wenn ein eigener Algorithmus `ships()` verwendet.
 
@@ -91,7 +91,7 @@ Ein minimales, absichtlich dummes Beispiel liegt in `src/test/java/one/xis/seaba
 
 ```java
 public final class StraightAheadCalculation implements BotCalculation {
-    public void calculate(BotSituation situation, long tickId) {
+    public void calculate(BotSituation situation, long tickId, Map<String, BotGoal> goals) {
         for (ShipSnapshot ship : situation.ships()) {
             if ("bot".equals(ship.controlledBy()) && "active".equals(ship.state())) {
                 situation.steer(ship.id(), 8, 0);
@@ -145,8 +145,9 @@ Sinnvolle Tests sind: Engstelle verlassen, trotz Insel das Ziel erreichen, keine
 
 Zusätzlich zur Vorschau entstehen pro Algorithmus `benchmark.csv`-Dateien. Vor jeder Messreihe laufen zwei Aufwärmdurchläufe. Jede Runde startet mit frischer Spielsituation und frischer Algorithmusinstanz. Gemessen werden separat:
 
-1. Bot-Entscheidung (`calculate`), einschließlich eigener Abfragen und Befehle.
-2. Gesamte Backend-Runde, einschließlich Bot-Entscheidung, Bewegung und Kampfauflösung.
+1. Bewegungs-/Steuerberechnung (`calculate`), einschließlich eigener Abfragen und Befehle.
+2. Zielgewichtung (`select`), getrennt von der Bewegungsberechnung.
+3. Gesamte Backend-Runde, einschließlich Zielvorbereitung, Steuerung, Bewegung und Kampfauflösung.
 
 Ausgegeben werden Mittelwert sowie p95/p99 je Durchlauf; die Java-API enthält auch Median und Maximum. Vorschau, Ausgabe und Momentaufnahmen liegen außerhalb der gemessenen Zeit. Die Java-API unterstützt zudem `scenario.withThreads(2, true)` für die vorhandenen Parallelisierungsoptionen; nicht parallel im Sinn mehrerer Benchmark-Prozesse starten.
 
@@ -154,7 +155,7 @@ Mehrere Durchläufe vergleichen und die Reihenfolge wechseln. Änderungen an Ver
 
 ## Zielauswahl unabhängig ersetzen
 
-Zielauswahl und Bot-Berechnungsrunde sind zwei getrennte Schnittstellen. Du kannst nur eine davon ersetzen oder beide kombinieren. Solange deine Berechnungsrunde `runStandard()` verwendet, greift die konfigurierte Zielauswahl an den bisherigen Auswahlstellen.
+Zielauswahl und Bot-Berechnungsrunde sind zwei getrennte Schnittstellen. Du kannst nur eine davon ersetzen oder beide kombinieren. Die Zielvorbereitung läuft zuerst, unabhängig davon, welche Bewegungsimplementierung verwendet wird. Sie führt die konfigurierte Zielauswahl an den bisherigen Auswahlstellen aus und stellt eine vollständige Zielsammlung für den folgenden Bewegungsaufruf her.
 
 ```java
 public interface BotTargetSelection {
@@ -196,8 +197,48 @@ assertTrue(run.targetDecisions().stream()
   -Poutput=build/naechstes-ziel -Prounds=5
 ```
 
-`-PtargetSelection` wählt die Zielauswahl, `-Palgorithm` weiterhin die gesamte Bot-Berechnungsrunde. Beide sind standardmäßig `standard`. Ersetzt eine eigene Berechnungsrunde die Standardlogik vollständig, ruft sie die eingebaute Zielauswahl nicht automatisch auf.
+`-PtargetSelection` wählt die Zielauswahl, `-Palgorithm` die Bewegungs-/Steuerberechnung. Beide sind standardmäßig `standard`. Auch eine vollständig eigene Bewegungsberechnung bekommt die vorher berechnete Zielsammlung. Sie muss weder `runStandard()` noch die Zielauswahl selbst aufrufen.
 
 Im Bericht zeigen gelbe gestrichelte Linien und die Spalte **Letzte Zielwahl** die zuletzt ausgewählte Ziel-ID. Das ist ein Auswahlprotokoll, kein garantierter aktueller Sichtkontakt. `targets.csv` protokolliert jeden tatsächlichen Aufruf mit Tick, Zeit, Beobachter, vorherigem Ziel, gewähltem Ziel, dessen Lebens-ID und Kandidatenzahl. `run.targetDecisions()` macht dieselben Entscheidungen für eigene JUnit-Prüfungen zugänglich. Ein fehlendes Ziel steht dort als `null` und in der CSV als leeres Feld.
 
-`benchmark.csv` und `run.timing().targetSelection()` messen zusätzlich die Zeit **innerhalb der Auswahlimplementierung**. Kandidatensuche, Erkennungsprüfung und nachfolgende Navigation liegen außerhalb dieser Teilmessung und bleiben in der Bot-/Gesamtrundenmessung enthalten. Die Zielzeit wird je Simulationstakt summiert; Takte ohne Auswahl zählen mit null. `targetSelectionCalls` gibt zusätzlich die Anzahl tatsächlicher Auswahlaufrufe an. Die Teilmessung ist in der Bot-Zeit enthalten und darf nicht nochmals addiert werden. Bei vielen Takten ohne Auswahl können p95/p99 null sein. Das Auswahlprotokoll wird nur für den sichtbaren Probelauf gesammelt, nicht während der anschließenden Benchmark-Durchläufe.
+`benchmark.csv` und `run.timing().targetSelection()` messen zusätzlich die Zeit **innerhalb der Auswahlimplementierung**. Kandidatensuche, Erkennungsprüfung und nachfolgende Navigation liegen außerhalb dieser Teilmessung und bleiben in der Gesamtrundenmessung enthalten; Navigation liegt zusätzlich in der Bewegungs-/Steuerzeit. Die Zielzeit wird je Simulationstakt summiert; Takte ohne Auswahl zählen mit null. `targetSelectionCalls` gibt zusätzlich die Anzahl tatsächlicher Auswahlaufrufe an. Die Zielgewichtung läuft vor `calculate()` und ist daher nicht in dessen Bewegungs-/Steuerzeit enthalten. Die Gesamtrundenmessung enthält beide Phasen sowie Vorbereitung und Physik. Bei vielen Takten ohne Auswahl können p95/p99 null sein. Das Auswahlprotokoll wird nur für den sichtbaren Probelauf gesammelt, nicht während der anschließenden Benchmark-Durchläufe.
+
+
+## Explizite Übergabe der Zielsammlung an die Bewegung
+
+Der Ablauf jeder Runde ist:
+
+1. Wahrnehmung/Zielvorbereitung für alle Bots ausführen. Neue Gegner werden nur in den bisherigen Auswahl-Takten gewählt.
+2. Die Zielsammlung für diesen Tick unveränderlich bereitstellen.
+3. `calculate(situation, tickId, goals)` aufrufen.
+4. Steuerbefehle, Bewegung und Treffer mit dem bestehenden Backend verarbeiten.
+
+`goals` hat den Typ `Map<String, BotGoal>`. Der Schlüssel ist die **eigene Schiffskennung**, der Wert ihr Navigationsziel. Die Map enthält alle aktiven Bots (auch Flugzeuge), keine menschlich gesteuerten Schiffe. Die Werte bleiben unveränderlich; zwischen den Auswahl-Takten folgen gültige sichtbare Ziele ihren aktuellen Positionen. Die Gegenstände werden nicht erneut gesucht, nur die bereits gehaltenen Kontakte geprüft. Außerhalb des normalen Simulationsbetriebs, beispielsweise im bisherigen reinen Modell-Sandbox-Modus, kann die Sammlung leer sein.
+
+`BotGoal` enthält:
+
+- `kind()`: `ENEMY`, `LAST_KNOWN_COURSE`, `SEARCH`, `RETAINED_COURSE`, `PATROL` oder `NONE`.
+- `targetShipId()` und `targetLifeId()`: Kennung/Lebens-ID des Gegners, soweit vorhanden. Bei reinen Punkten ist die ID `null` und die Lebens-ID `-1`.
+- `x()` / `z()`: konkreter Zielpunkt für die Fahrtrichtung. Bei verlorenem Kontakt sind das ausschließlich erlaubte Erinnerungs-/Suchpunkte, keine heimlich weitergereichten Live-Koordinaten.
+
+`RETAINED_COURSE` beschreibt den kurz beibehaltenen bisherigen Kurs durch einen vorausliegenden Punkt. `PATROL` ist derzeit die Kartenmitte. `NONE` bedeutet beispielsweise ein Flugzeug ohne Angriffsziel: Der eigene Algorithmus kann dann stoppen oder patrouillieren. Diese Ziele enthalten keine vorgeschriebenen Ruderausschläge oder Geschwindigkeiten; diese berechnet die Bewegungsimplementierung selbst.
+
+Das Beispiel `GoalFollowingCalculation.java` verwendet genau diese Übergabe: Es berechnet für jedes eigene Schiff aus seiner Position und dem zugeordneten Zielpunkt eine Richtung und setzt Gas/Ruder. Es verwendet weder die Standardnavigation noch eine eigene Zielsuche. Es lässt bewusst Hindernisvermeidung und Waffen weg und eignet sich als kleine Vorlage zum Weiterbearbeiten.
+
+```java
+public void calculate(BotSituation situation, long tickId, Map<String, BotGoal> goals) {
+    for (ShipSnapshot ship : situation.ships()) {
+        BotGoal goal = goals.get(ship.id());
+        if (goal == null || goal.kind() == BotGoal.Kind.NONE) continue;
+        double heading = Math.atan2(goal.x() - ship.x(), goal.z() - ship.z());
+        // Eigene Navigation: Hindernisse prüfen, Kursfehler bestimmen, Gas/Ruder setzen.
+    }
+}
+```
+
+```sh
+./gradlew runBotScenario \
+  -PtargetSelection=one.xis.seabattle.game.NearestTargetSelection \
+  -Palgorithm=one.xis.seabattle.game.GoalFollowingCalculation \
+  -Pscenario=scenarios/target-choice.txt -Poutput=build/eigene-fahrt
+```

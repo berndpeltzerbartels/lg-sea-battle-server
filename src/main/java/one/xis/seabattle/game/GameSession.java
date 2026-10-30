@@ -771,7 +771,9 @@ public final class GameSession {
         updateDepthCharges();
         if (!TEMPORARILY_DISABLE_BOTS) {
             long botTickId = (long) Math.floor(nowSeconds * 10 + 1e-6);
-            botCalculation.calculate(new BotSituation(this, radarService, navigationService, worldMap), botTickId);
+            BotRound round = prepareBotRound(radarService, navigationService, worldMap);
+            botCalculation.calculate(new BotSituation(this, radarService, navigationService, worldMap, round),
+                    botTickId, round.goals());
             if (simulationThreads == 1) {
                 allShips().stream()
                         .filter(this::isMotionIntegratedOnServer)
@@ -847,12 +849,16 @@ public final class GameSession {
 
     List<Ship> calculationShips() { return allShips(); }
 
-    void calculateStandardBots(RadarService radarService, NavigationService navigationService, WorldMap worldMap) {
+    record BotIntent(Ship contact, Vector2 retreatFrom, boolean routeUpdated) {}
+    record BotRound(List<Ship> activeShips, List<Ship> surfaceShips, RadarService.VisibilityCache cache,
+                    Map<Ship, BotIntent> boats, Map<Ship, Ship> planes, Map<String, BotGoal> goals) {}
+
+    private BotRound prepareBotRound(RadarService radarService, NavigationService navigationService, WorldMap worldMap) {
         if ("side-view-sandbox".equals(id)) {
-            return;
+            return new BotRound(List.of(), List.of(), null, Map.of(), Map.of(), Map.of());
         }
         if (radarService == null || worldMap == null) {
-            return;
+            return new BotRound(List.of(), List.of(), null, Map.of(), Map.of(), Map.of());
         }
 
         List<Ship> activeShips = allShips().stream()
@@ -870,6 +876,37 @@ public final class GameSession {
         boolean checkDepthCharges = nowSeconds >= nextBotDepthChargeCheck;
         if (checkDepthCharges) nextBotDepthChargeCheck = nowSeconds + .5;
         Map<String, Integer> scoutPlaneTargetReservations = new LinkedHashMap<>();
+        Map<Ship, BotIntent> boats = new LinkedHashMap<>();
+        Map<Ship, Ship> planes = new LinkedHashMap<>();
+        for (Ship ship : activeShips) {
+            if (!ship.isBotControlled()) continue;
+            if (ship.isScoutPlane()) {
+                Ship target = selectBotScoutPlaneTarget(ship, activeShips, scoutPlaneTargetReservations).orElse(null);
+                planes.put(ship, target);
+                if (target != null) scoutPlaneTargetReservations.merge(target.id(), 1, Integer::sum);
+            } else {
+                if (checkDepthCharges) tryBotDepthCharges(ship, visibilityCache);
+                boats.put(ship, prepareBotIntent(ship, visibilityCache));
+            }
+        }
+        Map<String, BotGoal> goals = new LinkedHashMap<>();
+        for (var entry : boats.entrySet()) {
+            Ship ship = entry.getKey();
+            BotIntent intent = entry.getValue();
+            goals.put(ship.id(), navigationGoal(ship, intent.contact(), intent.routeUpdated()));
+        }
+        for (var entry : planes.entrySet()) {
+            Ship target = entry.getValue(), plane = entry.getKey();
+            goals.put(plane.id(), target == null
+                    ? new BotGoal(BotGoal.Kind.NONE, null, -1, plane.position().x(), plane.position().z())
+                    : new BotGoal(BotGoal.Kind.ENEMY, target.id(), target.lifeId(), target.position().x(), target.position().z()));
+        }
+        return new BotRound(activeShips, surfaceShips, visibilityCache, boats, planes, Map.copyOf(goals));
+    }
+
+    void calculateStandardBots(RadarService radarService, NavigationService navigationService, WorldMap worldMap,
+                               BotRound round, Map<String, BotGoal> goals) {
+        List<Ship> surfaceShips = round.surfaceShips();
         if (parallelBotNavigation) {
             List<Ship> boats = surfaceShips.stream().filter(Ship::isBotControlled).toList();
             List<BotCommand> escapes = BotNavigationStream.map(boats,
@@ -879,14 +916,14 @@ public final class GameSession {
             pendingBotCourses = new ArrayList<>();
         }
         try {
-            activeShips.stream()
+            round.activeShips().stream()
                     .filter(ship -> "bot".equals(ship.controlledBy()))
                     .forEach(ship -> {
                         if (ship.isScoutPlane()) {
-                            commandScoutPlaneBot(ship, activeShips, worldMap, scoutPlaneTargetReservations);
+                            commandScoutPlaneBot(ship, Optional.ofNullable(round.planes().get(ship)), worldMap);
                         } else {
-                            if (checkDepthCharges) tryBotDepthCharges(ship, visibilityCache);
-                            commandBot(ship, visibilityCache, navigationService, worldMap, surfaceShips);
+                            commandBot(ship, round.cache(), navigationService, worldMap, surfaceShips,
+                                    round.boats().get(ship), Objects.requireNonNull(goals.get(ship.id()), "Missing bot goal"));
                         }
                     });
             if (parallelBotNavigation) {
@@ -932,6 +969,11 @@ public final class GameSession {
     private void commandScoutPlaneBot(Ship plane, List<Ship> activeShips, WorldMap worldMap,
                                       Map<String, Integer> targetReservations) {
         Optional<Ship> target = selectBotScoutPlaneTarget(plane, activeShips, targetReservations);
+        target.ifPresent(ship -> targetReservations.merge(ship.id(), 1, Integer::sum));
+        commandScoutPlaneBot(plane, target, worldMap);
+    }
+
+    private void commandScoutPlaneBot(Ship plane, Optional<Ship> target, WorldMap worldMap) {
         if (target.isEmpty()) {
             clearBotScoutPlaneFlyThrough(plane);
             patrolScoutPlane(plane);
@@ -939,7 +981,6 @@ public final class GameSession {
         }
 
         Ship ship = target.get();
-        targetReservations.merge(ship.id(), 1, Integer::sum);
         BotTorpedoSolution torpedoSolution = botScoutPlaneTorpedoSolution(plane, ship);
         Vector2 torpedoTarget = torpedoSolution.targetPosition();
         BotBombingSolution bombSolution = botScoutPlaneBombingSolution(plane, ship);
@@ -1316,8 +1357,7 @@ public final class GameSession {
         return attackingTeamId + ">" + humanShipId;
     }
 
-    private void commandBot(Ship ship, RadarService.VisibilityCache visibilityCache, NavigationService navigationService,
-                            WorldMap worldMap, List<Ship> surfaceShips) {
+    private BotIntent prepareBotIntent(Ship ship, RadarService.VisibilityCache visibilityCache) {
         BotNavigation plan = ship.botNavigation;
         long tick = (long) Math.floor(nowSeconds * 10 + 1e-6);
         boolean targetSelectionDue = plan.targetDue(tick);
@@ -1367,9 +1407,25 @@ public final class GameSession {
                 ship.botSubmarineAttackCourse = null;
             }
         }
-        boolean routeUpdated = plan.routeDue(tick);
+        return new BotIntent(contact, retreatFrom, plan.routeDue(tick));
+    }
+
+    private void commandBot(Ship ship, RadarService.VisibilityCache visibilityCache, NavigationService navigationService,
+                            WorldMap worldMap, List<Ship> surfaceShips) {
+        BotIntent intent = prepareBotIntent(ship, visibilityCache);
+        commandBot(ship, visibilityCache, navigationService, worldMap, surfaceShips, intent,
+                navigationGoal(ship, intent.contact(), intent.routeUpdated()));
+    }
+
+    private void commandBot(Ship ship, RadarService.VisibilityCache visibilityCache, NavigationService navigationService,
+                            WorldMap worldMap, List<Ship> surfaceShips, BotIntent intent, BotGoal goal) {
+        BotNavigation plan = ship.botNavigation;
+        long tick = (long) Math.floor(nowSeconds * 10 + 1e-6);
+        Ship contact = intent.contact();
+        Vector2 retreatFrom = intent.retreatFrom();
+        boolean routeUpdated = intent.routeUpdated();
         if (routeUpdated) {
-            BotNavigation.Course desired = desiredBotCourse(ship, contact, worldMap);
+            BotNavigation.Course desired = courseForGoal(ship, contact, goal);
             plan.route = BotNavigation.freeRoute(ship, desired, BotNavigation.ROUTE_RANGE, navigationService, worldMap);
         }
         if (plan.encounterDue(tick)) plan.planEncounter(ship, surfaceShips, navigationService, worldMap);
@@ -1437,30 +1493,45 @@ public final class GameSession {
     }
 
     private BotNavigation.Course desiredBotCourse(Ship ship, Ship contact, WorldMap worldMap) {
+        return courseForGoal(ship, contact, navigationGoal(ship, contact, true));
+    }
+
+    private BotGoal navigationGoal(Ship ship, Ship contact, boolean advanceSearch) {
         var search = ship.botNavigation.submarineSearch;
         boolean localContact = contact != null && (ship.position().distanceTo(contact.position()) <= BotNavigation.ENCOUNTER_RANGE
                 || contact.isSubmarine() && isHumanControlled(contact));
         if (contact != null && (search == null || localContact)) {
-            double distance = ship.position().distanceTo(contact.position());
-            return new BotNavigation.Course(bearingTo(ship, contact.position()),
-                    botAttackEngineOrder(ship, contact, distance, relativeBearing(ship, contact.position())));
+            return new BotGoal(BotGoal.Kind.ENEMY, contact.id(), contact.lifeId(), contact.position().x(), contact.position().z());
         }
         var attack = ship.botSubmarineAttackCourse;
         if (attack != null) {
             Vector2 forward = Vector2.fromHeading(attack.heading());
             Vector2 offset = ship.position().subtract(attack.position());
             double along = offset.x() * forward.x() + offset.z() * forward.z();
-            return new BotNavigation.Course(bearingTo(ship, attack.position().add(forward.scale(Math.max(0, along) + 60))), ENGINE_FLANK);
+            Vector2 point = attack.position().add(forward.scale(Math.max(0, along) + 60));
+            return new BotGoal(BotGoal.Kind.LAST_KNOWN_COURSE, attack.targetId(), ship.botNavigation.targetLife, point.x(), point.z());
         }
         if (search != null) {
-            return new BotNavigation.Course(bearingTo(ship, search.destination(ship)), ENGINE_FLANK);
+            Vector2 point = advanceSearch ? search.destination(ship) : search.currentDestination();
+            return new BotGoal(BotGoal.Kind.SEARCH, null, -1, point.x(), point.z());
         }
-        // Lost/destroyed contact: keep the last course until the next scheduled target selection.
-        if (ship.botNavigation.target != null && ship.botNavigation.route != null) return ship.botNavigation.route;
-        // The map centre is just a navigation destination; use the normal approach rules.
-        double distance = ship.position().distanceTo(patrolCenter);
-        return new BotNavigation.Course(bearingTo(ship, patrolCenter),
-                botAttackEngineOrder(ship, null, distance, relativeBearing(ship, patrolCenter)));
+        // No hidden live position: represent the retained heading by a point straight ahead on that heading.
+        if (ship.botNavigation.target != null && ship.botNavigation.route != null) {
+            Vector2 point = ship.position().add(Vector2.fromHeading(ship.botNavigation.route.heading()).scale(100));
+            return new BotGoal(BotGoal.Kind.RETAINED_COURSE, null, -1, point.x(), point.z());
+        }
+        return new BotGoal(BotGoal.Kind.PATROL, null, -1, patrolCenter.x(), patrolCenter.z());
+    }
+
+    private BotNavigation.Course courseForGoal(Ship ship, Ship contact, BotGoal goal) {
+        Vector2 destination = new Vector2(goal.x(), goal.z());
+        int order = switch (goal.kind()) {
+            case ENEMY -> botAttackEngineOrder(ship, contact, ship.position().distanceTo(destination), relativeBearing(ship, destination));
+            case LAST_KNOWN_COURSE, SEARCH -> ENGINE_FLANK;
+            case RETAINED_COURSE -> ship.botNavigation.route.engineOrder();
+            case PATROL, NONE -> botAttackEngineOrder(ship, null, ship.position().distanceTo(destination), relativeBearing(ship, destination));
+        };
+        return new BotNavigation.Course(bearingTo(ship, destination), order);
     }
 
     private static Vector2 mapCenter(WorldMap map, List<Vector2> spawns) {

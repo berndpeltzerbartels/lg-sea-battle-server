@@ -1,14 +1,16 @@
 package one.xis.seabattle.game;
 
-/** One bot decision round. Physics and combat resolution remain the responsibility of GameSession.
+import java.util.Map;
+
+/** One movement/control round, after target selection has completed for all bots. Physics and combat resolution remain the responsibility of GameSession.
  * Implementations may keep per-session state; create a fresh instance for every independent run.
  */
 @FunctionalInterface
 public interface BotCalculation {
-    void calculate(BotSituation situation, long tickId);
+    void calculate(BotSituation situation, long tickId, Map<String, BotGoal> goals);
 
-    /** The unchanged production bot algorithm. Can also be called from a custom implementation. */
+    /** Existing movement/combat controls, consuming the already prepared goals. */
     static BotCalculation standard() {
-        return (situation, tickId) -> situation.runStandard();
+        return (situation, tickId, goals) -> situation.runStandard(goals);
     }
 }

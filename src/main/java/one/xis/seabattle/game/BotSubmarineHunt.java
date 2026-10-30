@@ -76,6 +76,7 @@ final class BotSubmarineHunt {
         boolean active(double now) { return now < area.until(); }
         Area area() { return area; }
         int waypoint() { return waypoint; }
+        Vector2 currentDestination() { return destination; }
         Vector2 destination(Ship boat) {
             if (boat.position().distanceTo(destination) <= WAYPOINT_REACHED) {
                 waypoint++;

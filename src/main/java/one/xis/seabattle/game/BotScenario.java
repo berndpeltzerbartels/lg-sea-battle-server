@@ -41,7 +41,7 @@ public final class BotScenario {
     }
 
     /** Warmups and measured runs each start from a new game AND a fresh algorithm instance.
-     * Measures calculate() and the complete simulation step separately; excludes snapshots and output.
+     * Measures target select(), movement calculate() and the complete simulation step separately; excludes snapshots and output.
      */
     public List<BotTestRun.Timing> benchmark(Supplier<BotCalculation> implementation, int ticks,
                                            int warmups, int rounds) {
@@ -62,9 +62,9 @@ public final class BotScenario {
         long[] botNanos = new long[ticks];
         long[] roundNanos = new long[ticks];
         int[] index = {0};
-        BotCalculation measured = (situation, tickId) -> {
+        BotCalculation measured = (situation, tickId, goals) -> {
             long start = System.nanoTime();
-            calculation.calculate(situation, tickId);
+            calculation.calculate(situation, tickId, goals);
             botNanos[index[0]] = System.nanoTime() - start;
         };
         BotTargetSelection measuredSelection = (situation, tickId) -> {
