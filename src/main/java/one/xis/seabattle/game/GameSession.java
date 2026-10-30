@@ -927,6 +927,7 @@ public final class GameSession {
         BotBombingSolution bombSolution = botScoutPlaneBombingSolution(plane, ship);
         Vector2 bombTarget = bombSolution.targetPosition();
         double distance = plane.position().distanceTo(ship.position());
+        BotAircraftEvasion.observe(ship, plane, nowSeconds);
         boolean inBombWindow = distance >= BOT_SCOUT_PLANE_BOMB_MIN_RANGE && distance <= BOT_SCOUT_PLANE_BOMB_RANGE;
         boolean inTorpedoReleaseWindow = distance >= BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE
                 && distance <= BOT_SCOUT_PLANE_TORPEDO_RELEASE_RANGE;
@@ -1361,7 +1362,9 @@ public final class GameSession {
         if (ship.applyGlancingRamBackoff(nowSeconds)) return;
         BotNavigation.Course urgent = retreatFrom == null ? null
                 : new BotNavigation.Course(bearingTo(ship, ship.position().add(ship.position().subtract(retreatFrom))), ENGINE_FULL);
-        BotNavigation.Course selected = plan.selected(urgent);
+        BotNavigation.Course aircraft = plan.aircraftEvasion == null ? null
+                : plan.aircraftEvasion.course(ship, nowSeconds, navigationService, worldMap);
+        BotNavigation.Course selected = plan.selected(urgent, aircraft);
         if (selected != null) {
             ship.applyCommand(selected.engineOrder(), BotHelm.rudder(ship.heading(), ship.turnVelocity(),
                     ship.speed(), selected.heading()));
