@@ -165,6 +165,7 @@ public final class GameSession {
     private final String instanceId = java.util.UUID.randomUUID().toString();
     private final WorldMap worldMap;
     private final PeriscopeWarnings periscopeWarnings = new PeriscopeWarnings();
+    private final BotSubmarineHunt submarineHunts = new BotSubmarineHunt();
     private final AircraftAttackWarnings aircraftWarnings = new AircraftAttackWarnings();
     private final WorldMap scoutPlaneObstacleMap;
     private final Map<String, Fleet> fleets;
@@ -1302,6 +1303,7 @@ public final class GameSession {
             retreatFrom = ship.submarineBot().update(ship, contacts, nowSeconds, shotOpportunity);
         }
         BotNavigation plan = ship.botNavigation;
+        if (plan.submarineSearch != null && !plan.submarineSearch.active(nowSeconds)) plan.submarineSearch = null;
         long tick = (long) Math.floor(nowSeconds * 10 + 1e-6);
         if (ship.botSubmarineAttackCourse != null && nowSeconds >= ship.botSubmarineAttackCourse.until()) {
             ship.botSubmarineAttackCourse = null;
@@ -1311,7 +1313,20 @@ public final class GameSession {
                 && plan.target != null && plan.target.lifeId() == plan.targetLife && "active".equals(plan.target.state())
                 && observedBotTarget(ship, plan, visibilityCache) == null;
         if (plan.targetDue(tick) && !followingLostSubmarine) {
-            Ship nextTarget = chooseBotTarget(ship, visibleTargets(ship, visibilityCache)).orElse(null);
+            List<Ship> targets = visibleTargets(ship, visibilityCache);
+            if (!ship.isSubmarine()) {
+                for (Ship target : targets) {
+                    if (target.isSubmarine() && isHumanControlled(target)
+                            && (target.isOnSurface() && visibilityCache.isVisible(ship, target, RadarService.RADAR_RANGE)
+                                || isVisiblePeriscopeRamContact(ship, target,
+                                plan.trackingPeriscope && plan.target == target && plan.targetLife == target.lifeId()))) {
+                        // Reuse the scheduled target scan. Only a new sighting queries nearby recipients.
+                        submarineHunts.sighting(ship, target, nowSeconds, () -> visibilityCache.candidates(ship,
+                                BotSubmarineHunt.RECRUIT_RADIUS + ship.position().distanceTo(target.position())));
+                    }
+                }
+            }
+            Ship nextTarget = chooseBotTarget(ship, targets).orElse(null);
             if (nextTarget != plan.target || nextTarget != null && nextTarget.lifeId() != plan.targetLife) {
                 plan.trackingPeriscope = false;
             }
@@ -1378,7 +1393,10 @@ public final class GameSession {
     }
 
     private BotNavigation.Course desiredBotCourse(Ship ship, Ship contact, WorldMap worldMap) {
-        if (contact != null) {
+        var search = ship.botNavigation.submarineSearch;
+        boolean localContact = contact != null && (ship.position().distanceTo(contact.position()) <= BotNavigation.ENCOUNTER_RANGE
+                || contact.isSubmarine() && isHumanControlled(contact));
+        if (contact != null && (search == null || localContact)) {
             double distance = ship.position().distanceTo(contact.position());
             return new BotNavigation.Course(bearingTo(ship, contact.position()),
                     botAttackEngineOrder(ship, contact, distance, relativeBearing(ship, contact.position())));
@@ -1389,6 +1407,9 @@ public final class GameSession {
             Vector2 offset = ship.position().subtract(attack.position());
             double along = offset.x() * forward.x() + offset.z() * forward.z();
             return new BotNavigation.Course(bearingTo(ship, attack.position().add(forward.scale(Math.max(0, along) + 60))), ENGINE_FLANK);
+        }
+        if (search != null) {
+            return new BotNavigation.Course(bearingTo(ship, search.destination(ship)), ENGINE_FLANK);
         }
         // Lost/destroyed contact: keep the last course until the next scheduled target selection.
         if (ship.botNavigation.target != null && ship.botNavigation.route != null) return ship.botNavigation.route;

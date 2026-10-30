@@ -5535,7 +5535,11 @@ class GameSessionTest {
         commandAttackBot(session, 10);
         assertNull(boat.botSubmarineAttackCourse);
         commandAttackBot(session, 11);
-        assertTrue(boat.snapshot().rudderDegrees() > 0, "After the attack expires resume the normal course toward map centre");
+        assertNotNull(boat.botNavigation.submarineSearch, "After the direct attack expires search the last sighting for the rest of its minute");
+        assertEquals(ENGINE_FLANK, boat.snapshot().engineOrder());
+        commandAttackBot(session, 61);
+        assertNull(boat.botNavigation.submarineSearch);
+        assertTrue(boat.snapshot().rudderDegrees() > 0, "After the area search expires resume the normal course toward map centre");
     }
 
     @Test
