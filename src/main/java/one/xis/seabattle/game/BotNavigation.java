@@ -19,6 +19,7 @@ final class BotNavigation {
     long targetLife;
     boolean trackingPeriscope;
     BotSubmarineHunt.Search submarineSearch;
+    BotAircraftEvasion aircraftEvasion;
     Course route, encounter, near;
     private int encounterClearChecks;
     double previousSubmarineEcho;
@@ -44,7 +45,10 @@ final class BotNavigation {
         return tick + 1 + Math.floorMod(slot - phase - (tick + 1), period);
     }
     Course selected(Course urgent) {
-        return urgent != null ? urgent : near != null ? near : encounter != null ? encounter : route;
+        return selected(urgent, null);
+    }
+    Course selected(Course urgent, Course aircraft) {
+        return urgent != null ? urgent : near != null ? near : encounter != null ? encounter : aircraft != null ? aircraft : route;
     }
 
     static Course freeRoute(Ship ship, Course desired, double distance,
