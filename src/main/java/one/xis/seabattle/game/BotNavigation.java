@@ -18,6 +18,7 @@ final class BotNavigation {
     Ship target;
     long targetLife;
     boolean trackingPeriscope;
+    BotSubmarineHunt.Search submarineSearch;
     Course route, encounter, near;
     private int encounterClearChecks;
     double previousSubmarineEcho;
