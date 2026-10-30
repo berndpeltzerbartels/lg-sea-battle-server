@@ -159,8 +159,51 @@ class BotSubmarineHuntTest {
         assertTrue(ships(session).stream().allMatch(s -> s.botNavigation.submarineSearch == null));
     }
 
-    @Test void unseenDeepSubmarineDoesNotCreateSearchOrders() throws Exception {
+    @Test void submarineBotsReportAtSurfaceAndPeriscopeDepthButNotDeepUnderwater() throws Exception {
+        for (String state : List.of("surface", "periscope", "submerged")) {
+            GameSession session = scenario(false, true);
+            Ship detector = ships(session).stream().filter(b -> b.id().equals("detector")).findFirst().orElseThrow();
+            depth(detector, 0, -60, state, 0);
+            session.update(0, radar, navigation, water);
+            long recruits = ships(session).stream().filter(b -> b.botNavigation.submarineSearch != null).count();
+            assertEquals(state.equals("submerged") ? 0 : 8, recruits, "reporting observer depth=" + state);
+            assertNull(detector.botNavigation.submarineSearch, "Submarine reports to surface hunters, not to itself");
+        }
+    }
+
+    @Test void actualSonarTriggeredDepthChargeDropReportsTheStrongestHostileContact() throws Exception {
         GameSession session = scenario(false, false);
+        List<Ship> all = ships(session);
+        Ship target = all.stream().filter(b -> b.id().equals("sub")).findFirst().orElseThrow();
+        Ship detector = all.stream().filter(b -> b.id().equals("detector")).findFirst().orElseThrow();
+        Method drop = GameSession.class.getDeclaredMethod("tryBotDepthCharges", Ship.class, RadarService.VisibilityCache.class);
+        drop.setAccessible(true);
+        for (double distance : new double[]{100, 60, 20, 20}) {
+            depth(target, 0, -60 + distance, "submerged", 0);
+            drop.invoke(session, detector, radar.visibilityCache(water, all));
+            assertTrue(session.snapshot().submarineDetections().isEmpty(), "First/rising/steady echo cannot report a drop");
+            assertNull(detector.botNavigation.submarineSearch);
+        }
+        depth(target, 0, -37, "submerged", 0); // 23: first weakening after closest pass.
+        drop.invoke(session, detector, radar.visibilityCache(water, all));
+        assertFalse(session.snapshot().depthCharges().isEmpty());
+        var detection = session.snapshot().submarineDetections().get("sub");
+        assertNotNull(detection);
+        assertEquals(target.lifeId(), detection.lifeId());
+        assertEquals(3, detection.until());
+        assertEquals(9, all.stream().filter(b -> b.botNavigation.submarineSearch != null).count());
+        assertEquals(new Vector2(0, -37), detector.botNavigation.submarineSearch.area().center());
+        depth(target, 3000, 3000, "submerged", 0);
+        session.update(3.1, radar, navigation, water);
+        assertTrue(session.snapshot().submarineDetections().isEmpty(), "Notice ends independently after three seconds");
+        assertNotNull(detector.botNavigation.submarineSearch, "The one-minute search continues after the notice");
+        assertEquals(60, detector.botNavigation.submarineSearch.area().until());
+    }
+
+    @Test void unseenDeepSubmarineOutsideSonarDoesNotCreateSearchOrders() throws Exception {
+        GameSession session = scenario(false, false);
+        Ship sub = ships(session).stream().filter(b -> b.id().equals("sub")).findFirst().orElseThrow();
+        depth(sub, 3000, 3000, "submerged", 0);
         for (int t = 0; t < 40; t++) session.update(.1, radar, navigation, water);
         assertTrue(ships(session).stream().allMatch(s -> s.botNavigation.submarineSearch == null));
     }

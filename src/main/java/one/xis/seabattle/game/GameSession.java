@@ -321,6 +321,7 @@ public final class GameSession {
                 depthChargeControls(),
                 periscopeWarnings.snapshot(),
                 aircraftWarnings.snapshot(),
+                submarineHunts.detections(nowSeconds),
                 List.copyOf(wrecks)
         );
     }
@@ -886,11 +887,13 @@ public final class GameSession {
     private void tryBotDepthCharges(Ship ship, RadarService.VisibilityCache visibilityCache) {
         if (ship.isSubmarine()) return;
         double strength = 0;
+        Ship sonarContact = null;
         for (Ship target : visibilityCache.candidates(ship, BOT_DEPTH_CHARGE_DETECTION_RADIUS)) {
             if (!"active".equals(target.state()) || target.teamId().equals(ship.teamId())
                     || !target.isSubmarine() || target.isOnSurface() || target.y() >= -1) continue;
             double distance = ship.position().distanceTo(target.position());
-            strength = Math.max(strength, 1 - distance / BOT_DEPTH_CHARGE_DETECTION_RADIUS);
+            double echo = 1 - distance / BOT_DEPTH_CHARGE_DETECTION_RADIUS;
+            if (echo > strength) { strength = echo; sonarContact = target; }
         }
         double previous = ship.botNavigation.previousSubmarineEcho;
         ship.botNavigation.previousSubmarineEcho = strength;
@@ -902,6 +905,10 @@ public final class GameSession {
         if (reload != null && (reload.queuedPlayer != null
                 || java.util.Arrays.stream(reload.readyAt).anyMatch(t -> nowSeconds < t))) return;
         dropDepthCharges(ship.controlledBy(), ship.controlledBy(), ship.id());
+        if (sonarContact != null && isHumanControlled(sonarContact)) {
+            double radius = BotSubmarineHunt.RECRUIT_RADIUS + ship.position().distanceTo(sonarContact.position());
+            submarineHunts.sighting(ship, sonarContact, nowSeconds, () -> visibilityCache.candidates(ship, radius));
+        }
     }
 
     private void commandScoutPlaneBot(Ship plane, List<Ship> activeShips, WorldMap worldMap,
@@ -1288,6 +1295,9 @@ public final class GameSession {
 
     private void commandBot(Ship ship, RadarService.VisibilityCache visibilityCache, NavigationService navigationService,
                             WorldMap worldMap, List<Ship> surfaceShips) {
+        BotNavigation plan = ship.botNavigation;
+        long tick = (long) Math.floor(nowSeconds * 10 + 1e-6);
+        boolean targetSelectionDue = plan.targetDue(tick);
         Vector2 retreatFrom = null;
         if (ship.isSubmarine()) {
             List<Ship> contacts = ship.isFullySubmerged()
@@ -1296,15 +1306,15 @@ public final class GameSession {
                         .filter(contact -> isUnderwaterBotContact(ship, contact)
                                 || visibilityCache.isVisible(ship, contact, RadarService.RADAR_RANGE))
                         .toList();
+            // Report while the mast is still above water, before tactical diving changes the depth order.
+            if (targetSelectionDue && BotSubmarineHunt.canReport(ship)) reportSubmarineSightings(ship, contacts, visibilityCache);
             boolean shotOpportunity = ship.isFullySubmerged() && contacts.stream()
                     .filter(target -> !target.teamId().equals(ship.teamId()))
                     .filter(target -> "active".equals(target.state()) && target.isOnSurface() && !target.isScoutPlane())
                     .anyMatch(target -> submarineHasAscentShot(ship, target));
             retreatFrom = ship.submarineBot().update(ship, contacts, nowSeconds, shotOpportunity);
         }
-        BotNavigation plan = ship.botNavigation;
         if (plan.submarineSearch != null && !plan.submarineSearch.active(nowSeconds)) plan.submarineSearch = null;
-        long tick = (long) Math.floor(nowSeconds * 10 + 1e-6);
         if (ship.botSubmarineAttackCourse != null && nowSeconds >= ship.botSubmarineAttackCourse.until()) {
             ship.botSubmarineAttackCourse = null;
             if (observedBotTarget(ship, plan, visibilityCache) == null) plan.target = null;
@@ -1312,20 +1322,9 @@ public final class GameSession {
         boolean followingLostSubmarine = ship.botSubmarineAttackCourse != null
                 && plan.target != null && plan.target.lifeId() == plan.targetLife && "active".equals(plan.target.state())
                 && observedBotTarget(ship, plan, visibilityCache) == null;
-        if (plan.targetDue(tick) && !followingLostSubmarine) {
+        if (targetSelectionDue && !followingLostSubmarine) {
             List<Ship> targets = visibleTargets(ship, visibilityCache);
-            if (!ship.isSubmarine()) {
-                for (Ship target : targets) {
-                    if (target.isSubmarine() && isHumanControlled(target)
-                            && (target.isOnSurface() && visibilityCache.isVisible(ship, target, RadarService.RADAR_RANGE)
-                                || isVisiblePeriscopeRamContact(ship, target,
-                                plan.trackingPeriscope && plan.target == target && plan.targetLife == target.lifeId()))) {
-                        // Reuse the scheduled target scan. Only a new sighting queries nearby recipients.
-                        submarineHunts.sighting(ship, target, nowSeconds, () -> visibilityCache.candidates(ship,
-                                BotSubmarineHunt.RECRUIT_RADIUS + ship.position().distanceTo(target.position())));
-                    }
-                }
-            }
+            if (!ship.isSubmarine()) reportSubmarineSightings(ship, targets, visibilityCache);
             Ship nextTarget = chooseBotTarget(ship, targets).orElse(null);
             if (nextTarget != plan.target || nextTarget != null && nextTarget.lifeId() != plan.targetLife) {
                 plan.trackingPeriscope = false;
@@ -1369,6 +1368,20 @@ public final class GameSession {
         }
         // Reuse the staggered one-second route slot; blocked shots must not rescan terrain every tick.
         if (contact != null && routeUpdated) fireBotWeapons(ship, contact);
+    }
+
+    private void reportSubmarineSightings(Ship observer, List<Ship> contacts, RadarService.VisibilityCache visibilityCache) {
+        for (Ship target : contacts) {
+            if (!target.teamId().equals(observer.teamId()) && target.isSubmarine() && isHumanControlled(target)
+                    && (target.isOnSurface() && visibilityCache.isVisible(observer, target, RadarService.RADAR_RANGE)
+                        || isVisiblePeriscopeRamContact(observer, target,
+                            observer.botNavigation.trackingPeriscope && observer.botNavigation.target == target
+                                    && observer.botNavigation.targetLife == target.lifeId()))) {
+                // Reuse existing contacts. Only a new report queries nearby recipients.
+                double radius = BotSubmarineHunt.RECRUIT_RADIUS + observer.position().distanceTo(target.position());
+                submarineHunts.sighting(observer, target, nowSeconds, () -> visibilityCache.candidates(observer, radius));
+            }
+        }
     }
 
     private Ship observedBotTarget(Ship ship, BotNavigation plan, RadarService.VisibilityCache cache) {

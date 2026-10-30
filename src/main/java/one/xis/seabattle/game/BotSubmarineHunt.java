@@ -8,6 +8,7 @@ import java.util.function.Supplier;
 /** A sighting shares a fixed search area, never the submerged submarine's live position. */
 final class BotSubmarineHunt {
     static final double DURATION = 60;
+    static final double DETECTION_NOTICE_SECONDS = 3;
     // Three quarters of the normal on-screen combat radar, not the strategic human-target range.
     static final double RECRUIT_RADIUS = RadarService.RADAR_RANGE * 2.5 * .62 * .75;
     static final double SEARCH_RADIUS = 6 * BotNavigation.SHIP_LENGTH;
@@ -23,8 +24,26 @@ final class BotSubmarineHunt {
         nextExpiry = sightings.values().stream().mapToDouble(Area::until).min().orElse(Double.POSITIVE_INFINITY);
     }
 
+    static boolean canReport(Ship observer) {
+        return observer.isBotControlled() && !observer.isScoutPlane()
+                && (!observer.isSubmarine() || observer.y() + SubmarinePeriscopeGeometry.topAboveRoot(observer.y()) > 0);
+    }
+
+    record Detection(long lifeId, double until) {}
+
+    Map<String, Detection> detections(double now) {
+        expire(now);
+        Map<String, Detection> result = new HashMap<>();
+        sightings.forEach((contact, area) -> {
+            double until = area.until() - DURATION + DETECTION_NOTICE_SECONDS;
+            if (until > now) result.merge(contact.target(), new Detection(contact.life(), until),
+                    (a, b) -> a.lifeId() > b.lifeId() || a.lifeId() == b.lifeId() && a.until() >= b.until() ? a : b);
+        });
+        return Map.copyOf(result);
+    }
+
     void sighting(Ship observer, Ship target, double now, Supplier<List<Ship>> neighbors) {
-        if (!observer.isBotControlled() || observer.isSubmarine() || observer.isScoutPlane()) return;
+        if (!canReport(observer)) return;
         if (!target.isSubmarine() || observer.teamId().equals(target.teamId())) return;
         expire(now);
         Contact contact = new Contact(observer.teamId(), target.id(), target.lifeId());
