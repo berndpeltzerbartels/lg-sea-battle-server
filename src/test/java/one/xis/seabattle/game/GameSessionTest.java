@@ -530,7 +530,7 @@ class GameSessionTest {
                 "idle-bot-calm-patrol-test",
                 new WorldMap(90314, List.of()),
                 List.of(new FleetSetup("red", List.of(
-                        ship("red-1", "red", 0, 0, 0, "bot", ENGINE_STOP, 0, 99)
+                        ship("red-1", "red", 0, -200, 0, "bot", ENGINE_STOP, 0, 99)
                 ))),
                 List.of(new Vector2(0, 0))
         ));
@@ -543,8 +543,8 @@ class GameSessionTest {
                 checkedDuringPatrol = true;
                 assertEquals(ENGINE_HALF, bot.engineOrder(),
                         "Patrouille soll in Bewegung bleiben, aber nicht staendig die Fahrstufe wechseln.");
-                assertTrue(Math.abs(bot.rudderDegrees()) <= 8,
-                        "Patrouille soll nur leichte Kurskorrekturen fahren, keine dauernden Haken.");
+                assertTrue(elapsed >= .75, "Half speed follows the first second of gentle acceleration");
+                assertTrue(Math.abs(bot.rudderDegrees()) <= 8, "The straight approach to map centre stays calm");
                 break;
             }
         }
@@ -2311,7 +2311,7 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        assertEquals(ENGINE_HALF, findShip(session.snapshot(), "light-2").engineOrder());
+        assertEquals(ENGINE_ONE_THIRD, findShip(session.snapshot(), "light-2").engineOrder(), "Ordinary navigation starts gently, without escort or flank orders");
     }
 
     @Test
@@ -2330,7 +2330,7 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        assertEquals(ENGINE_HALF, findShip(session.snapshot(), "light-2").engineOrder());
+        assertEquals(ENGINE_ONE_THIRD, findShip(session.snapshot(), "light-2").engineOrder(), "Ordinary navigation starts gently, without escort or flank orders");
     }
 
     @Test
@@ -4295,7 +4295,7 @@ class GameSessionTest {
                 List.of(new Vector2(0, 0))));
         for (int tick = 0; tick < 160; tick++) {
             session.update(.1, radarService, navigationService, session.worldMap());
-            assertTrue(findShip(session.snapshot(), "red-1").engineOrder() >= ENGINE_HALF);
+            assertTrue(findShip(session.snapshot(), "red-1").engineOrder() >= (tick < 10 ? ENGINE_ONE_THIRD : ENGINE_HALF));
         }
     }
 

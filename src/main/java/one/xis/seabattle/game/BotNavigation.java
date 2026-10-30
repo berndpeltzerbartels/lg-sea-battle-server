@@ -11,18 +11,21 @@ final class BotNavigation {
     static final double ROUTE_RANGE = Math.min(16 * SHIP_LENGTH, RADAR_RING);
     static final double ENCOUNTER_RANGE = 10 * SHIP_LENGTH;
     static final double NEAR_RANGE = 3 * SHIP_LENGTH;
+    static final double FORWARD_RANGE = 2 * SHIP_LENGTH;
     record Course(double heading, int engineOrder) {}
 
     private final int phase;
-    private long nextTarget = -1, nextRoute = -1, nextEncounter = -1;
+    private long nextTarget = -1, nextRoute = -1, nextEncounter = -1, nextForward = -1;
     Ship target;
     long targetLife;
     boolean trackingPeriscope;
     BotSubmarineHunt.Search submarineSearch;
     BotAircraftEvasion aircraftEvasion;
-    Course route, encounter, near;
+    Course route, encounter, near, forward;
+    final BotCruiseAcceleration acceleration = new BotCruiseAcceleration();
     private int encounterClearChecks;
     double previousSubmarineEcho;
+    boolean nearbyTraffic;
 
     BotNavigation(String shipId) { phase = Math.floorMod(shipId.hashCode(), 20); }
 
@@ -41,6 +44,11 @@ final class BotNavigation {
         nextEncounter = nextSlot(tick, 10, 5);
         return true;
     }
+    boolean forwardDue(long tick) {
+        if (tick < nextForward) return false;
+        nextForward = nextSlot(tick, 5, 3);
+        return true;
+    }
     private long nextSlot(long tick, int period, int slot) {
         return tick + 1 + Math.floorMod(slot - phase - (tick + 1), period);
     }
@@ -48,7 +56,7 @@ final class BotNavigation {
         return selected(urgent, null);
     }
     Course selected(Course urgent, Course aircraft) {
-        return urgent != null ? urgent : near != null ? near : encounter != null ? encounter : aircraft != null ? aircraft : route;
+        return urgent != null ? urgent : near != null ? near : forward != null ? forward : encounter != null ? encounter : aircraft != null ? aircraft : route;
     }
 
     static Course freeRoute(Ship ship, Course desired, double distance,
@@ -120,8 +128,19 @@ final class BotNavigation {
                 ENCOUNTER_RANGE, 14, 30, navigation, world);
     }
 
-    void checkNear(Ship ship, List<Ship> ships, NavigationService navigation, WorldMap world) {
+    void checkForward(Ship ship, NavigationService navigation, WorldMap world) {
         Course intended = encounter != null ? encounter : route;
+        if (intended == null) { forward = null; return; }
+        world = nearbyLand(ship, world, FORWARD_RANGE);
+        // Check where the hull is actually going, even while the normal route already asks for a turn.
+        if (pathClear(ship, ship.heading(), FORWARD_RANGE, navigation, world)) { forward = null; return; }
+        forward = freeRoute(ship, new Course(intended.heading(), Math.min(4, intended.engineOrder())),
+                FORWARD_RANGE, navigation, world);
+    }
+
+    void checkNear(Ship ship, List<Ship> ships, NavigationService navigation, WorldMap world) {
+        nearbyTraffic = false;
+        Course intended = forward != null ? forward : encounter != null ? encounter : route;
         if (intended == null || trafficClear(ship, intended, ships, NEAR_RANGE, 3, 22)) {
             near = null;
             return;
@@ -146,7 +165,7 @@ final class BotNavigation {
         return new Course(ship.heading(), 2);
     }
 
-    private static boolean trafficClear(Ship ship, Course course, List<Ship> ships,
+    private boolean trafficClear(Ship ship, Course course, List<Ship> ships,
                                         double range, double horizon, double clearance) {
         double ownSpeed = Math.max(Math.abs(ship.speed()), Math.max(0, EngineOrders.speedFor(course.engineOrder)));
         double vx = Math.sin(course.heading) * ownSpeed, vz = Math.cos(course.heading) * ownSpeed;
@@ -156,6 +175,8 @@ final class BotNavigation {
             double dx = other.position().x() - ship.position().x(), dz = other.position().z() - ship.position().z();
             double d2 = dx * dx + dz * dz;
             if (d2 > range * range) continue;
+            // Reuse this scan: a close passing situation must not be slowed by the cruise startup ramp.
+            if (range == NEAR_RANGE) nearbyTraffic = true;
             if (d2 < clearance * clearance) {
                 // At an existing close contact, equal velocities do not mean the hulls are clear.
                 // The trailing boat yields; crossing boats use stable right of way. Never both shunt.
