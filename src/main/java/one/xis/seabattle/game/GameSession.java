@@ -1350,6 +1350,7 @@ public final class GameSession {
             plan.route = BotNavigation.freeRoute(ship, desired, BotNavigation.ROUTE_RANGE, navigationService, worldMap);
         }
         if (plan.encounterDue(tick)) plan.planEncounter(ship, surfaceShips, navigationService, worldMap);
+        if (plan.forwardDue(tick)) plan.checkForward(ship, navigationService, worldMap);
         plan.checkNear(ship, surfaceShips, navigationService, worldMap);
 
         // Emergency rules have highest priority. They never overwrite a stored route/encounter plan.
@@ -1366,7 +1367,11 @@ public final class GameSession {
                 : plan.aircraftEvasion.course(ship, nowSeconds, navigationService, worldMap);
         BotNavigation.Course selected = plan.selected(urgent, aircraft);
         if (selected != null) {
-            ship.applyCommand(selected.engineOrder(), BotHelm.rudder(ship.heading(), ship.turnVelocity(),
+            boolean ordinary = contact == null && urgent == null && aircraft == null && plan.near == null
+                    && plan.forward == null && plan.encounter == null && !plan.nearbyTraffic && plan.submarineSearch == null
+                    && ship.botSubmarineAttackCourse == null;
+            int order = plan.acceleration.order(selected.engineOrder(), ship.speed(), nowSeconds, ordinary);
+            ship.applyCommand(order, BotHelm.rudder(ship.heading(), ship.turnVelocity(),
                     ship.speed(), selected.heading()));
         }
         // Reuse the staggered one-second route slot; blocked shots must not rescan terrain every tick.
