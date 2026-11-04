@@ -2,7 +2,7 @@ package one.xis.seabattle.game;
 
 public final class Submarine extends SurfaceVehicle {
   private String depth = "surface";
-  private SubmarineBot submarineBot = new SubmarineBot();
+  private SubmarineBotState botState = new SubmarineBotState();
 
   public Submarine(String id, String team, Vector2 position, double heading, String controller) {
     super(id, team, position, heading, controller);
@@ -27,8 +27,8 @@ public final class Submarine extends SurfaceVehicle {
     depth = source.depth;
   }
 
-  SubmarineBot bot() {
-    return submarineBot;
+  SubmarineBotState botState() {
+    return botState;
   }
 
   @Override
@@ -50,7 +50,7 @@ public final class Submarine extends SurfaceVehicle {
   @Override
   protected void resetControllerState() {
     super.resetControllerState();
-    submarineBot = new SubmarineBot();
+    botState = new SubmarineBotState();
   }
 
   @Override
@@ -79,7 +79,7 @@ public final class Submarine extends SurfaceVehicle {
   protected void resetSubtypeForRespawn() {
     super.resetSubtypeForRespawn();
     depth = "surface";
-    submarineBot = new SubmarineBot();
+    botState = new SubmarineBotState();
   }
 
   private static String normalizeDepth(String depth) {

@@ -137,10 +137,6 @@ public abstract sealed class Vehicle permits SurfaceVehicle, ScoutPlane {
     throw new IllegalStateException("Aircraft has no surface navigation state: " + id);
   }
 
-  final SubmarineBot submarineBot() {
-    return ((Submarine) this).bot();
-  }
-
   void botDepth(String depth) {}
 
   public final Vector2 position() {

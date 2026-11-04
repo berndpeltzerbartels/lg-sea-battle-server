@@ -897,7 +897,7 @@ public final class GameSession {
 
     private List<Vehicle> visibleTargets(Vehicle ship, RadarService.VisibilityCache visibilityCache) {
         if (ship.isFullySubmerged()) {
-            return visibilityCache.candidates(ship, SubmarineBot.UNDERWATER_RANGE).stream()
+            return visibilityCache.candidates(ship, GameRules.BOT_SUBMARINE_UNDERWATER_RANGE).stream()
                     .filter(target -> !target.teamId().equals(ship.teamId()))
                     .filter(target -> isUnderwaterBotContact(ship, target) && target.isFullySubmerged())
                     .toList();
@@ -916,7 +916,7 @@ public final class GameSession {
     boolean isUnderwaterBotContact(Vehicle observer, Vehicle target) {
         return observer.isSubmarine() && target.isSubmarine() && !target.isOnSurface()
                 && !observer.id().equals(target.id()) && "active".equals(target.state())
-                && observer.position().distanceTo(target.position()) <= SubmarineBot.UNDERWATER_RANGE;
+                && observer.position().distanceTo(target.position()) <= GameRules.BOT_SUBMARINE_UNDERWATER_RANGE;
     }
 
     boolean isVisiblePeriscopeRamContact(Vehicle observer, Vehicle target) {

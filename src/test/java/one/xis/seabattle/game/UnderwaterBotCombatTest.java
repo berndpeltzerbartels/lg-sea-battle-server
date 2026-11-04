@@ -29,7 +29,7 @@ class UnderwaterBotCombatTest {
 
     @Test
     void distantDeepEnemyIsNotDetectedBySurfaceRadar() {
-        GameSession session = sessionWithEnemy(SubmarineBot.UNDERWATER_RANGE + 100);
+        GameSession session = sessionWithEnemy(GameRules.BOT_SUBMARINE_UNDERWATER_RANGE + 100);
         session.update(.1, new RadarService(), navigation, map);
         assertEquals("surface", session.snapshot().ships().stream()
                 .filter(ship -> ship.id().equals("sub")).findFirst().orElseThrow().depthState());
@@ -40,11 +40,11 @@ class UnderwaterBotCombatTest {
     void deepEnemyIsAThreatButFriendDoesNotCauseDive() {
         Vehicle sub = submarine("sub", "light", 0, false);
         Vehicle enemy = submarine("enemy", "dark", 100, true);
-        assertEquals(enemy.position(), sub.submarineBot().update(sub, List.of(enemy), 0));
+        assertEquals(enemy.position(), SubmarineBotCalculation.updateDiveAndEscape((Submarine) sub, List.of(enemy), 0));
         assertTrue(sub.isFullySubmerged());
         Vehicle other = submarine("other", "light", 0, false);
         Vehicle friend = submarine("friend", "light", 100, true);
-        other.submarineBot().update(other, List.of(friend), 0);
+        SubmarineBotCalculation.updateDiveAndEscape((Submarine) other, List.of(friend), 0);
         assertTrue(other.isOnSurface());
     }
 

@@ -72,7 +72,7 @@ final class WaterBotNavigation {
       BotSituation situation,
       long tick,
       BotGoal goal,
-      Vector2 retreatFrom,
+      Vector2 escapeFromThreat,
       AttackSpeed<V> attackSpeed) {
     session = situation.session();
     NavigationService navigationService = situation.navigation();
@@ -102,11 +102,11 @@ final class WaterBotNavigation {
     }
     if (vehicle.applyGlancingRamBackoff(session.nowSeconds)) return;
     BotNavigation.Course urgent =
-        retreatFrom == null
+        escapeFromThreat == null
             ? null
             : new BotNavigation.Course(
                 bearingTo(
-                    vehicle, vehicle.position().add(vehicle.position().subtract(retreatFrom))),
+                    vehicle, vehicle.position().add(vehicle.position().subtract(escapeFromThreat))),
                 ENGINE_FULL);
     BotNavigation.Course aircraft =
         plan.aircraftEvasion == null

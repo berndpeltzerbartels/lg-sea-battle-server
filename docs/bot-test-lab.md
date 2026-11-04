@@ -482,3 +482,23 @@ keine relevante Verlangsamung: Median der Laufmittelwerte bei 40 Fahrzeugen 0,07
 bei 100 Fahrzeugen 0,173 / 0,172 ms. Gemessen wurde die vollständige Berechnungsrunde auf
 einer offenen Karte, nach JVM-Aufwärmung und mit unterdrückter Schussabgabe. Beschuss und
 Landschaft sind separat durch die Grenztests abgedeckt. Das ersetzt keinen Produktionslasttest.
+
+
+## U-Boot-Taktik: Entscheidung und Zustand
+
+Alle U-Boot-Entscheidungen stehen in `SubmarineBotCalculation`. Die frühere Klasse
+`SubmarineBot` ist durch `SubmarineBotState` ersetzt. Dieser Speicher liegt pro U-Boot
+am `Submarine` und enthält ausschließlich Erinnerungswerte; er wird bei Controllerwechsel
+und Wiedergeburt erneuert. `Vehicle` hat keinen U-Boot-spezifischen Bot-Zugriff mehr.
+
+Die beiden Bewegungsabsichten sind ausdrücklich getrennt:
+
+- `holdPeriscopeAttackDistance`: Abstandsregel beim Angriff auf Sehrohrtiefe. Passt die
+  Geschwindigkeit an und kann rückwärtsfahren, um den Schussabstand zu halten.
+- `updateDiveAndEscape`: Tauchtaktik und Flucht vor nahen Bedrohungen. Liefert bei Gefahr
+  die Bedrohungsposition; `WaterBotNavigation` setzt daraus einen Fluchtkurs mit voller
+  Vorwärtskraft um. Tieftauchende U-Boote verwenden nicht die Rückwärts-Abstandsregel.
+
+Hindernisvermeidung und Befreiungsmanöver bleiben in der gemeinsamen Navigation.
+Das ist unabhängig von der taktischen Rückwärtsfahrt beim Angriff. Die bestehende
+Unterwasser-Kontaktreichweite steht zentral in `GameRules.BOT_SUBMARINE_UNDERWATER_RANGE`.
