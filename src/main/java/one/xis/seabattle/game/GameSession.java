@@ -2214,6 +2214,17 @@ public final class GameSession {
         return true;
     }
 
+    List<BotWreckObstacle> botWreckObstacles() {
+        if (wrecks.isEmpty()) return List.of();
+        List<BotWreckObstacle> obstacles = new ArrayList<>();
+        for (Wreck wreck : wrecks) {
+            double age = nowSeconds - wreck.sunkAt();
+            if (!(wreck.ship() instanceof TorpedoBoat) || age < 0 || age >= wreck.sinkSeconds()) continue;
+            obstacles.add(BotWreckObstacle.of(wreck, age));
+        }
+        return obstacles;
+    }
+
     private void updateWreckCollisions() {
         List<Vehicle> targets = allShips().stream().filter(ship -> "active".equals(ship.state()))
                 .filter(ship -> !ship.isScoutPlane()).toList();
