@@ -83,14 +83,8 @@ public class GameStateService {
     public GameSnapshot tick(double deltaSeconds) {
         SessionView view;
         synchronized (this) {
-            if (connectedPlayerIds.isEmpty()) {
-                return snapshot();
-            }
-            if (session.hasHumanControlledShip(connectedPlayerIds)) {
-                session.update(deltaSeconds, radarService, navigationService, session.worldMap());
-            } else {
-                session.updateIdle(deltaSeconds, radarService, navigationService, session.worldMap());
-            }
+            // Endurance-test branch: simulate the same round even without human players.
+            session.update(deltaSeconds, radarService, navigationService, session.worldMap());
             view = captureSessionView();
         }
         publishModel(view);
@@ -226,10 +220,7 @@ public class GameStateService {
     }
 
     public synchronized void finishIfNoPlayers() {
-        if (connectedPlayerIds.isEmpty()) {
-            session.finish();
-            publishModel(captureSessionView());
-        }
+        // Endurance-test branch: the bot round continues after the last human leaves.
     }
 
     public synchronized void transferCrewController(String previous, String next, String team) {

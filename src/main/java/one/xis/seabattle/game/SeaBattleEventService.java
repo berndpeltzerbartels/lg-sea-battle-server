@@ -90,10 +90,7 @@ public final class SeaBattleEventService {
         crew.leave(playerId);
         playerRegistry.unregisterPlayer(playerId);
         gameStateService.releasePlayer(playerId);
-        if (players.isEmpty() && playerRegistry.players().isEmpty()) {
-            gameStateService.finishIfNoPlayers();
-            gameService.endActiveGame();
-        }
+        // Endurance-test branch: close the player's session, but keep the bot round alive.
     }
 
     private void scheduleUnregister(String playerId) {

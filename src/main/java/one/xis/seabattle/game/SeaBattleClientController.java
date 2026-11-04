@@ -416,11 +416,8 @@ public class SeaBattleClientController {
         if (playerId == null || playerId.isBlank()) {
             playerId = createPlayerId(initials);
         }
-        boolean gameIsEmpty = playerRegistry.players().isEmpty();
         playerRegistry.register(playerId, initials, normalizeName(account.nickname()), teamId, account.id());
-        if (gameIsEmpty) {
-            gameStateService.resetCurrentSetup();
-        }
+        // Endurance-test branch: reconnecting must not reset the running bot simulation.
         gameStateService.activateTeam(teamId);
         return ResponseEntity.ok(new PlayerLogin(playerId, initials, teamId));
     }

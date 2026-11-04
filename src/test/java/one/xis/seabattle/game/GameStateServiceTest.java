@@ -242,7 +242,7 @@ class GameStateServiceTest {
     }
 
     @Test
-    void tickPausesWithoutConnectedPlayersWithoutMovingShips() {
+    void tickKeepsSimulatingBotsWithoutConnectedPlayers() {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
                 new RadarService(),
@@ -257,13 +257,14 @@ class GameStateServiceTest {
                 .findFirst()
                 .orElseThrow();
 
-        assertEquals(before.t(), after.t());
-        assertEquals(beforeShip.x(), afterShip.x());
-        assertEquals(beforeShip.z(), afterShip.z());
+        assertTrue(after.t() > before.t());
+        assertTrue(after.ships().stream().anyMatch(ship -> before.ships().stream().anyMatch(old ->
+                old.id().equals(ship.id()) && (old.x() != ship.x() || old.z() != ship.z()))),
+                "Bots must actually move, not just advance the clock");
     }
 
     @Test
-    void tickAdvancesIdleTimeForConnectedPlayerWithoutMovingShips() {
+    void tickKeepsSimulatingBotsForConnectedSpectator() {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
                 new RadarService(),
@@ -280,8 +281,9 @@ class GameStateServiceTest {
                 .orElseThrow();
 
         assertTrue(after.t() > before.t());
-        assertEquals(beforeShip.x(), afterShip.x());
-        assertEquals(beforeShip.z(), afterShip.z());
+        assertTrue(after.ships().stream().anyMatch(ship -> before.ships().stream().anyMatch(old ->
+                old.id().equals(ship.id()) && (old.x() != ship.x() || old.z() != ship.z()))),
+                "Bots must actually move, not just advance the clock");
     }
 
     @Test

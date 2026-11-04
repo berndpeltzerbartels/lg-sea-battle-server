@@ -65,13 +65,13 @@ class CrewInactivityTest {
         assertEquals(0, endedGames.get());
         assertEquals("running", game.snapshot().state());
         events.unregisterPlayer(staying);
-        assertEquals(1, endedGames.get());
-        assertEquals("finished", game.snapshot().state());
+        assertEquals(0, endedGames.get());
+        assertEquals("running", game.snapshot().state());
         double stoppedAt = game.snapshot().t();
-        assertEquals(stoppedAt, game.tick(60).t());
+        assertTrue(game.tick(1).t() > stoppedAt);
         String next = crew.startOwnShip(new Account("NEW", "New Captain", "NEW", "light", null), "torpedo-boat");
         assertEquals("running", game.snapshot().state());
-        assertEquals(0, game.snapshot().t());
+        assertTrue(game.snapshot().t() > stoppedAt);
         assertTrue(players.isRegisteredPlayer(next));
     }
 }

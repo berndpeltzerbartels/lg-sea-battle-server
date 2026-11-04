@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class FleetStartupParametersTest {
     @Test
-    void configuredFleetSizeSurvivesRoundEndAndRestart() {
+    void configuredFleetSizeSurvivesExplicitRestartDuringEnduranceRun() {
         var game = new GameStateService(new DefaultGameSetupFactory(new WorldMapService()), new RadarService(), new NavigationService());
         var before = game.snapshot();
         int expected = Boolean.getBoolean("seaBattle.localFleetTrial") ? 20 : 15;
@@ -14,7 +14,7 @@ class FleetStartupParametersTest {
         assertEquals(2, fleetSizes.size());
         fleetSizes.values().forEach(size -> assertEquals(expected, size.intValue()));
         game.finishIfNoPlayers();
-        assertEquals("finished", game.snapshot().state());
+        assertEquals("running", game.snapshot().state());
         var restarted = game.resetCurrentSetup();
         assertEquals("running", restarted.state());
         assertEquals(before.sessionId(), restarted.sessionId());
