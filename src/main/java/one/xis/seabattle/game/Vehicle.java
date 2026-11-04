@@ -226,7 +226,7 @@ public abstract sealed class Vehicle permits SurfaceVehicle, ScoutPlane {
     return false;
   }
 
-  void backOffAfterGlancingRam(double now, double duration, Vector2 target) {}
+  void backOffAfterGlancingRam(double now, double duration, Vehicle target) {}
 
   protected void readDepth(PlayerStateUpdate update) {}
 

@@ -232,7 +232,8 @@ class BotSubmarineHuntTest {
         Vehicle sub = all.stream().filter(s -> s.id().equals("sub")).findFirst().orElseThrow();
         depth(sub, 3000, 3000, "submerged", 0);
         session.update(.1, radar, navigation, water);
-        assertEquals(0, hunter.snapshot().engineOrder(), "Existing escape is higher priority than top-speed search travel");
+        assertTrue(hunter.snapshot().engineOrder() >= 2, "An old reverse timer in open water must not keep shunting");
+        assertEquals(0, hunter.surface().botReverseUntil);
         assertSame(search, hunter.submarineSearch());
         assertEquals(60, search.area().until());
     }
