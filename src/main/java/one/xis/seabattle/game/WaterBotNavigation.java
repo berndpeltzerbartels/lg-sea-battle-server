@@ -78,6 +78,7 @@ final class WaterBotNavigation {
     NavigationService navigationService = situation.navigation();
     WorldMap worldMap = situation.world();
     List<Vehicle> waterVehicles = situation.round().waterVehicles();
+    List<BotWreckObstacle> wreckObstacles = situation.wreckObstacles();
     BotIntent intent = situation.round().boats().get(vehicle);
     BotNavigation plan = vehicle.botNavigation;
     Vehicle contact = goal.kind() == BotGoal.Kind.ENEMY ? goal.target() : null;
@@ -89,23 +90,24 @@ final class WaterBotNavigation {
               vehicle, desired, BotNavigation.ROUTE_RANGE, navigationService, worldMap);
     }
     if (plan.encounterDue(tick))
-      plan.planEncounter(vehicle, waterVehicles, navigationService, worldMap);
+      plan.planEncounter(vehicle, waterVehicles, navigationService, worldMap, wreckObstacles);
     if (plan.forwardDue(tick)) plan.checkForward(vehicle, navigationService, worldMap);
-    plan.checkNear(vehicle, waterVehicles, navigationService, worldMap);
+    plan.checkNear(vehicle, waterVehicles, navigationService, worldMap, wreckObstacles);
 
     // Emergency rules have highest priority. They never overwrite a stored route/encounter plan.
     if (vehicle.hasGlancingRamBackoff(session.nowSeconds)) {
       boolean rearBlocked =
           navigationService.isShipMovementBlocked(
                   vehicle.position(), vehicle.heading(), -1, worldMap)
-              || !BotNavigation.reverseTrafficClear(vehicle, waterVehicles);
+              || !BotNavigation.reverseTrafficClear(vehicle, waterVehicles)
+              || !reverseWreckClear(vehicle, wreckObstacles);
       if (rearBlocked) {
         vehicle.cancelGlancingRamBackoff();
         vehicle.applyCommand(ENGINE_STOP, 0);
       } else vehicle.applyGlancingRamBackoff(session.nowSeconds);
       return;
     }
-    if (escapeBlockedWater(vehicle, waterVehicles, navigationService, worldMap)) return;
+    if (escapeBlockedWater(vehicle, waterVehicles, navigationService, worldMap, wreckObstacles)) return;
     Optional<Torpedo> threat = visibleIncomingTorpedo(vehicle);
     if (threat.isPresent()) {
       evadeTorpedo(vehicle, threat.get(), navigationService, worldMap);
@@ -180,18 +182,28 @@ final class WaterBotNavigation {
       SurfaceVehicle vehicle,
       List<Vehicle> waterVehicles,
       NavigationService navigationService,
-      WorldMap worldMap) {
+      WorldMap worldMap,
+      List<BotWreckObstacle> wreckObstacles) {
     BotCommand command =
         plannedEscapes == null
             ? escapeCommand(vehicle, navigationService, worldMap)
             : plannedEscapes.get(vehicle);
     if (command == null) return false;
     if (command.engineOrder() < ENGINE_STOP
-        && !BotNavigation.reverseTrafficClear(vehicle, waterVehicles)) {
+        && (!BotNavigation.reverseTrafficClear(vehicle, waterVehicles)
+            || !reverseWreckClear(vehicle, wreckObstacles))) {
       vehicle.applyCommand(ENGINE_STOP, 0);
       return true;
     }
     command.apply(vehicle);
+    return true;
+  }
+
+  private boolean reverseWreckClear(SurfaceVehicle vehicle, List<BotWreckObstacle> wrecks) {
+    if (wrecks.isEmpty()) return true;
+    var reverse = new BotNavigation.Course(vehicle.heading() + Math.PI, ENGINE_ONE_THIRD);
+    for (BotWreckObstacle wreck : wrecks)
+      if (!wreck.courseClear(vehicle, reverse, BotNavigation.NEAR_RANGE, 3)) return false;
     return true;
   }
 

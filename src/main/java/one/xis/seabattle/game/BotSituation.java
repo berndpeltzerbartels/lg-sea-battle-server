@@ -14,6 +14,7 @@ public final class BotSituation {
   private final WorldMap world;
   private final GameSession.BotRound round;
   private boolean standardCalled;
+  private List<BotWreckObstacle> wreckObstacles;
 
   BotSituation(
       GameSession session,
@@ -42,6 +43,11 @@ public final class BotSituation {
 
   GameSession.BotRound round() {
     return round;
+  }
+
+  List<BotWreckObstacle> wreckObstacles() {
+    if (wreckObstacles == null) wreckObstacles = session.botWreckObstacles();
+    return wreckObstacles;
   }
 
   public WorldMap world() {

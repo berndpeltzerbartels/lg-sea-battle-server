@@ -581,3 +581,39 @@ Median der Laufmittelwerte keine Verlangsamung: Standardlandschaft 0,399 / 0,392
 40 Fahrzeuge 0,172 / 0,171 ms, 100 Fahrzeuge 0,616 / 0,611 ms. Bei 100 Fahrzeugen steigt
 das 95. Perzentil leicht von 0,805 auf 0,823 ms. Die Messung umfasst den veränderten
 Spielverlauf; Netzwerk und Grafik sind ausgenommen.
+
+
+## Sinkende Wracks in der Bot-Navigation (2026-11-04)
+
+Die physische Wrackkollision war bereits aktiv, die Navigation sah dagegen nur lebende
+befreundete Fahrzeuge und Land. Dadurch konnte ein Bot sein Ziel versenken und anschließend
+in dessen sinkenden Rumpf fahren.
+
+Die bestehende Begegnungs- und Nahprüfung berücksichtigt jetzt zusätzlich sinkende
+Torpedoboot-Wracks beider Parteien. Die vorhandene Links-Ausweichregel und der Stopp bei
+blockiertem Ausweg bleiben erhalten. Auch beim kontakt- oder landbedingten Zurücksetzen
+werden Wracks berücksichtigt. Zielauswahl und Abschussregeln ändern sich nicht.
+
+Einmal pro Berechnungsrunde entstehen aus den vorhandenen Wracks einfache Navigationshüllen.
+Sie verwenden dieselbe Sinkbewegung wie die Kollisionsprüfung und umfassen zusätzlich die
+nächsten drei Sekunden des Absinkens. Die vertikale Prüfung gibt die Oberfläche frei, sobald
+der Rumpf tief genug liegt, und berücksichtigt ein darüber absinkendes Wrack bei getauchten
+Booten. Vollständig abgesunkene Wracks werden ausgeschlossen. Die Näherung ist bewusst
+vorsichtiger als die genaue Rumpfkollision; es gibt keine neue Flottensuche, keine
+Frontend-Snapshots und keine detaillierten 3D-Kollisionstests bei der Kursplanung.
+
+Nachstelltest mit echter GameSession und Standard-Navigation: Ziel zerstören, mit voller Fahrt
+aus 60 bzw. 100 Welteinheiten Entfernung weiter darauf zufahren. In beiden Berechnungsvarianten
+weicht das Boot aus, bleibt über die ganze Sinkdauer in derselben aktiven Lebensinstanz und
+setzt seine Fahrt fort. Weitere Prüfungen betreffen beide Parteien, freie wegführende Kurse,
+getauchte Boote und die Freigabe der Oberfläche. Vollständiger Testlauf: 655 Tests,
+653 bestanden, 2 übersprungen.
+
+Lokaler Vorher/Nachher-Vergleich gegen main 9488671: 57.600 gemessene vollständige
+GameSession.update-Aufrufe, drei frische JVMs je Variante und Szenario, abwechselnde Reihenfolge.
+Median der Laufmittelwerte: Standardkarte 0,416 → 0,433 ms, 40 Fahrzeuge 0,178 → 0,179 ms,
+100 Fahrzeuge 0,630 → 0,642 ms. Das 95. Perzentil bei 100 Fahrzeugen blieb bei rund 0,888 ms.
+Die sieben bestehenden Performance-Tests bestehen ebenfalls. Der Vergleich enthält
+geänderte Spielverläufe, nicht nur isolierte Kosten der Hindernisprüfung; Netzwerk und Grafik
+sind nicht enthalten. Ergebnisse liegen unter
+`/Users/bernd/Documents/New project/Backend-Performance-Wracknavigation-2026-11-04/`.

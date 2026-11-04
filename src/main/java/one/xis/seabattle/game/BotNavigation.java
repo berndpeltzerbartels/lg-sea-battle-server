@@ -113,18 +113,23 @@ final class BotNavigation {
     }
 
     void planEncounter(Vehicle ship, List<Vehicle> ships, NavigationService navigation, WorldMap world) {
+        planEncounter(ship, ships, navigation, world, List.of());
+    }
+
+    void planEncounter(Vehicle ship, List<Vehicle> ships, NavigationService navigation, WorldMap world,
+                     List<BotWreckObstacle> wrecks) {
         if (route == null) { encounter = null; return; }
-        if (trafficClear(ship, route, ships, ENCOUNTER_RANGE, 14, 30)) {
+        if (trafficClear(ship, route, ships, ENCOUNTER_RANGE, 14, 30, wrecks)) {
             // Do not immediately revert at the boundary of a passing manoeuvre.
             if (++encounterClearChecks >= 2) encounter = null;
             return;
         }
         encounterClearChecks = 0;
         world = nearbyLand(ship, world, ENCOUNTER_RANGE);
-        if (encounter != null && trafficClear(ship, encounter, ships, ENCOUNTER_RANGE, 14, 30)
+        if (encounter != null && trafficClear(ship, encounter, ships, ENCOUNTER_RANGE, 14, 30, wrecks)
                 && pathClear(ship, encounter.heading, ENCOUNTER_RANGE, navigation, world)) return;
         encounter = avoidTraffic(ship, encounter == null ? route : encounter, ships,
-                ENCOUNTER_RANGE, 14, 30, navigation, world);
+                ENCOUNTER_RANGE, 14, 30, navigation, world, wrecks);
     }
 
     void checkForward(Vehicle ship, NavigationService navigation, WorldMap world) {
@@ -138,34 +143,40 @@ final class BotNavigation {
     }
 
     void checkNear(Vehicle ship, List<Vehicle> ships, NavigationService navigation, WorldMap world) {
+        checkNear(ship, ships, navigation, world, List.of());
+    }
+
+    void checkNear(Vehicle ship, List<Vehicle> ships, NavigationService navigation, WorldMap world,
+                     List<BotWreckObstacle> wrecks) {
         nearbyTraffic = false;
         Course intended = forward != null ? forward : encounter != null ? encounter : route;
-        if (intended == null || trafficClear(ship, intended, ships, NEAR_RANGE, 3, SHIP_LENGTH)) {
+        if (intended == null || trafficClear(ship, intended, ships, NEAR_RANGE, 3, SHIP_LENGTH, wrecks)) {
             near = null;
             return;
         }
         world = nearbyLand(ship, world, Math.max(16, Math.abs(ship.speed()) * 2));
-        if (near != null && trafficClear(ship, near, ships, NEAR_RANGE, 3, SHIP_LENGTH)
+        if (near != null && trafficClear(ship, near, ships, NEAR_RANGE, 3, SHIP_LENGTH, wrecks)
                 && pathClear(ship, near.heading, Math.max(16, Math.abs(ship.speed()) * 2), navigation, world)) return;
-        near = avoidTraffic(ship, intended, ships, NEAR_RANGE, 3, SHIP_LENGTH, navigation, world);
+        near = avoidTraffic(ship, intended, ships, NEAR_RANGE, 3, SHIP_LENGTH, navigation, world, wrecks);
     }
 
     private Course avoidTraffic(Vehicle ship, Course intended, List<Vehicle> ships, double range,
-                                double horizon, double clearance, NavigationService navigation, WorldMap world) {
+                                double horizon, double clearance, NavigationService navigation, WorldMap world,
+                                List<BotWreckObstacle> wrecks) {
         // A single passing side prevents two friends from changing their minds together.
         // If port is blocked, stop rather than creep ahead or switch to starboard.
         double distance = range == NEAR_RANGE ? Math.max(16, Math.abs(ship.speed()) * 2) : range;
         for (int step = 1; step <= 9; step++) {
             Course proposal = new Course(MathSupport.normalizeAngle(intended.heading - step * Math.PI / 18),
                     range == NEAR_RANGE ? Math.min(5, intended.engineOrder) : intended.engineOrder);
-            if (trafficClear(ship, proposal, ships, range, horizon, clearance)
+            if (trafficClear(ship, proposal, ships, range, horizon, clearance, wrecks)
                     && pathClear(ship, proposal.heading, distance, navigation, world)) return proposal;
         }
         return new Course(ship.heading(), 2);
     }
 
     private boolean trafficClear(Vehicle ship, Course course, List<Vehicle> ships,
-                                        double range, double horizon, double clearance) {
+                                        double range, double horizon, double clearance, List<BotWreckObstacle> wrecks) {
         double ownSpeed = Math.max(Math.abs(ship.speed()), Math.max(0, EngineOrders.speedFor(course.engineOrder)));
         double vx = Math.sin(course.heading) * ownSpeed, vz = Math.cos(course.heading) * ownSpeed;
         for (Vehicle other : ships) {
@@ -195,6 +206,12 @@ final class BotNavigation {
             double t = MathSupport.clamp(-dot / Math.max(.001, relative2), 0, horizon);
             double x = dx + rvx * t, z = dz + rvz * t;
             if (x * x + z * z < clearance * clearance) return false;
+        }
+        for (BotWreckObstacle wreck : wrecks) {
+            if (!wreck.courseClear(ship, course, range, horizon)) {
+                if (range == NEAR_RANGE) nearbyTraffic = true;
+                return false;
+            }
         }
         return true;
     }
