@@ -90,7 +90,7 @@ final class BotScenarioTest {
             AtomicInteger calls = new AtomicInteger();
             return (s, tick, goals) -> {
                 assertEquals(calls.incrementAndGet(), tick);
-                if (tick == 1) assertEquals(-100, s.ships().get(0).x());
+                if (tick == 1) assertEquals(-100, s.ships().get(0).position().x());
                 s.steer("light-S1", 5, 0);
             };
         }, 30, 2, 3);

@@ -52,6 +52,22 @@ public abstract sealed class Vehicle permits SurfaceVehicle, ScoutPlane {
     return next;
   }
 
+  /** Preserve an actual typed vehicle once at destruction; never maps through a wire DTO. */
+  final Vehicle copyForWreck() {
+    Vehicle copy = create(vehicleType(), id, teamId, position, heading, controlledBy);
+    copy.y = y;
+    copy.speed = speed;
+    copy.turnVelocity = turnVelocity;
+    copy.engineOrder = engineOrder;
+    copy.rudderDegrees = rudderDegrees;
+    copy.state = state;
+    copy.lifeId = lifeId;
+    copy.flakAim(flakYawValue(), flakPitchValue());
+    copy.cannonAim(cannonYawValue(), cannonPitchValue());
+    if (copy instanceof Submarine sub) sub.copyRecordedDepth((Submarine) this);
+    return copy;
+  }
+
   final void retired() {
     state = "replaced";
   }
@@ -138,6 +154,14 @@ public abstract sealed class Vehicle permits SurfaceVehicle, ScoutPlane {
 
   public final double y() {
     return y;
+  }
+
+  public final int engineOrder() {
+    return engineOrder;
+  }
+
+  public final int rudderDegrees() {
+    return rudderDegrees;
   }
 
   public final double turnVelocity() {

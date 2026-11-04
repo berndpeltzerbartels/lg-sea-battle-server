@@ -28,14 +28,14 @@ final class BotTargetSelectionTest {
     void replacesOnlyRankingAndRetainsSchedulingAndNavigation() {
         List<Long> ticks = new ArrayList<>();
         BotTestRun run = BotScenario.parse(SCENE).withTargetSelection(() -> (s, tick) -> {
-            if (!s.observerId().equals("light-S1")) return s.standardTargetId();
+            if (!s.observerId().equals("light-S1")) return s.standardTarget();
             ticks.add(tick);
             assertTrue(s.candidates().stream().allMatch(c -> !c.teamId().equals(s.observer().teamId())));
             assertEquals(2, s.candidateCount());
-            assertEquals("dark-S3", s.standardTargetId(), "Production prefers the distant human to a bot beyond 320");
-            assertEquals(s.standardTargetId(), s.standardTargetId(), "Delegation is stable in a selection round");
+            assertEquals("dark-S3", s.standardTarget().id(), "Production prefers the distant human to a bot beyond 320");
+            assertEquals(s.standardTarget(), s.standardTarget(), "Delegation is stable in a selection round");
             if (tick > 1) assertEquals("dark-S2", s.currentTargetId());
-            return "dark-S2";
+            return s.candidates().stream().filter(c -> c.id().equals("dark-S2")).findFirst().orElseThrow();
         }).run(BotCalculation::standard, 40);
         assertTrue(ticks.size() >= 2);
         assertTrue(ticks.size() <= 3, "Choice is not repeated every tick");
@@ -51,9 +51,9 @@ final class BotTargetSelectionTest {
                 .run(BotCalculation::standard, 1);
         assertTrue(run.targetDecisions().stream().allMatch(d -> d.targetId() == null));
         assertThrows(IllegalArgumentException.class, () -> BotScenario.parse(SCENE)
-                .withTargetSelection(() -> (s, tick) -> s.observerId()).run(BotCalculation::standard, 1));
+                .withTargetSelection(() -> (s, tick) -> s.observer()).run(BotCalculation::standard, 1));
         assertThrows(IllegalArgumentException.class, () -> BotScenario.parse(SCENE)
-                .withTargetSelection(() -> (s, tick) -> "missing-ship").run(BotCalculation::standard, 1));
+                .withTargetSelection(() -> (s, tick) -> new TorpedoBoat("missing-ship", "dark", new Vector2(0, 0), 0, "bot")).run(BotCalculation::standard, 1));
     }
 
     @Test
@@ -61,7 +61,7 @@ final class BotTargetSelectionTest {
         String hidden = SCENE.replace("3: boat dark human", "3: submarine dark human [depth: submerged]");
         BotScenario.parse(hidden).withTargetSelection(() -> (s, tick) -> {
             assertTrue(s.candidates().stream().noneMatch(c -> c.id().equals("dark-U3")));
-            return s.standardTargetId();
+            return s.standardTarget();
         }).run(BotCalculation::standard, 1);
     }
 
@@ -74,9 +74,9 @@ final class BotTargetSelectionTest {
                 calls.incrementAndGet();
                 assertEquals(2, s.candidateCount());
                 assertNull(s.currentTargetId());
-                return "dark-S3";
+                return s.candidates().stream().filter(c -> c.id().equals("dark-S3")).findFirst().orElseThrow();
             }
-            return s.standardTargetId();
+            return s.standardTarget();
         }).run(BotCalculation::standard, 5);
         assertEquals(5, calls.get());
         assertTrue(run.targetDecisions().stream().filter(d -> d.observerId().equals("light-F1"))
@@ -91,7 +91,7 @@ final class BotTargetSelectionTest {
             AtomicInteger ownCalls = new AtomicInteger();
             return (s, tick) -> {
                 if (ownCalls.getAndIncrement() == 0) assertEquals(1, tick);
-                return s.standardTargetId();
+                return s.standardTarget();
             };
         }).benchmark(() -> {
             calculations.incrementAndGet();
@@ -114,21 +114,21 @@ final class BotTargetSelectionTest {
         String moving = SCENE.replace("3: boat dark human", "3: boat dark human [heading: 90, speed: 6]");
         BotTestRun run = BotScenario.parse(moving).withTargetSelection(() -> (s, tick) -> {
             selections.incrementAndGet();
-            return s.observerId().equals("light-S1") ? "dark-S3" : s.standardTargetId();
+            return s.observerId().equals("light-S1") ? s.candidates().stream().filter(c -> c.id().equals("dark-S3")).findFirst().orElseThrow() : s.standardTarget();
         }).run(() -> (s, tick, goals) -> {
             assertTrue(selections.get() >= 2, "ALL initial selections precede the first movement callback");
             assertEquals(java.util.Set.of("light-S1", "dark-S2"), goals.keySet());
             BotGoal goal = goals.get("light-S1");
             assertEquals("dark-S3", goal.targetShipId());
             assertEquals(BotGoal.Kind.ENEMY, goal.kind());
-            VehicleSnapshot target = s.ships().stream().filter(ship -> ship.id().equals("dark-S3")).findFirst().orElseThrow();
-            assertEquals(target.x(), goal.x(), .001);
+            Vehicle target = s.ships().stream().filter(ship -> ship.id().equals("dark-S3")).findFirst().orElseThrow();
+            assertEquals(target.position().x(), goal.x(), .001);
             assertThrows(UnsupportedOperationException.class, goals::clear);
             movementTicks.add(tick);
             received.add(goals);
             // Own controller consumes only the assigned goal, without calling runStandard().
-            VehicleSnapshot own = s.ships().get(0);
-            double direction = Math.atan2(goal.x() - own.x(), goal.z() - own.z());
+            Vehicle own = s.ships().get(0);
+            double direction = Math.atan2(goal.x() - own.position().x(), goal.z() - own.position().z());
             s.steer(own.id(), 5, (int) Math.round(Math.toDegrees(direction - own.heading())));
         }, 30);
         assertEquals(30, movementTicks.size());

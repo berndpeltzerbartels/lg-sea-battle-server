@@ -23,6 +23,10 @@ public final class Submarine extends SurfaceVehicle {
     return depth;
   }
 
+  void copyRecordedDepth(Submarine source) {
+    depth = source.depth;
+  }
+
   SubmarineBot bot() {
     return submarineBot;
   }

@@ -67,17 +67,25 @@ public final class BotScenario {
             calculation.calculate(situation, tickId, goals);
             botNanos[index[0]] = System.nanoTime() - start;
         };
-        BotTargetSelection measuredSelection = (situation, tickId) -> {
+        BotTargetSelection measuredSelection = new BotTargetSelection() {
+          @Override public Vehicle select(BotTargetSituation situation, long tickId) {
             long start = System.nanoTime();
-            String selected = selector.select(situation, tickId);
+            Vehicle selected = selector.select(situation, tickId);
             targetNanos[index[0]] += System.nanoTime() - start;
             targetCalls[0]++;
             if (capture) {
-                Vehicle target = situation.resolve(selected);
+                Vehicle target = situation.validate(selected);
                 decisions.add(new BotTestRun.TargetDecision(tickId, situation.timeSeconds(), situation.observerId(),
-                        situation.currentTargetId(), selected, target == null ? -1 : target.lifeId(), situation.candidateCount()));
+                        situation.currentTargetId(), selected == null ? null : selected.id(), target == null ? -1 : target.lifeId(), situation.candidateCount()));
             }
             return selected;
+          }
+          @Override public BotGoal goal(BotTargetSituation situation, Vehicle contact, boolean advanceSearch) {
+            long start = System.nanoTime();
+            BotGoal goal = selector.goal(situation, contact, advanceSearch);
+            targetNanos[index[0]] += System.nanoTime() - start;
+            return goal;
+          }
         };
         GameSession session = new GameSession(definition.setup(), threads, parallelNavigation, measured, measuredSelection);
         NavigationService navigation = new NavigationService();
@@ -101,7 +109,7 @@ public final class BotScenario {
     private void initialize(GameSession session, NavigationService navigation) {
         for (ScenarioInitialState initial : definition.initialStates()) {
             Vehicle ship = session.calculationShips().stream().filter(s -> s.id().equals(initial.id())).findFirst().orElseThrow();
-            VehicleSnapshot s = ship.snapshot();
+            Vehicle s = ship;
             double y = ship.isSubmarine() ? switch (initial.depth()) {
                 case "periscope" -> -1.86 * SeaBattleGameConfig.TORPEDO_BOAT_SCALE;
                 case "submerged" -> SeaBattleGameConfig.SUBMARINE_DEEP_Y;
@@ -109,7 +117,7 @@ public final class BotScenario {
             } : s.y();
             if (navigation.isShipBlocked(ship.position(), ship.heading(), session.worldMap()) && !ship.isScoutPlane())
                 throw new IllegalArgumentException("Initial ship hull overlaps land: " + ship.id());
-            ship.applyPlayerState(new PlayerStateUpdate(s.controlledBy(), s.teamId(), s.x(), s.z(), s.heading(),
+            ship.applyPlayerState(new PlayerStateUpdate(s.controlledBy(), s.teamId(), s.position().x(), s.position().z(), s.heading(),
                     initial.speed(), 0, s.engineOrder(), s.rudderDegrees(), 0, true, s.vehicleType(), y, 0,
                     null, null, null, null, initial.depth()), navigation, session.worldMap());
         }

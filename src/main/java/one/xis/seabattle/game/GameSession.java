@@ -1,184 +1,29 @@
 package one.xis.seabattle.game;
 
+import static one.xis.seabattle.game.GameRules.*;
+
 import java.util.*;
 
 public final class GameSession {
-
-    private static final double TORPEDO_BOAT_MODEL_SCALE = SeaBattleGameConfig.TORPEDO_BOAT_SCALE;
-    private static final double SCOUT_PLANE_MODEL_SCALE = SeaBattleGameConfig.SCOUT_PLANE_SCALE;
-    private static final double TORPEDO_BROAD_PHASE_RADIUS = 6.2;
-    private static final double TORPEDO_HULL_MARGIN = 0.28;
-    private static final double TORPEDO_SWEEP_STEP = 1.15;
-    private static final double BOMB_HIT_RADIUS = 6.6;
-    private static final double BOMB_HULL_MARGIN = 1.35;
-    private static final int BOMBS_PER_DROP = 12;
-    private static final double BOMB_RELEASE_INTERVAL_SECONDS = 0.12;
-    private static final double BOT_SCOUT_PLANE_BOMB_COOLDOWN_SECONDS = 4.5;
-    private static final double BOT_SCOUT_PLANE_TORPEDO_COOLDOWN_SECONDS = 12.0;
-    private static final double BOT_SCOUT_PLANE_ATTACK_RANGE = 620.0;
-    private static final double BOT_SCOUT_PLANE_BOMB_MIN_RANGE = 35.0;
-    private static final double BOT_SCOUT_PLANE_BOMB_RANGE = 245.0;
-    private static final double BOT_SCOUT_PLANE_BOMB_FORWARD_TOLERANCE = 24.0;
-    private static final double BOT_SCOUT_PLANE_BOMB_LATERAL_TOLERANCE = 18.0;
-    private static final double BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE = 115.0;
-    private static final double BOT_SCOUT_PLANE_TORPEDO_RELEASE_RANGE = 300.0;
-    private static final double BOT_SCOUT_PLANE_TORPEDO_APPROACH_RANGE = 560.0;
-    private static final double BOT_SCOUT_PLANE_ATTACK_ARC = Math.toRadians(32);
-    private static final double BOT_SCOUT_PLANE_TORPEDO_ARC = Math.toRadians(14);
-    private static final double BOT_SCOUT_PLANE_FLY_THROUGH_DISTANCE = 230.0;
-    private static final double BOT_SCOUT_PLANE_FLY_THROUGH_COMPLETE_DISTANCE = 30.0;
-    private static final double BOT_SCOUT_PLANE_FLY_THROUGH_SECONDS = 12.0;
-    private static final double SCOUT_PLANE_ALTITUDE_SCALE = SeaBattleGameConfig.SCOUT_PLANE_ALTITUDE_SCALE;
-    private static final double BOT_SCOUT_PLANE_CRUISE_Y = 170.0;
-    private static final double BOT_SCOUT_PLANE_TORPEDO_ATTACK_Y = 70.0;
-    private static final double BOT_SCOUT_PLANE_BOMB_ATTACK_Y = 110.0;
-    private static final double BOT_SCOUT_PLANE_TORPEDO_RELEASE_MAX_Y = 118.25;
-    private static final double BOT_SCOUT_PLANE_TERRAIN_CLEARANCE = 8.0 * SCOUT_PLANE_ALTITUDE_SCALE;
-    private static final double BOT_SCOUT_PLANE_TORPEDO_LEAD_SECONDS = 2.2;
-    private static final double BOT_SCOUT_PLANE_AIR_TORPEDO_RELEASE_OFFSET = 10.0;
-    private static final double BOT_SCOUT_PLANE_AIR_TORPEDO_RELEASE_Y_OFFSET = 1.6 * SCOUT_PLANE_MODEL_SCALE;
-    private static final double SHIP_TORPEDO_SPEED_SCALE = Math.sqrt(TORPEDO_BOAT_MODEL_SCALE);
-    private static final double TORPEDO_SPEED_ADJUSTMENT = 0.8;
-    private static final double SHIP_TORPEDO_BASE_SPEED = 24.0 * SHIP_TORPEDO_SPEED_SCALE * TORPEDO_SPEED_ADJUSTMENT;
-    private static final double SHIP_TORPEDO_SPEED_GAIN = 0.35 * SHIP_TORPEDO_SPEED_SCALE * TORPEDO_SPEED_ADJUSTMENT;
-    private static final double AIR_TORPEDO_SPEED_FACTOR = 0.75;
-    private static final double BOT_SCOUT_PLANE_AIR_TORPEDO_BASE_SPEED = SHIP_TORPEDO_BASE_SPEED * AIR_TORPEDO_SPEED_FACTOR;
-    private static final double BOT_SCOUT_PLANE_AIR_TORPEDO_SPEED_GAIN = SHIP_TORPEDO_SPEED_GAIN * AIR_TORPEDO_SPEED_FACTOR;
-    private static final double BOT_SCOUT_PLANE_POST_TORPEDO_BOMB_DELAY_SECONDS = 1.1;
-    private static final double PLAYER_SCOUT_PLANE_TORPEDO_COOLDOWN_SECONDS = 1.5;
-    private static final int BOT_SCOUT_PLANE_FORCE_HUMAN_SINGLE_TARGET_STREAK = 5;
-    private static final int BOT_SCOUT_PLANE_FORCE_HUMAN_TWO_TARGET_STREAK = 6;
-    private static final int BOT_SCOUT_PLANE_FORCE_HUMAN_MANY_TARGET_STREAK = 7;
-    private static final int BOT_SCOUT_PLANE_DESIRED_WITHOUT_HUMAN_TARGETS = 1;
-    private static final int BOT_SCOUT_PLANE_DESIRED_WITH_ONE_OR_TWO_HUMAN_TARGETS = 2;
-    private static final int BOT_SCOUT_PLANE_DESIRED_WITH_MANY_HUMAN_TARGETS = 3;
-    private static final String VEHICLE_TORPEDO_BOAT = "torpedo-boat";
-    private static final String VEHICLE_SCOUT_PLANE = "scout-plane";
-    private static final double BOT_SCOUT_PLANE_TARGET_RESERVATION_PENALTY = 280.0;
-    private static final double BOT_SCOUT_PLANE_TARGET_TIE_BREAKER = 16.0;
-    private static final double BOT_SCOUT_PLANE_TARGET_BEARING_PENALTY = 170.0;
-    private static final double BOT_SCOUT_PLANE_CLOSE_REALIGN_RANGE = 225.0;
-    private static final double BOT_SCOUT_PLANE_CLOSE_REALIGN_ARC = Math.toRadians(52);
-    private static final double BOT_SCOUT_PLANE_CLOSE_REALIGN_PENALTY = 260.0;
-    private static final double BOMB_DROP_FORWARD_OFFSET = 0.6;
-    private static final double BOMB_DROP_VERTICAL_OFFSET = 0.65;
-    private static final double BOMB_PATTERN_LATERAL_SPACING = 0.18;
-    private static final double BOMB_PATTERN_HEADING_JITTER = 0.008;
-    private static final double BOMB_PATTERN_SPEED_JITTER = 1.1;
-    private static final double BOMB_DROP_COOLDOWN_SECONDS = 2.8;
-    private static final double SCOUT_PLANE_MIN_BOMB_ALTITUDE = 3 * SCOUT_PLANE_ALTITUDE_SCALE;
-    private static final double SCOUT_PLANE_MAX_BOMB_ALTITUDE = 200 * SCOUT_PLANE_ALTITUDE_SCALE;
-    private static final double SCOUT_PLANE_MAX_BOMB_HORIZONTAL_SPEED = 42;
-    private static final double SCOUT_PLANE_MAX_BOMB_INITIAL_UP_SPEED = 20;
-    private static final double SCOUT_PLANE_MAX_BOMB_INITIAL_DOWN_SPEED = 34;
-    private static final double BOT_SCOUT_PLANE_STABLE_ATTACK_TURN_RATE = 0.035;
-    private static final double FLAK_FIRE_COOLDOWN_SECONDS = 0.059;
-    private static final double CANNON_FIRE_COOLDOWN_SECONDS = 1.0;
-    private static final double FLAK_HIT_VISIBILITY_SECONDS = 2.4;
-    private static final double AIRBORNE_TORPEDO_SWEEP_STEP = 1.0;
-    private static final double FLAK_SWEEP_STEP = 1.5;
-    private static final double CANNON_SWEEP_STEP = 0.45;
-    private static final double CANNON_HULL_MARGIN = 0.42;
-    private static final double CANNON_HULL_MIN_Y = -0.08;
-    private static final double CANNON_HULL_DECK_MARGIN = 0.14;
-    private static final double SCOUT_PLANE_FUSELAGE_HALF_WIDTH = 0.55;
-    private static final double SCOUT_PLANE_HALF_LENGTH = 3.5;
-    private static final double SCOUT_PLANE_WING_HALF_WIDTH = 4.15;
-    private static final double SCOUT_PLANE_WING_FORWARD_MIN = -0.45;
-    private static final double SCOUT_PLANE_WING_FORWARD_MAX = 0.95;
-    private static final double SCOUT_PLANE_TAIL_HALF_WIDTH = 1.45;
-    private static final double SCOUT_PLANE_TAIL_FORWARD_MIN = -2.85;
-    private static final double SCOUT_PLANE_TAIL_FORWARD_MAX = -2.1;
-    private static final double SCOUT_PLANE_VERTICAL_HALF_HEIGHT = 1.15;
-    private static final double SCOUT_PLANE_HIT_MARGIN = 1.1;
-    private static final double SCOUT_PLANE_VISUAL_BANK_PER_TURN_RATE = 2.35;
-    private static final double SCOUT_PLANE_MAX_VISUAL_BANK = 0.72;
-    private static final double FLAK_SHIP_HIT_MARGIN = 0.18;
-    private static final double TORPEDO_BOAT_MODEL_WATERLINE_Y = -0.2;
-    private static final double TORPEDO_BOAT_STERN_Z = -4.2;
-    private static final double TORPEDO_BOAT_BOW_Z = 3.68;
-    private static final double BOT_SHIP_TACTICAL_SCALE = TORPEDO_BOAT_MODEL_SCALE;
-    private static final double RAM_HIT_RADIUS = 4.8;
-    private static final double RAM_BOW_OFFSET = TORPEDO_BOAT_BOW_Z;
-    private static final double RAM_STERN_LENGTH = TORPEDO_BOAT_STERN_Z;
-    private static final double RAM_BOW_LENGTH = TORPEDO_BOAT_BOW_Z;
-    private static final double RAM_SIDE_FORWARD_MIN = -2.85;
-    private static final double RAM_SIDE_FORWARD_MAX = 2.95;
-    private static final double RAM_SIDE_MARGIN = 0.42;
-    private static final double RAM_SIDE_ANGLE_TOLERANCE = Math.toRadians(45);
-    private static final double RAM_GLANCING_COLLISION_ANGLE = Math.toRadians(40);
-    private static final double RAM_GLANCING_HEADING_IMPULSE = Math.toRadians(9);
-    private static final double RAM_DAMAGE_MIN_CLOSING_SPEED = 5.0;
-    private static final double SUBMARINE_RAM_DAMAGE_MIN_CLOSING_SPEED = 2.4;
-    private static final double RAM_COLLISION_BROAD_PHASE_RADIUS = 10.2 * TORPEDO_BOAT_MODEL_SCALE;
-    private static final double SUBMARINE_PERISCOPE_RAM_RADIUS = 0.36 * TORPEDO_BOAT_MODEL_SCALE;
-    private static final double SUBMERGED_SUBMARINE_RAM_RADIUS = 1.25 * TORPEDO_BOAT_MODEL_SCALE;
-    private static final double RAM_IMPACT_STOP_HOLD_SECONDS = 0.65;
-    private static final double RAM_SURFACE_KEEL_Y = (-.26 - .05) * TORPEDO_BOAT_MODEL_SCALE;
-    private static final double RAM_SUBMARINE_HULL_TOP = .62 * TORPEDO_BOAT_MODEL_SCALE;
-    private static final double BOT_FIRE_ARC = 0.16;
-    private static final double BOT_CLOSE_FIRE_ARC = 1.15;
-    private static final double BOT_FIRE_MIN_RANGE = 65 * BOT_SHIP_TACTICAL_SCALE;
-    private static final double BOT_FIRE_MAX_RANGE = 230 * BOT_SHIP_TACTICAL_SCALE;
-    private static final double BOT_CLOSE_FIRE_RANGE = 145 * BOT_SHIP_TACTICAL_SCALE;
-    private static final double BOT_CLOSE_MANEUVER_RANGE = 130;
-    private static final double BOT_APPROACH_SLOW_RANGE = 230;
-    private static final double BOT_AIM_ERROR = 0.025;
-    private static final double BOT_SUBMARINE_ATTACK_CONTINUATION_SECONDS = 10;
-    private static final double BOT_RAM_RANGE = 34 * BOT_SHIP_TACTICAL_SCALE;
-    private static final double BOT_TORPEDO_EVADE_RANGE = 115 * BOT_SHIP_TACTICAL_SCALE;
-    private static final double BOT_TORPEDO_LOOKOUT_FORWARD_OFFSET = 4.5 * TORPEDO_BOAT_MODEL_SCALE;
-    private static final double BOT_TORPEDO_LOOKOUT_ARC = 0.38;
-    private static final double BOT_TORPEDO_INCOMING_ARC = 0.34;
-    private static final double BOT_TORPEDO_THREAT_CORRIDOR = 8.0 * TORPEDO_BOAT_MODEL_SCALE;
-    private static final double BOT_PERISCOPE_RAM_SHIP_LENGTH = (TORPEDO_BOAT_BOW_Z - TORPEDO_BOAT_STERN_Z) * TORPEDO_BOAT_MODEL_SCALE;
-    private static final double SUBMARINE_POINT_BLANK_TORPEDO_DANGER_RANGE = BOT_PERISCOPE_RAM_SHIP_LENGTH * 0.75;
-    private static final double BOT_PERISCOPE_AHEAD_FACTOR = .8;
-    // Actual speeds at periscope depth: Slow, 1/3, Half, 2/3, 3/4 and Full.
-    private static final double[] PERISCOPE_SIGHT_SPEEDS = {.9*10/13.5, 2.93*10/13.5,
-            6.18*10/13.5, 10.4*10/13.5, 12*10/13.5, 10};
-    private static final double[] PERISCOPE_SIGHT_LENGTHS = {2,4,6,8,10,12};
-    private static final double BOT_RADAR_INTERCEPT_RANGE = 360;
-    private static final double BOT_HUMAN_TARGET_PRIORITY_CLEARANCE = 320;
-    private static final double BOT_GLANCING_RAM_BACKOFF_SECONDS = 2.85;
-    private static final boolean SCOUT_PLANE_EXPERIMENT_PEACEFUL_BOTS = false;
-    private static final boolean TEMPORARILY_DISABLE_BOTS = false;
-    private static final double RESPAWN_DELAY_SECONDS = 8;
-    private static final double WRECK_VISIBILITY_SECONDS = 35;
-    private static final double RESPAWN_HUMAN_RADAR_MARGIN = 120;
-    private static final double RESPAWN_MIN_SHIP_DISTANCE = 170;
-    private static final double TORPEDO_IMPACT_VISIBILITY_SECONDS = 3.0;
-    private static final int ENGINE_FULL_ASTERN = 0;
-    private static final int ENGINE_ASTERN = 1;
-    private static final int ENGINE_STOP = 2;
-    private static final int ENGINE_SLOW = 3;
-    private static final int ENGINE_ONE_THIRD = 4;
-    private static final int ENGINE_HALF = 5;
-    private static final int ENGINE_TWO_THIRDS = 6;
-    private static final int ENGINE_FULL = 7;
-    private static final int ENGINE_FLANK = 8;
-    private static final int SCORE_ENEMY_SUNK = 1;
-    private static final int SCORE_FRIENDLY_SUNK = -2;
-    private static final int SCORE_PLAYER_SUNK = -3;
 
     private final String id;
     private final String instanceId = java.util.UUID.randomUUID().toString();
     private final WorldMap worldMap;
     private final PeriscopeWarnings periscopeWarnings = new PeriscopeWarnings();
     private final BotSubmarineHunt submarineHunts = new BotSubmarineHunt();
-    private final AircraftAttackWarnings aircraftWarnings = new AircraftAttackWarnings();
-    private final WorldMap scoutPlaneObstacleMap;
+    final AircraftAttackWarnings aircraftWarnings = new AircraftAttackWarnings();
+    final WorldMap scoutPlaneObstacleMap;
     private final Map<String, Fleet> fleets;
     private final List<Vector2> respawnCandidates;
-    private final Vector2 patrolCenter;
+    final Vector2 patrolCenter;
     private final Map<String, Integer> destroyedShipsByTeam = new LinkedHashMap<>();
     private final Map<String, Integer> killsByPlayer = new LinkedHashMap<>();
     private final Map<String, Double> nextFlakFireTimeByShipId = new LinkedHashMap<>();
     private final Map<String, Double> nextCannonFireTimeByShipId = new LinkedHashMap<>();
-    private final List<Torpedo> torpedoes = new ArrayList<>();
-    private final List<ShipWreckSnapshot> wrecks = new ArrayList<>();
+    final List<Torpedo> torpedoes = new ArrayList<>();
+    private final List<Wreck> wrecks = new ArrayList<>();
     private long nextWreckId;
-    private final Map<String, VehicleSnapshot> previousWreckTargets = new HashMap<>();
+    private final Map<String, HullPose> previousWreckTargets = new HashMap<>();
     private double previousWreckCheckTime;
     private record PendingDepthCharge(String shipId, String playerId, int lane, double at) {}
     private final List<PendingDepthCharge> pendingDepthCharges = new ArrayList<>();
@@ -191,7 +36,7 @@ public final class GameSession {
     private int nextDepthChargeId;
     static final double DEPTH_CHARGE_RADIUS = 24;
     static final double DEPTH_CHARGE_RELOAD = 4.8;
-    private static final double BOT_DEPTH_CHARGE_DETECTION_RADIUS = 6 * BotNavigation.SHIP_LENGTH;
+    static final double BOT_DEPTH_CHARGE_DETECTION_RADIUS = 6 * BotNavigation.SHIP_LENGTH;
     private double nextBotDepthChargeCheck;
     private final List<TorpedoImpactSnapshot> torpedoImpacts = new ArrayList<>();
     private final List<Bomb> bombs = new ArrayList<>();
@@ -203,35 +48,23 @@ public final class GameSession {
     private final List<FlakImpactSnapshot> flakImpacts = new ArrayList<>();
     private final List<RamHitSnapshot> ramHits = new ArrayList<>();
     private final Map<String, Double> ramImpactStopUntilSecondsByShipId = new LinkedHashMap<>();
-    private final Map<String, Integer> botScoutPlaneNonHumanAttackStreakByHumanTarget = new LinkedHashMap<>();
+    final Map<String, Integer> botScoutPlaneNonHumanAttackStreakByHumanTarget = new LinkedHashMap<>();
     private final Map<String, Map<String, Integer>> botScoutPlaneNonHumanAttackStreakByPlane = new LinkedHashMap<>();
-    private final Map<String, Vector2> botScoutPlaneFlyThroughTargets = new LinkedHashMap<>();
-    private final Map<String, Double> botScoutPlaneFlyThroughUntil = new LinkedHashMap<>();
+    final Map<String, Vector2> botScoutPlaneFlyThroughTargets = new LinkedHashMap<>();
+    final Map<String, Double> botScoutPlaneFlyThroughUntil = new LinkedHashMap<>();
     private int nextTorpedoId = 1;
     private int nextBombId = 1;
     private int nextFlakProjectileId = 1;
     private int nextRespawnCandidateIndex;
     private int lastRespawnCandidateIndex = -1;
-    private double nowSeconds;
-    private double nextBotScoutPlaneTorpedoTime;
+    double nowSeconds;
+    double nextBotScoutPlaneTorpedoTime;
     private String state = "running";
 
     private final BotCalculation botCalculation;
     private final BotTargetSelection targetSelection;
     private final int simulationThreads;
-    private final boolean parallelBotNavigation;
-    private Map<Vehicle, BotCommand> plannedBotEscapes;
-    private List<BotCourseRequest> pendingBotCourses;
-
-    private record BotCommand(int engineOrder, int rudder) {
-        void apply(Vehicle ship) {
-            ship.applyCommand(engineOrder, rudder);
-        }
-    }
-
-    private record BotCourseRequest(Vehicle ship, int engineOrder, int rudder) {
-    }
-
+    final boolean parallelBotNavigation;
     GameSession(GameSetup setup) {
         this(setup, Integer.getInteger("seaBattle.simulationThreads", 1),
                 Boolean.getBoolean("seaBattle.parallelBotNavigation"));
@@ -242,11 +75,11 @@ public final class GameSession {
     }
 
     GameSession(GameSetup setup, int simulationThreads, boolean parallelBotNavigation) {
-        this(setup, simulationThreads, parallelBotNavigation, BotCalculation.standard());
+        this(setup, simulationThreads, parallelBotNavigation, BotAlgorithms.calculation());
     }
 
     GameSession(GameSetup setup, int simulationThreads, boolean parallelBotNavigation, BotCalculation calculation) {
-        this(setup, simulationThreads, parallelBotNavigation, calculation, BotTargetSelection.standard());
+        this(setup, simulationThreads, parallelBotNavigation, calculation, BotAlgorithms.targetSelection());
     }
 
     GameSession(GameSetup setup, int simulationThreads, boolean parallelBotNavigation, BotCalculation calculation,
@@ -335,7 +168,7 @@ public final class GameSession {
                 periscopeWarnings.snapshot(),
                 aircraftWarnings.snapshot(),
                 submarineHunts.detections(nowSeconds),
-                List.copyOf(wrecks)
+                wrecks.stream().map(Wreck::snapshot).toList()
         );
     }
 
@@ -599,7 +432,7 @@ public final class GameSession {
         releasePendingBombs();
     }
 
-    private void dropBombsFromScoutPlane(Vehicle ship, double cooldownSeconds) {
+    void dropBombsFromScoutPlane(Vehicle ship, double cooldownSeconds) {
         ship.markFired(nowSeconds, cooldownSeconds);
         for (int index = 0; index < BOMBS_PER_DROP; index += 1) {
             pendingBombReleases.add(new PendingBombRelease(
@@ -850,7 +683,7 @@ public final class GameSession {
 
     List<Vehicle> calculationShips() { return allShips(); }
 
-    record BotIntent(Vehicle contact, Vector2 retreatFrom, boolean routeUpdated) {}
+    record BotIntent(Vehicle contact, boolean routeUpdated, BotTargetSituation situation) {}
     record BotRound(List<Vehicle> activeShips, List<Vehicle> surfaceShips, RadarService.VisibilityCache cache,
                     Map<Vehicle, BotIntent> boats, Map<Vehicle, Vehicle> planes, Map<String, BotGoal> goals) {}
 
@@ -882,7 +715,7 @@ public final class GameSession {
         for (Vehicle ship : activeShips) {
             if (!ship.isBotControlled()) continue;
             if (ship.isScoutPlane()) {
-                Vehicle target = selectBotScoutPlaneTarget(ship, activeShips, scoutPlaneTargetReservations).orElse(null);
+                Vehicle target = selectBotScoutPlaneTarget(ship, activeShips, scoutPlaneTargetReservations, visibilityCache).orElse(null);
                 planes.put(ship, target);
                 if (target != null) scoutPlaneTargetReservations.merge(target.id(), 1, Integer::sum);
             } else {
@@ -894,50 +727,14 @@ public final class GameSession {
         for (var entry : boats.entrySet()) {
             Vehicle ship = entry.getKey();
             BotIntent intent = entry.getValue();
-            goals.put(ship.id(), navigationGoal(ship, intent.contact(), intent.routeUpdated()));
+            goals.put(ship.id(), targetSelection.goal(intent.situation(), intent.contact(), intent.routeUpdated()));
         }
         for (var entry : planes.entrySet()) {
             Vehicle target = entry.getValue(), plane = entry.getKey();
-            goals.put(plane.id(), target == null
-                    ? new BotGoal(BotGoal.Kind.NONE, null, -1, plane.position().x(), plane.position().z())
-                    : new BotGoal(BotGoal.Kind.ENEMY, target.id(), target.lifeId(), target.position().x(), target.position().z()));
+            goals.put(plane.id(), targetSelection.goal(new BotTargetSituation(this, plane, List.of(), visibilityCache,
+                    scoutPlaneTargetReservations), target, true));
         }
         return new BotRound(activeShips, surfaceShips, visibilityCache, boats, planes, Map.copyOf(goals));
-    }
-
-    void calculateStandardBots(RadarService radarService, NavigationService navigationService, WorldMap worldMap,
-                               BotRound round, Map<String, BotGoal> goals) {
-        List<Vehicle> surfaceShips = round.surfaceShips();
-        if (parallelBotNavigation) {
-            List<Vehicle> boats = surfaceShips.stream().filter(Vehicle::isBotControlled).toList();
-            List<BotCommand> escapes = BotNavigationStream.map(boats,
-                    ship -> escapeCommand(ship, navigationService, worldMap));
-            plannedBotEscapes = new HashMap<>();
-            for (int i = 0; i < boats.size(); i++) plannedBotEscapes.put(boats.get(i), escapes.get(i));
-            pendingBotCourses = new ArrayList<>();
-        }
-        try {
-            round.activeShips().stream()
-                    .filter(ship -> "bot".equals(ship.controlledBy()))
-                    .forEach(ship -> {
-                        if (ship.isScoutPlane()) {
-                            commandScoutPlaneBot(ship, Optional.ofNullable(round.planes().get(ship)), worldMap);
-                        } else {
-                            commandBot(ship, round.cache(), navigationService, worldMap, surfaceShips,
-                                    round.boats().get(ship), Objects.requireNonNull(goals.get(ship.id()), "Missing bot goal"));
-                        }
-                    });
-            if (parallelBotNavigation) {
-                // Decisions keep their order; each terrain-planning worker owns one ship's escape plan.
-                List<BotCommand> courses = BotNavigationStream.map(pendingBotCourses,
-                        request -> courseCommand(request.ship(), request.engineOrder(), request.rudder(),
-                                navigationService, worldMap));
-                for (int i = 0; i < courses.size(); i++) courses.get(i).apply(pendingBotCourses.get(i).ship());
-            }
-        } finally {
-            plannedBotEscapes = null;
-            pendingBotCourses = null;
-        }
     }
 
     private void tryBotDepthCharges(Vehicle ship, RadarService.VisibilityCache visibilityCache) {
@@ -967,234 +764,8 @@ public final class GameSession {
         }
     }
 
-    private void commandScoutPlaneBot(Vehicle plane, List<Vehicle> activeShips, WorldMap worldMap,
-                                      Map<String, Integer> targetReservations) {
-        Optional<Vehicle> target = selectBotScoutPlaneTarget(plane, activeShips, targetReservations);
-        target.ifPresent(ship -> targetReservations.merge(ship.id(), 1, Integer::sum));
-        commandScoutPlaneBot(plane, target, worldMap);
-    }
-
-    private void commandScoutPlaneBot(Vehicle plane, Optional<Vehicle> target, WorldMap worldMap) {
-        if (target.isEmpty()) {
-            clearBotScoutPlaneFlyThrough(plane);
-            patrolScoutPlane(plane);
-            return;
-        }
-
-        Vehicle ship = target.get();
-        BotTorpedoSolution torpedoSolution = botScoutPlaneTorpedoSolution(plane, ship);
-        Vector2 torpedoTarget = torpedoSolution.targetPosition();
-        BotBombingSolution bombSolution = botScoutPlaneBombingSolution(plane, ship);
-        Vector2 bombTarget = bombSolution.targetPosition();
-        double distance = plane.position().distanceTo(ship.position());
-        BotAircraftEvasion.observe(ship, plane, nowSeconds);
-        boolean inBombWindow = distance >= BOT_SCOUT_PLANE_BOMB_MIN_RANGE && distance <= BOT_SCOUT_PLANE_BOMB_RANGE;
-        boolean inTorpedoReleaseWindow = distance >= BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE
-                && distance <= BOT_SCOUT_PLANE_TORPEDO_RELEASE_RANGE;
-        boolean mayUseAirTorpedo = mayUseAirTorpedoAgainst(ship);
-        boolean preferTorpedoAttack = mayUseAirTorpedo
-                && distance >= BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE
-                && distance <= BOT_SCOUT_PLANE_TORPEDO_APPROACH_RANGE;
-        Optional<Vector2> flyThroughTarget = botScoutPlaneFlyThroughTarget(plane, distance);
-        if (flyThroughTarget.isPresent()) {
-            plane.botScoutPlaneTargetY(BOT_SCOUT_PLANE_BOMB_ATTACK_Y);
-            applyScoutPlaneBotCommand(plane, angleTo(flyThroughTarget.get(), plane.position()));
-            return;
-        }
-        if (distance < BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE && !inBombWindow) {
-            Vector2 flyThrough = startBotScoutPlaneFlyThrough(plane);
-            plane.botScoutPlaneTargetY(BOT_SCOUT_PLANE_BOMB_ATTACK_Y);
-            applyScoutPlaneBotCommand(plane, angleTo(flyThrough, plane.position()));
-            return;
-        }
-        Vector2 aimTarget = preferTorpedoAttack ? torpedoTarget : bombTarget;
-        double targetBearing = relativeBearing(plane, aimTarget);
-        if (distance < BOT_SCOUT_PLANE_CLOSE_REALIGN_RANGE
-                && Math.abs(targetBearing) > BOT_SCOUT_PLANE_CLOSE_REALIGN_ARC) {
-            Vector2 flyThrough = startBotScoutPlaneFlyThrough(plane);
-            plane.botScoutPlaneTargetY(BOT_SCOUT_PLANE_BOMB_ATTACK_Y);
-            applyScoutPlaneBotCommand(plane, angleTo(flyThrough, plane.position()));
-            return;
-        }
-        if (distance > BOT_SCOUT_PLANE_ATTACK_RANGE) {
-            plane.botScoutPlaneTargetY(BOT_SCOUT_PLANE_CRUISE_Y);
-            applyScoutPlaneBotCommand(plane, angleTo(torpedoTarget, plane.position()));
-            return;
-        }
-
-        plane.botScoutPlaneTargetY(preferTorpedoAttack ? BOT_SCOUT_PLANE_TORPEDO_ATTACK_Y : BOT_SCOUT_PLANE_BOMB_ATTACK_Y);
-        applyScoutPlaneBotCommand(plane, MathSupport.normalizeAngle(plane.heading() + targetBearing));
-        if (Math.abs(targetBearing) > BOT_SCOUT_PLANE_ATTACK_ARC) {
-            return;
-        }
-        if (isHumanControlled(ship) && "active".equals(ship.state()) && !ship.teamId().equals(plane.teamId())
-                && (!ship.isSubmarine() || ship.y() + SubmarinePeriscopeGeometry.topAboveRoot(ship.y()) > 0)) {
-            aircraftWarnings.observe(nowSeconds, plane, ship);
-        }
-
-        if (preferTorpedoAttack
-                && inTorpedoReleaseWindow
-                && plane.y() <= BOT_SCOUT_PLANE_TORPEDO_RELEASE_MAX_Y
-                && torpedoSolution.canRelease()
-                && nowSeconds >= nextBotScoutPlaneTorpedoTime
-                && plane.canDropBomb(nowSeconds)) {
-            fireAirTorpedo(plane, BOT_SCOUT_PLANE_TORPEDO_COOLDOWN_SECONDS, torpedoSolution.heading());
-            recordBotScoutPlaneAttack(plane, ship);
-            return;
-        }
-        if (inBombWindow
-                && (!preferTorpedoAttack || distance < BOT_SCOUT_PLANE_TORPEDO_MIN_RANGE)
-                && bombSolution.canRelease()
-                && plane.canDropBomb(nowSeconds)) {
-            dropBombsFromScoutPlane(plane, BOT_SCOUT_PLANE_BOMB_COOLDOWN_SECONDS);
-            recordBotScoutPlaneAttack(plane, ship);
-            return;
-        }
-    }
-
-    private Vector2 predictedShipPosition(Vehicle ship, double leadSeconds) {
-        return ship.position().add(Vector2.fromHeading(ship.heading()).scale(Math.max(0, ship.speed()) * leadSeconds));
-    }
-
-    private BotTorpedoSolution botScoutPlaneTorpedoSolution(Vehicle plane, Vehicle target) {
-        double torpedoSpeed = airTorpedoSpeed(plane);
-        Vector2 releasePosition = plane.position().add(Vector2.fromHeading(plane.heading()).scale(BOT_SCOUT_PLANE_AIR_TORPEDO_RELEASE_OFFSET));
-        Vector2 targetPosition = predictedShipPosition(target, BOT_SCOUT_PLANE_TORPEDO_LEAD_SECONDS);
-        for (int iteration = 0; iteration < 3; iteration += 1) {
-            double runSeconds = releasePosition.distanceTo(targetPosition) / Math.max(1, torpedoSpeed);
-            targetPosition = predictedShipPosition(target, runSeconds);
-        }
-        double heading = angleTo(targetPosition, releasePosition);
-        boolean canRelease = Math.abs(relativeBearing(plane, targetPosition)) <= BOT_SCOUT_PLANE_TORPEDO_ARC
-                && angularDistance(plane.heading(), heading) <= BOT_SCOUT_PLANE_TORPEDO_ARC
-                && Math.abs(plane.turnVelocity()) <= BOT_SCOUT_PLANE_STABLE_ATTACK_TURN_RATE;
-        return new BotTorpedoSolution(targetPosition, heading, canRelease);
-    }
-
-    private boolean mayUseAirTorpedoAgainst(Vehicle target) {
-        return !target.isSubmarine() || target.isOnSurface();
-    }
-
-    private BotBombingSolution botScoutPlaneBombingSolution(Vehicle plane, Vehicle target) {
-        double fallSeconds = estimatedBombFallSeconds(plane);
-        double centerReleaseDelaySeconds = (BOMBS_PER_DROP - 1) * BOMB_RELEASE_INTERVAL_SECONDS * 0.5;
-        double leadSeconds = fallSeconds + centerReleaseDelaySeconds;
-        Vector2 targetPosition = predictedShipPosition(target, leadSeconds);
-        Vector2 toTarget = targetPosition.subtract(plane.position());
-        Vector2 forward = Vector2.fromHeading(plane.heading());
-        Vector2 right = rightFromHeading(plane.heading());
-        double forwardDistance = dot(toTarget, forward);
-        double lateralDistance = Math.abs(dot(toTarget, right));
-        double bombSpeed = Math.min(SCOUT_PLANE_MAX_BOMB_HORIZONTAL_SPEED, Math.max(4, plane.speed() * 0.92));
-        double patternCenterForwardDistance = bombSpeed * fallSeconds + Math.max(0, plane.speed()) * centerReleaseDelaySeconds;
-        double forwardError = forwardDistance - patternCenterForwardDistance;
-        boolean canRelease = forwardDistance > 0
-                && forwardError <= BOT_SCOUT_PLANE_BOMB_FORWARD_TOLERANCE * 0.35
-                && forwardError >= -BOT_SCOUT_PLANE_BOMB_FORWARD_TOLERANCE
-                && lateralDistance <= BOT_SCOUT_PLANE_BOMB_LATERAL_TOLERANCE
-                && Math.abs(plane.turnVelocity()) <= BOT_SCOUT_PLANE_STABLE_ATTACK_TURN_RATE;
-        return new BotBombingSolution(targetPosition, canRelease);
-    }
-
-    private static double estimatedBombFallSeconds(Vehicle plane) {
-        double altitude = Math.max(SCOUT_PLANE_MIN_BOMB_ALTITUDE, plane.y() - BOMB_DROP_VERTICAL_OFFSET);
-        double initialVerticalSpeed = MathSupport.clamp(
-                -plane.verticalSpeed(),
-                -SCOUT_PLANE_MAX_BOMB_INITIAL_UP_SPEED,
-                SCOUT_PLANE_MAX_BOMB_INITIAL_DOWN_SPEED
-        );
-        double gravity = 14.0;
-        double discriminant = initialVerticalSpeed * initialVerticalSpeed + 2.0 * gravity * altitude;
-        return Math.max(0.2, (-initialVerticalSpeed + Math.sqrt(Math.max(0, discriminant))) / gravity);
-    }
-
-    private static double dot(Vector2 left, Vector2 right) {
-        return left.x() * right.x() + left.z() * right.z();
-    }
-
-    private Optional<Vector2> botScoutPlaneFlyThroughTarget(Vehicle plane, double distanceToTarget) {
-        Vector2 target = botScoutPlaneFlyThroughTargets.get(plane.id());
-        if (target == null) {
-            return Optional.empty();
-        }
-        if (nowSeconds >= botScoutPlaneFlyThroughUntil.getOrDefault(plane.id(), 0.0)
-                || plane.position().distanceTo(target) <= BOT_SCOUT_PLANE_FLY_THROUGH_COMPLETE_DISTANCE
-                || distanceToTarget >= BOT_SCOUT_PLANE_TORPEDO_APPROACH_RANGE + 40.0) {
-            clearBotScoutPlaneFlyThrough(plane);
-            return Optional.empty();
-        }
-        return Optional.of(target);
-    }
-
-    private Vector2 startBotScoutPlaneFlyThrough(Vehicle plane) {
-        Vector2 target = plane.position().add(Vector2.fromHeading(plane.heading()).scale(BOT_SCOUT_PLANE_FLY_THROUGH_DISTANCE));
-        botScoutPlaneFlyThroughTargets.put(plane.id(), target);
-        botScoutPlaneFlyThroughUntil.put(plane.id(), nowSeconds + BOT_SCOUT_PLANE_FLY_THROUGH_SECONDS);
-        return target;
-    }
-
-    private void clearBotScoutPlaneFlyThrough(Vehicle plane) {
-        botScoutPlaneFlyThroughTargets.remove(plane.id());
-        botScoutPlaneFlyThroughUntil.remove(plane.id());
-    }
-
-    private void applyScoutPlaneBotCommand(Vehicle plane, double desiredHeading) {
-        double heading = scoutPlaneTerrainSafeHeading(plane, desiredHeading);
-        plane.applyCommand(7, rudderTowardHeading(plane, heading));
-    }
-
-    private double scoutPlaneTerrainSafeHeading(Vehicle plane, double desiredHeading) {
-        if (isScoutPlaneCourseTerrainSafe(plane, desiredHeading)) {
-            return desiredHeading;
-        }
-
-        double bestHeading = MathSupport.normalizeAngle(plane.heading() + Math.PI);
-        double bestScore = Double.NEGATIVE_INFINITY;
-        for (int step = -8; step <= 8; step += 1) {
-            double heading = MathSupport.normalizeAngle(plane.heading() + step * (Math.PI / 10.0));
-            double score = scoutPlaneTerrainCourseScore(plane, heading, desiredHeading);
-            if (score > bestScore) {
-                bestScore = score;
-                bestHeading = heading;
-            }
-        }
-        return bestHeading;
-    }
-
-    private double scoutPlaneTerrainCourseScore(Vehicle plane, double heading, double desiredHeading) {
-        double score = 0;
-        Vector2 forward = Vector2.fromHeading(heading);
-        double[] distances = {32, 64, 104, 150, 205};
-        for (int index = 0; index < distances.length; index += 1) {
-            Vector2 sample = plane.position().add(forward.scale(distances[index]));
-            if (isScoutPlaneTerrainObstacle(sample)) {
-                score -= 4000 - index * 300;
-                continue;
-            }
-            score += distances[index] * (1.0 + index * 0.12);
-        }
-        score -= angularDistance(heading, desiredHeading) * 45;
-        score -= angularDistance(heading, plane.heading()) * 12;
-        return score;
-    }
-
-    private boolean isScoutPlaneCourseTerrainSafe(Vehicle plane, double heading) {
-        Vector2 forward = Vector2.fromHeading(heading);
-        double[] distances = {34, 72, 118, 170};
-        for (double distance : distances) {
-            if (isScoutPlaneTerrainObstacle(plane.position().add(forward.scale(distance)))) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private boolean isScoutPlaneTerrainObstacle(Vector2 position) {
-        return LandGeometry.isBlocked(position, scoutPlaneObstacleMap);
-    }
-
     private Optional<Vehicle> selectBotScoutPlaneTarget(Vehicle plane, List<Vehicle> activeShips,
-                                                     Map<String, Integer> targetReservations) {
+                                                     Map<String, Integer> targetReservations, RadarService.VisibilityCache visibilityCache) {
         List<Vehicle> candidates = activeShips.stream()
                 .filter(ship -> !ship.teamId().equals(plane.teamId()))
                 .filter(ship -> !ship.isScoutPlane())
@@ -1202,127 +773,15 @@ public final class GameSession {
                 .filter(ship -> !ship.isAtPeriscopeDepth())
                 .toList();
         long tick = (long) Math.floor(nowSeconds * 10 + 1e-6);
-        return Optional.ofNullable(selectBotTarget(plane, candidates, tick,
-                () -> chooseScoutPlaneTarget(plane, candidates, targetReservations).orElse(null)));
+        BotTargetSituation situation = new BotTargetSituation(this, plane, candidates, visibilityCache, targetReservations);
+        return Optional.ofNullable(situation.validate(targetSelection.select(situation, tick)));
     }
 
-    private Optional<Vehicle> chooseScoutPlaneTarget(Vehicle plane, List<Vehicle> candidates,
-                                                  Map<String, Integer> targetReservations) {
-        if (candidates.isEmpty()) return Optional.empty();
-        List<Vehicle> preferredCandidates = candidates.stream()
-                .filter(ship -> !isHumanControlled(ship))
-                .toList();
-        if (preferredCandidates.isEmpty()) {
-            return candidates.stream()
-                    .min((left, right) -> Double.compare(
-                            botScoutPlaneTargetScore(plane, left, targetReservations),
-                            botScoutPlaneTargetScore(plane, right, targetReservations)
-                    ));
-        }
-
-        Optional<Vehicle> attackHuman = scoutPlaneAttackHuman(plane);
-        if (shouldForceHumanScoutPlaneTarget(plane, attackHuman)
-                && candidates.stream().anyMatch(candidate -> candidate.id().equals(attackHuman.get().id()))) {
-            return attackHuman;
-        }
-
-        return preferredCandidates.stream()
-                .min((left, right) -> Double.compare(
-                        botScoutPlaneTargetScore(plane, left, targetReservations),
-                        botScoutPlaneTargetScore(plane, right, targetReservations)
-                ));
-    }
-
-    private void patrolScoutPlane(Vehicle plane) {
-        double patrolHeading = MathSupport.normalizeAngle(stablePhase(plane.id()) + Math.sin(nowSeconds * 0.08 + stablePhase(plane.id())) * 0.9);
-        plane.applyCommand(7, rudderTowardHeading(plane, patrolHeading));
-    }
-
-    private double botScoutPlaneTargetScore(Vehicle plane, Vehicle target, Map<String, Integer> targetReservations) {
-        double distance = plane.position().distanceTo(target.position());
-        double bearing = Math.abs(relativeBearing(plane, predictedShipPosition(target, 1.5)));
-        return distance
-                + targetReservations.getOrDefault(target.id(), 0) * BOT_SCOUT_PLANE_TARGET_RESERVATION_PENALTY
-                + bearing * BOT_SCOUT_PLANE_TARGET_BEARING_PENALTY
-                + (distance < BOT_SCOUT_PLANE_CLOSE_REALIGN_RANGE && bearing > BOT_SCOUT_PLANE_CLOSE_REALIGN_ARC
-                    ? BOT_SCOUT_PLANE_CLOSE_REALIGN_PENALTY
-                    : 0)
-                + stablePlaneTargetBias(plane, target);
-    }
-
-    private double stablePlaneTargetBias(Vehicle plane, Vehicle target) {
-        double phase = stablePhase(plane.id() + ":" + target.id());
-        return Math.sin(phase * 2.3) * BOT_SCOUT_PLANE_TARGET_TIE_BREAKER;
-    }
-
-    private boolean isHumanControlled(Vehicle ship) {
+    boolean isHumanControlled(Vehicle ship) {
         return isHumanController(ship.controlledBy());
     }
 
-    private boolean shouldForceHumanScoutPlaneTarget(Vehicle plane, Optional<Vehicle> attackHuman) {
-        if (attackHuman.isEmpty()) {
-            return false;
-        }
-        int threshold = botScoutPlaneForceHumanAttackThreshold(plane.teamId());
-        if (threshold == Integer.MAX_VALUE) {
-            return false;
-        }
-        return botScoutPlaneNonHumanAttackStreakByHumanTarget.getOrDefault(
-                scoutPlaneHumanAttackStreakKey(plane.teamId(), attackHuman.get().id()),
-                0
-        )
-                >= threshold;
-    }
-
-    private int botScoutPlaneForceHumanAttackThreshold(String attackingTeamId) {
-        int humanTargetCount = activeHumanTargetsForScoutPlaneTeam(attackingTeamId).size();
-        if (humanTargetCount <= 0) {
-            return Integer.MAX_VALUE;
-        }
-        if (humanTargetCount == 1) {
-            return BOT_SCOUT_PLANE_FORCE_HUMAN_SINGLE_TARGET_STREAK;
-        }
-        if (humanTargetCount == 2) {
-            return BOT_SCOUT_PLANE_FORCE_HUMAN_TWO_TARGET_STREAK;
-        }
-        return BOT_SCOUT_PLANE_FORCE_HUMAN_MANY_TARGET_STREAK;
-    }
-
-    private Optional<Vehicle> scoutPlaneAttackHuman(Vehicle plane) {
-        if (!plane.isScoutPlane() || !"bot".equals(plane.controlledBy())) {
-            return Optional.empty();
-        }
-
-        List<Vehicle> availablePlanes = activeTeamShips(plane.teamId()).stream()
-                .filter(candidate -> candidate.isScoutPlane() && "bot".equals(candidate.controlledBy()))
-                .toList();
-        List<Vehicle> humans = allShips().stream()
-                .filter(candidate -> "active".equals(candidate.state()))
-                .filter(candidate -> !candidate.teamId().equals(plane.teamId()))
-                .filter(candidate -> !candidate.isScoutPlane())
-                .filter(this::isHumanControlled)
-                .sorted((left, right) -> left.id().compareTo(right.id()))
-                .toList();
-        List<String> assignedPlaneIds = new ArrayList<>();
-        for (Vehicle human : humans) {
-            Optional<Vehicle> attacker = availablePlanes.stream()
-                    .filter(candidate -> !assignedPlaneIds.contains(candidate.id()))
-                    .min((left, right) -> Double.compare(
-                            left.position().distanceTo(human.position()),
-                            right.position().distanceTo(human.position())
-                    ));
-            if (attacker.isEmpty()) {
-                return Optional.empty();
-            }
-            assignedPlaneIds.add(attacker.get().id());
-            if (attacker.get().id().equals(plane.id())) {
-                return Optional.of(human);
-            }
-        }
-        return Optional.empty();
-    }
-
-    private void recordBotScoutPlaneAttack(Vehicle plane, Vehicle target) {
+    void recordBotScoutPlaneAttack(Vehicle plane, Vehicle target) {
         if (isHumanControlled(target)) {
             clearBotScoutPlaneNonHumanAttackStreakForHuman(plane.teamId(), target.id());
             return;
@@ -1345,7 +804,7 @@ public final class GameSession {
                 .removeIf(entry -> entry.getValue().isEmpty());
     }
 
-    private List<Vehicle> activeHumanTargetsForScoutPlaneTeam(String teamId) {
+    List<Vehicle> activeHumanTargetsForScoutPlaneTeam(String teamId) {
         return allShips().stream()
                 .filter(candidate -> "active".equals(candidate.state()))
                 .filter(candidate -> !candidate.teamId().equals(teamId))
@@ -1354,7 +813,7 @@ public final class GameSession {
                 .toList();
     }
 
-    private String scoutPlaneHumanAttackStreakKey(String attackingTeamId, String humanShipId) {
+    String scoutPlaneHumanAttackStreakKey(String attackingTeamId, String humanShipId) {
         return attackingTeamId + ">" + humanShipId;
     }
 
@@ -1362,35 +821,19 @@ public final class GameSession {
         BotNavigation plan = ship.surface().botNavigation;
         long tick = (long) Math.floor(nowSeconds * 10 + 1e-6);
         boolean targetSelectionDue = plan.targetDue(tick);
-        Vector2 retreatFrom = null;
-        if (ship.isSubmarine()) {
-            List<Vehicle> contacts = ship.isFullySubmerged()
-                    ? visibilityCache.candidates(ship, SubmarineBot.UNDERWATER_RANGE)
-                    : visibilityCache.candidates(ship, RadarService.RADAR_RANGE).stream()
-                        .filter(contact -> isUnderwaterBotContact(ship, contact)
-                                || visibilityCache.isVisible(ship, contact, RadarService.RADAR_RANGE))
-                        .toList();
-            // Report while the mast is still above water, before tactical diving changes the depth order.
-            if (targetSelectionDue && BotSubmarineHunt.canReport(ship)) reportSubmarineSightings(ship, contacts, visibilityCache);
-            boolean shotOpportunity = ship.isFullySubmerged() && contacts.stream()
-                    .filter(target -> !target.teamId().equals(ship.teamId()))
-                    .filter(target -> "active".equals(target.state()) && target.isOnSurface() && !target.isScoutPlane())
-                    .anyMatch(target -> submarineHasAscentShot(ship, target));
-            retreatFrom = ship.submarineBot().update(ship, contacts, nowSeconds, shotOpportunity);
+        if (ship.isSubmarine() && targetSelectionDue && BotSubmarineHunt.canReport(ship)) {
+            reportSubmarineSightings(ship, visibleTargets(ship, visibilityCache), visibilityCache);
         }
         if (plan.submarineSearch != null && !plan.submarineSearch.active(nowSeconds)) plan.submarineSearch = null;
         if (ship.surface().botSubmarineAttackCourse != null && nowSeconds >= ship.surface().botSubmarineAttackCourse.until()) {
             ship.surface().botSubmarineAttackCourse = null;
             if (observedBotTarget(ship, plan, visibilityCache) == null) plan.target = null;
         }
-        boolean followingLostSubmarine = ship.surface().botSubmarineAttackCourse != null
-                && plan.target != null && plan.target.lifeId() == plan.targetLife && "active".equals(plan.target.state())
-                && observedBotTarget(ship, plan, visibilityCache) == null;
-        if (targetSelectionDue && !followingLostSubmarine) {
-            List<Vehicle> targets = visibleTargets(ship, visibilityCache);
+        List<Vehicle> targets = targetSelectionDue ? visibleTargets(ship, visibilityCache) : List.of();
+        BotTargetSituation situation = new BotTargetSituation(this, ship, targets, visibilityCache, Map.of());
+        if (targetSelectionDue) {
             if (!ship.isSubmarine()) reportSubmarineSightings(ship, targets, visibilityCache);
-            Vehicle nextTarget = selectBotTarget(ship, targets, tick,
-                    () -> chooseBotTarget(ship, targets).orElse(null));
+            Vehicle nextTarget = situation.validate(targetSelection.select(situation, tick));
             if (nextTarget != plan.target || nextTarget != null && nextTarget.lifeId() != plan.targetLife) {
                 plan.trackingPeriscope = false;
             }
@@ -1408,54 +851,7 @@ public final class GameSession {
                 ship.surface().botSubmarineAttackCourse = null;
             }
         }
-        return new BotIntent(contact, retreatFrom, plan.routeDue(tick));
-    }
-
-    private void commandBot(Vehicle ship, RadarService.VisibilityCache visibilityCache, NavigationService navigationService,
-                            WorldMap worldMap, List<Vehicle> surfaceShips) {
-        BotIntent intent = prepareBotIntent(ship, visibilityCache);
-        commandBot(ship, visibilityCache, navigationService, worldMap, surfaceShips, intent,
-                navigationGoal(ship, intent.contact(), intent.routeUpdated()));
-    }
-
-    private void commandBot(Vehicle ship, RadarService.VisibilityCache visibilityCache, NavigationService navigationService,
-                            WorldMap worldMap, List<Vehicle> surfaceShips, BotIntent intent, BotGoal goal) {
-        BotNavigation plan = ship.surface().botNavigation;
-        long tick = (long) Math.floor(nowSeconds * 10 + 1e-6);
-        Vehicle contact = intent.contact();
-        Vector2 retreatFrom = intent.retreatFrom();
-        boolean routeUpdated = intent.routeUpdated();
-        if (routeUpdated) {
-            BotNavigation.Course desired = courseForGoal(ship, contact, goal);
-            plan.route = BotNavigation.freeRoute(ship, desired, BotNavigation.ROUTE_RANGE, navigationService, worldMap);
-        }
-        if (plan.encounterDue(tick)) plan.planEncounter(ship, surfaceShips, navigationService, worldMap);
-        if (plan.forwardDue(tick)) plan.checkForward(ship, navigationService, worldMap);
-        plan.checkNear(ship, surfaceShips, navigationService, worldMap);
-
-        // Emergency rules have highest priority. They never overwrite a stored route/encounter plan.
-        if (escapeBlockedWater(ship, navigationService, worldMap)) return;
-        Optional<Torpedo> threat = visibleIncomingTorpedo(ship);
-        if (threat.isPresent()) {
-            evadeTorpedo(ship, threat.get(), navigationService, worldMap);
-            return;
-        }
-        if (ship.applyGlancingRamBackoff(nowSeconds)) return;
-        BotNavigation.Course urgent = retreatFrom == null ? null
-                : new BotNavigation.Course(bearingTo(ship, ship.position().add(ship.position().subtract(retreatFrom))), ENGINE_FULL);
-        BotNavigation.Course aircraft = plan.aircraftEvasion == null ? null
-                : plan.aircraftEvasion.course(ship, nowSeconds, navigationService, worldMap);
-        BotNavigation.Course selected = plan.selected(urgent, aircraft);
-        if (selected != null) {
-            boolean ordinary = contact == null && urgent == null && aircraft == null && plan.near == null
-                    && plan.forward == null && plan.encounter == null && !plan.nearbyTraffic && plan.submarineSearch == null
-                    && ship.surface().botSubmarineAttackCourse == null;
-            int order = plan.acceleration.order(selected.engineOrder(), ship.speed(), nowSeconds, ordinary);
-            ship.applyCommand(order, BotHelm.rudder(ship.heading(), ship.turnVelocity(),
-                    ship.speed(), selected.heading()));
-        }
-        // Reuse the staggered one-second route slot; blocked shots must not rescan terrain every tick.
-        if (contact != null && routeUpdated) fireBotWeapons(ship, contact);
+        return new BotIntent(contact, plan.routeDue(tick), situation);
     }
 
     private void reportSubmarineSightings(Vehicle observer, List<Vehicle> contacts, RadarService.VisibilityCache visibilityCache) {
@@ -1488,53 +884,6 @@ public final class GameSession {
                 || plan.trackingPeriscope ? target : null;
     }
 
-    private double bearingTo(Vehicle ship, Vector2 position) {
-        Vector2 offset = position.subtract(ship.position());
-        return offset.x() == 0 && offset.z() == 0 ? ship.heading() : Math.atan2(offset.x(), offset.z());
-    }
-
-    private BotNavigation.Course desiredBotCourse(Vehicle ship, Vehicle contact, WorldMap worldMap) {
-        return courseForGoal(ship, contact, navigationGoal(ship, contact, true));
-    }
-
-    private BotGoal navigationGoal(Vehicle ship, Vehicle contact, boolean advanceSearch) {
-        var search = ship.surface().botNavigation.submarineSearch;
-        boolean localContact = contact != null && (ship.position().distanceTo(contact.position()) <= BotNavigation.ENCOUNTER_RANGE
-                || contact.isSubmarine() && isHumanControlled(contact));
-        if (contact != null && (search == null || localContact)) {
-            return new BotGoal(BotGoal.Kind.ENEMY, contact.id(), contact.lifeId(), contact.position().x(), contact.position().z());
-        }
-        var attack = ship.surface().botSubmarineAttackCourse;
-        if (attack != null) {
-            Vector2 forward = Vector2.fromHeading(attack.heading());
-            Vector2 offset = ship.position().subtract(attack.position());
-            double along = offset.x() * forward.x() + offset.z() * forward.z();
-            Vector2 point = attack.position().add(forward.scale(Math.max(0, along) + 60));
-            return new BotGoal(BotGoal.Kind.LAST_KNOWN_COURSE, attack.targetId(), ship.surface().botNavigation.targetLife, point.x(), point.z());
-        }
-        if (search != null) {
-            Vector2 point = advanceSearch ? search.destination(ship) : search.currentDestination();
-            return new BotGoal(BotGoal.Kind.SEARCH, null, -1, point.x(), point.z());
-        }
-        // No hidden live position: represent the retained heading by a point straight ahead on that heading.
-        if (ship.surface().botNavigation.target != null && ship.surface().botNavigation.route != null) {
-            Vector2 point = ship.position().add(Vector2.fromHeading(ship.surface().botNavigation.route.heading()).scale(100));
-            return new BotGoal(BotGoal.Kind.RETAINED_COURSE, null, -1, point.x(), point.z());
-        }
-        return new BotGoal(BotGoal.Kind.PATROL, null, -1, patrolCenter.x(), patrolCenter.z());
-    }
-
-    private BotNavigation.Course courseForGoal(Vehicle ship, Vehicle contact, BotGoal goal) {
-        Vector2 destination = new Vector2(goal.x(), goal.z());
-        int order = switch (goal.kind()) {
-            case ENEMY -> botAttackEngineOrder(ship, contact, ship.position().distanceTo(destination), relativeBearing(ship, destination));
-            case LAST_KNOWN_COURSE, SEARCH -> ENGINE_FLANK;
-            case RETAINED_COURSE -> ship.surface().botNavigation.route.engineOrder();
-            case PATROL, NONE -> botAttackEngineOrder(ship, null, ship.position().distanceTo(destination), relativeBearing(ship, destination));
-        };
-        return new BotNavigation.Course(bearingTo(ship, destination), order);
-    }
-
     private static Vector2 mapCenter(WorldMap map, List<Vector2> spawns) {
         double minX = Double.POSITIVE_INFINITY, maxX = Double.NEGATIVE_INFINITY;
         double minZ = Double.POSITIVE_INFINITY, maxZ = Double.NEGATIVE_INFINITY;
@@ -1553,7 +902,7 @@ public final class GameSession {
         return Double.isFinite(minX) ? new Vector2((minX + maxX) / 2, (minZ + maxZ) / 2) : new Vector2(0, 0);
     }
 
-    private boolean submarineHasAscentShot(Vehicle ship, Vehicle target) {
+    boolean submarineHasAscentShot(Vehicle ship, Vehicle target) {
         if (Math.abs(relativeBearing(ship, target.position())) > BOT_FIRE_ARC) return false;
         Vector2 muzzle = torpedoMuzzlePosition(ship, ship.heading(), 1);
         return torpedoLineHitsShip(muzzle, Vector2.fromHeading(ship.heading()), target,
@@ -1578,182 +927,6 @@ public final class GameSession {
         return start + (end - start) * MathSupport.clamp(ratio, 0, 1);
     }
 
-    private boolean escapeBlockedWater(Vehicle ship, NavigationService navigationService, WorldMap worldMap) {
-        BotCommand command = plannedBotEscapes == null
-                ? escapeCommand(ship, navigationService, worldMap) : plannedBotEscapes.get(ship);
-        if (command == null) return false;
-        command.apply(ship);
-        return true;
-    }
-
-    private BotCommand escapeCommand(Vehicle ship, NavigationService navigationService, WorldMap worldMap) {
-        Vector2 forward = Vector2.fromHeading(ship.heading());
-        double lookAheadDistance = MathSupport.clamp(Math.abs(ship.speed()) * 6.0 + 22.0, 24.0, 78.0);
-        Vector2 nearLookAhead = ship.position().add(forward.scale(4));
-        Vector2 farLookAhead = ship.position().add(forward.scale(lookAheadDistance));
-        boolean blockedHere = navigationService.isShipBlocked(ship.position(), ship.heading(), worldMap);
-        boolean blockedNear = navigationService.isShipBlocked(nearLookAhead, ship.heading(), worldMap);
-        boolean blockedAhead = blockedNear
-                || navigationService.isShipBlocked(ship.position().add(forward.scale(14)), ship.heading(), worldMap)
-                || navigationService.isShipBlocked(farLookAhead, ship.heading(), worldMap);
-
-        if (nowSeconds < ship.surface().botForwardEscapeUntil) {
-            return new BotCommand(ENGINE_ONE_THIRD, rudderTowardHeading(ship, ship.surface().botEscapeHeading));
-        }
-        // A failed reverse is a new situation: discard the old heading and plan farther once.
-        if ((nowSeconds < ship.surface().botReverseUntil || ship.speed() < -.5)
-                && navigationService.isShipMovementBlocked(ship.position(), ship.heading(), -1, worldMap)) {
-            ship.surface().botReverseUntil = 0;
-            ship.surface().botEscapeHeading = chooseSafeEscapeHeading(ship, navigationService, worldMap, true);
-            ship.surface().botEscapeUntil = nowSeconds + 12;
-            ship.surface().botForwardEscapeUntil = nowSeconds + 6;
-            return new BotCommand(ENGINE_ONE_THIRD, rudderTowardHeading(ship, ship.surface().botEscapeHeading));
-        }
-
-        // Collision rollback leaves the current position clear even when the next step is blocked.
-        // Back away before attempting the turn, and finish that manoeuvre before chasing again.
-        if ((nowSeconds < ship.surface().botReverseUntil || (blockedNear && Math.abs(ship.speed()) < .5))
-                && !navigationService.isShipMovementBlocked(ship.position(), ship.heading(), -1, worldMap)) {
-            double safeHeading = retainedEscapeHeading(ship, navigationService, worldMap);
-            if (nowSeconds >= ship.surface().botReverseUntil) ship.surface().botReverseUntil = nowSeconds + 6;
-            return new BotCommand(ENGINE_FULL_ASTERN, -rudderTowardHeading(ship, safeHeading));
-        }
-
-        if (blockedHere) {
-            boolean forwardClear = !navigationService.isShipMovementBlocked(
-                    ship.position(),
-                    ship.heading(),
-                    EngineOrders.speedFor(ENGINE_SLOW),
-                    worldMap
-            );
-            boolean asternClear = !navigationService.isShipMovementBlocked(
-                    ship.position(),
-                    ship.heading(),
-                    EngineOrders.speedFor(ENGINE_FULL_ASTERN),
-                    worldMap
-            );
-            if (ship.speed() >= 0 && forwardClear) {
-                return new BotCommand(ENGINE_SLOW, 0);
-            }
-            if (asternClear) {
-                double safeHeading = retainedEscapeHeading(ship, navigationService, worldMap);
-                if (nowSeconds >= ship.surface().botReverseUntil) ship.surface().botReverseUntil = nowSeconds + 6;
-                return new BotCommand(ENGINE_FULL_ASTERN, -rudderTowardHeading(ship, safeHeading));
-            }
-            if (forwardClear) {
-                return new BotCommand(ENGINE_SLOW, 0);
-            }
-            double safeHeading = retainedEscapeHeading(ship, navigationService, worldMap);
-            return new BotCommand(ENGINE_SLOW, rudderTowardHeading(ship, safeHeading));
-        }
-
-        if (blockedAhead) {
-            double safeHeading = retainedEscapeHeading(ship, navigationService, worldMap);
-            int rudder = rudderTowardHeading(ship, safeHeading);
-            return new BotCommand(ENGINE_ONE_THIRD, rudder);
-        }
-
-        if (nowSeconds < ship.surface().botEscapeUntil) {
-            return new BotCommand(ENGINE_ONE_THIRD, rudderTowardHeading(ship, ship.surface().botEscapeHeading));
-        }
-
-        return null;
-    }
-
-    private double retainedEscapeHeading(Vehicle ship, NavigationService navigationService, WorldMap worldMap) {
-        if (nowSeconds >= ship.surface().botEscapeUntil) {
-            ship.surface().botEscapeHeading = chooseSafeEscapeHeading(ship, navigationService, worldMap);
-            ship.surface().botEscapeUntil = nowSeconds + 12;
-        }
-        return ship.surface().botEscapeHeading;
-    }
-
-    private double chooseSafeEscapeHeading(Vehicle ship, NavigationService navigationService, WorldMap worldMap) {
-        return chooseSafeEscapeHeading(ship, navigationService, worldMap, false);
-    }
-
-    private double chooseSafeEscapeHeading(Vehicle ship, NavigationService navigationService, WorldMap worldMap, boolean farther) {
-        double bestHeading = MathSupport.normalizeAngle(ship.heading() + Math.PI);
-        double bestScore = Double.NEGATIVE_INFINITY;
-        for (int step = -12; step <= 12; step += 1) {
-            double offset = step * (Math.PI / 12.0);
-            double heading = MathSupport.normalizeAngle(ship.heading() + offset);
-            double score = escapeCourseScore(ship, heading, navigationService, worldMap, farther);
-            if (score > bestScore) {
-                bestScore = score;
-                bestHeading = heading;
-            }
-        }
-        return bestHeading;
-    }
-
-    private double escapeCourseScore(Vehicle ship, double heading, NavigationService navigationService, WorldMap worldMap, boolean farther) {
-        double score = 0;
-        Vector2 forward = Vector2.fromHeading(heading);
-        double[] distances = farther ? new double[]{4, 8, 12, 18, 34, 58, 88, 128, 170, 240, 320, BotNavigation.ROUTE_RANGE}
-                : new double[]{4, 8, 12, 18, 34, 58, 88, 128, 170};
-        for (int index = 0; index < distances.length; index += 1) {
-            Vector2 sample = ship.position().add(forward.scale(distances[index]));
-            if (navigationService.isShipBlocked(sample, heading, worldMap)) {
-                // A clear point beyond an obstruction is not a reachable escape route.
-                return -5000 + index * 250;
-            }
-            score += distances[index] * (1.0 + index * 0.18);
-        }
-
-        double turn = Math.abs(MathSupport.normalizeAngle(heading - ship.heading()));
-        score -= turn * 18;
-        if (turn > Math.PI * 0.82) {
-            score -= 35;
-        }
-        score += Math.sin(stablePhase(ship.id()) + heading * 1.7) * 2.5;
-        return score;
-    }
-
-    private int rudderTowardHeading(Vehicle ship, double heading) {
-        return BotHelm.rudder(ship.heading(), ship.turnVelocity(), 1, heading);
-    }
-
-    private void applyBotCommand(Vehicle ship, int engineOrder, int rudder, NavigationService navigationService, WorldMap worldMap) {
-        if (pendingBotCourses != null) {
-            pendingBotCourses.add(new BotCourseRequest(ship, engineOrder, rudder));
-        } else {
-            courseCommand(ship, engineOrder, rudder, navigationService, worldMap).apply(ship);
-        }
-    }
-
-    private BotCommand courseCommand(Vehicle ship, int engineOrder, int rudder, NavigationService navigationService, WorldMap worldMap) {
-        if (EngineOrders.speedFor(engineOrder) <= 0) {
-            return new BotCommand(engineOrder, rudder);
-        }
-
-        int cruisingEngineOrder = Math.max(engineOrder, ENGINE_HALF);
-        double plannedHeading = plannedBotCourseHeading(ship, rudder);
-        if (isBotCourseSafe(ship, plannedHeading, navigationService, worldMap)) {
-            return new BotCommand(cruisingEngineOrder, rudder);
-        }
-
-        double escapeHeading = retainedEscapeHeading(ship, navigationService, worldMap);
-        return new BotCommand(Math.min(engineOrder, ENGINE_SLOW), rudderTowardHeading(ship, escapeHeading));
-    }
-
-    private double plannedBotCourseHeading(Vehicle ship, int rudder) {
-        double turn = MathSupport.clamp(rudder / 35.0, -1, 1);
-        return MathSupport.normalizeAngle(ship.heading() + turn * 0.48);
-    }
-
-    private boolean isBotCourseSafe(Vehicle ship, double heading, NavigationService navigationService, WorldMap worldMap) {
-        Vector2 forward = Vector2.fromHeading(heading);
-        double[] distances = {28, 55, 92, 138};
-        for (double distance : distances) {
-            Vector2 sample = ship.position().add(forward.scale(distance));
-            if (navigationService.isShipBlocked(sample, heading, worldMap)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     private List<Vehicle> visibleTargets(Vehicle ship, RadarService.VisibilityCache visibilityCache) {
         if (ship.isFullySubmerged()) {
             return visibilityCache.candidates(ship, SubmarineBot.UNDERWATER_RANGE).stream()
@@ -1772,17 +945,17 @@ public final class GameSession {
                 .toList();
     }
 
-    private boolean isUnderwaterBotContact(Vehicle observer, Vehicle target) {
+    boolean isUnderwaterBotContact(Vehicle observer, Vehicle target) {
         return observer.isSubmarine() && target.isSubmarine() && !target.isOnSurface()
                 && !observer.id().equals(target.id()) && "active".equals(target.state())
                 && observer.position().distanceTo(target.position()) <= SubmarineBot.UNDERWATER_RANGE;
     }
 
-    private boolean isVisiblePeriscopeRamContact(Vehicle observer, Vehicle target) {
+    boolean isVisiblePeriscopeRamContact(Vehicle observer, Vehicle target) {
         return isVisiblePeriscopeRamContact(observer, target, false);
     }
 
-    private boolean isVisiblePeriscopeRamContact(Vehicle observer, Vehicle target, boolean tracking) {
+    boolean isVisiblePeriscopeRamContact(Vehicle observer, Vehicle target, boolean tracking) {
         // The depth order changes immediately; visibility changes only when the mast actually submerges.
         if (!target.isSubmarine() || target.isOnSurface()
                 || target.y() + SubmarinePeriscopeGeometry.topAboveRoot(target.y()) <= 0) return false;
@@ -1797,175 +970,17 @@ public final class GameSession {
         return distance <= botPeriscopeRamDetectionRange(target) * directionFactor;
     }
 
-    private boolean isStrategicHumanContact(Vehicle observer, Vehicle target) {
+    boolean isStrategicHumanContact(Vehicle observer, Vehicle target) {
         return isHumanControlled(target)
                 && target.isOnSurface()
                 && observer.position().distanceTo(target.position()) > RadarService.RADAR_RANGE;
     }
 
-    private Vehicle selectBotTarget(Vehicle observer, List<Vehicle> candidates, long tick,
-                                 java.util.function.Supplier<Vehicle> standard) {
-        String previous = observer.isScoutPlane() || observer.surface().botNavigation.target == null ? null
-                : observer.surface().botNavigation.target.id();
-        BotTargetSituation situation = new BotTargetSituation(observer, candidates, previous, nowSeconds, standard);
-        return situation.resolve(targetSelection.select(situation, tick));
-    }
-
-    private Optional<Vehicle> chooseBotTarget(Vehicle ship, List<Vehicle> targets) {
-        if (targets.isEmpty()) {
-            return Optional.empty();
-        }
-
-        ShipDistance nearestHumanTarget = null;
-        ShipDistance nearestBotTarget = null;
-        Vehicle bestTarget = null;
-        double bestTargetScore = Double.POSITIVE_INFINITY;
-        for (Vehicle target : targets) {
-            ShipDistance candidate = new ShipDistance(target, ship.position().distanceTo(target.position()));
-            double targetScore = botTargetScore(ship, target);
-            if (bestTarget == null || targetScore < bestTargetScore) {
-                bestTarget = target;
-                bestTargetScore = targetScore;
-            }
-            if ("bot".equals(target.controlledBy())) {
-                if (nearestBotTarget == null || candidate.distance() < nearestBotTarget.distance()) {
-                    nearestBotTarget = candidate;
-                }
-            } else if (nearestHumanTarget == null || candidate.distance() < nearestHumanTarget.distance()) {
-                nearestHumanTarget = candidate;
-            }
-        }
-
-        if (nearestHumanTarget != null
-                && (nearestBotTarget == null
-                || nearestBotTarget.distance() > BOT_HUMAN_TARGET_PRIORITY_CLEARANCE)) {
-            return Optional.of(nearestHumanTarget.ship());
-        }
-
-        return Optional.ofNullable(bestTarget);
-    }
-
-    private double botTargetScore(Vehicle ship, Vehicle target) {
-        return ship.position().distanceTo(target.position());
-    }
-
-    private Optional<Torpedo> visibleIncomingTorpedo(Vehicle ship) {
-        return torpedoes.stream()
-                .filter(torpedo -> "running".equals(torpedo.state()))
-                .filter(torpedo -> botCanSeeIncomingTorpedo(ship, torpedo))
-                .min((left, right) -> Double.compare(
-                        ship.position().distanceTo(left.position()),
-                        ship.position().distanceTo(right.position())
-                ));
-    }
-
-    private boolean botCanSeeIncomingTorpedo(Vehicle ship, Torpedo torpedo) {
-        if (!torpedoCanDamageShip(torpedo, ship)) return false;
-        Vector2 lookoutPosition = ship.position()
-                .add(Vector2.fromHeading(ship.heading()).scale(BOT_TORPEDO_LOOKOUT_FORWARD_OFFSET));
-        if (lookoutPosition.distanceTo(torpedo.position()) > BOT_TORPEDO_EVADE_RANGE) {
-            return false;
-        }
-
-        double bearingFromLookout = MathSupport.normalizeAngle(angleTo(torpedo.position(), lookoutPosition) - ship.heading());
-        if (Math.abs(bearingFromLookout) > BOT_TORPEDO_LOOKOUT_ARC) {
-            return false;
-        }
-
-        double incomingAngle = angularDistance(angleTo(ship.position(), torpedo.position()), torpedo.heading());
-        if (incomingAngle > BOT_TORPEDO_INCOMING_ARC) {
-            return false;
-        }
-
-        return torpedoTrackDistanceToShip(torpedo, ship.position()) <= BOT_TORPEDO_THREAT_CORRIDOR;
-    }
-
-    private double torpedoTrackDistanceToShip(Torpedo torpedo, Vector2 shipPosition) {
-        Vector2 forward = Vector2.fromHeading(torpedo.heading());
-        Vector2 toShip = shipPosition.subtract(torpedo.position());
-        double alongTrack = toShip.x() * forward.x() + toShip.z() * forward.z();
-        if (alongTrack < 0) {
-            return Double.POSITIVE_INFINITY;
-        }
-        Vector2 closestPoint = torpedo.position().add(forward.scale(alongTrack));
-        return closestPoint.distanceTo(shipPosition);
-    }
-
-    private void evadeTorpedo(Vehicle ship, Torpedo torpedo, NavigationService navigationService, WorldMap worldMap) {
-        double side = relativeBearing(ship, torpedo.position()) >= 0 ? -1 : 1;
-        int rudder = (int) (side * 35);
-        applyBotCommand(ship, ENGINE_FULL, rudder, navigationService, worldMap);
-    }
-
-    private Optional<Vector2> nearestLandCenter(Vector2 position, WorldMap worldMap) {
-        return worldMap.landmasses().stream()
-                .map(landmass -> new Vector2(landmass.x(), landmass.z()))
-                .min((left, right) -> Double.compare(
-                        position.distanceTo(left),
-                        position.distanceTo(right)
-                ));
-    }
-
-    private List<Vehicle> activeTeamShips(String teamId) {
+    List<Vehicle> activeTeamShips(String teamId) {
         return allShips().stream()
                 .filter(ship -> teamId.equals(ship.teamId()))
                 .filter(ship -> "active".equals(ship.state()))
                 .toList();
-    }
-
-    private void fireBotWeapons(Vehicle ship, Vehicle target) {
-        double distance = ship.position().distanceTo(target.position());
-        double targetBearing = relativeBearing(ship, target.position());
-        double aimError = Math.sin(nowSeconds * .11 + stablePhase(ship.id())) * BOT_AIM_ERROR;
-        double steerError = MathSupport.normalizeAngle(targetBearing + aimError);
-        boolean closeInFront = distance <= BOT_CLOSE_FIRE_RANGE && Math.abs(targetBearing) <= BOT_CLOSE_FIRE_ARC;
-        boolean aimedShot = distance >= BOT_FIRE_MIN_RANGE && distance <= BOT_FIRE_MAX_RANGE && Math.abs(steerError) <= BOT_FIRE_ARC;
-        if (!SCOUT_PLANE_EXPERIMENT_PEACEFUL_BOTS && !target.isAtPeriscopeDepth() && (closeInFront || aimedShot)) {
-            fireTorpedoAtTarget(ship, target, 10.5 + Math.abs(Math.sin(stablePhase(ship.id()))) * 3.0, aimError * 0.65);
-        }
-    }
-
-    private int botAttackEngineOrder(Vehicle ship, Vehicle target, double distance, double targetBearing) {
-        boolean humanTarget = target != null && isHumanControlled(target);
-        if (target != null && ship.isSubmarine() && !ship.isOnSurface()) {
-            return ship.submarineBot().attackEngineOrder(ship, target, distance, targetBearing);
-        }
-        if (target == null) return ENGINE_HALF; // Map-centre patrol stays relaxed.
-        if (!humanTarget) {
-            if (distance <= BOT_APPROACH_SLOW_RANGE) return ENGINE_HALF;
-            return distance <= BotNavigation.RADAR_RING ? ENGINE_TWO_THIRDS : ENGINE_FULL;
-        }
-        if (target.isAtPeriscopeDepth()) {
-            return ship.isSubmarine() ? ENGINE_FULL : ENGINE_FLANK;
-        }
-        // Distance alone determines when a surface boat must use its full pursuit speed.
-        if (!ship.isSubmarine() && distance >= BotNavigation.RADAR_RING) {
-            return ENGINE_FLANK;
-        }
-        double absoluteBearing = Math.abs(targetBearing);
-        if (distance < BOT_RAM_RANGE) {
-            return target != null && target.isSubmarine() && !ship.isSubmarine() ? ENGINE_FLANK
-                    : absoluteBearing <= Math.toRadians(30) ? ENGINE_HALF : ENGINE_FULL;
-        }
-        if (humanTarget && Math.abs(ship.speed()) < 0.8 && distance <= BOT_APPROACH_SLOW_RANGE) {
-            return ENGINE_FULL;
-        }
-        if (distance < BOT_CLOSE_MANEUVER_RANGE) {
-            if (absoluteBearing <= Math.toRadians(30)) {
-                return ENGINE_HALF;
-            }
-            if (absoluteBearing <= BOT_CLOSE_FIRE_ARC) {
-                return ENGINE_HALF;
-            }
-            return ENGINE_FULL;
-        }
-        if (distance > BOT_RADAR_INTERCEPT_RANGE) {
-            return ENGINE_FULL;
-        }
-        if (distance > BOT_APPROACH_SLOW_RANGE) {
-            return ENGINE_TWO_THIRDS;
-        }
-        return ENGINE_HALF;
     }
 
     private void updateRamCollisions() {
@@ -2464,7 +1479,7 @@ public final class GameSession {
         }
     }
 
-    private boolean torpedoCanDamageShip(Torpedo torpedo, Vehicle target) {
+    boolean torpedoCanDamageShip(Torpedo torpedo, Vehicle target) {
         return torpedoDepthCanDamageShip(torpedo.y(), target);
     }
 
@@ -3088,14 +2103,14 @@ public final class GameSession {
 
     private boolean sinkShip(Vehicle ship, String creditedPlayerId) {
         String sunkController = ship.controlledBy();
-        VehicleSnapshot wreckShip = ship.snapshot();
+        Vehicle wreckShip = ship.copyForWreck();
         Integer scoreDelta = isHumanController(creditedPlayerId)
                 ? scoreDeltaFor(creditedPlayerId, ship.teamId())
                 : null;
         if (!ship.sink(nowSeconds + (ship.isBotControlled() ? 0 : RESPAWN_DELAY_SECONDS))) {
             return false;
         }
-        wrecks.add(new ShipWreckSnapshot("wreck-" + nextWreckId++, nowSeconds, wreckShip));
+        wrecks.add(new Wreck("wreck-" + nextWreckId++, nowSeconds, wreckShip));
         // A hard bound also covers unusual mass-destruction scenarios.
         if (wrecks.size() > 256) wrecks.remove(0);
         if (ship.isScoutPlane()) {
@@ -3115,13 +2130,13 @@ public final class GameSession {
     private void updateWreckCollisions() {
         List<Vehicle> targets = allShips().stream().filter(ship -> "active".equals(ship.state()))
                 .filter(ship -> !ship.isScoutPlane()).toList();
-        List<ShipWreckSnapshot> hazards = List.copyOf(wrecks);
+        List<Wreck> hazards = List.copyOf(wrecks);
         double elapsed = Math.max(0, nowSeconds - previousWreckCheckTime);
         for (Vehicle target : targets) {
-            VehicleSnapshot current = target.snapshot();
-            VehicleSnapshot previous = previousWreckTargets.get(target.id());
+            HullPose current = new HullPose(target);
+            HullPose previous = previousWreckTargets.get(target.id());
             if (previous == null || previous.lifeId() != current.lifeId()) previous = current;
-            for (ShipWreckSnapshot wreck : hazards) {
+            for (Wreck wreck : hazards) {
                 if (!"active".equals(target.state())) break;
                 if (!"torpedo-boat".equals(wreck.ship().vehicleType())) continue;
                 double age = nowSeconds - wreck.sunkAt();
@@ -3140,7 +2155,7 @@ public final class GameSession {
                     double f=i/(double)steps;
                     double sampleAge=startAge+span*f;
                     double targetF=elapsed>0 ? MathSupport.clamp((wreck.sunkAt()+sampleAge-previousWreckCheckTime)/elapsed,0,1) : 1;
-                    VehicleSnapshot sample = interpolateWreckTarget(previous,current,targetF);
+                    HullPose sample = previous.interpolate(current, targetF);
                     if (!WreckPhysics.hits(wreck,sampleAge,sample)) continue;
                     if (sinkShip(target, null)) {
                         ramHits.add(new RamHitSnapshot("wreck-hit-"+wreck.id()+"-"+target.id()+"-"+current.lifeId(),
@@ -3152,16 +2167,11 @@ public final class GameSession {
         }
         previousWreckTargets.clear();
         allShips().stream().filter(ship -> "active".equals(ship.state()))
-                .forEach(ship -> previousWreckTargets.put(ship.id(),ship.snapshot()));
+                .forEach(ship -> previousWreckTargets.put(ship.id(), new HullPose(ship)));
         previousWreckCheckTime=nowSeconds;
     }
 
-    private VehicleSnapshot interpolateWreckTarget(VehicleSnapshot a, VehicleSnapshot b, double f) {
-        return new VehicleSnapshot(b.id(),b.teamId(),a.x()+(b.x()-a.x())*f,a.z()+(b.z()-a.z())*f,
-                a.heading()+MathSupport.normalizeAngle(b.heading()-a.heading())*f,b.speed(),b.turnVelocity(),
-                b.rudderDegrees(),b.engineOrder(),b.state(),b.controlledBy(),b.torpedoesRemaining(),b.vehicleType(),
-                a.y()+(b.y()-a.y())*f,b.flakYaw(),b.flakPitch(),b.cannonYaw(),b.cannonPitch(),b.depthState(),b.lifeId());
-    }
+
 
     private void recordRamHit(Vehicle attacker, Vehicle target) {
         ramHits.add(new RamHitSnapshot(
@@ -3176,7 +2186,8 @@ public final class GameSession {
     }
 
     private void clearBotScoutPlaneAttackState(Vehicle ship) {
-        clearBotScoutPlaneFlyThrough(ship);
+        botScoutPlaneFlyThroughTargets.remove(ship.id());
+        botScoutPlaneFlyThroughUntil.remove(ship.id());
         Map<String, Integer> countedAttacks = botScoutPlaneNonHumanAttackStreakByPlane.remove(ship.id());
         if (countedAttacks == null) {
             return;
@@ -3233,12 +2244,19 @@ public final class GameSession {
     }
 
     private boolean spawnOverlapsWreck(Vehicle ship, Vector2 position, WorldMap worldMap) {
-        VehicleSnapshot s=ship.snapshot();
-        VehicleSnapshot spawn=new VehicleSnapshot(s.id(),s.teamId(),position.x(),position.z(),respawnHeading(ship,position,worldMap),0,0,0,2,
-                "active",s.controlledBy(),s.torpedoesRemaining(),s.vehicleType(),0,s.flakYaw(),s.flakPitch(),
-                s.cannonYaw(),s.cannonPitch(),"surface",s.lifeId()+1);
+        HullPose spawn = new HullPose(ship, ship.lifeId() + 1, position.x(), 0, position.z(),
+                respawnHeading(ship, position, worldMap));
         return wrecks.stream().filter(w -> "torpedo-boat".equals(w.ship().vehicleType()))
                 .anyMatch(w -> WreckPhysics.hits(w,nowSeconds-w.sunkAt(),spawn));
+    }
+
+    private Optional<Vector2> nearestLandCenter(Vector2 position, WorldMap worldMap) {
+        return worldMap.landmasses().stream()
+                .map(landmass -> new Vector2(landmass.x(), landmass.z()))
+                .min((left, right) -> Double.compare(
+                        position.distanceTo(left),
+                        position.distanceTo(right)
+                ));
     }
 
     private double respawnHeading(Vehicle ship, Vector2 position, WorldMap worldMap) {
@@ -3386,17 +2404,15 @@ public final class GameSession {
     private record RespawnChoice(int index, Vector2 position) {
     }
 
-    private record ShipDistance(Vehicle ship, double distance) {
-    }
 
-    private record BotTorpedoSolution(Vector2 targetPosition, double heading, boolean canRelease) {
-    }
+
+
 
     private boolean fireTorpedo(Vehicle ship, double cooldownSeconds, double headingOffsetRadians) {
         return fireTorpedo(ship, cooldownSeconds, headingOffsetRadians, null);
     }
 
-    private boolean fireTorpedoAtTarget(Vehicle ship, Vehicle target, double cooldownSeconds, double headingOffsetRadians) {
+    boolean fireTorpedoAtTarget(Vehicle ship, Vehicle target, double cooldownSeconds, double headingOffsetRadians) {
         return fireTorpedo(ship, cooldownSeconds, headingOffsetRadians, null, target);
     }
 
@@ -3453,7 +2469,7 @@ public final class GameSession {
         return ship.isSubmarine() ? 0.24 : 0.56;
     }
 
-    private Vector2 torpedoMuzzlePosition(Vehicle ship, double heading, int tubeSide) {
+    Vector2 torpedoMuzzlePosition(Vehicle ship, double heading, int tubeSide) {
         Vector2 forward = Vector2.fromHeading(heading);
         Vector2 right = new Vector2(Math.cos(heading), -Math.sin(heading));
         return ship.position()
@@ -3461,7 +2477,7 @@ public final class GameSession {
                 .add(right.scale(tubeSide * torpedoMuzzleSideOffset(ship) * TORPEDO_BOAT_MODEL_SCALE));
     }
 
-    private boolean torpedoLaunchWouldHitFriendlyShip(Vehicle shooter, Vector2 muzzlePosition, double heading) {
+    boolean torpedoLaunchWouldHitFriendlyShip(Vehicle shooter, Vector2 muzzlePosition, double heading) {
         return torpedoLaunchWouldHitFriendlyShip(shooter, muzzlePosition, heading, .05);
     }
 
@@ -3479,7 +2495,7 @@ public final class GameSession {
                 new WorldMap(worldMap.version(), obstacles));
     }
 
-    private boolean torpedoLaunchWouldHitFriendlyShip(Vehicle shooter, Vector2 muzzlePosition, double heading, double launchY) {
+    boolean torpedoLaunchWouldHitFriendlyShip(Vehicle shooter, Vector2 muzzlePosition, double heading, double launchY) {
         Vector2 forward = Vector2.fromHeading(heading);
         double torpedoSpeed = SHIP_TORPEDO_BASE_SPEED + Math.max(0, shooter.speed()) * SHIP_TORPEDO_SPEED_GAIN;
         double nearbyRange = 3 * BotNavigation.SHIP_LENGTH;
@@ -3511,7 +2527,7 @@ public final class GameSession {
         return torpedoLineHitsShip(start, forward, target, BOT_FIRE_MAX_RANGE, TORPEDO_HULL_MARGIN);
     }
 
-    private boolean torpedoLineHitsShip(Vector2 muzzlePosition, Vector2 forward, Vehicle target, double maxRange, double margin) {
+    boolean torpedoLineHitsShip(Vector2 muzzlePosition, Vector2 forward, Vehicle target, double maxRange, double margin) {
         Vector2 right = new Vector2(forward.z(), -forward.x());
         double broadRadius = (TORPEDO_BROAD_PHASE_RADIUS + margin) * TORPEDO_BOAT_MODEL_SCALE;
         Vector2 toFriendly = target.position().subtract(muzzlePosition);
@@ -3551,7 +2567,7 @@ public final class GameSession {
         return 0;
     }
 
-    private boolean fireAirTorpedo(Vehicle plane, double cooldownSeconds, double heading) {
+    boolean fireAirTorpedo(Vehicle plane, double cooldownSeconds, double heading) {
         heading = MathSupport.normalizeAngle(heading);
         Vector2 releasePosition = plane.position().add(Vector2.fromHeading(heading).scale(BOT_SCOUT_PLANE_AIR_TORPEDO_RELEASE_OFFSET));
         torpedoes.add(Torpedo.airDropped(
@@ -3595,7 +2611,7 @@ public final class GameSession {
         return true;
     }
 
-    private double airTorpedoSpeed(Vehicle plane) {
+    double airTorpedoSpeed(Vehicle plane) {
         return BOT_SCOUT_PLANE_AIR_TORPEDO_BASE_SPEED + Math.max(0, plane.speed()) * BOT_SCOUT_PLANE_AIR_TORPEDO_SPEED_GAIN;
     }
 
@@ -3636,24 +2652,24 @@ public final class GameSession {
         return ship;
     }
 
-    private double relativeBearing(Vehicle ship, Vector2 target) {
+    double relativeBearing(Vehicle ship, Vector2 target) {
         return MathSupport.normalizeAngle(angleTo(target, ship.position()) - ship.heading());
     }
 
-    private double angleTo(Vector2 target, Vector2 from) {
+    double angleTo(Vector2 target, Vector2 from) {
         return Math.atan2(target.x() - from.x(), target.z() - from.z());
     }
 
-    private double angularDistance(double left, double right) {
+    double angularDistance(double left, double right) {
         return Math.abs(MathSupport.normalizeAngle(left - right));
     }
 
-    private double stablePhase(String value) {
+    double stablePhase(String value) {
         int hash = Math.abs(value.hashCode());
         return (hash % 6283) / 1000.0;
     }
 
-    private static Vector2 rightFromHeading(double heading) {
+    static Vector2 rightFromHeading(double heading) {
         return new Vector2(Math.cos(heading), -Math.sin(heading));
     }
 
@@ -3678,7 +2694,6 @@ public final class GameSession {
     private record PendingBombRelease(String shipId, double releaseAtSeconds, int index) {
     }
 
-    private record BotBombingSolution(Vector2 targetPosition, boolean canRelease) {
-    }
+
 
 }

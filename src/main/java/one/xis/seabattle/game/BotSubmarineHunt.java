@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 /** A sighting shares a fixed search area, never the submerged submarine's live position. */
-final class BotSubmarineHunt {
+public final class BotSubmarineHunt {
     static final double DURATION = 60;
     static final double DETECTION_NOTICE_SECONDS = 3;
     // Three quarters of the normal on-screen combat radar, not the strategic human-target range.
@@ -14,7 +14,7 @@ final class BotSubmarineHunt {
     static final double SEARCH_RADIUS = 6 * BotNavigation.SHIP_LENGTH;
     static final double WAYPOINT_REACHED = 4 * BotNavigation.SHIP_LENGTH;
     private record Contact(String team, String target, long life) {}
-    record Area(Vector2 center, double until) {}
+    public record Area(Vector2 center, double until) {}
     private final Map<Contact, Area> sightings = new HashMap<>();
     private double nextExpiry = Double.POSITIVE_INFINITY;
 
@@ -61,7 +61,7 @@ final class BotSubmarineHunt {
         }
     }
 
-    static final class Search {
+    public static final class Search {
         private final Area area;
         private final double entryAngle;
         private int waypoint;
@@ -73,10 +73,10 @@ final class BotSubmarineHunt {
             entryAngle = Math.atan2(offset.x(), offset.z());
             destination = point();
         }
-        boolean active(double now) { return now < area.until(); }
-        Area area() { return area; }
-        int waypoint() { return waypoint; }
-        Vector2 currentDestination() { return destination; }
+        public boolean active(double now) { return now < area.until(); }
+        public Area area() { return area; }
+        public int waypoint() { return waypoint; }
+        public Vector2 currentDestination() { return destination; }
         Vector2 destination(Vehicle boat) {
             if (boat.position().distanceTo(destination) <= WAYPOINT_REACHED) {
                 waypoint++;

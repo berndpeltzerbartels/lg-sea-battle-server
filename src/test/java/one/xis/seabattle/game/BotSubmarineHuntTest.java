@@ -219,13 +219,13 @@ class BotSubmarineHuntTest {
         Vehicle hunter = all.stream().filter(s -> s.id().equals("hunter-0")).findFirst().orElseThrow();
         var search = hunter.surface().botNavigation.submarineSearch;
         Vehicle closeEnemy = boat("close", "dark", "bot", "torpedo-boat", hunter.position().x() + 30, hunter.position().z());
-        Method course = GameSession.class.getDeclaredMethod("desiredBotCourse", Vehicle.class, Vehicle.class, WorldMap.class);
+        Method course = BotTestAccess.class.getDeclaredMethod("desiredBotCourse", Vehicle.class, Vehicle.class, WorldMap.class);
         course.setAccessible(true);
-        var local = (BotNavigation.Course) course.invoke(session, hunter, closeEnemy, water);
+        var local = (BotNavigation.Course) course.invoke(new BotTestAccess(session), hunter, closeEnemy, water);
         assertEquals(Math.PI / 2, local.heading(), 1e-8);
         assertSame(search, hunter.surface().botNavigation.submarineSearch);
         Vehicle distantEnemy = boat("distant", "dark", "player-other", "torpedo-boat", hunter.position().x() + 1000, hunter.position().z());
-        var searchCourse = (BotNavigation.Course) course.invoke(session, hunter, distantEnemy, water);
+        var searchCourse = (BotNavigation.Course) course.invoke(new BotTestAccess(session), hunter, distantEnemy, water);
         assertEquals(8, searchCourse.engineOrder(), "A routine distant target must not slow or steal the search");
         assertNotEquals(Math.PI / 2, searchCourse.heading(), 1e-8);
         hunter.surface().botReverseUntil = 5;

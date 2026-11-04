@@ -5155,9 +5155,9 @@ class GameSessionTest {
     @SuppressWarnings("unchecked")
     private Optional<String> scoutPlaneAttackHumanId(GameSession session, String planeId) throws Exception {
         Vehicle plane = shipEntity(session, planeId);
-        Method scoutPlaneAttackHuman = GameSession.class.getDeclaredMethod("scoutPlaneAttackHuman", Vehicle.class);
+        Method scoutPlaneAttackHuman = BotTestAccess.class.getDeclaredMethod("scoutPlaneAttackHuman", Vehicle.class);
         scoutPlaneAttackHuman.setAccessible(true);
-        return ((Optional<Vehicle>) scoutPlaneAttackHuman.invoke(session, plane)).map(Vehicle::id);
+        return ((Optional<Vehicle>) scoutPlaneAttackHuman.invoke(new BotTestAccess(session), plane)).map(Vehicle::id);
     }
 
     private boolean shouldForceHumanScoutPlaneTarget(GameSession session, String planeId) throws Exception {
@@ -5170,13 +5170,13 @@ class GameSessionTest {
                         throw new IllegalStateException(exception);
                     }
                 });
-        Method shouldForceHumanScoutPlaneTarget = GameSession.class.getDeclaredMethod(
+        Method shouldForceHumanScoutPlaneTarget = BotTestAccess.class.getDeclaredMethod(
                 "shouldForceHumanScoutPlaneTarget",
                 Vehicle.class,
                 Optional.class
         );
         shouldForceHumanScoutPlaneTarget.setAccessible(true);
-        return (boolean) shouldForceHumanScoutPlaneTarget.invoke(session, plane, attackHuman);
+        return (boolean) shouldForceHumanScoutPlaneTarget.invoke(new BotTestAccess(session), plane, attackHuman);
     }
 
     @SuppressWarnings("unchecked")
@@ -5321,14 +5321,14 @@ class GameSessionTest {
         List<Vehicle> activeShips = ((List<Vehicle>) allShips.invoke(session)).stream()
                 .filter(ship -> "active".equals(ship.state()))
                 .toList();
-        Method selectBotScoutPlaneTarget = GameSession.class.getDeclaredMethod(
+        Method selectBotScoutPlaneTarget = BotTestAccess.class.getDeclaredMethod(
                 "selectBotScoutPlaneTarget",
                 Vehicle.class,
                 List.class,
                 Map.class
         );
         selectBotScoutPlaneTarget.setAccessible(true);
-        return ((Optional<Vehicle>) selectBotScoutPlaneTarget.invoke(session, shipEntity(session, planeId), activeShips, Map.of()))
+        return ((Optional<Vehicle>) selectBotScoutPlaneTarget.invoke(new BotTestAccess(session), shipEntity(session, planeId), activeShips, Map.of()))
                 .map(Vehicle::id);
     }
 
@@ -5348,9 +5348,9 @@ class GameSessionTest {
         );
         visibleTargets.setAccessible(true);
         List<Vehicle> targets = (List<Vehicle>) visibleTargets.invoke(session, shipEntity(session, shipId), visibilityCache);
-        Method chooseBotTarget = GameSession.class.getDeclaredMethod("chooseBotTarget", Vehicle.class, List.class);
+        Method chooseBotTarget = BotTestAccess.class.getDeclaredMethod("chooseBotTarget", Vehicle.class, List.class);
         chooseBotTarget.setAccessible(true);
-        return ((Optional<Vehicle>) chooseBotTarget.invoke(session, shipEntity(session, shipId), targets))
+        return ((Optional<Vehicle>) chooseBotTarget.invoke(new BotTestAccess(session), shipEntity(session, shipId), targets))
                 .map(Vehicle::id);
     }
 
@@ -5683,10 +5683,10 @@ class GameSessionTest {
         clock.setDouble(session, time);
         List<Vehicle> ships = List.of(shipEntity(session, "boat"), shipEntity(session, "sub"));
         var cache = radarService.visibilityCache(session.worldMap(), ships);
-        Method command = GameSession.class.getDeclaredMethod("commandBot", Vehicle.class,
+        Method command = BotTestAccess.class.getDeclaredMethod("commandBot", Vehicle.class,
                 RadarService.VisibilityCache.class, NavigationService.class, WorldMap.class, List.class);
         command.setAccessible(true);
-        command.invoke(session, ships.get(0), cache, navigationService, session.worldMap(), ships);
+        command.invoke(new BotTestAccess(session), ships.get(0), cache, navigationService, session.worldMap(), ships);
     }
 
     @Test
@@ -5716,13 +5716,13 @@ class GameSessionTest {
                 List.of(new FleetSetup("red", List.of(ship("boat", "red", -900, -100, 0, "bot", ENGINE_STOP, 0, 999)))),
                 List.of()));
         Vehicle boat = shipEntity(session, "boat");
-        Method course = GameSession.class.getDeclaredMethod("desiredBotCourse", Vehicle.class, Vehicle.class, WorldMap.class);
+        Method course = BotTestAccess.class.getDeclaredMethod("desiredBotCourse", Vehicle.class, Vehicle.class, WorldMap.class);
         course.setAccessible(true);
-        var fallback = (BotNavigation.Course) course.invoke(session, boat, null, map);
+        var fallback = (BotNavigation.Course) course.invoke(new BotTestAccess(session), boat, null, map);
         assertEquals(Math.atan2(900, 100), fallback.heading(), .00001);
         assertEquals(ENGINE_HALF, fallback.engineOrder());
         boat.respawn(new Vector2(0, -100), 0, 0);
-        fallback = (BotNavigation.Course) course.invoke(session, boat, null, map);
+        fallback = (BotNavigation.Course) course.invoke(new BotTestAccess(session), boat, null, map);
         assertEquals(ENGINE_HALF, fallback.engineOrder());
     }
 
@@ -5925,7 +5925,7 @@ class GameSessionTest {
 
     private int botAttackEngineOrder(GameSession session, String shipId, String targetId,
                                      double distance, double targetBearing) throws Exception {
-        Method botAttackEngineOrder = GameSession.class.getDeclaredMethod(
+        Method botAttackEngineOrder = BotTestAccess.class.getDeclaredMethod(
                 "botAttackEngineOrder",
                 Vehicle.class,
                 Vehicle.class,
@@ -5933,8 +5933,7 @@ class GameSessionTest {
                 double.class
         );
         botAttackEngineOrder.setAccessible(true);
-        return (int) botAttackEngineOrder.invoke(
-                session,
+        return (int) botAttackEngineOrder.invoke(new BotTestAccess(session),
                 shipEntity(session, shipId),
                 shipEntity(session, targetId),
                 distance,

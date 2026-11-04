@@ -50,6 +50,11 @@ tasks.withType(Test) {
     }
 }
 
+// Forward algorithm selection (and existing simulation options) to application JVMs too.
+tasks.withType(JavaExec).configureEach {
+    systemProperties System.getProperties().findAll { key, _ -> key.toString().startsWith('seaBattle.') }
+}
+
 def lgSeaBattleDir = file('../client')
 def clientDistDir = file("$lgSeaBattleDir/dist")
 

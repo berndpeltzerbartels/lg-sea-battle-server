@@ -61,49 +61,6 @@ final class RadarService {
         return true;
     }
 
-    boolean isVisible(VehicleSnapshot observer, VehicleSnapshot contact, WorldMap worldMap) {
-        if (observer.id().equals(contact.id())) {
-            return false;
-        }
-        if (!"active".equals(observer.state()) || !"active".equals(contact.state())) {
-            return false;
-        }
-        if (!canObserveByDepth(observer, contact)) {
-            return false;
-        }
-        Vector2 observerPosition = new Vector2(observer.x(), observer.z());
-        Vector2 contactPosition = new Vector2(contact.x(), contact.z());
-        if (observerPosition.distanceTo(contactPosition) > RADAR_RANGE) {
-            return false;
-        }
-        return true;
-    }
-
-    private boolean canObserveByDepth(VehicleSnapshot observer, VehicleSnapshot contact) {
-        if (isFullySubmerged(observer)) {
-            return false;
-        }
-        if (isFullySubmerged(contact)) {
-            return false;
-        }
-        if (isAtPeriscopeDepth(contact)) {
-            return false;
-        }
-        return true;
-    }
-
-    private boolean isFullySubmerged(VehicleSnapshot ship) {
-        return isSubmarine(ship) && "submerged".equals(ship.depthState());
-    }
-
-    private boolean isAtPeriscopeDepth(VehicleSnapshot ship) {
-        return isSubmarine(ship) && "periscope".equals(ship.depthState());
-    }
-
-    private boolean isSubmarine(VehicleSnapshot ship) {
-        return "submarine".equals(ship.vehicleType());
-    }
-
     VisibilityCache visibilityCache(WorldMap worldMap, List<Vehicle> activeShips) {
         return new VisibilityCache(this, worldMap, activeShips);
     }
@@ -195,13 +152,17 @@ final class RadarService {
         private final RadarService radarService;
         private final WorldMap worldMap;
         private final SpatialIndex<Vehicle> shipsByRadarCell;
+        private final List<Vehicle> vehicles;
         private final Map<VisibilityKey, Boolean> visibleByPair = new HashMap<>();
 
         private VisibilityCache(RadarService radarService, WorldMap worldMap, List<Vehicle> activeShips) {
             this.radarService = radarService;
+            this.vehicles = activeShips;
             this.worldMap = worldMap;
             this.shipsByRadarCell = SpatialIndex.from(activeShips, Vehicle::position, MAX_CANDIDATE_RANGE);
         }
+
+        List<Vehicle> vehicles() { return vehicles; }
 
         List<Vehicle> candidates(Vehicle observer) {
             return candidates(observer, RADAR_RANGE);

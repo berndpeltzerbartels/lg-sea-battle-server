@@ -2,74 +2,118 @@ package one.xis.seabattle.game;
 
 import java.util.List;
 
-/** Live round context. Use only during calculate(); snapshots returned by ships() are immutable.
- * ships() includes all participants, not just detected enemies. Experimental algorithms must
- * apply their own detection rules. The production algorithm retains its existing radar rules.
+/**
+ * Direct server model for one movement round. Never builds frontend snapshots. Each bot owns its
+ * command/state; target selection is already complete for all vehicles. Do not retain this round
+ * context across calls.
  */
 public final class BotSituation {
-    private final GameSession session;
-    private final RadarService radar;
-    private final NavigationService navigation;
-    private final WorldMap world;
-    private final GameSession.BotRound round;
-    private List<VehicleSnapshot> snapshots;
-    private java.util.Map<String, Vehicle> bots;
-    private boolean standardCalled;
+  private final GameSession session;
+  private final RadarService radar;
+  private final NavigationService navigation;
+  private final WorldMap world;
+  private final GameSession.BotRound round;
+  private boolean standardCalled;
 
-    BotSituation(GameSession session, RadarService radar, NavigationService navigation, WorldMap world, GameSession.BotRound round) {
-        this.session = session;
-        this.radar = radar;
-        this.navigation = navigation;
-        this.world = world;
-        this.round = round;
-    }
+  BotSituation(
+      GameSession session,
+      RadarService radar,
+      NavigationService navigation,
+      WorldMap world,
+      GameSession.BotRound round) {
+    this.session = session;
+    this.radar = radar;
+    this.navigation = navigation;
+    this.world = world;
+    this.round = round;
+  }
 
-    public double timeSeconds() { return session.calculationTime(); }
+  GameSession session() {
+    return session;
+  }
 
-    /** Captured lazily once, before any subsequent commands issued by this implementation. */
-    public List<VehicleSnapshot> ships() {
-        if (snapshots == null) snapshots = session.calculationShips().stream().map(Vehicle::snapshot).toList();
-        return snapshots;
-    }
+  RadarService radar() {
+    return radar;
+  }
 
-    public boolean isLand(double x, double z) {
-        return LandGeometry.isBlocked(new Vector2(x, z), world);
-    }
+  NavigationService navigation() {
+    return navigation;
+  }
 
-    /** Real ship footprint, heading in radians (0 = +z). */
-    public boolean isHullBlocked(double x, double z, double heading) {
-        return navigation.isShipBlocked(new Vector2(x, z), heading, world);
-    }
+  GameSession.BotRound round() {
+    return round;
+  }
 
-    /** Engine 0..8 (2 = stop), rudder degrees; existing vessel limits are enforced. */
-    public void steer(String shipId, int engineOrder, int rudderDegrees) {
-        bot(shipId).applyCommand(engineOrder, rudderDegrees);
-    }
+  public WorldMap world() {
+    return world;
+  }
 
-    public void dive(String shipId, String depth) {
-        if (!List.of("surface", "periscope", "submerged").contains(depth))
-            throw new IllegalArgumentException("Unknown depth: " + depth);
-        bot(shipId).botDepth(depth);
-    }
+  public double timeSeconds() {
+    return session.calculationTime();
+  }
 
-    /** Run existing movement/combat controls once, using this round’s already prepared goals. */
-    public void runStandard() { runStandard(round.goals()); }
+  /** Actual active vehicles, including human participants. No copies or rounding. */
+  public List<Vehicle> ships() {
+    return round.activeShips();
+  }
 
-    /** Existing movement/combat controls using the already selected navigation destinations. */
-    public void runStandard(java.util.Map<String, BotGoal> goals) {
-        if (standardCalled) throw new IllegalStateException("Production calculation already ran this round");
-        standardCalled = true;
-        session.calculateStandardBots(radar, navigation, world, round, goals);
-    }
+  public boolean isLand(double x, double z) {
+    return LandGeometry.isBlocked(new Vector2(x, z), world);
+  }
 
-    private Vehicle bot(String id) {
-        if (bots == null) {
-            bots = new java.util.HashMap<>();
-            for (Vehicle ship : session.calculationShips())
-                if (ship.isBotControlled() && "active".equals(ship.state())) bots.put(ship.id(), ship);
-        }
-        Vehicle ship = bots.get(id);
-        if (ship == null) throw new IllegalArgumentException("No active bot: " + id);
-        return ship;
-    }
+  public boolean isHullBlocked(double x, double z, double heading) {
+    return navigation.isShipBlocked(new Vector2(x, z), heading, world);
+  }
+
+  public BotTargetSituation perception(Vehicle observer) {
+    return new BotTargetSituation(session, observer, List.of(), round.cache(), java.util.Map.of());
+  }
+
+  public void steer(Vehicle bot, int engineOrder, int rudderDegrees) {
+    requireBot(bot);
+    bot.applyCommand(engineOrder, rudderDegrees);
+  }
+
+  public void steer(String id, int engineOrder, int rudderDegrees) {
+    steer(bot(id), engineOrder, rudderDegrees);
+  }
+
+  public void dive(Submarine bot, String depth) {
+    requireBot(bot);
+    if (!List.of("surface", "periscope", "submerged").contains(depth))
+      throw new IllegalArgumentException("Unknown depth: " + depth);
+    bot.botDepth(depth);
+  }
+
+  public void dive(String id, String depth) {
+    if (!(bot(id) instanceof Submarine sub))
+      throw new IllegalArgumentException("Not a submarine: " + id);
+    dive(sub, depth);
+  }
+
+  public void runStandard() {
+    runStandard(round.goals());
+  }
+
+  public void runStandard(java.util.Map<String, BotGoal> goals) {
+    if (standardCalled)
+      throw new IllegalStateException("Production calculation already ran this round");
+    standardCalled = true;
+    new StandardBotCalculation()
+        .calculate(this, (long) Math.floor(timeSeconds() * 10 + 1e-6), goals);
+  }
+
+  private void requireBot(Vehicle vehicle) {
+    if (!vehicle.isBotControlled()
+        || !"active".equals(vehicle.state())
+        || !ships().contains(vehicle))
+      throw new IllegalArgumentException("No active bot: " + vehicle.id());
+  }
+
+  private Vehicle bot(String id) {
+    return ships().stream()
+        .filter(vehicle -> vehicle.id().equals(id))
+        .findFirst()
+        .orElseThrow(() -> new IllegalArgumentException("No active vehicle: " + id));
+  }
 }

@@ -7,7 +7,8 @@ public abstract sealed class SurfaceVehicle extends Vehicle permits TorpedoBoat,
   private Vector2 backoffTarget;
   double botEscapeHeading, botEscapeUntil, botReverseUntil, botForwardEscapeUntil;
 
-  record SubmarineAttackCourse(String targetId, Vector2 position, double heading, double until) {}
+  public record SubmarineAttackCourse(
+      String targetId, Vector2 position, double heading, double until) {}
 
   SubmarineAttackCourse botSubmarineAttackCourse;
   BotNavigation botNavigation;
