@@ -617,3 +617,61 @@ Die sieben bestehenden Performance-Tests bestehen ebenfalls. Der Vergleich enth�
 geänderte Spielverläufe, nicht nur isolierte Kosten der Hindernisprüfung; Netzwerk und Grafik
 sind nicht enthalten. Ergebnisse liegen unter
 `/Users/bernd/Documents/New project/Backend-Performance-Wracknavigation-2026-11-04/`.
+
+## Torpedotreffer während des Abtauchens (2026-11-04)
+
+Die Vorprüfung für Oberflächentorpedos verwendete beim U-Boot noch `isOnSurface()`
+(also den gemeldeten Tiefenstatus), die anschließende Prüfung einen Rumpfumriss
+von oben. Jetzt entscheidet zunächst eine grobe vertikale Hülle anhand von `y`,
+danach die vorhandene dreidimensionale U-Boot-Geometrie. Sichtbare Rohre bleiben
+direkt treffbar, die darunterliegende Rumpffläche ist kein Oberflächenziel.
+Die Bot-Schussbahnprüfung verwendet dieselbe Geometrie. Die alten separaten
+Sehrohrmaße der Geschossprüfung wurden durch SubmarinePeriscopeGeometry ersetzt,
+damit Vergrößerung und tiefenabhängiges Ausfahren auch bei Treffern übereinstimmen.
+
+SubmarineTorpedoDepthTest prüft alle drei Statusangaben gegen identische reale
+Tiefen, einen Tauchverlauf in 0,02-Einheiten-Schritten, knappe Fehlschüsse neben
+dem Rohr sowie die vollständige Treffer- und Abschussmeldung in GameSession.
+Alle drei neuen Tests schlagen gegen den veröffentlichten Stand 28ec7e8 fehl
+und bestehen mit der Korrektur. Zwei ältere Tests hatten statt tatsächlicher
+Tauchtiefe nur einen Tiefenstatus bei y=0 gesetzt; sie verwenden jetzt echte
+Tiefen, und der direkte Sehrohrtreffer ist gemäß Spielregel erlaubt.
+Vollständiger Testlauf: 658 Tests, 656 bestanden, 2 übersprungen. Alle sieben
+bestehenden Performance-Tests bestehen ebenfalls. Ein einzelner früherer
+Lauf der zufällig aufgestellten dichten Landschaft meldete ein blockiertes
+Boot; im anschließenden vollständigen Lauf trat das nicht auf. Die betreffende
+Navigationsprüfung wurde nicht verändert oder abgeschwächt.
+
+
+## U-Boot-Angriffsbereich und kein Auftauchen wegen Stillstand (2026-11-04)
+
+Auf Sehrohrtiefe ersetzt ein Bereich von 250–400 Welteinheiten den festen
+Sollabstand 300. Unterhalb von 250 wird rückwärts Abstand gewonnen, bei
+Erreichen von 250 endet dieser Befehl ohne verbleibenden Rückwärtszustand.
+Innerhalb des Bereichs wird bei höchstens 5 Grad Peilabweichung gestoppt;
+zum Ausrichten bleibt langsame Vorausfahrt möglich. Außerhalb von 400 erfolgt
+die Annäherung mit zunehmender Fahrt und Berücksichtigung eines wegfahrenden
+Ziels. Ein Ziel weit hinter dem Boot wird weiterhin mit Vorausfahrt angedreht,
+weil Rückwärtsfahrt in dieser Lage den Abstand verkleinern würde.
+Notfalltauchen und Hindernis-/Torpedovermeidung behalten ihren Vorrang.
+
+Die bisherige 15-Sekunden-Stillstandsregel mit erzwungenem Auftauchen und
+30-Sekunden-Erholung ist vollständig entfernt, einschließlich ihrer
+Fortschritts- und Zeitfelder. Die normale Hindernisnavigation bleibt auch
+unter Wasser zuständig. Reguläres Auftauchen bei verlorenem/fernem Feindkontakt
+bleibt erhalten. Für diese Änderung sind keine zusätzlichen Umfeldsuchen nötig.
+
+Tests decken die beiden Grenzen, bewegte Ziele ohne vorzeitige Rückwärtsfahrt,
+zehn Minuten Halten aus vier Ausgangsentfernungen und lange Blockaden auf
+beiden Tauchtiefen ab. Ein vollständiger Zwei-Minuten-Spieltest ausschließlich
+mit Bots bestätigt, dass zwei befreundete U-Boote am selben Ziel ihre
+verschiedenen Abstände 300 und 350 halten. Bestehende Notfall-Tauchtests
+bleiben aktiv. Vollständiger Testlauf: 660 Tests, 658 bestanden, 2 übersprungen.
+
+Leistungsvergleich nur dieser Taktikänderung: 57.600 gemessene vollständige
+Berechnungsrunden, jeweils drei frische JVMs vor/nach der Änderung. Andere
+lokale Änderungen sind in beiden Varianten identisch. Median der mittleren
+Rundenzeiten: Standardkarte 0,406 → 0,407 ms, 40 Fahrzeuge 0,172 → 0,154 ms,
+100 Fahrzeuge 0,635 → 0,621 ms. Keine relevante Mehrlast beobachtet; Änderungen
+im Spielverlauf gehen in diese Messung mit ein. Ergebnisse:
+`/Users/bernd/Documents/New project/Backend-Performance-Uboot-Abstandsbereich-2026-11-04/`.

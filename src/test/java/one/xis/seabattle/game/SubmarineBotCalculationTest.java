@@ -76,12 +76,12 @@ class SubmarineBotCalculationTest {
     var first = new Submarine("first", "light", new Vector2(0, 0), 0, "bot");
     var second = new Submarine("second", "light", new Vector2(0, 0), 0, "bot");
     var oldState = first.botState();
-    oldState.holdingDistanceAstern = true;
+    oldState.lastAircraftPosition = new Vector2(10, 20);
     oldState.aircraftMemoryUntil = 50;
-    assertFalse(second.botState().holdingDistanceAstern);
+    assertNull(second.botState().lastAircraftPosition);
     first.controlledBy("captain");
     assertNotSame(oldState, first.botState());
-    assertFalse(first.botState().holdingDistanceAstern);
+    assertNull(first.botState().lastAircraftPosition);
     assertEquals(0, first.botState().aircraftMemoryUntil);
   }
 }
