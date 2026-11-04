@@ -14,6 +14,7 @@ public final class BotTargetSituation {
   private final List<Vehicle> candidates;
   private final RadarService.VisibilityCache perception;
   private final Map<String, Integer> reservations;
+  private final Map<String, Integer> waterTargetReservations;
   private boolean standardComputed;
   private Vehicle standard;
 
@@ -23,11 +24,22 @@ public final class BotTargetSituation {
       List<Vehicle> candidates,
       RadarService.VisibilityCache perception,
       Map<String, Integer> reservations) {
+    this(session, observer, candidates, perception, reservations, Map.of());
+  }
+
+  BotTargetSituation(
+      GameSession session,
+      Vehicle observer,
+      List<Vehicle> candidates,
+      RadarService.VisibilityCache perception,
+      Map<String, Integer> reservations,
+      Map<String, Integer> waterTargetReservations) {
     this.session = session;
     this.observer = observer;
     this.candidates = candidates;
     this.perception = perception;
     this.reservations = reservations;
+    this.waterTargetReservations = waterTargetReservations;
   }
 
   GameSession session() {
@@ -122,6 +134,16 @@ public final class BotTargetSituation {
         && "active".equals(target.state())
         && !target.isScoutPlane()
         && session.isStrategicHumanContact(observer, target);
+  }
+
+  /** Other friendly water bots assigned to this target. Excludes this observer's own choice. */
+  public int otherAssignedWaterAttackers(Vehicle target) {
+    int count = waterTargetReservations.getOrDefault(target.id(), 0);
+    if (observer instanceof SurfaceVehicle surface
+        && observer.isBotControlled()
+        && surface.botNavigation.target == target
+        && surface.botNavigation.targetLife == target.lifeId()) count--;
+    return Math.max(0, count);
   }
 
   public int assignedAircraftCount(Vehicle target) {

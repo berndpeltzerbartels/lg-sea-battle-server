@@ -102,9 +102,10 @@ final class BotTestAccess {
             call(
                 session,
                 "prepareBotIntent",
-                new Class[] {Vehicle.class, RadarService.VisibilityCache.class},
+                new Class[] {Vehicle.class, RadarService.VisibilityCache.class, Map.class},
                 vehicle,
-                cache);
+                cache,
+                new HashMap<String, Integer>());
     BotGoal goal =
         new StandardBotTargetSelection()
             .goal(intent.situation(), intent.contact(), intent.routeUpdated());
