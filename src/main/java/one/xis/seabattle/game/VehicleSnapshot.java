@@ -1,6 +1,7 @@
 package one.xis.seabattle.game;
 
-public record ShipSnapshot(
+/** Flat, immutable wire format shared with the browser; mutable subtype state lives in Vehicle. */
+public record VehicleSnapshot(
         String id,
         String teamId,
         double x,

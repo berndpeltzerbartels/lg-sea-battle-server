@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 /** A sighting shares a fixed search area, never the submerged submarine's live position. */
-final class BotSubmarineHunt {
+public final class BotSubmarineHunt {
     static final double DURATION = 60;
     static final double DETECTION_NOTICE_SECONDS = 3;
     // Three quarters of the normal on-screen combat radar, not the strategic human-target range.
@@ -14,7 +14,7 @@ final class BotSubmarineHunt {
     static final double SEARCH_RADIUS = 6 * BotNavigation.SHIP_LENGTH;
     static final double WAYPOINT_REACHED = 4 * BotNavigation.SHIP_LENGTH;
     private record Contact(String team, String target, long life) {}
-    record Area(Vector2 center, double until) {}
+    public record Area(Vector2 center, double until) {}
     private final Map<Contact, Area> sightings = new HashMap<>();
     private double nextExpiry = Double.POSITIVE_INFINITY;
 
@@ -24,7 +24,7 @@ final class BotSubmarineHunt {
         nextExpiry = sightings.values().stream().mapToDouble(Area::until).min().orElse(Double.POSITIVE_INFINITY);
     }
 
-    static boolean canReport(Ship observer) {
+    static boolean canReport(Vehicle observer) {
         return observer.isBotControlled() && !observer.isScoutPlane()
                 && (!observer.isSubmarine() || observer.y() + SubmarinePeriscopeGeometry.topAboveRoot(observer.y()) > 0);
     }
@@ -42,7 +42,7 @@ final class BotSubmarineHunt {
         return Map.copyOf(result);
     }
 
-    void sighting(Ship observer, Ship target, double now, Supplier<List<Ship>> neighbors) {
+    void sighting(Vehicle observer, Vehicle target, double now, Supplier<List<Vehicle>> neighbors) {
         if (!canReport(observer)) return;
         if (!target.isSubmarine() || observer.teamId().equals(target.teamId())) return;
         expire(now);
@@ -52,16 +52,16 @@ final class BotSubmarineHunt {
         Area area = new Area(target.position(), now + DURATION);
         sightings.put(contact, area);
         nextExpiry = Math.min(nextExpiry, area.until());
-        for (Ship boat : neighbors.get()) {
+        for (Vehicle boat : neighbors.get()) {
             if (!boat.isBotControlled() || boat.isSubmarine() || boat.isScoutPlane()
                     || !"active".equals(boat.state()) || !observer.teamId().equals(boat.teamId())
                     || boat.position().distanceTo(area.center()) > RECRUIT_RADIUS) continue;
-            Search current = boat.botNavigation.submarineSearch;
-            if (current == null || !current.active(now)) boat.botNavigation.submarineSearch = new Search(area, boat.position());
+            Search current = boat.surface().botNavigation.submarineSearch;
+            if (current == null || !current.active(now)) boat.surface().botNavigation.submarineSearch = new Search(area, boat.position());
         }
     }
 
-    static final class Search {
+    public static final class Search {
         private final Area area;
         private final double entryAngle;
         private int waypoint;
@@ -73,10 +73,11 @@ final class BotSubmarineHunt {
             entryAngle = Math.atan2(offset.x(), offset.z());
             destination = point();
         }
-        boolean active(double now) { return now < area.until(); }
-        Area area() { return area; }
-        int waypoint() { return waypoint; }
-        Vector2 destination(Ship boat) {
+        public boolean active(double now) { return now < area.until(); }
+        public Area area() { return area; }
+        public int waypoint() { return waypoint; }
+        public Vector2 currentDestination() { return destination; }
+        Vector2 destination(Vehicle boat) {
             if (boat.position().distanceTo(destination) <= WAYPOINT_REACHED) {
                 waypoint++;
                 destination = point();

@@ -11,30 +11,30 @@ class PeriscopeWarningsTest {
     private final RadarService radar = new RadarService();
     private final WorldMap sea = new WorldMap(1, List.of());
     private final PeriscopeWarnings warnings = new PeriscopeWarnings();
-    private final Ship observer = ship("boat", "light", "captain", 0, 0, 0, 0, false, "surface");
+    private final Vehicle observer = ship("boat", "light", "captain", 0, 0, 0, 0, false, "surface");
 
-    private Ship ship(String id, String team, String controller, double x, double z, double y,
+    private Vehicle ship(String id, String team, String controller, double x, double z, double y,
                       double speed, boolean sub, String depth) {
-        Ship ship = new Ship(id, team, new Vector2(x, z), 0, controller);
+        Vehicle ship = Vehicle.create(sub ? "submarine" : "torpedo-boat", id, team, new Vector2(x, z), 0, controller);
         ship.applyPlayerState(new PlayerStateUpdate(controller, team, x, z, 0, speed, 0, 2, 0, 0,
                 true, sub ? "submarine" : "torpedo-boat", y, 0, null, null, null, null, depth),
                 new NavigationService(), sea);
         return ship;
     }
 
-    private Ship sub(String controller, double x, double z, double y, double speed, String depth) {
+    private Vehicle sub(String controller, double x, double z, double y, double speed, String depth) {
         return ship("sub", "dark", controller, x, z, y, speed, true, depth);
     }
 
-    private void check(double now, Ship target) { check(now, target, sea); }
-    private void check(double now, Ship target, WorldMap world) {
+    private void check(double now, Vehicle target) { check(now, target, sea); }
+    private void check(double now, Vehicle target, WorldMap world) {
         warnings.update(now, List.of(observer), radar.visibilityCache(world, List.of(observer, target)), world);
     }
 
     @Test void humanAndBotSubmarinesHaveIdenticalSightingsIncludingBehindTheShip() {
         for (String controller : List.of("bot", "enemy-captain")) {
             PeriscopeWarnings detector = new PeriscopeWarnings();
-            Ship target = sub(controller, -5, -5, -5.58, 0, "periscope");
+            Vehicle target = sub(controller, -5, -5, -5.58, 0, "periscope");
             detector.update(0, List.of(observer), radar.visibilityCache(sea, List.of(observer, target)), sea);
             assertEquals("Backbord achtern", detector.snapshot().get("boat").direction());
         }
@@ -50,14 +50,14 @@ class PeriscopeWarningsTest {
     }
 
     @Test void noWarningsForFriendlyInactiveOrHiddenContacts() {
-        Ship friend = ship("friend", "light", "enemy", 0, 10, -5.58, 0, true, "periscope");
+        Vehicle friend = ship("friend", "light", "enemy", 0, 10, -5.58, 0, true, "periscope");
         check(0, friend);
         assertTrue(warnings.snapshot().isEmpty());
-        Ship sunk = sub("enemy", 0, 10, -5.58, 0, "periscope");
+        Vehicle sunk = sub("enemy", 0, 10, -5.58, 0, "periscope");
         sunk.sink(0);
         check(1, sunk);
         assertTrue(warnings.snapshot().isEmpty());
-        Ship hidden = sub("enemy", 0, 10, -8, 0, "periscope");
+        Vehicle hidden = sub("enemy", 0, 10, -8, 0, "periscope");
         check(2, hidden);
         assertTrue(warnings.snapshot().isEmpty());
     }
@@ -77,8 +77,8 @@ class PeriscopeWarningsTest {
     }
 
     @Test void oncePerSecondNoContinuousSpamAndRearmAfterTenSecondsWithoutContact() {
-        Ship target = sub("enemy", 0, 10, -5.58, 0, "periscope");
-        Ship far = sub("enemy", 0, 1000, -5.58, 0, "periscope");
+        Vehicle target = sub("enemy", 0, 10, -5.58, 0, "periscope");
+        Vehicle far = sub("enemy", 0, 1000, -5.58, 0, "periscope");
         check(0, far);
         check(.99, target);
         assertTrue(warnings.snapshot().isEmpty());
@@ -99,12 +99,12 @@ class PeriscopeWarningsTest {
     }
 
     @Test void multipleContactsAreCombinedAndNewContactsAreNotLostDuringTheToast() {
-        Ship first = sub("bot", 0, 10, -5.58, 0, "periscope");
-        Ship second = ship("second", "dark", "human", 10, 0, -5.58, 0, true, "periscope");
+        Vehicle first = sub("bot", 0, 10, -5.58, 0, "periscope");
+        Vehicle second = ship("second", "dark", "human", 10, 0, -5.58, 0, true, "periscope");
         var cache = radar.visibilityCache(sea, List.of(observer, first, second));
         warnings.update(0, List.of(observer), cache, sea);
         assertEquals(2, warnings.snapshot().get("boat").count());
-        Ship third = ship("third", "dark", "human", -10, 0, -5.58, 0, true, "periscope");
+        Vehicle third = ship("third", "dark", "human", -10, 0, -5.58, 0, true, "periscope");
         cache = radar.visibilityCache(sea, List.of(observer, first, second, third));
         warnings.update(1, List.of(observer), cache, sea);
         warnings.update(6, List.of(observer), cache, sea);
@@ -113,8 +113,8 @@ class PeriscopeWarningsTest {
     }
 
     @Test void deepObserversAndReleasedShipsDoNotReceiveWarnings() {
-        Ship deep = ship("deep", "light", "captain", 0, 0, -19, 0, true, "submerged");
-        Ship target = sub("enemy", 0, 10, -5.58, 0, "periscope");
+        Vehicle deep = ship("deep", "light", "captain", 0, 0, -19, 0, true, "submerged");
+        Vehicle target = sub("enemy", 0, 10, -5.58, 0, "periscope");
         var cache = radar.visibilityCache(sea, List.of(deep, target));
         warnings.update(0, List.of(deep), cache, sea);
         assertTrue(warnings.snapshot().isEmpty());
@@ -127,9 +127,9 @@ class PeriscopeWarningsTest {
     @Test void humanSubmarineReceivesSightingsOnlyWhenPhysicallySurfaced() {
         for (double y : new double[] { -.78, -3, -5.58, -19.26 }) {
             var detector = new PeriscopeWarnings();
-            Ship own = ship("own-sub", "light", "captain", 0, 0, y, 0, true,
+            Vehicle own = ship("own-sub", "light", "captain", 0, 0, y, 0, true,
                     y < -1 ? "periscope" : "surface");
-            Ship target = sub("enemy", 0, 10, -5.58, 0, "periscope");
+            Vehicle target = sub("enemy", 0, 10, -5.58, 0, "periscope");
             detector.update(0, List.of(own), radar.visibilityCache(sea, List.of(own, target)), sea);
             if (y == -.78) assertEquals("voraus", detector.snapshot().get("own-sub").direction());
             else assertTrue(detector.snapshot().isEmpty());
@@ -137,11 +137,11 @@ class PeriscopeWarningsTest {
     }
 
     @Test void surfacedHumanSubmarineReceivesEnemyPeriscopeWarningThroughGameSession() {
-        ShipSetup own = new ShipSetup("own-sub", "light", new Vector2(0, 0), 0, "captain", 2, 0, 99,
+        VehicleSetup own = new VehicleSetup("own-sub", "light", new Vector2(0, 0), 0, "captain", 2, 0, 99,
                 "submarine", 0);
-        ShipSetup enemy = new ShipSetup("enemy-sub", "dark", new Vector2(0, 10), 0, "enemy", 2, 0, 99,
+        VehicleSetup enemy = new VehicleSetup("enemy-sub", "dark", new Vector2(0, 10), 0, "enemy", 2, 0, 99,
                 "submarine", 0);
-        ShipSetup friendly = new ShipSetup("friendly-sub", "light", new Vector2(10, 0), 0, "friend", 2, 0, 99,
+        VehicleSetup friendly = new VehicleSetup("friendly-sub", "light", new Vector2(10, 0), 0, "friend", 2, 0, 99,
                 "submarine", 0);
         GameSession session = new GameSession(new GameSetup("surfaced-sub-warning", sea,
                 List.of(new FleetSetup("light", List.of(own, friendly)), new FleetSetup("dark", List.of(enemy))),
@@ -163,9 +163,9 @@ class PeriscopeWarningsTest {
     @ParameterizedTest
     @ValueSource(doubles = { -5.58, -19.26 })
     void surfacingReannouncesAnEnemyAlreadyPresentWhileDiving(double initialY) {
-        ShipSetup own = new ShipSetup("own-sub", "light", new Vector2(0, 0), 0, "captain", 2, 0, 99,
+        VehicleSetup own = new VehicleSetup("own-sub", "light", new Vector2(0, 0), 0, "captain", 2, 0, 99,
                 "submarine", 0);
-        ShipSetup enemy = new ShipSetup("enemy-sub", "dark", new Vector2(0, 15), 0, "enemy", 2, 0, 99,
+        VehicleSetup enemy = new VehicleSetup("enemy-sub", "dark", new Vector2(0, 15), 0, "enemy", 2, 0, 99,
                 "submarine", 0);
         GameSession session = new GameSession(new GameSetup("surfacing-warning", sea,
                 List.of(new FleetSetup("light", List.of(own)), new FleetSetup("dark", List.of(enemy))),
@@ -219,11 +219,11 @@ class PeriscopeWarningsTest {
     }
 
     @Test void gameSessionOnlyEvaluatesHumanObserversAndPublishesIntoTheNormalSnapshot() {
-        ShipSetup boat = new ShipSetup("boat", "light", new Vector2(0, 0), 0, "captain", 2, 0, 99,
+        VehicleSetup boat = new VehicleSetup("boat", "light", new Vector2(0, 0), 0, "captain", 2, 0, 99,
                 "torpedo-boat", 0);
-        ShipSetup target = new ShipSetup("sub", "dark", new Vector2(0, 10), 0, "enemy", 2, 0, 99,
+        VehicleSetup target = new VehicleSetup("sub", "dark", new Vector2(0, 10), 0, "enemy", 2, 0, 99,
                 "submarine", -5.58);
-        ShipSetup bot = new ShipSetup("bot", "light", new Vector2(10, 0), 0, "bot", 2, 0, 99,
+        VehicleSetup bot = new VehicleSetup("bot", "light", new Vector2(10, 0), 0, "bot", 2, 0, 99,
                 "torpedo-boat", 0);
         GameSession session = new GameSession(new GameSetup("sighting-test", sea,
                 List.of(new FleetSetup("light", List.of(boat, bot)), new FleetSetup("dark", List.of(target))),

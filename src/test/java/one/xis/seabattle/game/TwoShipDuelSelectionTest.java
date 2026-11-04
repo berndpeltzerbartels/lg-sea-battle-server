@@ -20,7 +20,7 @@ class TwoShipDuelSelectionTest {
                     session.restorePlayer("player-D-test", "dark", dark, initial.get(0), 0);
                     var ships = session.snapshot().ships();
                     assertEquals(2, ships.size());
-                    assertEquals(initial.stream().map(ShipSnapshot::id).toList(), ships.stream().map(ShipSnapshot::id).toList());
+                    assertEquals(initial.stream().map(VehicleSnapshot::id).toList(), ships.stream().map(VehicleSnapshot::id).toList());
                     assertEquals(light, ships.stream().filter(s -> s.teamId().equals("light")).findFirst().orElseThrow().vehicleType());
                     assertEquals(dark, ships.stream().filter(s -> s.teamId().equals("dark")).findFirst().orElseThrow().vehicleType());
                     session.releasePlayer("player-L-test");

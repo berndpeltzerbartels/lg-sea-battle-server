@@ -16,7 +16,7 @@ class UnderwaterTorpedoTest {
                     List.of(), List.of(), List.of())));
             NavigationService navigation = new NavigationService();
             GameSession session = new GameSession(new GameSetup("wall-torpedo", map, List.of(
-                    new FleetSetup("light", List.of(new ShipSetup("shooter", "light", new Vector2(0, 0),
+                    new FleetSetup("light", List.of(new VehicleSetup("shooter", "light", new Vector2(0, 0),
                             0, "diver", 2, 0, 0, "submarine", depth)))), List.of()));
             session.updatePlayerState(new PlayerStateUpdate("diver", "light", 0, 0, 0, 0, 0, 2, 0, 0,
                     false, "submarine", depth, 0, null, null, null, null,
@@ -47,9 +47,9 @@ class UnderwaterTorpedoTest {
                 WorldMap map = new WorldMap(99002, List.of());
                 NavigationService navigation = new NavigationService();
                 GameSession session = new GameSession(new GameSetup("deep-torpedo", map, List.of(
-                        new FleetSetup("light", List.of(new ShipSetup("shooter", "light", new Vector2(0, 0),
+                        new FleetSetup("light", List.of(new VehicleSetup("shooter", "light", new Vector2(0, 0),
                                 0, "diver", 2, 0, 0, "submarine", DEEP))),
-                        new FleetSetup("dark", List.of(new ShipSetup("target", "dark", new Vector2(0, 100),
+                        new FleetSetup("dark", List.of(new VehicleSetup("target", "dark", new Vector2(0, 100),
                                 0, "target-player", 2, 0, 0, type, depth)))), List.of()));
                 session.updatePlayerState(new PlayerStateUpdate("diver", "light", 0, 0, 0, 0, 0, 2, 0, 0,
                         false, "submarine", DEEP, 0, null, null, null, null, "submerged"), navigation, map);

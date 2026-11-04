@@ -294,13 +294,13 @@ public class GameSessionDirectBenchmarkMain {
         List<FleetSetup> fleets = new ArrayList<>();
         for (int fleetIndex = 0; fleetIndex < base.fleets().size(); fleetIndex += 1) {
             FleetSetup fleet = base.fleets().get(fleetIndex);
-            List<ShipSetup> ships = new ArrayList<>(fleet.ships());
+            List<VehicleSetup> ships = new ArrayList<>(fleet.ships());
             for (int index = ships.size(); index < shipsPerTeam; index += 1) {
                 double heading = MathSupport.normalizeAngle((fleetIndex == 0 ? 1 : -1) * Math.PI / 2 + index * 0.11);
                 Vector2 position = "spread".equals(distribution)
                         ? spreadBenchmarkShipPosition(fleetIndex, index)
                         : benchmarkShipPosition(base, ships, fleetIndex, index, heading);
-                ships.add(new ShipSetup(
+                ships.add(new VehicleSetup(
                         fleet.teamId() + "-" + (index + 1),
                         fleet.teamId(),
                         position,
@@ -318,7 +318,7 @@ public class GameSessionDirectBenchmarkMain {
         return new GameSetup(base.id() + "-benchmark-" + distribution + "-" + shipsPerTeam, base.worldMap(), fleets, base.respawnCandidates());
     }
 
-    private Vector2 benchmarkShipPosition(GameSetup setup, List<ShipSetup> existingShips, int fleetIndex, int shipIndex, double heading) {
+    private Vector2 benchmarkShipPosition(GameSetup setup, List<VehicleSetup> existingShips, int fleetIndex, int shipIndex, double heading) {
         for (int attempt = 0; attempt < setup.respawnCandidates().size() * 8; attempt += 1) {
             Vector2 base = setup.respawnCandidates().get(Math.floorMod(shipIndex * 5 + fleetIndex * 3 + attempt,
                     setup.respawnCandidates().size()));
@@ -376,13 +376,13 @@ public class GameSessionDirectBenchmarkMain {
     }
 
     private List<BenchmarkClient> createClients(int count, GameSnapshot snapshot) {
-        Map<String, List<ShipSnapshot>> shipsByTeam = snapshot.ships().stream()
-                .collect(java.util.stream.Collectors.groupingBy(ShipSnapshot::teamId));
+        Map<String, List<VehicleSnapshot>> shipsByTeam = snapshot.ships().stream()
+                .collect(java.util.stream.Collectors.groupingBy(VehicleSnapshot::teamId));
         List<BenchmarkClient> clients = new ArrayList<>();
         for (int index = 0; index < count; index += 1) {
             String teamId = index % 2 == 0 ? "light" : "dark";
-            List<ShipSnapshot> teamShips = shipsByTeam.getOrDefault(teamId, List.of());
-            ShipSnapshot ship = teamShips.get(Math.min(teamShips.size() - 1, index / 2));
+            List<VehicleSnapshot> teamShips = shipsByTeam.getOrDefault(teamId, List.of());
+            VehicleSnapshot ship = teamShips.get(Math.min(teamShips.size() - 1, index / 2));
             clients.add(new BenchmarkClient(
                     index,
                     "player-B" + String.format("%02d", index + 1) + "-direct",

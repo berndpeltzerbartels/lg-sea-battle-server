@@ -14,9 +14,9 @@ class CrewKillBrowserFixtureTest {
         for (boolean cannon : List.of(false, true)) {
             WorldMap world = new WorldMap(99002, List.of());
             GameSession session = new GameSession(new GameSetup("crew-kill-browser", world, List.of(
-                    new FleetSetup("light", List.of(new ShipSetup("boat", "light", new Vector2(-50, 0),
+                    new FleetSetup("light", List.of(new VehicleSetup("boat", "light", new Vector2(-50, 0),
                             0, "player-CAP-test", 2, 0, 999, "torpedo-boat", 0))),
-                    new FleetSetup("dark", List.of(new ShipSetup("sub", "dark", new Vector2(0, 0),
+                    new FleetSetup("dark", List.of(new VehicleSetup("sub", "dark", new Vector2(0, 0),
                             0, "player-ANNA-test", 2, 0, 999, "submarine", 0)))), List.of()));
             GameSnapshot before = session.snapshot();
             FlakFireRequest shot = new FlakFireRequest("player-CAP-test", "light", "boat", -15, 3, 6,

@@ -15,11 +15,11 @@ final class RadarService {
     private static final double MAX_CANDIDATE_RANGE = Math.max(RADAR_RANGE, HUMAN_TARGET_RANGE);
     private static final ThreadLocal<VisibilityMetrics> VISIBILITY_METRICS = new ThreadLocal<>();
 
-    boolean isVisible(Ship observer, Ship contact, WorldMap worldMap) {
+    boolean isVisible(Vehicle observer, Vehicle contact, WorldMap worldMap) {
         return isVisible(observer, contact, worldMap, RADAR_RANGE);
     }
 
-    boolean isVisible(Ship observer, Ship contact, WorldMap worldMap, double range) {
+    boolean isVisible(Vehicle observer, Vehicle contact, WorldMap worldMap, double range) {
         VisibilityMetrics metrics = VISIBILITY_METRICS.get();
         long started = metrics == null ? 0 : System.nanoTime();
         String result = "visible";
@@ -48,7 +48,7 @@ final class RadarService {
         }
     }
 
-    private boolean canObserveByDepth(Ship observer, Ship contact) {
+    private boolean canObserveByDepth(Vehicle observer, Vehicle contact) {
         if (observer.isFullySubmerged()) {
             return false;
         }
@@ -61,50 +61,7 @@ final class RadarService {
         return true;
     }
 
-    boolean isVisible(ShipSnapshot observer, ShipSnapshot contact, WorldMap worldMap) {
-        if (observer.id().equals(contact.id())) {
-            return false;
-        }
-        if (!"active".equals(observer.state()) || !"active".equals(contact.state())) {
-            return false;
-        }
-        if (!canObserveByDepth(observer, contact)) {
-            return false;
-        }
-        Vector2 observerPosition = new Vector2(observer.x(), observer.z());
-        Vector2 contactPosition = new Vector2(contact.x(), contact.z());
-        if (observerPosition.distanceTo(contactPosition) > RADAR_RANGE) {
-            return false;
-        }
-        return true;
-    }
-
-    private boolean canObserveByDepth(ShipSnapshot observer, ShipSnapshot contact) {
-        if (isFullySubmerged(observer)) {
-            return false;
-        }
-        if (isFullySubmerged(contact)) {
-            return false;
-        }
-        if (isAtPeriscopeDepth(contact)) {
-            return false;
-        }
-        return true;
-    }
-
-    private boolean isFullySubmerged(ShipSnapshot ship) {
-        return isSubmarine(ship) && "submerged".equals(ship.depthState());
-    }
-
-    private boolean isAtPeriscopeDepth(ShipSnapshot ship) {
-        return isSubmarine(ship) && "periscope".equals(ship.depthState());
-    }
-
-    private boolean isSubmarine(ShipSnapshot ship) {
-        return "submarine".equals(ship.vehicleType());
-    }
-
-    VisibilityCache visibilityCache(WorldMap worldMap, List<Ship> activeShips) {
+    VisibilityCache visibilityCache(WorldMap worldMap, List<Vehicle> activeShips) {
         return new VisibilityCache(this, worldMap, activeShips);
     }
 
@@ -194,28 +151,32 @@ final class RadarService {
     static final class VisibilityCache {
         private final RadarService radarService;
         private final WorldMap worldMap;
-        private final SpatialIndex<Ship> shipsByRadarCell;
+        private final SpatialIndex<Vehicle> shipsByRadarCell;
+        private final List<Vehicle> vehicles;
         private final Map<VisibilityKey, Boolean> visibleByPair = new HashMap<>();
 
-        private VisibilityCache(RadarService radarService, WorldMap worldMap, List<Ship> activeShips) {
+        private VisibilityCache(RadarService radarService, WorldMap worldMap, List<Vehicle> activeShips) {
             this.radarService = radarService;
+            this.vehicles = activeShips;
             this.worldMap = worldMap;
-            this.shipsByRadarCell = SpatialIndex.from(activeShips, Ship::position, MAX_CANDIDATE_RANGE);
+            this.shipsByRadarCell = SpatialIndex.from(activeShips, Vehicle::position, MAX_CANDIDATE_RANGE);
         }
 
-        List<Ship> candidates(Ship observer) {
+        List<Vehicle> vehicles() { return vehicles; }
+
+        List<Vehicle> candidates(Vehicle observer) {
             return candidates(observer, RADAR_RANGE);
         }
 
-        List<Ship> candidates(Ship observer, double range) {
+        List<Vehicle> candidates(Vehicle observer, double range) {
             return shipsByRadarCell.near(observer.position(), range);
         }
 
-        boolean isVisible(Ship observer, Ship contact) {
+        boolean isVisible(Vehicle observer, Vehicle contact) {
             return isVisible(observer, contact, RADAR_RANGE);
         }
 
-        boolean isVisible(Ship observer, Ship contact, double range) {
+        boolean isVisible(Vehicle observer, Vehicle contact, double range) {
             long started = System.nanoTime();
             VisibilityKey key = VisibilityKey.of(observer.id(), contact.id(), range);
             Boolean cached = visibleByPair.get(key);

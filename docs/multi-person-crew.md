@@ -86,12 +86,12 @@ Eine reine Liste weiterer Spieler am Schiff reicht deshalb nicht aus.
 
 - Fleet.activeShipIdByPlayerId kann grundsaetzlich mehrere Spieler demselben
   Schiff zuordnen. assignNextShipToPlayer setzt jedoch den einzigen
-  Ship.controlledBy, und releasePlayer gibt das Schiff sofort an einen Bot
+  Vehicle.controlledBy, und releasePlayer gibt das Schiff sofort an einen Bot
   zurueck oder entfernt ein zusaetzlich angelegtes Schiff.
-- Ship.controlledBy entscheidet auch ueber Bot-/Serversimulation. Es sollte
+- Vehicle.controlledBy entscheidet auch ueber Bot-/Serversimulation. Es sollte
   nicht unbesehen durch eine Liste ersetzt werden: Fahrverantwortung und
   Besatzungsmitgliedschaft brauchen getrennte Bedeutungen.
-- GameSession.applyPlayerState und Ship.applyPlayerState uebernehmen Bewegung
+- GameSession.applyPlayerState und Vehicle.applyPlayerState uebernehmen Bewegung
   und beide Geschuetzausrichtungen aus einem gemeinsamen PlayerStateUpdate.
   Updates eines Schuetzen duerfen die Fahrt oder die andere Waffe nicht aendern.
 - GameSession.applyFireFlak/applyFireCannon pruefen die Schiffszuteilung und
@@ -102,7 +102,7 @@ Eine reine Liste weiterer Spieler am Schiff reicht deshalb nicht aus.
 - SeaBattleClientController und SeaBattleLoginPage weisen beim Einstieg ein
   eigenes Fahrzeug zu. Beitreten muss eine explizite Alternative werden,
   einschliesslich Teampruefung und atomarer Platzreservierung.
-- ShipSnapshot bzw. ein separates Besatzungsfeld im GameSnapshot muessen
+- VehicleSnapshot bzw. ein separates Besatzungsfeld im GameSnapshot muessen
   Mitgliedschaft, Platzbelegung und Fahrverantwortung transportieren.
 - GameSession.releasePlayer, Versenken/Respawn, verbundene Spieler,
   Abschusszuordnung und Spielerlisten sind auf den einzelnen controlledBy

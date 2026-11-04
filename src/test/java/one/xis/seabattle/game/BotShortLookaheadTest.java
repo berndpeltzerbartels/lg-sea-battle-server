@@ -22,8 +22,8 @@ class BotShortLookaheadTest {
         assertEquals(2*BotNavigation.SHIP_LENGTH,BotNavigation.FORWARD_RANGE);
     }
     @Test void newLayerCatchesAnIslandBetweenTheCoarseRouteSamplesBeforeTheEmergencyDistance() {
-        Ship ship=new Ship("boat","light",new Vector2(0,0),0,"bot");
-        var plan=ship.botNavigation;
+        Vehicle ship=new TorpedoBoat("boat","light",new Vector2(0,0),0,"bot");
+        var plan=ship.surface().botNavigation;
         plan.route=BotNavigation.freeRoute(ship,new BotNavigation.Course(0,8),BotNavigation.ROUTE_RANGE,navigation,island());
         assertEquals(0,plan.route.heading(),1e-9,"The small island deliberately falls between the long scan samples");
         plan.checkForward(ship,navigation,island());
@@ -40,8 +40,8 @@ class BotShortLookaheadTest {
     @Test void actualBoatTurnsBeforeReachingTheSmallIslandWithoutReversing() {
         var map=island();var radar=new RadarService();
         var session=new GameSession(new GameSetup("short-lookahead",map,List.of(
-                new FleetSetup("light",List.of(new ShipSetup("boat","light",new Vector2(0,0),0,"bot",2,0,9999,"torpedo-boat",0))),
-                new FleetSetup("dark",List.of(new ShipSetup("enemy","dark",new Vector2(0,600),0,"scenario",2,0,9999,"torpedo-boat",0)))),List.of()));
+                new FleetSetup("light",List.of(new VehicleSetup("boat","light",new Vector2(0,0),0,"bot",2,0,9999,"torpedo-boat",0))),
+                new FleetSetup("dark",List.of(new VehicleSetup("enemy","dark",new Vector2(0,600),0,"scenario",2,0,9999,"torpedo-boat",0)))),List.of()));
         double furthest=0;boolean turned=false;
         for(int tick=0;tick<400;tick++) {
             session.update(.1,radar,navigation,map);
@@ -54,8 +54,8 @@ class BotShortLookaheadTest {
         assertTrue(turned);assertTrue(furthest>100);
     }
     @Test void existingNearScanRecordsEvenNonConflictingFriendsWithoutAnExtraScan() {
-        Ship ship=new Ship("boat","light",new Vector2(0,0),0,"bot");
-        Ship friend=new Ship("friend","light",new Vector2(40,0),0,"bot");
+        Vehicle ship=new TorpedoBoat("boat","light",new Vector2(0,0),0,"bot");
+        Vehicle friend=new TorpedoBoat("friend","light",new Vector2(40,0),0,"bot");
         var plan=new BotNavigation("separate-plan");plan.route=new BotNavigation.Course(0,5);
         plan.checkNear(ship,List.of(ship,friend),navigation,water);
         assertTrue(plan.nearbyTraffic,"Startup must not interfere with a close passing situation even before avoidance is needed");

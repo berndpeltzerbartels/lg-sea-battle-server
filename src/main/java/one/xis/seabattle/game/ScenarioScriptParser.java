@@ -22,6 +22,11 @@ final class ScenarioScriptParser {
     private ScenarioScriptParser() {
     }
 
+    static ScenarioGrid grid(String script) {
+        ParsedScript parsed = ParsedScript.from(script);
+        return new ScenarioGrid(maxWidth(parsed.mapRows()), parsed.mapRows().size(), parsed.cellSize());
+    }
+
     static GameSetup parse(String script) {
         return parseDefinition(script).setup();
     }
@@ -30,11 +35,15 @@ final class ScenarioScriptParser {
         ParsedScript parsed = ParsedScript.from(script);
         Map<Character, Vector2> markers = mapMarkers(parsed.mapRows(), parsed.cellSize());
         List<Landmass> landmasses = landmasses(parsed.mapRows(), parsed.cellSize());
-        Map<String, List<ShipSetup>> vehiclesByTeam = new LinkedHashMap<>();
+        Map<String, List<VehicleSetup>> vehiclesByTeam = new LinkedHashMap<>();
         List<Vector2> respawnCandidates = new ArrayList<>();
+        List<ScenarioInitialState> initialStates = new ArrayList<>();
 
+        java.util.Set<Character> defined = new java.util.HashSet<>();
         for (String objectLine : parsed.objectLines()) {
             ScenarioObject object = ScenarioObject.parse(objectLine);
+            if (!defined.add(object.marker()))
+                throw new IllegalArgumentException("Duplicate object definition: " + object.marker());
             Vector2 position = markers.get(object.marker());
             if (position == null) {
                 throw new IllegalArgumentException("Scenario object marker not found on map: " + object.marker());
@@ -42,7 +51,7 @@ final class ScenarioScriptParser {
             String teamId = normalizeTeam(object.team());
             String vehicleType = normalizeVehicleType(object.vehicleType());
             String id = teamId + "-" + vehiclePrefix(vehicleType) + object.marker();
-            ShipSetup vehicleSetup = new ShipSetup(
+            VehicleSetup vehicleSetup = new VehicleSetup(
                     id,
                     teamId,
                     position,
@@ -54,10 +63,13 @@ final class ScenarioScriptParser {
                     vehicleType,
                     object.heightMeters()
             );
+            initialStates.add(new ScenarioInitialState(id, object.speedKnots(), object.depth()));
             vehiclesByTeam.computeIfAbsent(teamId, ignored -> new ArrayList<>()).add(vehicleSetup);
             respawnCandidates.add(position);
         }
 
+        if (!defined.equals(markers.keySet()))
+            throw new IllegalArgumentException("Every map marker needs an object definition");
         List<FleetSetup> fleets = vehiclesByTeam.entrySet().stream()
                 .map(entry -> new FleetSetup(entry.getKey(), List.copyOf(entry.getValue())))
                 .toList();
@@ -68,7 +80,7 @@ final class ScenarioScriptParser {
                         fleets,
                         respawnCandidates
                 ),
-                scenarioActions(parsed.actionLines(), markers)
+                scenarioActions(parsed.actionLines(), markers), List.copyOf(initialStates)
         );
     }
 
@@ -81,6 +93,8 @@ final class ScenarioScriptParser {
             for (int column = 0; column < line.length(); column += 1) {
                 char marker = line.charAt(column);
                 if (Character.isLetterOrDigit(marker)) {
+                    if (markers.containsKey(marker))
+                        throw new IllegalArgumentException("Duplicate map marker: " + marker);
                     markers.put(marker, new Vector2(
                             (column - centerColumn) * cellSize,
                             (row - centerRow) * cellSize
@@ -98,7 +112,7 @@ final class ScenarioScriptParser {
         for (int row = 0; row < rows.size(); row += 1) {
             String line = rows.get(row);
             for (int column = 0; column < line.length(); column += 1) {
-                if (line.charAt(column) == '*') {
+                if (line.charAt(column) == '*' || line.charAt(column) == '+') {
                     landmasses.add(testLandmass(
                             "test-land-" + row + "-" + column,
                             (column - centerColumn) * cellSize,
@@ -249,6 +263,13 @@ final class ScenarioScriptParser {
             if (mapRows.isEmpty()) {
                 throw new IllegalArgumentException("Scenario has no map");
             }
+            if (!Double.isFinite(cellSize) || cellSize <= 0)
+                throw new IllegalArgumentException("cell must be positive and finite");
+            if (mapRows.stream().anyMatch(row -> row.length() != mapRows.get(0).length()))
+                throw new IllegalArgumentException("Map rows must have equal width; use dots for water");
+            for (String row : mapRows) for (char marker : row.toCharArray())
+                if (!Character.isLetterOrDigit(marker) && marker != '.' && marker != '*' && marker != '+')
+                    throw new IllegalArgumentException("Unknown map character: " + marker);
             if (objectLines.isEmpty()) {
                 throw new IllegalArgumentException("Scenario has no objects");
             }
@@ -284,7 +305,7 @@ final class ScenarioScriptParser {
     }
 
     private record ScenarioObject(char marker, String vehicleType, String team, String controller,
-                                  double headingDegrees, double speedKnots, double heightMeters) {
+                                  double headingDegrees, double speedKnots, double heightMeters, String depth) {
 
         private static ScenarioObject parse(String line) {
             int colon = line.indexOf(':');
@@ -308,7 +329,12 @@ final class ScenarioScriptParser {
             double heading = optionNumber(values, "heading", optionNumber(values, "orientation", 0));
             double speed = optionNumber(values, "speed", 0);
             double height = optionNumber(values, "height", 0);
-            return new ScenarioObject(marker, parts[0], parts[1], parts[2], heading, speed, height);
+            String depth = values.getOrDefault("depth", "surface").toLowerCase(Locale.ROOT);
+            if (!List.of("surface", "periscope", "submerged").contains(depth))
+                throw new IllegalArgumentException("Unknown scenario depth: " + depth);
+            if (!Double.isFinite(speed) || !Double.isFinite(heading) || !Double.isFinite(height))
+                throw new IllegalArgumentException("Scenario values must be finite");
+            return new ScenarioObject(marker, parts[0], parts[1], parts[2], heading, speed, height, depth);
         }
 
         private static Map<String, String> optionValues(String options) {
@@ -347,7 +373,11 @@ final class ScenarioScriptParser {
     }
 }
 
-record ScenarioDefinition(GameSetup setup, List<ScenarioAction> actions) {
+record ScenarioGrid(int columns, int rows, double cellSize) {}
+
+record ScenarioInitialState(String id, double speed, String depth) {}
+
+record ScenarioDefinition(GameSetup setup, List<ScenarioAction> actions, List<ScenarioInitialState> initialStates) {
 }
 
 record ScenarioAction(char actorMarker, String weapon, ScenarioPoint target) {

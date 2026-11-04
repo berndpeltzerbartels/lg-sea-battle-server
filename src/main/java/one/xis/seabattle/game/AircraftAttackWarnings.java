@@ -19,7 +19,7 @@ public final class AircraftAttackWarnings {
 
     Map<String, Warning> snapshot() { return published; }
 
-    void observe(double now, Ship plane, Ship target) {
+    void observe(double now, Vehicle plane, Vehicle target) {
         Approach approach = approaches.computeIfAbsent(plane.id(), key -> new Approach());
         if (now < approach.nextCheck && target.id().equals(approach.target)) return;
         approach.nextCheck = now + 1;

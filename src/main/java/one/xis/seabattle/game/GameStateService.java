@@ -319,7 +319,7 @@ public class GameStateService {
         return new SessionView(session.snapshot(), session.worldMap());
     }
 
-    public GameSnapshot restorePlayer(String player, String team, String vehicle, ShipSnapshot previous, int score) {
+    public GameSnapshot restorePlayer(String player, String team, String vehicle, VehicleSnapshot previous, int score) {
         activateTeam(team);
         SessionView view;
         synchronized (this) {

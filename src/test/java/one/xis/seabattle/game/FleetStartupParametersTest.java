@@ -10,7 +10,7 @@ class FleetStartupParametersTest {
         var game = new GameStateService(new DefaultGameSetupFactory(new WorldMapService()), new RadarService(), new NavigationService());
         var before = game.snapshot();
         int expected = Boolean.getBoolean("seaBattle.localFleetTrial") ? 20 : 15;
-        var fleetSizes = before.ships().stream().collect(Collectors.groupingBy(ShipSnapshot::teamId, Collectors.counting()));
+        var fleetSizes = before.ships().stream().collect(Collectors.groupingBy(VehicleSnapshot::teamId, Collectors.counting()));
         assertEquals(2, fleetSizes.size());
         fleetSizes.values().forEach(size -> assertEquals(expected, size.intValue()));
         game.finishIfNoPlayers();
@@ -18,9 +18,9 @@ class FleetStartupParametersTest {
         var restarted = game.resetCurrentSetup();
         assertEquals("running", restarted.state());
         assertEquals(before.sessionId(), restarted.sessionId());
-        assertEquals(fleetSizes, restarted.ships().stream().collect(Collectors.groupingBy(ShipSnapshot::teamId, Collectors.counting())));
-        assertEquals(before.ships().stream().collect(Collectors.groupingBy(ShipSnapshot::vehicleType, Collectors.counting())),
-                restarted.ships().stream().collect(Collectors.groupingBy(ShipSnapshot::vehicleType, Collectors.counting())));
+        assertEquals(fleetSizes, restarted.ships().stream().collect(Collectors.groupingBy(VehicleSnapshot::teamId, Collectors.counting())));
+        assertEquals(before.ships().stream().collect(Collectors.groupingBy(VehicleSnapshot::vehicleType, Collectors.counting())),
+                restarted.ships().stream().collect(Collectors.groupingBy(VehicleSnapshot::vehicleType, Collectors.counting())));
     }
 
     @Test

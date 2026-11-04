@@ -116,11 +116,11 @@ class GameStateServiceTest {
         ));
         GameSnapshot afterImmediateReloadRead = service.snapshot();
 
-        ShipSnapshot returnedSubmarine = afterUpdate.ships().stream()
+        VehicleSnapshot returnedSubmarine = afterUpdate.ships().stream()
                 .filter(ship -> playerId.equals(ship.controlledBy()))
                 .findFirst()
                 .orElseThrow();
-        ShipSnapshot reloadedSubmarine = afterImmediateReloadRead.ships().stream()
+        VehicleSnapshot reloadedSubmarine = afterImmediateReloadRead.ships().stream()
                 .filter(ship -> playerId.equals(ship.controlledBy()))
                 .findFirst()
                 .orElseThrow();
@@ -165,7 +165,7 @@ class GameStateServiceTest {
                 "submarine", -0.72, 0, null, null, null, null, "periscope"
         ), navigationService, session.worldMap());
 
-        ShipSnapshot submarine = snapshot.ships().stream()
+        VehicleSnapshot submarine = snapshot.ships().stream()
                 .filter(ship -> "player-BP-test".equals(ship.controlledBy()))
                 .findFirst()
                 .orElseThrow();
@@ -198,13 +198,13 @@ class GameStateServiceTest {
     void submarineAcceptsWiderRudderAngleThanTorpedoBoat() {
         NavigationService navigationService = new NavigationService();
         WorldMap worldMap = new WorldMap(9021, List.of());
-        Ship submarine = new Ship("blue-sub", "blue", new Vector2(0, 0), 0, "player-blue");
+        Vehicle submarine = new Submarine("blue-sub", "blue", new Vector2(0, 0), 0, "player-blue");
         submarine.applyPlayerState(new PlayerStateUpdate(
                 "player-blue", "blue", 0, 0, 0, 0, 0, 2, 45, 0, true,
                 "submarine", 0, 0, null, null, null, null, "surface"
         ), navigationService, worldMap);
 
-        Ship torpedoBoat = new Ship("red-boat", "red", new Vector2(0, 0), 0, "player-red");
+        Vehicle torpedoBoat = new TorpedoBoat("red-boat", "red", new Vector2(0, 0), 0, "player-red");
         torpedoBoat.applyPlayerState(new PlayerStateUpdate(
                 "player-red", "red", 0, 0, 0, 0, 0, 2, 45, 0, true,
                 "torpedo-boat"
@@ -219,10 +219,10 @@ class GameStateServiceTest {
         RadarService radarService = new RadarService();
         NavigationService navigationService = new NavigationService();
         WorldMap worldMap = new WorldMap(9020, List.of());
-        Ship surfaceShip = new Ship("red-1", "red", new Vector2(0, 0), 0, "scenario");
-        Ship scoutPlane = new Ship("red-plane", "red", new Vector2(0, 0), 0, "scenario");
-        scoutPlane.vehicleType("scout-plane");
-        Ship submarine = new Ship("blue-1", "blue", new Vector2(80, 0), 0, "player-blue");
+        Vehicle surfaceShip = new TorpedoBoat("red-1", "red", new Vector2(0, 0), 0, "scenario");
+        Vehicle scoutPlane = new TorpedoBoat("red-plane", "red", new Vector2(0, 0), 0, "scenario");
+        scoutPlane = scoutPlane.convertedTo("scout-plane");
+        Vehicle submarine = new Submarine("blue-1", "blue", new Vector2(80, 0), 0, "player-blue");
 
         submarine.applyPlayerState(new PlayerStateUpdate(
                 "player-blue", "blue", 80, 0, 0, 0, 0, 2, 0, 0, true,
@@ -250,9 +250,9 @@ class GameStateServiceTest {
         );
 
         GameSnapshot before = service.snapshot();
-        ShipSnapshot beforeShip = before.ships().get(0);
+        VehicleSnapshot beforeShip = before.ships().get(0);
         GameSnapshot after = service.tick(1);
-        ShipSnapshot afterShip = after.ships().stream()
+        VehicleSnapshot afterShip = after.ships().stream()
                 .filter(ship -> ship.id().equals(beforeShip.id()))
                 .findFirst()
                 .orElseThrow();
@@ -272,9 +272,9 @@ class GameStateServiceTest {
         service.connectPlayer("player-BP-test");
 
         GameSnapshot before = service.snapshot();
-        ShipSnapshot beforeShip = before.ships().get(0);
+        VehicleSnapshot beforeShip = before.ships().get(0);
         GameSnapshot after = service.tick(1);
-        ShipSnapshot afterShip = after.ships().stream()
+        VehicleSnapshot afterShip = after.ships().stream()
                 .filter(ship -> ship.id().equals(beforeShip.id()))
                 .findFirst()
                 .orElseThrow();
@@ -300,7 +300,7 @@ class GameStateServiceTest {
         ));
 
         GameSnapshot after = service.tick(1);
-        ShipSnapshot afterShip = after.ships().stream()
+        VehicleSnapshot afterShip = after.ships().stream()
                 .filter(ship -> playerId.equals(ship.controlledBy()))
                 .findFirst()
                 .orElseThrow();

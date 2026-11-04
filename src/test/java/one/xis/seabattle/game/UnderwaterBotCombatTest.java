@@ -38,12 +38,12 @@ class UnderwaterBotCombatTest {
 
     @Test
     void deepEnemyIsAThreatButFriendDoesNotCauseDive() {
-        Ship sub = submarine("sub", "light", 0, false);
-        Ship enemy = submarine("enemy", "dark", 100, true);
+        Vehicle sub = submarine("sub", "light", 0, false);
+        Vehicle enemy = submarine("enemy", "dark", 100, true);
         assertEquals(enemy.position(), sub.submarineBot().update(sub, List.of(enemy), 0));
         assertTrue(sub.isFullySubmerged());
-        Ship other = submarine("other", "light", 0, false);
-        Ship friend = submarine("friend", "light", 100, true);
+        Vehicle other = submarine("other", "light", 0, false);
+        Vehicle friend = submarine("friend", "light", 100, true);
         other.submarineBot().update(other, List.of(friend), 0);
         assertTrue(other.isOnSurface());
     }
@@ -52,13 +52,13 @@ class UnderwaterBotCombatTest {
     void friendlySubmarineBlocksDeepShotButSurfaceShipDoesNot() throws Exception {
         for (double friendY : new double[]{DEEP, 0}) {
             GameSession session = new GameSession(new GameSetup("friendly-line", map, List.of(
-                    new FleetSetup("light", List.of(new ShipSetup("friend", "light", new Vector2(0, 100),
+                    new FleetSetup("light", List.of(new VehicleSetup("friend", "light", new Vector2(0, 100),
                             0, "friend-player", 2, 0, 999, "submarine", friendY)))), List.of()));
             session.updatePlayerState(new PlayerStateUpdate("friend-player", "light", 0, 100, 0, 0, 0, 2, 0, 0,
                     false, "submarine", friendY, 0, null, null, null, null,
                     friendY == 0 ? "surface" : "submerged"), navigation, map);
             var method = GameSession.class.getDeclaredMethod("torpedoLaunchWouldHitFriendlyShip",
-                    Ship.class, Vector2.class, double.class, double.class);
+                    Vehicle.class, Vector2.class, double.class, double.class);
             method.setAccessible(true);
             assertEquals(friendY == DEEP, method.invoke(session, submarine("sub", "light", 0, true),
                     new Vector2(0, 15), 0.0, DEEP + .2 * SeaBattleGameConfig.TORPEDO_BOAT_SCALE));
@@ -67,23 +67,23 @@ class UnderwaterBotCombatTest {
 
     @Test
     void friendlyDeepHumanAndBotTriggerNearAvoidanceButSurfaceShipDoesNot() {
-        Ship sub = submarine("z-sub", "light", 0, true);
-        Ship friend = submarine("a-friend", "light", 25, true);
-        var plan = sub.botNavigation;
+        Vehicle sub = submarine("z-sub", "light", 0, true);
+        Vehicle friend = submarine("a-friend", "light", 25, true);
+        var plan = sub.surface().botNavigation;
         plan.route = new BotNavigation.Course(0, 7);
         plan.checkNear(sub, List.of(friend), navigation, map);
         assertNotNull(plan.near);
         friend.controlledBy("player");
         plan.checkNear(sub, List.of(friend), navigation, map);
         assertNotNull(plan.near);
-        Ship surfaceFriend = new Ship("surface", "light", new Vector2(0, 25), 0, "player");
+        Vehicle surfaceFriend = new TorpedoBoat("surface", "light", new Vector2(0, 25), 0, "player");
         plan.checkNear(sub, List.of(surfaceFriend), navigation, map);
         assertNull(plan.near);
     }
 
-    private Ship submarine(String id, String team, double z, boolean deep) {
-        Ship ship = new Ship(id, team, new Vector2(0, z), 0, "bot");
-        ship.vehicleType("submarine");
+    private Vehicle submarine(String id, String team, double z, boolean deep) {
+        Vehicle ship = new TorpedoBoat(id, team, new Vector2(0, z), 0, "bot");
+        ship = ship.convertedTo("submarine");
         if (deep) {
             ship.botDepth("submerged");
             ship.applyCommand(2, 0);
@@ -94,9 +94,9 @@ class UnderwaterBotCombatTest {
 
     private GameSession sessionWithEnemy(double distance) {
         GameSession session = new GameSession(new GameSetup("deep-combat", map, List.of(
-                new FleetSetup("light", List.of(new ShipSetup("sub", "light", new Vector2(0, 0),
+                new FleetSetup("light", List.of(new VehicleSetup("sub", "light", new Vector2(0, 0),
                         0, "bot", 4, 0, 0, "submarine", 0))),
-                new FleetSetup("dark", List.of(new ShipSetup("enemy", "dark", new Vector2(0, distance),
+                new FleetSetup("dark", List.of(new VehicleSetup("enemy", "dark", new Vector2(0, distance),
                         0, "player", 2, 0, 999, "submarine", DEEP)))), List.of()));
         session.updatePlayerState(new PlayerStateUpdate("player", "dark", 0, distance, 0, 0, 0, 2, 0, 0,
                 false, "submarine", DEEP, 0, null, null, null, null, "submerged"), navigation, map);

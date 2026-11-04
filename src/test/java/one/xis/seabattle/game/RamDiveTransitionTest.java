@@ -33,8 +33,8 @@ class RamDiveTransitionTest {
         var world = new WorldMap(9012, List.of());
         var navigation = new NavigationService();
         var session = new GameSession(new GameSetup("ram-depth", world, List.of(
-                new FleetSetup("light", List.of(new ShipSetup("boat", "light", new Vector2(0, -11.04), 0, "player-boat", 7, 0, 99, "torpedo-boat", 0))),
-                new FleetSetup("dark", List.of(new ShipSetup("sub", "dark", new Vector2(0, 0), 0, "player-sub", 2, 0, 99, "submarine", y)))
+                new FleetSetup("light", List.of(new VehicleSetup("boat", "light", new Vector2(0, -11.04), 0, "player-boat", 7, 0, 99, "torpedo-boat", 0))),
+                new FleetSetup("dark", List.of(new VehicleSetup("sub", "dark", new Vector2(0, 0), 0, "player-sub", 2, 0, 99, "submarine", y)))
         ), List.of(new Vector2(0, -11.04), new Vector2(0, 0))));
         session.updatePlayerState(new PlayerStateUpdate("player-boat", "light", 0, -11.04, 0, 8, 0, 7, 0, 0, true, "torpedo-boat"), navigation, world);
         session.updatePlayerState(new PlayerStateUpdate("player-sub", "dark", 0, 0, 0, 0, 0, 2, 0, 0, true,

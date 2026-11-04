@@ -6,11 +6,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class AircraftAttackWarningsTest {
     private final WorldMap sea = new WorldMap(1, List.of());
-    private Ship ship(String id, String team, double z) { return new Ship(id, team, new Vector2(0,z),0,"captain"); }
+    private Vehicle ship(String id, String team, double z) { return new TorpedoBoat(id, team, new Vector2(0,z),0,"captain"); }
 
     @Test void oneNoticePerApproachThenRearmAfterDeparture() {
         var warnings = new AircraftAttackWarnings();
-        Ship plane = ship("plane","dark",100), target = ship("boat","light",0);
+        Vehicle plane = ship("plane","dark",100), target = ship("boat","light",0);
         warnings.observe(0,plane,target);
         var first = warnings.snapshot().get("boat");
         assertEquals("voraus", first.direction());
@@ -27,7 +27,7 @@ class AircraftAttackWarningsTest {
 
     @Test void changingTheTargetWarnsTheNewCrewAndDirectionsUseItsHeading() {
         var warnings = new AircraftAttackWarnings();
-        Ship plane = ship("plane","dark",100), a = ship("a","light",0), b = ship("b","light",200);
+        Vehicle plane = ship("plane","dark",100), a = ship("a","light",0), b = ship("b","light",200);
         warnings.observe(0,plane,a);
         warnings.observe(.1,plane,b);
         assertEquals("achtern", warnings.snapshot().get("b").direction());
@@ -35,8 +35,8 @@ class AircraftAttackWarningsTest {
     }
 
     private GameSession session(double distance, double planeHeading, String controller) {
-        var plane=new ShipSetup("plane","dark",new Vector2(0,0),planeHeading,"bot",7,0,99,"scout-plane",170);
-        var boat=new ShipSetup("boat","light",new Vector2(0,distance),0,controller,2,0,99,"torpedo-boat",0);
+        var plane=new VehicleSetup("plane","dark",new Vector2(0,0),planeHeading,"bot",7,0,99,"scout-plane",170);
+        var boat=new VehicleSetup("boat","light",new Vector2(0,distance),0,controller,2,0,99,"torpedo-boat",0);
         return new GameSession(new GameSetup("aircraft-warning-test",sea,
                 List.of(new FleetSetup("dark",List.of(plane)),new FleetSetup("light",List.of(boat))),
                 List.of(new Vector2(1000,1000))));

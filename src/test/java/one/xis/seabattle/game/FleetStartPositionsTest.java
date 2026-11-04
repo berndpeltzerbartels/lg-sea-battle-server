@@ -5,28 +5,28 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 final class FleetStartPositionsTest {
-    private List<ShipSetup> fleet() {
-        List<ShipSetup> ships = new ArrayList<>();
-        for (int i = 0; i < 15; i++) ships.add(new ShipSetup("ship-"+i, "light", new Vector2(i*30, i*10),
+    private List<VehicleSetup> fleet() {
+        List<VehicleSetup> ships = new ArrayList<>();
+        for (int i = 0; i < 15; i++) ships.add(new VehicleSetup("ship-"+i, "light", new Vector2(i*30, i*10),
                 i*.1, "bot", 2+i%5, i%4, i, i==3 ? "scout-plane" : i==2||i==4||i==6 ? "submarine" : "torpedo-boat", i==3 ? 170 : 0));
         return List.copyOf(ships);
     }
 
     @Test
     void swapsOnlySurfaceVesselPosesWithoutChangingFleetOrAircraft() {
-        List<ShipSetup> original = fleet();
-        List<ShipSetup> shuffled = FleetStartPositions.shuffle(original, new Random(42));
+        List<VehicleSetup> original = fleet();
+        List<VehicleSetup> shuffled = FleetStartPositions.shuffle(original, new Random(42));
         assertEquals(original.size(), shuffled.size());
         assertSame(original.get(3), shuffled.get(3));
-        assertEquals(new HashSet<>(original.stream().map(ShipSetup::position).toList()),
-                new HashSet<>(shuffled.stream().map(ShipSetup::position).toList()));
+        assertEquals(new HashSet<>(original.stream().map(VehicleSetup::position).toList()),
+                new HashSet<>(shuffled.stream().map(VehicleSetup::position).toList()));
         assertNotEquals(original, shuffled);
         for (int i = 0; i < original.size(); i++) {
-            ShipSetup a=original.get(i),b=shuffled.get(i);
+            VehicleSetup a=original.get(i),b=shuffled.get(i);
             assertEquals(a.id(),b.id());assertEquals(a.teamId(),b.teamId());assertEquals(a.vehicleType(),b.vehicleType());
             assertEquals(a.engineOrder(),b.engineOrder());assertEquals(a.rudderDegrees(),b.rudderDegrees());
             assertEquals(a.nextFireDelaySeconds(),b.nextFireDelaySeconds());assertEquals(a.y(),b.y());
-            ShipSetup oldPose = original.stream().filter(s -> s.position().equals(b.position())).findFirst().orElseThrow();
+            VehicleSetup oldPose = original.stream().filter(s -> s.position().equals(b.position())).findFirst().orElseThrow();
             assertEquals(oldPose.heading(), b.heading(), "Keep the safe heading attached to each position");
         }
         assertEquals(fleet(), original, "Do not mutate templates");
@@ -37,7 +37,7 @@ final class FleetStartPositionsTest {
         Set<Vector2> submarineStarts = new HashSet<>();
         for (int seed = 0; seed < 40; seed++) {
             FleetStartPositions.shuffle(fleet(), new Random(seed)).stream()
-                    .filter(s -> s.vehicleType().equals("submarine")).map(ShipSetup::position).forEach(submarineStarts::add);
+                    .filter(s -> s.vehicleType().equals("submarine")).map(VehicleSetup::position).forEach(submarineStarts::add);
         }
         assertEquals(14, submarineStarts.size(), "Every non-aircraft slot is available to submarines");
     }
@@ -55,7 +55,7 @@ final class FleetStartPositionsTest {
             for (FleetSetup fleet : setup.fleets()) {
                 assertEquals(3, fleet.ships().stream().filter(s -> s.vehicleType().equals("submarine")).count());
                 assertEquals(1, fleet.ships().stream().filter(s -> s.vehicleType().equals("scout-plane")).count());
-                for (ShipSetup ship : fleet.ships()) {
+                for (VehicleSetup ship : fleet.ships()) {
                     assertTrue(occupied.add(ship.position()), "No duplicate spawn positions");
                     assertFalse(navigation.isShipBlocked(ship.position(), ship.heading(), setup.worldMap()), ship.toString());
                     if (ship.vehicleType().equals("submarine")) submarineStarts.computeIfAbsent(fleet.teamId(), ignored -> new HashSet<>()).add(ship.position());

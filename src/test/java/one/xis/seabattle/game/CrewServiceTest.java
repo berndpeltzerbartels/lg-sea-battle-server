@@ -32,7 +32,7 @@ class CrewServiceTest {
         assertEquals(flak.ship(), bridge.ship());
     }
     private Account account(String alias) { return new Account(alias, alias, alias, "light", null); }
-    private ShipSnapshot ship(String id) {
+    private VehicleSnapshot ship(String id) {
         return game.snapshot().ships().stream().filter(s -> s.id().equals(id)).findFirst().orElseThrow();
     }
 
@@ -330,7 +330,7 @@ class CrewServiceTest {
             var candidates = game.snapshot().ships().stream()
                     .filter(s -> "light".equals(s.teamId()) && "bot".equals(s.controlledBy())
                             && "active".equals(s.state()) && "submarine".equals(s.vehicleType()))
-                    .map(ShipSnapshot::id).collect(java.util.stream.Collectors.toSet());
+                    .map(VehicleSnapshot::id).collect(java.util.stream.Collectors.toSet());
             assertTrue(candidates.size() > 1, "The real fleet offers multiple submarine start locations");
             player = crew.startOwnShip(account, "submarine");
             String currentPlayer = player;

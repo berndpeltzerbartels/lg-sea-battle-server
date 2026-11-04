@@ -16,7 +16,7 @@ final class BotNavigation {
 
     private final int phase;
     private long nextTarget = -1, nextRoute = -1, nextEncounter = -1, nextForward = -1;
-    Ship target;
+    Vehicle target;
     long targetLife;
     boolean trackingPeriscope;
     BotSubmarineHunt.Search submarineSearch;
@@ -59,7 +59,7 @@ final class BotNavigation {
         return urgent != null ? urgent : near != null ? near : forward != null ? forward : encounter != null ? encounter : aircraft != null ? aircraft : route;
     }
 
-    static Course freeRoute(Ship ship, Course desired, double distance,
+    static Course freeRoute(Vehicle ship, Course desired, double distance,
                             NavigationService navigation, WorldMap world) {
         world = nearbyLand(ship, world, distance);
         if (pathClear(ship, desired.heading, distance, navigation, world)) return desired;
@@ -76,7 +76,7 @@ final class BotNavigation {
         return new Course(ship.heading(), 3); // Only the near-land escape may order reverse.
     }
 
-    private static WorldMap nearbyLand(Ship ship, WorldMap world, double distance) {
+    private static WorldMap nearbyLand(Vehicle ship, WorldMap world, double distance) {
         // Once per planning operation: exclude terrain that cannot intersect any candidate corridor.
         // 1.42 encloses rough coastlines; the extra margin includes every hull probe.
         if (world.landmasses().isEmpty()) return world;
@@ -89,7 +89,7 @@ final class BotNavigation {
         return nearby.size() == world.landmasses().size() ? world : new WorldMap(world.version(), nearby);
     }
 
-    private static boolean pathClear(Ship ship, double heading, double distance,
+    private static boolean pathClear(Vehicle ship, double heading, double distance,
                                      NavigationService navigation, WorldMap world) {
         if (world.landmasses().isEmpty()) return true;
         Vector2 forward = Vector2.fromHeading(heading);
@@ -113,7 +113,7 @@ final class BotNavigation {
         return true;
     }
 
-    void planEncounter(Ship ship, List<Ship> ships, NavigationService navigation, WorldMap world) {
+    void planEncounter(Vehicle ship, List<Vehicle> ships, NavigationService navigation, WorldMap world) {
         if (route == null) { encounter = null; return; }
         if (trafficClear(ship, route, ships, ENCOUNTER_RANGE, 14, 30)) {
             // Do not immediately revert at the boundary of a passing manoeuvre.
@@ -128,7 +128,7 @@ final class BotNavigation {
                 ENCOUNTER_RANGE, 14, 30, navigation, world);
     }
 
-    void checkForward(Ship ship, NavigationService navigation, WorldMap world) {
+    void checkForward(Vehicle ship, NavigationService navigation, WorldMap world) {
         Course intended = encounter != null ? encounter : route;
         if (intended == null) { forward = null; return; }
         world = nearbyLand(ship, world, FORWARD_RANGE);
@@ -138,7 +138,7 @@ final class BotNavigation {
                 FORWARD_RANGE, navigation, world);
     }
 
-    void checkNear(Ship ship, List<Ship> ships, NavigationService navigation, WorldMap world) {
+    void checkNear(Vehicle ship, List<Vehicle> ships, NavigationService navigation, WorldMap world) {
         nearbyTraffic = false;
         Course intended = forward != null ? forward : encounter != null ? encounter : route;
         if (intended == null || trafficClear(ship, intended, ships, NEAR_RANGE, 3, 22)) {
@@ -151,7 +151,7 @@ final class BotNavigation {
         near = avoidTraffic(ship, intended, ships, NEAR_RANGE, 3, 22, navigation, world);
     }
 
-    private Course avoidTraffic(Ship ship, Course intended, List<Ship> ships, double range,
+    private Course avoidTraffic(Vehicle ship, Course intended, List<Vehicle> ships, double range,
                                 double horizon, double clearance, NavigationService navigation, WorldMap world) {
         // A single passing side prevents two friends from changing their minds together.
         // If port is blocked, stop rather than creep ahead or switch to starboard.
@@ -165,11 +165,11 @@ final class BotNavigation {
         return new Course(ship.heading(), 2);
     }
 
-    private boolean trafficClear(Ship ship, Course course, List<Ship> ships,
+    private boolean trafficClear(Vehicle ship, Course course, List<Vehicle> ships,
                                         double range, double horizon, double clearance) {
         double ownSpeed = Math.max(Math.abs(ship.speed()), Math.max(0, EngineOrders.speedFor(course.engineOrder)));
         double vx = Math.sin(course.heading) * ownSpeed, vz = Math.cos(course.heading) * ownSpeed;
-        for (Ship other : ships) {
+        for (Vehicle other : ships) {
             if (other == ship || !"active".equals(other.state()) || other.isScoutPlane()
                     || !other.teamId().equals(ship.teamId()) || !sameDepth(ship, other)) continue;
             double dx = other.position().x() - ship.position().x(), dz = other.position().z() - ship.position().z();
@@ -201,7 +201,7 @@ final class BotNavigation {
         }
         return true;
     }
-    private static boolean sameDepth(Ship a, Ship b) {
+    private static boolean sameDepth(Vehicle a, Vehicle b) {
         if (Math.abs(a.y() - b.y()) < 5) return true;
         // A friendly mast at periscope depth is still a surface collision obstacle.
         return a.y() >= -1 && b.isSubmarine() && b.y() + SubmarinePeriscopeGeometry.topAboveRoot(b.y()) >= -.93

@@ -15,7 +15,7 @@ public class CrewService {
     private Object round;
     private long revision;
     private static final long PERSONAL_SCORE_RETENTION_MILLIS = 5 * 60_000L;
-    private record ReturnState(ShipSnapshot ship, int score, long departedAt) {}
+    private record ReturnState(VehicleSnapshot ship, int score, long departedAt) {}
     private final Map<String, ReturnState> returnsByAccount = new HashMap<>();
 
     public synchronized String startOwnShip(Account account, String vehicle) {
@@ -59,14 +59,14 @@ public class CrewService {
         final Map<String, AimRequest> aimRequests = new LinkedHashMap<>();
         final Map<String, Long> vacantSince = new HashMap<>();
         long lookoutReset;
-        Crew(String controller, ShipSnapshot ship) {
+        Crew(String controller, VehicleSnapshot ship) {
             this.controller = controller;
             this.shipId = ship.id();
             this.team = ship.teamId();
         }
     }
     public record Member(String playerId, String name, String station, long revision) {}
-    public record View(String id, String shipId, String controller, String station, long revision, List<Member> members, List<AimRequest> aimRequests, long lookoutReset, ShipSnapshot ship) {}
+    public record View(String id, String shipId, String controller, String station, long revision, List<Member> members, List<AimRequest> aimRequests, long lookoutReset, VehicleSnapshot ship) {}
     public record AimRequest(String id, String shipId, String requester, long requesterRevision,
                              String recipient, long recipientRevision, String weapon, double yaw, double pitch,
                              long expiresAt, String status) {

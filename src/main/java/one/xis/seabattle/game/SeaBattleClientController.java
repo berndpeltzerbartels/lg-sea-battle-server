@@ -222,7 +222,7 @@ public class SeaBattleClientController {
     @Post("/game/drop-bomb")
     @Produces(ContentType.JSON_UTF8)
     public ResponseEntity<?> dropBomb(@RequestBody BombDropRequest request) {
-        if (crew.managed(request.playerId())) return ResponseEntity.status(409, "Ship crew cannot drop aircraft bombs");
+        if (crew.managed(request.playerId())) return ResponseEntity.status(409, "Vehicle crew cannot drop aircraft bombs");
         String teamId = teamIdFor(request.playerId());
         if (teamId == null) {
             diagnosticsService.logRejectedRequest("drop-bomb", request.playerId(), "not-registered");

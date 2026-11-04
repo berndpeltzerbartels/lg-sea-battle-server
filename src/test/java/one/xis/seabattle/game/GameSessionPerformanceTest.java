@@ -142,8 +142,8 @@ class GameSessionPerformanceTest {
     }
 
     private GameSetup botPlaneAttackSetup() {
-        List<ShipSetup> light = new ArrayList<>();
-        List<ShipSetup> dark = new ArrayList<>();
+        List<VehicleSetup> light = new ArrayList<>();
+        List<VehicleSetup> dark = new ArrayList<>();
         light.add(ship("light-human", "light", -90, 0, Math.PI / 2, "player-light", ENGINE_HALF, 0, 99, "torpedo-boat"));
         dark.add(ship("dark-human", "dark", 90, 0, -Math.PI / 2, "player-dark", ENGINE_HALF, 0, 99, "torpedo-boat"));
 
@@ -175,8 +175,8 @@ class GameSessionPerformanceTest {
     }
 
     private GameSetup setup(String id, double spacing, boolean submarines) {
-        List<ShipSetup> light = new ArrayList<>();
-        List<ShipSetup> dark = new ArrayList<>();
+        List<VehicleSetup> light = new ArrayList<>();
+        List<VehicleSetup> dark = new ArrayList<>();
         for (int index = 0; index < 15; index += 1) {
             int row = index / 5;
             int col = index % 5;
@@ -203,7 +203,7 @@ class GameSessionPerformanceTest {
         );
     }
 
-    private ShipSetup ship(String id, String teamId, double x, double z, double heading, int index) {
+    private VehicleSetup ship(String id, String teamId, double x, double z, double heading, int index) {
         return ship(
                 id,
                 teamId,
@@ -218,9 +218,9 @@ class GameSessionPerformanceTest {
         );
     }
 
-    private ShipSetup ship(String id, String teamId, double x, double z, double heading, String controlledBy,
+    private VehicleSetup ship(String id, String teamId, double x, double z, double heading, String controlledBy,
                            int engineOrder, int rudderDegrees, double nextFireDelaySeconds, String vehicleType) {
-        return new ShipSetup(
+        return new VehicleSetup(
                 id,
                 teamId,
                 new Vector2(x, z),

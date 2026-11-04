@@ -9,27 +9,30 @@ final class WreckPhysics {
             {-.22,.79},{-.04,.78},{1.25,.67},{2.42,.436},{2.72,.35},{3.18,.21},{3.68,.01}};
 
     record Pose(double x, double y, double z, double pitch, double yaw, double roll) {}
-    static Pose pose(ShipWreckSnapshot wreck, double age) {
-        ShipSnapshot s = wreck.ship();
+    static Pose pose(Wreck wreck, double age) {
+        Vehicle s = wreck.ship();
         age = Math.max(0, age);
         double t = MathSupport.clamp(age / wreck.sinkSeconds(), 0, 1);
         double ease = t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
         boolean submerged = "submarine".equals(s.vehicleType()) && s.y() < -.88;
-        return new Pose(s.x(), ("torpedo-boat".equals(s.vehicleType()) ? -.2*SCALE : s.y())-ease*wreck.sinkDepth(),
-                s.z(), submerged ? 0 : -.28*ease, s.heading(),
+        return new Pose(s.position().x(), ("torpedo-boat".equals(s.vehicleType()) ? -.2*SCALE : s.y())-ease*wreck.sinkDepth(),
+                s.position().z(), submerged ? 0 : -.28*ease, s.heading(),
                 submerged ? 0 : wreck.sinkSide()*(.12+1.45*ease));
     }
 
-    static boolean hits(ShipWreckSnapshot wreck, double age, ShipSnapshot target) {
+    static boolean hits(Wreck wreck, double age, Vehicle target) {
+        return hits(wreck, age, new HullPose(target));
+    }
+    static boolean hits(Wreck wreck, double age, HullPose target) {
         if (age < 0 || age >= wreck.sinkSeconds() || "scout-plane".equals(wreck.ship().vehicleType())
-                || "scout-plane".equals(target.vehicleType())) return false;
+                || target.vehicle() instanceof ScoutPlane) return false;
         Pose p = pose(wreck, age);
         if (Math.hypot(p.x-target.x(),p.z-target.z()) > 38 || Math.abs(p.y-target.y()) > 19) return false;
         double sy=Math.sin(p.yaw),cy=Math.cos(p.yaw),sp=Math.sin(p.pitch),cp=Math.cos(p.pitch),sr=Math.sin(p.roll),cr=Math.cos(p.roll);
         // Columns of Babylon's RotationYawPitchRoll matrix: right, up, forward.
         double[][] axes={{cy*cr+sy*sp*sr,cp*sr,-sy*cr+cy*sp*sr},
                 {-cy*sr+sy*sp*cr,cp*cr,sy*sr+cy*sp*cr},{sy*cp,-sp,cy*cp}};
-        boolean sub="submarine".equals(target.vehicleType()), wreckSub="submarine".equals(wreck.ship().vehicleType());
+        boolean sub=target.vehicle() instanceof Submarine, wreckSub="submarine".equals(wreck.ship().vehicleType());
         double min=sub?-5.02:-4.2,max=sub?5.02:3.68;
         double targetY=(sub?target.y():-.2*SCALE)+(sub?.105:.345)*SCALE,halfHeight=(sub?.405:.395)*SCALE;
         double sin=Math.sin(target.heading()),cos=Math.cos(target.heading());
