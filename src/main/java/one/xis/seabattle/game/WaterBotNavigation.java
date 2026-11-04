@@ -40,7 +40,8 @@ final class WaterBotNavigation {
             .toList();
     List<BotCommand> commands =
         BotNavigationStream.map(
-            vehicles, vehicle -> escapeCommand(vehicle, situation.navigation(), situation.world()));
+            vehicles, vehicle -> vehicle.hasGlancingRamBackoff(session.nowSeconds) ? null
+                : escapeCommand(vehicle, situation.navigation(), situation.world()));
     plannedEscapes = new HashMap<>();
     for (int i = 0; i < vehicles.size(); i++) plannedEscapes.put(vehicles.get(i), commands.get(i));
     pendingCourses = new ArrayList<>();
@@ -82,12 +83,16 @@ final class WaterBotNavigation {
     BotIntent intent = situation.round().boats().get(vehicle);
     BotNavigation plan = vehicle.botNavigation;
     Vehicle contact = goal.kind() == BotGoal.Kind.ENEMY ? goal.target() : null;
+    BotTorpedoAim aim = contact == null || contact.isAtPeriscopeDepth()
+        ? null : BotTorpedoAim.forTarget(vehicle, contact);
     boolean routeUpdated = intent.routeUpdated();
     if (routeUpdated) {
       BotNavigation.Course desired = courseForGoal(vehicle, contact, goal, attackSpeed);
+      if (aim != null) desired = new BotNavigation.Course(aim.heading(), desired.engineOrder());
       plan.route =
           BotNavigation.freeRoute(
               vehicle, desired, BotNavigation.ROUTE_RANGE, navigationService, worldMap);
+      plan.directAttackRoute = aim != null && plan.route.heading() == desired.heading();
     }
     if (plan.encounterDue(tick))
       plan.planEncounter(vehicle, waterVehicles, navigationService, worldMap, wreckObstacles);
@@ -141,11 +146,13 @@ final class WaterBotNavigation {
               selected.engineOrder(), vehicle.speed(), session.nowSeconds, ordinary);
       vehicle.applyCommand(
           order,
-          BotHelm.rudder(
-              vehicle.heading(), vehicle.turnVelocity(), vehicle.speed(), selected.heading()));
+          aim != null && plan.directAttackRoute && selected == plan.route
+              ? BotHelm.aimRudder(vehicle.heading(), vehicle.turnVelocity(), vehicle.speed(), aim)
+              : BotHelm.rudder(
+                  vehicle.heading(), vehicle.turnVelocity(), vehicle.speed(), selected.heading()));
     }
     // Reuse the staggered one-second route slot; blocked shots must not rescan terrain every tick.
-    if (contact != null && routeUpdated) fireBotWeapons(vehicle, contact);
+    if (contact != null && routeUpdated) fireBotWeapons(vehicle, contact, aim);
   }
 
   private double bearingTo(SurfaceVehicle vehicle, Vector2 position) {
@@ -479,18 +486,16 @@ final class WaterBotNavigation {
     applyBotCommand(vehicle, ENGINE_FULL, rudder, navigationService, worldMap);
   }
 
-  private void fireBotWeapons(SurfaceVehicle vehicle, Vehicle target) {
+  private void fireBotWeapons(SurfaceVehicle vehicle, Vehicle target, BotTorpedoAim aim) {
     double distance = vehicle.position().distanceTo(target.position());
-    double targetBearing = session.relativeBearing(vehicle, target.position());
-    double aimError =
-        Math.sin(session.nowSeconds * .11 + session.stablePhase(vehicle.id())) * BOT_AIM_ERROR;
-    double steerError = MathSupport.normalizeAngle(targetBearing + aimError);
+    if (aim == null) return;
+    double targetBearing = MathSupport.normalizeAngle(aim.heading() - vehicle.heading());
     boolean closeInFront =
         distance <= BOT_CLOSE_FIRE_RANGE && Math.abs(targetBearing) <= BOT_CLOSE_FIRE_ARC;
     boolean aimedShot =
         distance >= BOT_FIRE_MIN_RANGE
             && distance <= BOT_FIRE_MAX_RANGE
-            && Math.abs(steerError) <= BOT_FIRE_ARC;
+            && Math.abs(targetBearing) <= BOT_FIRE_ARC;
     if (!SCOUT_PLANE_EXPERIMENT_PEACEFUL_BOTS
         && !target.isAtPeriscopeDepth()
         && (closeInFront || aimedShot)) {
@@ -498,7 +503,7 @@ final class WaterBotNavigation {
           vehicle,
           target,
           10.5 + Math.abs(Math.sin(session.stablePhase(vehicle.id()))) * 3.0,
-          aimError * 0.65);
+          0);
     }
   }
 }

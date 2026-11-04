@@ -2531,10 +2531,13 @@ public final class GameSession {
         double launchY = ship.isSubmarine() && ship.y() < -1.87 * TORPEDO_BOAT_MODEL_SCALE
                 ? ship.y() + .2 * TORPEDO_BOAT_MODEL_SCALE : .05;
         if (target != null && !torpedoDepthCanDamageShip(launchY, target)) return false;
-        if (target != null && !torpedoLineHitsShipAtDepth(muzzlePosition, forward, target, launchY)) {
+        if (target != null && !botTorpedoIntercepts(ship, muzzlePosition, forward, target, launchY)) {
             return false;
         }
-        if (target != null && botTorpedoPathBlockedByLand(muzzlePosition, target.position())) return false;
+        if (target != null) {
+            BotTorpedoAim aim = BotTorpedoAim.forTarget(ship, target);
+            if (aim == null || botTorpedoPathBlockedByLand(muzzlePosition, aim.targetPosition())) return false;
+        }
         if (target != null && torpedoLaunchWouldHitFriendlyShip(ship, muzzlePosition, heading, launchY)) {
             return false;
         }
@@ -2546,7 +2549,7 @@ public final class GameSession {
                 ship.id(),
                 muzzlePosition,
                 heading,
-                SHIP_TORPEDO_BASE_SPEED + Math.max(0, ship.speed()) * SHIP_TORPEDO_SPEED_GAIN,
+                BotTorpedoAim.speed(ship),
                 nowSeconds,
                 RadarService.TORPEDO_RANGE,
                 tubeSide
@@ -2558,6 +2561,22 @@ public final class GameSession {
         }
         torpedoes.add(torpedo);
         return true;
+    }
+
+    // Test the real fixed-tube course in the target's moving frame. No target mutation/mapping.
+    private boolean botTorpedoIntercepts(Vehicle shooter, Vector2 start, Vector2 forward,
+                                        Vehicle target, double y) {
+        double speed = BotTorpedoAim.speed(shooter);
+        Vector2 relativeVelocity = forward.scale(speed)
+                .subtract(Vector2.fromHeading(target.heading()).scale(target.speed()));
+        double duration = BOT_FIRE_MAX_RANGE / speed;
+        Vector2 end = start.add(relativeVelocity.scale(duration));
+        if (target.isSubmarine()) {
+            return Double.isFinite(SubmarineProjectileGeometry.hitFraction(
+                    start.x(), y, start.z(), end.x(), y, end.z(), target));
+        }
+        return torpedoLineHitsShip(start, relativeVelocity.normalized(), target,
+                start.distanceTo(end), TORPEDO_HULL_MARGIN);
     }
 
     private double torpedoMuzzleForwardOffset(Vehicle ship) {

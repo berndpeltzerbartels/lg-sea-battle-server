@@ -21,6 +21,7 @@ final class BotNavigation {
     boolean trackingPeriscope;
     BotAircraftEvasion aircraftEvasion;
     Course route, encounter, near, forward;
+    boolean directAttackRoute;
     final BotCruiseAcceleration acceleration = new BotCruiseAcceleration();
     private int encounterClearChecks;
     double previousSubmarineEcho;
@@ -137,7 +138,13 @@ final class BotNavigation {
         if (intended == null) { forward = null; return; }
         world = nearbyLand(ship, world, FORWARD_RANGE);
         // Check where the hull is actually going, even while the normal route already asks for a turn.
-        if (pathClear(ship, ship.heading(), FORWARD_RANGE, navigation, world)) { forward = null; return; }
+        // Precision aiming can return to the attack bearing faster than ordinary cruising.
+        // Keep the avoidance course until that intended bearing is clear as well.
+        if (pathClear(ship, ship.heading(), FORWARD_RANGE, navigation, world)
+                && (!directAttackRoute || pathClear(ship, intended.heading(), FORWARD_RANGE, navigation, world))) {
+            forward = null;
+            return;
+        }
         forward = freeRoute(ship, new Course(intended.heading(), Math.min(4, intended.engineOrder())),
                 FORWARD_RANGE, navigation, world);
     }

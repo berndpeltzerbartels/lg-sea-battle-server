@@ -13,7 +13,7 @@ public final class SubmarineBotCalculation implements VehicleBotCalculation<Subm
   private static final double SURFACE_RANGE = 650;
   static final double ATTACK_MIN_RANGE = 250;
   static final double ATTACK_MAX_RANGE = 400;
-  private static final double AIM_TOLERANCE = Math.toRadians(5);
+  private static final double AIM_TOLERANCE = Math.toRadians(.15);
 
   private final WaterBotNavigation navigation;
   private static final WaterBotNavigation.AttackSpeed<Submarine> ATTACK_SPEED =
@@ -107,7 +107,13 @@ public final class SubmarineBotCalculation implements VehicleBotCalculation<Subm
           (ATTACK_MIN_RANGE - distance) * .04 + Math.max(0, -radialTargetSpeed));
       return closestEngineOrder(retreatSpeed, ENGINE_FULL_ASTERN, ENGINE_ASTERN);
     }
-    if (bearing > AIM_TOLERANCE) return ENGINE_ONE_THIRD;
+    BotTorpedoAim aim = BotTorpedoAim.forTarget(submarine, target);
+    Vector2 toTarget = target.position().subtract(submarine.position());
+    double lead = aim == null ? 0 : MathSupport.normalizeAngle(
+        aim.heading() - Math.atan2(toTarget.x(), toTarget.z()));
+    double aimingError = Math.abs(MathSupport.normalizeAngle(targetBearing + lead));
+    if (aimingError > AIM_TOLERANCE || aim != null && Math.abs(aim.angularVelocity()) > .001)
+      return ENGINE_ONE_THIRD;
     if (distance <= ATTACK_MAX_RANGE) return ENGINE_STOP;
     double approachSpeed = Math.max(EngineOrders.speedFor(ENGINE_ONE_THIRD),
         Math.max(0, radialTargetSpeed) + (distance - ATTACK_MAX_RANGE) * .04);
