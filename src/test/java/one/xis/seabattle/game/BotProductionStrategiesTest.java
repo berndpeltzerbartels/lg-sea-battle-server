@@ -166,7 +166,7 @@ class BotProductionStrategiesTest {
     var search =
         new BotSubmarineHunt.Search(
             new BotSubmarineHunt.Area(new Vector2(100, 200), 60), hunter.position());
-    hunter.botNavigation.submarineSearch = search;
+    ((TorpedoBoat) hunter).submarineSearch(search);
     var cache = new RadarService().visibilityCache(session.worldMap(), session.calculationShips());
     var situation = new BotTargetSituation(session, hunter, List.of(), cache, Map.of());
     assertSame(search, situation.submarineSearch());

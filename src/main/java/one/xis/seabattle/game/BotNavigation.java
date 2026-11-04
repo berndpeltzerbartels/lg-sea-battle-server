@@ -19,7 +19,6 @@ final class BotNavigation {
     Vehicle target;
     long targetLife;
     boolean trackingPeriscope;
-    BotSubmarineHunt.Search submarineSearch;
     BotAircraftEvasion aircraftEvasion;
     Course route, encounter, near, forward;
     final BotCruiseAcceleration acceleration = new BotCruiseAcceleration();

@@ -82,9 +82,7 @@ public final class BotTargetSituation {
   }
 
   public BotSubmarineHunt.Search submarineSearch() {
-    return observer instanceof SurfaceVehicle surface
-        ? surface.botNavigation.submarineSearch
-        : null;
+    return observer.submarineSearch();
   }
 
   public SurfaceVehicle.SubmarineAttackCourse lastSubmarineCourse() {
@@ -130,7 +128,10 @@ public final class BotTargetSituation {
     return reservations.getOrDefault(target.id(), 0);
   }
 
-  /** Explicit reuse of the built-in strategy, memoized within this selection call. */
+  /**
+   * Explicit reuse of built-in ranking only; does not observe contacts or start hunts. Memoized
+   * within this call.
+   */
   public Vehicle standardTarget() {
     if (!standardComputed) {
       standard = new StandardBotTargetSelection().select(this, 0);

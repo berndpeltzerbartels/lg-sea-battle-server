@@ -179,6 +179,11 @@ public abstract sealed class Vehicle permits SurfaceVehicle, ScoutPlane {
     return 0;
   }
 
+  /** Standard hunt order, if this vehicle can receive one. It is not a navigation command. */
+  public BotSubmarineHunt.Search submarineSearch() {
+    return null;
+  }
+
   public String depthState() {
     return "surface";
   }

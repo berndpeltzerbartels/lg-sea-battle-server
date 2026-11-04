@@ -122,8 +122,8 @@ final class WaterBotNavigation {
               && plan.forward == null
               && plan.encounter == null
               && !plan.nearbyTraffic
-              && plan.submarineSearch == null
-              && vehicle.botSubmarineAttackCourse == null;
+              && goal.kind() != BotGoal.Kind.SEARCH
+              && goal.kind() != BotGoal.Kind.LAST_KNOWN_COURSE;
       int order =
           plan.acceleration.order(
               selected.engineOrder(), vehicle.speed(), session.nowSeconds, ordinary);

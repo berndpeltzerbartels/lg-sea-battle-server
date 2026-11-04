@@ -7,11 +7,47 @@ import java.util.*;
 /** Existing target priorities and remembered/search destinations. No snapshot conversion. */
 public final class StandardBotTargetSelection implements BotTargetSelection {
   private GameSession session;
+  private BotSubmarineHunt submarineHunts;
 
   public StandardBotTargetSelection() {}
 
   StandardBotTargetSelection(GameSession session) {
     this.session = session;
+  }
+
+  @Override
+  public void observe(BotTargetSituation situation, long tickId) {
+    if (!BotSubmarineHunt.canReport(situation.observer())) return;
+    for (Vehicle target : situation.candidates()) {
+      if (target instanceof Submarine
+          && target.isHumanControlled()
+          && !target.teamId().equals(situation.observer().teamId())
+          && situation.isVisible(target)) {
+        report(situation, target);
+      }
+    }
+  }
+
+  @Override
+  public void depthChargeContact(BotTargetSituation situation, Submarine target, long tickId) {
+    if (target.isHumanControlled()) report(situation, target);
+  }
+
+  @Override
+  public Map<String, BotSubmarineHunt.Detection> submarineDetections(double now) {
+    return submarineHunts == null ? Map.of() : submarineHunts.detections(now);
+  }
+
+  private void report(BotTargetSituation situation, Vehicle target) {
+    double radius =
+        BotSubmarineHunt.RECRUIT_RADIUS
+            + situation.observer().position().distanceTo(target.position());
+    if (submarineHunts == null) submarineHunts = new BotSubmarineHunt();
+    submarineHunts.sighting(
+        situation.observer(),
+        target,
+        situation.timeSeconds(),
+        () -> situation.nearbyVehicles(radius));
   }
 
   @Override
@@ -36,7 +72,34 @@ public final class StandardBotTargetSelection implements BotTargetSelection {
     session = situation.session();
     if (situation.observer().isScoutPlane())
       return BotTargetSelection.super.goal(situation, contact, advanceSearch);
-    return navigationGoal(situation.observer(), contact, advanceSearch);
+    SurfaceVehicle vehicle = (SurfaceVehicle) situation.observer();
+    updateOrders(vehicle, contact, situation.timeSeconds());
+    return navigationGoal(vehicle, contact, advanceSearch);
+  }
+
+  private void updateOrders(SurfaceVehicle vehicle, Vehicle contact, double now) {
+    if (vehicle instanceof TorpedoBoat boat
+        && boat.submarineSearch() != null
+        && !boat.submarineSearch().active(now)) boat.submarineSearch(null);
+    if (vehicle.botSubmarineAttackCourse != null
+        && now >= vehicle.botSubmarineAttackCourse.until()) {
+      vehicle.botSubmarineAttackCourse = null;
+      if (contact == null) vehicle.botNavigation.target = null;
+    }
+    if (contact != null) {
+      double distance = vehicle.position().distanceTo(contact.position());
+      if (vehicle instanceof TorpedoBoat
+          && contact instanceof Submarine
+          && contact.isHumanControlled()
+          && distance <= BotNavigation.RADAR_RING) {
+        vehicle.botSubmarineAttackCourse =
+            new SurfaceVehicle.SubmarineAttackCourse(
+                contact.id(),
+                contact.position(),
+                contact.heading(),
+                now + BOT_SUBMARINE_ATTACK_CONTINUATION_SECONDS);
+      } else vehicle.botSubmarineAttackCourse = null;
+    }
   }
 
   private Optional<Vehicle> chooseScoutPlaneTarget(
@@ -202,7 +265,7 @@ public final class StandardBotTargetSelection implements BotTargetSelection {
   }
 
   private BotGoal navigationGoal(Vehicle ship, Vehicle contact, boolean advanceSearch) {
-    var search = ship.surface().botNavigation.submarineSearch;
+    var search = ship.submarineSearch();
     boolean localContact =
         contact != null
             && (ship.position().distanceTo(contact.position()) <= BotNavigation.ENCOUNTER_RANGE

@@ -146,7 +146,7 @@ Sinnvolle Tests sind: Engstelle verlassen, trotz Insel das Ziel erreichen, keine
 Zusätzlich zur Vorschau entstehen pro Algorithmus `benchmark.csv`-Dateien. Vor jeder Messreihe laufen zwei Aufwärmdurchläufe. Jede Runde startet mit frischer Spielsituation und frischer Algorithmusinstanz. Gemessen werden separat:
 
 1. Bewegungs-/Steuerberechnung (`calculate`), einschließlich eigener Abfragen und Befehle.
-2. Zielauswahl und Zielpunkte (`select` / `goal`), getrennt von der Bewegungsberechnung.
+2. Zielauswahl einschließlich Wahrnehmungsmeldungen und Zielpunkten, getrennt von der Bewegungsberechnung.
 3. Gesamte Backend-Runde, einschließlich Zielvorbereitung, Steuerung, Bewegung und Kampfauflösung.
 
 Ausgegeben werden Mittelwert sowie p95/p99 je Durchlauf; die Java-API enthält auch Median und Maximum. Vorschau, Ausgabe und Momentaufnahmen liegen außerhalb der gemessenen Zeit. Die Java-API unterstützt zudem `scenario.withThreads(2, true)` für die vorhandenen Parallelisierungsoptionen; nicht parallel im Sinn mehrerer Benchmark-Prozesse starten.
@@ -202,7 +202,7 @@ assertTrue(run.targetDecisions().stream()
 
 Im Bericht zeigen gelbe gestrichelte Linien und die Spalte **Letzte Zielwahl** die zuletzt ausgewählte Ziel-ID. Das ist ein Auswahlprotokoll, kein garantierter aktueller Sichtkontakt. `targets.csv` protokolliert jeden tatsächlichen Aufruf mit Tick, Zeit, Beobachter, vorherigem Ziel, gewähltem Ziel, dessen Lebens-ID und Kandidatenzahl. `run.targetDecisions()` macht dieselben Entscheidungen für eigene JUnit-Prüfungen zugänglich. Ein fehlendes Ziel steht dort als `null` und in der CSV als leeres Feld.
 
-`benchmark.csv` und `run.timing().targetSelection()` messen zusätzlich die Zeit **innerhalb der Auswahlimplementierung (`select` und `goal`)**. Kandidatensuche, Erkennungsprüfung und nachfolgende Navigation liegen außerhalb dieser Teilmessung und bleiben in der Gesamtrundenmessung enthalten; Navigation liegt zusätzlich in der Bewegungs-/Steuerzeit. Die Zielzeit wird je Simulationstakt summiert; `goal` läuft auch zwischen den Auswahl-Takten, damit Zielpunkte aktuell bleiben. `targetSelectionCalls` gibt zusätzlich die Anzahl tatsächlicher Auswahlaufrufe an. Die Zielgewichtung läuft vor `calculate()` und ist daher nicht in dessen Bewegungs-/Steuerzeit enthalten. Die Gesamtrundenmessung enthält beide Phasen sowie Vorbereitung und Physik.  Das Auswahlprotokoll wird nur für den sichtbaren Probelauf gesammelt, nicht während der anschließenden Benchmark-Durchläufe.
+`benchmark.csv` und `run.timing().targetSelection()` messen zusätzlich die Zeit **innerhalb der Auswahlimplementierung (`observe`, `depthChargeContact`, `select` und `goal`)**. Kandidatensuche, Erkennungsprüfung und nachfolgende Navigation liegen außerhalb dieser Teilmessung und bleiben in der Gesamtrundenmessung enthalten; Navigation liegt zusätzlich in der Bewegungs-/Steuerzeit. Die Zielzeit wird je Simulationstakt summiert; `goal` läuft auch zwischen den Auswahl-Takten, damit Zielpunkte aktuell bleiben. `targetSelectionCalls` gibt zusätzlich die Anzahl tatsächlicher Auswahlaufrufe an. Die Zielgewichtung läuft vor `calculate()` und ist daher nicht in dessen Bewegungs-/Steuerzeit enthalten. Die Gesamtrundenmessung enthält beide Phasen sowie Vorbereitung und Physik.  Das Auswahlprotokoll wird nur für den sichtbaren Probelauf gesammelt, nicht während der anschließenden Benchmark-Durchläufe.
 
 
 ## Explizite Übergabe der Zielsammlung an die Bewegung
@@ -389,3 +389,47 @@ menschlich gesteuerte Fahrzeuge werden dabei übersprungen. Die Rudergrenzen ble
 Stand nach der Aufteilung: 626 Tests, davon 624 bestanden und 2 übersprungen. Der erneute
 Freiwasser-Vergleich mit 40 Fahrzeugen liegt vor und nach der Aufteilung bei rund 0,22 ms
 pro Runde; innerhalb dieser Messung ist kein relevanter Mehrbedarf erkennbar.
+
+
+## Jagdentscheidungen gehören zur Zielauswahl
+
+Die Jagdverwaltung gehört vollständig zu `StandardBotTargetSelection` und deren Hilfsklasse
+`BotSubmarineHunt`. Die Spielsitzung erzeugt keine Jagdaufträge und verwaltet keine
+Jagdgruppen mehr. Sie stellt lediglich die bestehenden Wahrnehmungen und bestätigte
+Sonarkontakte bereit. Der Standard entscheidet daraus über Meldung, Rekrutierung,
+Jagdgebiet, Dauer, Suchpunkte, Angriffsfortsetzung und deren Priorität.
+
+Das Interface hat dafür optionale Methoden mit wirkungslosen Standardimplementierungen:
+
+- `observe(situation, tickId)`: aktualisierte Kandidaten beim bisherigen Auswahl-Takt.
+  Der Standard meldet hier sichtbare feindliche menschliche U-Boote.
+- `depthChargeContact(situation, submarine, tickId)`: bestätigter feindlicher Sonarkontakt,
+  sobald tatsächlich eine Wasserbomben-Salve startet. Der Standard kann daraus die Jagd auslösen.
+- `submarineDetections(now)`: kurzlebige Hinweise für die Ausgabe; standardmäßig eine leere Map.
+
+Eine eigene `BotTargetSelection` erhält damit weder automatisch Jagdaufträge noch
+Angriffsfortsetzungen. Auch `situation.standardTarget()` verwendet ausdrücklich nur die
+Standardgewichtung und löst selbst keine Jagd aus. Wer die ganze Standardstrategie
+dekorieren möchte, delegiert zusätzlich zu `select` und `goal` auch diese drei Methoden.
+Die Messimplementierung des Testlabors tut genau das; Jagdverhalten und Ausgabe bleiben
+somit identisch zum normalen Spiel, und die Arbeit der Beobachtungsmethoden wird mitgemessen.
+
+Jagdaufträge liegen am `TorpedoBoat`, nicht mehr in `BotNavigation`. Bei Controllerwechsel
+oder Wiedergeburt werden sie verworfen. Andere Fahrzeugtypen speichern keinen Jagdauftrag.
+Die Navigation liest weder diesen Auftrag noch den gemerkten U-Boot-Angriffskurs direkt.
+Sie richtet Jagdgeschwindigkeit und Beschleunigung ausschließlich nach dem vorbereiteten
+`BotGoal` (`SEARCH` bzw. `LAST_KNOWN_COURSE`). Ein ignorierter alter Auftrag beeinflusst
+folglich keine selbst gewählte Patrouille; ein eigenes Suchziel funktioniert auch ohne
+irgendeinen versteckten Standard-Jagdstatus.
+
+
+Die Jagdauslagerung ist mit sechs zusätzlichen Szenarien geprüft: Standard-Rekrutierung,
+eigene Zielgewichtung ohne implizite Jagd, Sonarmeldung ohne Standard-Rekrutierung,
+Patrouille trotz ignoriertem Altauftrag, ein eigenes Suchziel ohne Standardstatus und
+Weiterleitung der Beobachtungsmethoden im Testlabor. Insgesamt: 632 Tests, davon 630
+bestanden und 2 übersprungen; auch die vorhandenen Performance-Grenztests bestehen.
+Ein zusätzlicher Vergleich mit 40 Fahrzeugen und einem menschlichen U-Boot auf Sehrohrtiefe
+liegt im Median der Durchlaufmittelwerte vor und nach der Änderung bei rund 0,20 ms.
+Ein neuer Durchlauf hatte einen Ausreißer von rund 0,35 ms. Der Kurzvergleich ist kein
+Nachweis für unveränderte Produktionslast; es gibt jedoch keine zusätzlichen globalen
+Suchschleifen. Bestehende Kandidaten und räumliche Abfragen werden weiterverwendet.

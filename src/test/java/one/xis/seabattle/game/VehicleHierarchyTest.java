@@ -19,7 +19,7 @@ class VehicleHierarchyTest {
     assertInstanceOf(Submarine.class, create("submarine"));
     assertInstanceOf(ScoutPlane.class, create("scout-plane"));
     assertEquals(Set.of("depth", "submarineBot"), fields(Submarine.class));
-    assertEquals(Set.of("cannonYaw", "cannonPitch"), fields(TorpedoBoat.class));
+    assertEquals(Set.of("cannonYaw", "cannonPitch", "submarineSearch"), fields(TorpedoBoat.class));
     assertEquals(Set.of("verticalSpeed", "targetY"), fields(ScoutPlane.class));
     assertFalse(fields(Vehicle.class).contains("vehicleType"));
     assertFalse(SurfaceVehicle.class.isAssignableFrom(ScoutPlane.class));
