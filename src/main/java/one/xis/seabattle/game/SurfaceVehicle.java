@@ -14,11 +14,15 @@ public abstract sealed class SurfaceVehicle extends Vehicle permits TorpedoBoat,
 
   SubmarineAttackCourse botSubmarineAttackCourse;
   BotNavigation botNavigation;
+  Vector2 motionStartPosition;
+  double motionStartHeading;
 
   protected SurfaceVehicle(
       String id, String team, Vector2 position, double heading, String controller) {
     super(id, team, position, heading, controller);
     botNavigation = new BotNavigation(id);
+    motionStartPosition = position;
+    motionStartHeading = heading;
   }
 
   @Override
@@ -49,6 +53,8 @@ public abstract sealed class SurfaceVehicle extends Vehicle permits TorpedoBoat,
   @Override
   void update(double seconds, NavigationService navigation, WorldMap world) {
     if (!"active".equals(state)) return;
+    motionStartPosition = position;
+    motionStartHeading = heading;
     updateDepth(seconds);
     Vector2 previous = position;
     double previousSpeed = speed;
@@ -80,7 +86,7 @@ public abstract sealed class SurfaceVehicle extends Vehicle permits TorpedoBoat,
     if (backoffContact == null) return false;
     if (!"active".equals(backoffContact.state())
         || backoffContact.lifeId() != backoffContactLife
-        || position.distanceTo(backoffContact.position()) >= BotNavigation.SHIP_LENGTH) {
+        || position.distanceTo(backoffContact.position()) >= GameRules.RAM_COLLISION_BROAD_PHASE_RADIUS) {
       clearImpactState();
       return false;
     }
@@ -105,7 +111,7 @@ public abstract sealed class SurfaceVehicle extends Vehicle permits TorpedoBoat,
     if (backoffContact != null
         && "active".equals(backoffContact.state())
         && backoffContact.lifeId() == backoffContactLife
-        && position.distanceTo(backoffContact.position()) < BotNavigation.SHIP_LENGTH) return;
+        && position.distanceTo(backoffContact.position()) < GameRules.RAM_COLLISION_BROAD_PHASE_RADIUS) return;
     backoffContact = other;
     backoffContactLife = other.lifeId();
     backoffStart = position;
@@ -136,6 +142,8 @@ public abstract sealed class SurfaceVehicle extends Vehicle permits TorpedoBoat,
     botForwardEscapeUntil = 0;
     botSubmarineAttackCourse = null;
     botNavigation = new BotNavigation(id());
+    motionStartPosition = position;
+    motionStartHeading = heading;
     clearImpactState();
   }
 }

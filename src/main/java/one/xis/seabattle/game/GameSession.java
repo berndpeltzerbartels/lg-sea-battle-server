@@ -627,7 +627,7 @@ public final class GameSession {
         updateFlakProjectiles(deltaSeconds);
         updateFlakHits();
         updateFlakTerrainImpacts(worldMap);
-        updateRamCollisions();
+        updateRamCollisions(navigationService);
         updateWreckCollisions();
         torpedoes.removeIf(torpedo -> !torpedoVisibleInWorld(torpedo));
         torpedoImpacts.removeIf(impact -> nowSeconds - impact.t() > TORPEDO_IMPACT_VISIBILITY_SECONDS);
@@ -972,7 +972,7 @@ public final class GameSession {
                 .toList();
     }
 
-    private void updateRamCollisions() {
+    private void updateRamCollisions(NavigationService navigationService) {
         List<Vehicle> activeShips = allShips().stream()
                 .filter(ship -> "active".equals(ship.state()))
                 .filter(ship -> !ship.isScoutPlane())
@@ -1007,6 +1007,9 @@ public final class GameSession {
                     continue;
                 }
 
+                if (hullsOverlap && left.isBotControlled() && right.isBotControlled()) {
+                    preventNewBotHullOverlap(left.surface(), right.surface(), navigationService);
+                }
                 if (left.teamId().equals(right.teamId()) && left.isBotControlled() && right.isBotControlled()) {
                     backOffYieldingFriend(left, right);
                     backOffYieldingFriend(right, left);
@@ -1172,6 +1175,81 @@ public final class GameSession {
         stopAfterRamImpact(left);
     }
 
+    private void preventNewBotHullOverlap(SurfaceVehicle left, SurfaceVehicle right, NavigationService navigation) {
+        // A setup already containing overlapping hulls must still be able to move apart.
+        if (hullsOverlapAt(left.motionStartPosition, left.motionStartHeading,
+                right.motionStartPosition, right.motionStartHeading)) return;
+        Vector2 leftPosition = left.position(), rightPosition = right.position();
+        Vector2 normal = leftPosition.subtract(rightPosition).normalized();
+        double leftTravel = leftPosition.distanceTo(left.motionStartPosition);
+        double rightTravel = rightPosition.distanceTo(right.motionStartPosition);
+        // Only bodies moving into the contact are corrected; stationary or escaping boats stay put.
+        double leftInward = Math.max(0, -dot(leftPosition.subtract(left.motionStartPosition), normal));
+        double rightInward = Math.max(0, dot(rightPosition.subtract(right.motionStartPosition), normal));
+        double sum = leftInward + rightInward;
+        double leftShare = sum > .000001 ? leftInward / sum : .5;
+        double rightShare = 1 - leftShare;
+        double rotationTravel = (Math.abs(MathSupport.normalizeAngle(left.heading() - left.motionStartHeading))
+                + Math.abs(MathSupport.normalizeAngle(right.heading() - right.motionStartHeading))) * BotNavigation.SHIP_LENGTH;
+        double high = Math.min(BotNavigation.SHIP_LENGTH * .25, Math.max(BotNavigation.SHIP_LENGTH * .05, leftTravel + rightTravel + rotationTravel + .1));
+        placeContactBodies(left, right, leftPosition, rightPosition, normal, high, leftShare, rightShare);
+        if (!hullsOverlap(left, right)) {
+            double low = 0;
+            // Rare contact correction only: bounded search, no additional fleet loop.
+            for (int step = 0; step < 5; step++) {
+                double middle = (low + high) * .5;
+                placeContactBodies(left, right, leftPosition, rightPosition, normal, middle, leftShare, rightShare);
+                if (hullsOverlap(left, right)) low = middle;
+                else high = middle;
+            }
+            placeContactBodies(left, right, leftPosition, rightPosition, normal, high, leftShare, rightShare);
+            if (!navigation.isShipBlocked(left.position(), left.heading(), worldMap)
+                    && !navigation.isShipBlocked(right.position(), right.heading(), worldMap)) return;
+        }
+        left.position = leftPosition;
+        right.position = rightPosition;
+        if (restoreMotionIfClear(left, right) || restoreMotionIfClear(right, left)) return;
+        left.position = left.motionStartPosition;
+        left.heading = left.motionStartHeading;
+        right.position = right.motionStartPosition;
+        right.heading = right.motionStartHeading;
+        stopPenetratingMotion(left);
+        stopPenetratingMotion(right);
+    }
+
+    private static double dot(Vector2 a, Vector2 b) { return a.x() * b.x() + a.z() * b.z(); }
+
+    private void placeContactBodies(SurfaceVehicle left, SurfaceVehicle right, Vector2 leftPosition,
+                                    Vector2 rightPosition, Vector2 normal, double distance, double leftShare, double rightShare) {
+        left.position = leftShare == 0 ? leftPosition : leftPosition.add(normal.scale(distance * leftShare));
+        right.position = rightShare == 0 ? rightPosition : rightPosition.subtract(normal.scale(distance * rightShare));
+    }
+
+    private void stopPenetratingMotion(SurfaceVehicle vehicle) {
+        vehicle.speed = 0;
+        vehicle.applyCommand(ENGINE_STOP, vehicle.rudderDegrees());
+        // Retain angular momentum: a glancing hull can keep turning along its neighbour.
+    }
+
+    private boolean restoreMotionIfClear(SurfaceVehicle vehicle, SurfaceVehicle other) {
+        if (vehicle.position().equals(vehicle.motionStartPosition) && vehicle.heading() == vehicle.motionStartHeading) return false;
+        Vector2 currentPosition = vehicle.position();
+        double currentHeading = vehicle.heading();
+        vehicle.position = vehicle.motionStartPosition;
+        if (!hullsOverlap(vehicle, other)) {
+            stopPenetratingMotion(vehicle);
+            return true;
+        }
+        vehicle.heading = vehicle.motionStartHeading;
+        if (!hullsOverlap(vehicle, other)) {
+            stopPenetratingMotion(vehicle);
+            return true;
+        }
+        vehicle.position = currentPosition;
+        vehicle.heading = currentHeading;
+        return false;
+    }
+
     private void backOffYieldingFriend(Vehicle vehicle, Vehicle other) {
         if (!vehicle.isBotControlled() || !BotNavigation.mustYieldTo(vehicle, other)) return;
         Vector2 offset = other.position().subtract(vehicle.position());
@@ -1335,6 +1413,11 @@ public final class GameSession {
                 || hullSamplePoints(other).stream().anyMatch(point -> pointInsideShipHull(point, position, heading, RAM_SIDE_MARGIN));
     }
 
+    private boolean hullsOverlapAt(Vector2 left, double leftHeading, Vector2 right, double rightHeading) {
+        return hullSamplePoints(left, leftHeading).stream().anyMatch(point -> pointInsideShipHull(point, right, rightHeading, RAM_SIDE_MARGIN))
+                || hullSamplePoints(right, rightHeading).stream().anyMatch(point -> pointInsideShipHull(point, left, leftHeading, RAM_SIDE_MARGIN));
+    }
+
     private List<Vector2> hullSamplePoints(Vehicle ship) {
         return hullSamplePoints(ship.position(), ship.heading());
     }
@@ -1402,8 +1485,7 @@ public final class GameSession {
         return forward >= TORPEDO_BOAT_STERN_Z - margin && forward <= TORPEDO_BOAT_BOW_Z + margin;
     }
 
-    private double torpedoBoatHullTopHalfWidthAt(double forward) {
-        double[][] sections = {
+    private static final double[][] TORPEDO_BOAT_HULL_TOP_WIDTHS = {
                 {-4.2, 0.31},
                 {-3.45, 0.53},
                 {-2.25, 0.73},
@@ -1417,9 +1499,10 @@ public final class GameSession {
                 {2.72, 0.35},
                 {3.18, 0.21},
                 {3.68, 0.01}
-        };
+    };
 
-        return interpolateSectionValue(sections, forward);
+    private double torpedoBoatHullTopHalfWidthAt(double forward) {
+        return interpolateSectionValue(TORPEDO_BOAT_HULL_TOP_WIDTHS, forward);
     }
 
     private record LocalHullPoint(double right, double forward) {
