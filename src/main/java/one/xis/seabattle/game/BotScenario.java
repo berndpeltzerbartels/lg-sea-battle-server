@@ -73,7 +73,7 @@ public final class BotScenario {
             targetNanos[index[0]] += System.nanoTime() - start;
             targetCalls[0]++;
             if (capture) {
-                Ship target = situation.resolve(selected);
+                Vehicle target = situation.resolve(selected);
                 decisions.add(new BotTestRun.TargetDecision(tickId, situation.timeSeconds(), situation.observerId(),
                         situation.currentTargetId(), selected, target == null ? -1 : target.lifeId(), situation.candidateCount()));
             }
@@ -100,8 +100,8 @@ public final class BotScenario {
 
     private void initialize(GameSession session, NavigationService navigation) {
         for (ScenarioInitialState initial : definition.initialStates()) {
-            Ship ship = session.calculationShips().stream().filter(s -> s.id().equals(initial.id())).findFirst().orElseThrow();
-            ShipSnapshot s = ship.snapshot();
+            Vehicle ship = session.calculationShips().stream().filter(s -> s.id().equals(initial.id())).findFirst().orElseThrow();
+            VehicleSnapshot s = ship.snapshot();
             double y = ship.isSubmarine() ? switch (initial.depth()) {
                 case "periscope" -> -1.86 * SeaBattleGameConfig.TORPEDO_BOAT_SCALE;
                 case "submerged" -> SeaBattleGameConfig.SUBMARINE_DEEP_Y;

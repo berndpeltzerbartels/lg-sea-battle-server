@@ -235,13 +235,13 @@ final class DefaultGameSetupFactory {
 
     private GameSetup escortDebugSetup() {
         WorldMap worldMap = worldMapService.denseWorld();
-        List<ShipSetup> lightShips = new ArrayList<>(List.of(
+        List<VehicleSetup> lightShips = new ArrayList<>(List.of(
                 ship("light-1", TEAM_LIGHT, -180, -520, -0.58, ENGINE_SLOW, 0, 3),
                 ship("light-2", TEAM_LIGHT, -260, -420, -0.42, ENGINE_SLOW, 4, 3),
                 ship("light-3", TEAM_LIGHT, -40, -480, -0.75, ENGINE_SLOW, -4, 3)
         ));
         lightShips.addAll(specialScoutPlanes(TEAM_LIGHT, 0));
-        List<ShipSetup> darkShips = new ArrayList<>(List.of(
+        List<VehicleSetup> darkShips = new ArrayList<>(List.of(
                 ship("dark-1", TEAM_DARK, 543, 208, 3.0, ENGINE_STOP, 0, 12),
                 ship("dark-2", TEAM_DARK, 1010, 260, -2.95, ENGINE_STOP, 0, 14),
                 ship("dark-3", TEAM_DARK, 1128, -773, -2.4, ENGINE_STOP, 0, 16)
@@ -281,7 +281,7 @@ final class DefaultGameSetupFactory {
     }
 
     private GameSetup landmarkTourSetup() {
-        List<ShipSetup> lightShips = new ArrayList<>(List.of(
+        List<VehicleSetup> lightShips = new ArrayList<>(List.of(
                 ship("light-1", TEAM_LIGHT, -460, -560, -0.35, "bot", ENGINE_STOP, 0, 99)
         ));
         lightShips.addAll(specialScoutPlanes(TEAM_LIGHT, 2));
@@ -332,9 +332,9 @@ final class DefaultGameSetupFactory {
         return BASE_TEAMS.contains(teamId);
     }
 
-    private static ShipSetup ship(String id, String teamId, double x, double z, double heading, int engineOrder,
+    private static VehicleSetup ship(String id, String teamId, double x, double z, double heading, int engineOrder,
                                   int rudderDegrees, double nextFireDelaySeconds) {
-        return new ShipSetup(
+        return new VehicleSetup(
                 id,
                 teamId,
                 new Vector2(x, z),
@@ -348,9 +348,9 @@ final class DefaultGameSetupFactory {
         );
     }
 
-    private static ShipSetup ship(String id, String teamId, double x, double z, double heading, String controlledBy,
+    private static VehicleSetup ship(String id, String teamId, double x, double z, double heading, String controlledBy,
                                   int engineOrder, int rudderDegrees, double nextFireDelaySeconds) {
-        return new ShipSetup(
+        return new VehicleSetup(
                 id,
                 teamId,
                 new Vector2(x, z),
@@ -364,9 +364,9 @@ final class DefaultGameSetupFactory {
         );
     }
 
-    private static ShipSetup scoutPlane(String id, String teamId, double x, double z, double heading,
+    private static VehicleSetup scoutPlane(String id, String teamId, double x, double z, double heading,
                                         int engineOrder, int rudderDegrees, double nextFireDelaySeconds) {
-        return new ShipSetup(
+        return new VehicleSetup(
                 id,
                 teamId,
                 new Vector2(x, z),
@@ -380,7 +380,7 @@ final class DefaultGameSetupFactory {
         );
     }
 
-    private static List<ShipSetup> specialScoutPlanes(String teamId, int idOffset) {
+    private static List<VehicleSetup> specialScoutPlanes(String teamId, int idOffset) {
         if (TEAM_LIGHT.equals(teamId)) {
             return List.of(
                     scoutPlane(teamId + "-F" + (idOffset + 4), teamId, -413, 82, -0.1, ENGINE_HALF, 5, 4),
@@ -398,13 +398,13 @@ final class DefaultGameSetupFactory {
         return List.of();
     }
 
-    private static List<ShipSetup> createShips(String teamId, double[][] formation) {
-        List<ShipSetup> ships = new ArrayList<>();
+    private static List<VehicleSetup> createShips(String teamId, double[][] formation) {
+        List<VehicleSetup> ships = new ArrayList<>();
         for (int index = 0; index < formation.length; index += 1) {
             double[] slot = formation[index];
             String vehicleType = fleetVehicleType(teamId, index);
             String shipId = teamId + "-" + vehiclePrefix(vehicleType) + (index + 1);
-            ships.add(new ShipSetup(
+            ships.add(new VehicleSetup(
                     shipId,
                     teamId,
                     new Vector2(slot[0], slot[1]),
@@ -433,12 +433,12 @@ final class DefaultGameSetupFactory {
         return index == 2 || index == 4 || index == 6 ? "submarine" : VEHICLE_TORPEDO_BOAT;
     }
 
-    private static List<ShipSetup> createScenarioShips(String teamId, List<Vector2> positions, double heading) {
-        List<ShipSetup> ships = new ArrayList<>();
+    private static List<VehicleSetup> createScenarioShips(String teamId, List<Vector2> positions, double heading) {
+        List<VehicleSetup> ships = new ArrayList<>();
         for (int index = 0; index < positions.size(); index += 1) {
             Vector2 position = positions.get(index);
             String vehicleType = fleetVehicleType(teamId, index);
-            ships.add(new ShipSetup(
+            ships.add(new VehicleSetup(
                     teamId + "-" + vehiclePrefix(vehicleType) + (index + 1),
                     teamId,
                     position,
@@ -471,11 +471,11 @@ final class DefaultGameSetupFactory {
             List<Vector2> positions = denseRespawnCandidates();
             for (int team = 0; team < fleets.size(); team++) {
                 FleetSetup fleet = fleets.get(team);
-                List<ShipSetup> ships = new ArrayList<>(fleet.ships());
+                List<VehicleSetup> ships = new ArrayList<>(fleet.ships());
                 for (int extra = 0; extra < 5; extra++) {
                     Vector2 position = positions.get(team * 5 + extra);
                     String type = extra == 0 ? "submarine" : extra == 1 ? VEHICLE_SCOUT_PLANE : VEHICLE_TORPEDO_BOAT;
-                    ships.add(new ShipSetup(fleet.teamId() + "-trial-" + vehiclePrefix(type) + extra,
+                    ships.add(new VehicleSetup(fleet.teamId() + "-trial-" + vehiclePrefix(type) + extra,
                             fleet.teamId(), position, team % 2 == 0 ? 0 : Math.PI, "bot", ENGINE_SLOW, 0,
                             5 + extra, type, VEHICLE_SCOUT_PLANE.equals(type) ? SCOUT_PLANE_START_Y : 0));
                 }

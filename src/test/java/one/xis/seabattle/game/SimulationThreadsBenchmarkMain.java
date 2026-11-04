@@ -30,8 +30,8 @@ public final class SimulationThreadsBenchmarkMain {
         var fleets = new ArrayList<FleetSetup>();
         for (FleetSetup fleet : original.fleets()) {
             var ships = new ArrayList<>(fleet.ships());
-            for (ShipSetup ship : fleet.ships()) {
-                ships.add(new ShipSetup(ship.id() + "-extra", ship.teamId(),
+            for (VehicleSetup ship : fleet.ships()) {
+                ships.add(new VehicleSetup(ship.id() + "-extra", ship.teamId(),
                         ship.position().add(new Vector2(0, 80)), ship.heading(), ship.controlledBy(),
                         ship.engineOrder(), ship.rudderDegrees(), ship.nextFireDelaySeconds(), ship.vehicleType(), ship.y()));
             }
@@ -52,7 +52,7 @@ public final class SimulationThreadsBenchmarkMain {
             if (tick >= 200) durations[tick - 200] = (System.nanoTime() - start) / 1_000_000.0;
             // Outside the timed section; sample activity to detect misleading gains from idle fleets.
             if (tick >= 200 && tick % 10 == 0) {
-                for (ShipSnapshot ship : session.snapshot().ships()) {
+                for (VehicleSnapshot ship : session.snapshot().ships()) {
                     if (!"active".equals(ship.state()) || !"bot".equals(ship.controlledBy())
                             || "scout-plane".equals(ship.vehicleType())) continue;
                     activeSamples++;

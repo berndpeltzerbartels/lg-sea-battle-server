@@ -152,13 +152,13 @@ class GameSessionDirectBenchmarkTest {
     }
 
     private List<BenchmarkClient> createClients(int count, GameSnapshot snapshot) {
-        Map<String, List<ShipSnapshot>> shipsByTeam = snapshot.ships().stream()
-                .collect(java.util.stream.Collectors.groupingBy(ShipSnapshot::teamId));
+        Map<String, List<VehicleSnapshot>> shipsByTeam = snapshot.ships().stream()
+                .collect(java.util.stream.Collectors.groupingBy(VehicleSnapshot::teamId));
         List<BenchmarkClient> clients = new ArrayList<>();
         for (int index = 0; index < count; index += 1) {
             String teamId = index % 2 == 0 ? "light" : "dark";
-            List<ShipSnapshot> teamShips = shipsByTeam.getOrDefault(teamId, List.of());
-            ShipSnapshot ship = teamShips.get(Math.min(teamShips.size() - 1, index / 2));
+            List<VehicleSnapshot> teamShips = shipsByTeam.getOrDefault(teamId, List.of());
+            VehicleSnapshot ship = teamShips.get(Math.min(teamShips.size() - 1, index / 2));
             clients.add(new BenchmarkClient(
                     index,
                     "player-B" + String.format("%02d", index + 1) + "-direct",

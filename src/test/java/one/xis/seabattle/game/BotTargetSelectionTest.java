@@ -121,13 +121,13 @@ final class BotTargetSelectionTest {
             BotGoal goal = goals.get("light-S1");
             assertEquals("dark-S3", goal.targetShipId());
             assertEquals(BotGoal.Kind.ENEMY, goal.kind());
-            ShipSnapshot target = s.ships().stream().filter(ship -> ship.id().equals("dark-S3")).findFirst().orElseThrow();
+            VehicleSnapshot target = s.ships().stream().filter(ship -> ship.id().equals("dark-S3")).findFirst().orElseThrow();
             assertEquals(target.x(), goal.x(), .001);
             assertThrows(UnsupportedOperationException.class, goals::clear);
             movementTicks.add(tick);
             received.add(goals);
             // Own controller consumes only the assigned goal, without calling runStandard().
-            ShipSnapshot own = s.ships().get(0);
+            VehicleSnapshot own = s.ships().get(0);
             double direction = Math.atan2(goal.x() - own.x(), goal.z() - own.z());
             s.steer(own.id(), 5, (int) Math.round(Math.toDegrees(direction - own.heading())));
         }, 30);

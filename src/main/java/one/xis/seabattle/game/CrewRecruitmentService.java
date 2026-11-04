@@ -152,7 +152,7 @@ public class CrewRecruitmentService {
         return snapshot;
     }
 
-    private boolean eligible(ShipSnapshot ship, Account account) {
+    private boolean eligible(VehicleSnapshot ship, Account account) {
         return "active".equals(ship.state()) && "torpedo-boat".equals(ship.vehicleType())
                 && players.isRegisteredPlayer(ship.controlledBy())
                 && !account.id().equals(players.accountIdForPlayer(ship.controlledBy()));

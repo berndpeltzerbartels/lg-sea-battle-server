@@ -94,7 +94,7 @@ class GameSessionTest {
 
         GameSnapshot snapshot = session.fireTorpedo(new FireTorpedoRequest("player-BP-test", "light"));
 
-        ShipSnapshot ship = findShip(snapshot, "light-1");
+        VehicleSnapshot ship = findShip(snapshot, "light-1");
         assertNotNull(ship);
         assertEquals("player-BP-test", ship.controlledBy());
         assertEquals(12, ship.torpedoesRemaining());
@@ -115,7 +115,7 @@ class GameSessionTest {
 
         GameSnapshot snapshot = session.fireTorpedo(new FireTorpedoRequest("player-BP-test", "light"));
 
-        ShipSnapshot assignedShip = snapshot.ships().stream()
+        VehicleSnapshot assignedShip = snapshot.ships().stream()
                 .filter(ship -> "player-BP-test".equals(ship.controlledBy()))
                 .findFirst()
                 .orElseThrow();
@@ -139,7 +139,7 @@ class GameSessionTest {
                 "player-BP-test", "light", 12, 0, 0, 6, 0, ENGINE_FULL, 0, 0, false, "submarine", 80
         ), navigationService, session.worldMap());
 
-        ShipSnapshot ship = findShip(snapshot, "light-S1");
+        VehicleSnapshot ship = findShip(snapshot, "light-S1");
         assertEquals("player-BP-test", ship.controlledBy());
         assertEquals("submarine", ship.vehicleType());
         assertEquals(0, ship.y(), 0.001);
@@ -164,7 +164,7 @@ class GameSessionTest {
 
         session.assignPlayerVehicle("player-BP-test", "light", "submarine");
 
-        ShipSnapshot ship = findShip(session.snapshot(), "light-S1");
+        VehicleSnapshot ship = findShip(session.snapshot(), "light-S1");
         assertEquals("player-BP-test", ship.controlledBy());
         assertEquals("submarine", ship.vehicleType());
         assertEquals(0, ship.y(), 0.001);
@@ -209,7 +209,7 @@ class GameSessionTest {
         );
         GameSnapshot snapshot = session.fireTorpedo(new FireTorpedoRequest("player-BP-test", "light", "scout-plane"));
 
-        ShipSnapshot ship = findShip(snapshot, "light-1");
+        VehicleSnapshot ship = findShip(snapshot, "light-1");
         assertNotNull(ship);
         assertEquals("scout-plane", ship.vehicleType());
         assertEquals(1, snapshot.torpedoes().size());
@@ -255,11 +255,11 @@ class GameSessionTest {
                 new WorldMap(9029, List.of()),
                 List.of(
                         new FleetSetup("light", List.of(
-                                new ShipSetup("light-F1", "light", new Vector2(0, 0), Math.PI / 2,
+                                new VehicleSetup("light-F1", "light", new Vector2(0, 0), Math.PI / 2,
                                         "bot", 7, 0, 0, "scout-plane", 80)
                         )),
                         new FleetSetup("dark", List.of(
-                                new ShipSetup("dark-F1", "dark", new Vector2(11, 0), Math.PI,
+                                new VehicleSetup("dark-F1", "dark", new Vector2(11, 0), Math.PI,
                                         "scenario", 7, 0, 99, "scout-plane", 77.6)
                         ))
                 ),
@@ -368,13 +368,13 @@ class GameSessionTest {
                 "bomb-release-geometry-test",
                 new WorldMap(9030, List.of()),
                 List.of(new FleetSetup("dark", List.of(
-                        new ShipSetup("dark-F1", "dark", planePosition, planeHeading,
+                        new VehicleSetup("dark-F1", "dark", planePosition, planeHeading,
                                 "bot", 7, 0, 0, "scout-plane", planeY)
                 ))),
                 List.of(planePosition)
         ));
 
-        Ship plane = shipEntity(session, "dark-F1");
+        Vehicle plane = shipEntity(session, "dark-F1");
         dropBombsFromScoutPlane(session, plane, 4.5);
         session.updateIdle(0, radarService, navigationService, session.worldMap());
 
@@ -399,7 +399,7 @@ class GameSessionTest {
                 "human-bomb-release-test",
                 new WorldMap(9032, List.of()),
                 List.of(new FleetSetup("light", List.of(
-                        new ShipSetup("light-F1", "light", new Vector2(0, 0), 0,
+                        new VehicleSetup("light-F1", "light", new Vector2(0, 0), 0,
                                 "player-human-bomb", 7, 0, 0, "scout-plane", 150)
                 ))),
                 List.of(new Vector2(0, 0))
@@ -440,7 +440,7 @@ class GameSessionTest {
 
         session.update(0.1, radarService, navigationService, session.worldMap());
 
-        ShipSnapshot bot = findShip(session.snapshot(), "red-1");
+        VehicleSnapshot bot = findShip(session.snapshot(), "red-1");
         assertNotNull(bot);
         assertEquals(ENGINE_FULL, bot.engineOrder());
     }
@@ -460,7 +460,7 @@ class GameSessionTest {
         boolean woke = false;
         for (double elapsed = 0; elapsed < 70; elapsed += 0.25) {
             session.update(0.25, radarService, navigationService, session.worldMap());
-            ShipSnapshot escort = findShip(session.snapshot(), "red-escort");
+            VehicleSnapshot escort = findShip(session.snapshot(), "red-escort");
             if (escort != null && escort.engineOrder() > ENGINE_STOP) {
                 woke = true;
                 break;
@@ -489,7 +489,7 @@ class GameSessionTest {
         boolean patrolled = false;
         for (double elapsed = 0; elapsed < 70; elapsed += 0.25) {
             session.update(0.25, radarService, navigationService, session.worldMap());
-            ShipSnapshot bot = findShip(session.snapshot(), "red-1");
+            VehicleSnapshot bot = findShip(session.snapshot(), "red-1");
             if (bot != null && bot.engineOrder() >= ENGINE_HALF) {
                 patrolled = true;
                 break;
@@ -497,7 +497,7 @@ class GameSessionTest {
         }
 
         assertTrue(patrolled, "No target beyond acquisition range: keep moving toward the centre");
-        assertNull(shipEntity(session, "red-1").botNavigation.target);
+        assertNull(shipEntity(session, "red-1").surface().botNavigation.target);
     }
 
     @Test
@@ -514,7 +514,7 @@ class GameSessionTest {
         boolean patrolled = false;
         for (double elapsed = 0; elapsed < 70; elapsed += 0.25) {
             session.update(0.25, radarService, navigationService, session.worldMap());
-            ShipSnapshot bot = findShip(session.snapshot(), "red-1");
+            VehicleSnapshot bot = findShip(session.snapshot(), "red-1");
             if (bot != null && bot.engineOrder() >= ENGINE_HALF) {
                 patrolled = true;
                 break;
@@ -538,7 +538,7 @@ class GameSessionTest {
         boolean checkedDuringPatrol = false;
         for (double elapsed = 0; elapsed < 70; elapsed += 0.25) {
             session.update(0.25, radarService, navigationService, session.worldMap());
-            ShipSnapshot bot = findShip(session.snapshot(), "red-1");
+            VehicleSnapshot bot = findShip(session.snapshot(), "red-1");
             if (bot != null && bot.engineOrder() >= ENGINE_HALF) {
                 checkedDuringPatrol = true;
                 assertEquals(ENGINE_HALF, bot.engineOrder(),
@@ -659,7 +659,7 @@ class GameSessionTest {
         FlakProjectileSnapshot projectile = snapshot.flakProjectiles().get(0);
         assertEquals("light-1", projectile.shipId());
         assertEquals(1.5 * TORPEDO_BOAT_MODEL_SCALE, projectile.y(), 0.01);
-        ShipSnapshot ship = findShip(snapshot, "light-1");
+        VehicleSnapshot ship = findShip(snapshot, "light-1");
         assertEquals(0.7, ship.flakYaw(), 0.01);
         assertEquals(0.4, ship.flakPitch(), 0.01);
     }
@@ -709,7 +709,7 @@ class GameSessionTest {
         ));
 
         assertEquals(1, snapshot.flakProjectiles().size());
-        ShipSnapshot ship = findShip(snapshot, "light-1");
+        VehicleSnapshot ship = findShip(snapshot, "light-1");
         assertEquals(-0.5, ship.cannonYaw(), 0.01);
         assertEquals(0.32, ship.cannonPitch(), 0.01);
     }
@@ -752,7 +752,7 @@ class GameSessionTest {
 
         assertFalse(snapshot.flakHits().isEmpty());
         assertEquals("dark-1", snapshot.flakHits().get(0).targetShipId());
-        ShipSnapshot plane = findShip(snapshot, "dark-1");
+        VehicleSnapshot plane = findShip(snapshot, "dark-1");
         assertNotNull(plane);
         assertEquals("sunk", plane.state());
         assertEquals("scout-plane", plane.vehicleType());
@@ -867,7 +867,7 @@ class GameSessionTest {
         for (int i = 0; i < 180; i += 1) {
             session.update(0.05, radarService, navigationService, session.worldMap());
         }
-        ShipSnapshot respawned = findShip(session.snapshot(), "dark-1");
+        VehicleSnapshot respawned = findShip(session.snapshot(), "dark-1");
         assertEquals("active", respawned.state());
         assertEquals("scout-plane", respawned.vehicleType());
         assertTrue(respawned.y() > 100);
@@ -1279,7 +1279,7 @@ class GameSessionTest {
                 "player-BP-test", "light", 0, 80, 0, 0, 14.5, 0, "scout-plane"
         ));
 
-        ShipSnapshot ship = findShip(snapshot, "light-1");
+        VehicleSnapshot ship = findShip(snapshot, "light-1");
         assertNotNull(ship);
         assertEquals("scout-plane", ship.vehicleType());
         assertEquals(1, snapshot.bombs().size());
@@ -1297,7 +1297,7 @@ class GameSessionTest {
                 List.of(new Vector2(0, 0))
         ));
 
-        Ship plane = shipEntity(session, "light-1");
+        Vehicle plane = shipEntity(session, "light-1");
         plane.applyScoutPlaneWeaponState(new Vector2(0, 0), 80, 0, 14.5, 0);
         dropBombsFromScoutPlane(session, plane, 2.8);
 
@@ -1327,7 +1327,7 @@ class GameSessionTest {
                 new WorldMap(9041, List.of()),
                 List.of(
                         new FleetSetup("light", List.of(
-                                new ShipSetup(
+                                new VehicleSetup(
                                         "light-plane-1",
                                         "light",
                                         new Vector2(0, -80),
@@ -1372,7 +1372,7 @@ class GameSessionTest {
 
         session.update(0.5, radarService, navigationService, session.worldMap());
 
-        ShipSnapshot plane = findShip(session.snapshot(), "light-plane-1");
+        VehicleSnapshot plane = findShip(session.snapshot(), "light-plane-1");
         assertTrue(plane.y() < SCOUT_PLANE_START_Y,
                 "Bot scout plane should already descend into its torpedo approach before the old close release range");
         assertTrue(session.snapshot().torpedoes().isEmpty(),
@@ -1399,7 +1399,7 @@ class GameSessionTest {
 
         session.update(0.1, radarService, navigationService, session.worldMap());
 
-        ShipSnapshot plane = findShip(session.snapshot(), "light-plane-1");
+        VehicleSnapshot plane = findShip(session.snapshot(), "light-plane-1");
         assertTrue(plane.y() > 118,
                 "Test setup should still have the plane above a credible torpedo-drop height");
         assertTrue(session.snapshot().torpedoes().isEmpty(),
@@ -1413,7 +1413,7 @@ class GameSessionTest {
                 new WorldMap(9045, List.of()),
                 List.of(
                         new FleetSetup("light", List.of(
-                                new ShipSetup(
+                                new VehicleSetup(
                                         "light-plane-1",
                                         "light",
                                         new Vector2(0, -220),
@@ -1450,7 +1450,7 @@ class GameSessionTest {
                 new WorldMap(9047, List.of()),
                 List.of(
                         new FleetSetup("light", List.of(
-                                new ShipSetup(
+                                new VehicleSetup(
                                         "light-plane-1",
                                         "light",
                                         new Vector2(0, -220),
@@ -1532,7 +1532,7 @@ class GameSessionTest {
 
         session.update(0.1, radarService, navigationService, worldMap);
 
-        ShipSnapshot plane = findShip(session.snapshot(), "light-plane-1");
+        VehicleSnapshot plane = findShip(session.snapshot(), "light-plane-1");
         assertNotNull(plane);
         assertTrue(Math.abs(plane.rudderDegrees()) > 0, "Bot scout plane should turn away from a land-blocked low attack course");
     }
@@ -2352,7 +2352,7 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
+        VehicleSnapshot attacker = findShip(session.snapshot(), "red-1");
         assertEquals(ENGINE_FULL, attacker.engineOrder());
         assertTrue(attacker.rudderDegrees() < 0);
     }
@@ -2376,7 +2376,7 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
+        VehicleSnapshot attacker = findShip(session.snapshot(), "red-1");
         assertEquals(ENGINE_FLANK, attacker.engineOrder());
         assertTrue(attacker.rudderDegrees() < 0);
     }
@@ -2400,7 +2400,7 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
+        VehicleSnapshot attacker = findShip(session.snapshot(), "red-1");
         assertEquals(ENGINE_FLANK, attacker.engineOrder());
         assertTrue(attacker.rudderDegrees() < 0);
     }
@@ -2424,7 +2424,7 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
+        VehicleSnapshot attacker = findShip(session.snapshot(), "red-1");
         assertEquals(ENGINE_TWO_THIRDS, attacker.engineOrder());
         assertTrue(attacker.rudderDegrees() > 0);
     }
@@ -2455,7 +2455,7 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
+        VehicleSnapshot attacker = findShip(session.snapshot(), "red-1");
         assertEquals(ENGINE_FLANK, attacker.engineOrder());
         assertTrue(session.snapshot().torpedoes().isEmpty());
         for(int i=0;i<50;i++)session.update(.1,radarService,navigationService,session.worldMap());
@@ -2577,7 +2577,7 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
+        VehicleSnapshot attacker = findShip(session.snapshot(), "red-1");
         assertTrue(attacker.engineOrder() >= ENGINE_HALF);
         assertTrue(attacker.rudderDegrees() > 0);
     }
@@ -2601,7 +2601,7 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
+        VehicleSnapshot attacker = findShip(session.snapshot(), "red-1");
         assertEquals(ENGINE_FLANK, attacker.engineOrder());
         assertTrue(attacker.rudderDegrees() < 0);
     }
@@ -2624,7 +2624,7 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
+        VehicleSnapshot attacker = findShip(session.snapshot(), "red-1");
         assertEquals(ENGINE_FULL, attacker.engineOrder());
         assertTrue(attacker.rudderDegrees() < 0);
     }
@@ -2647,7 +2647,7 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
+        VehicleSnapshot attacker = findShip(session.snapshot(), "red-1");
         assertEquals(ENGINE_FULL, attacker.engineOrder());
         assertTrue(attacker.rudderDegrees() > 0);
     }
@@ -2671,7 +2671,7 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        ShipSnapshot friendly = findShip(session.snapshot(), "red-friendly");
+        VehicleSnapshot friendly = findShip(session.snapshot(), "red-friendly");
         assertEquals(ENGINE_HALF, friendly.engineOrder());
         assertTrue(Math.abs(friendly.rudderDegrees()) > 0);
     }
@@ -2694,7 +2694,7 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        ShipSnapshot attacker = findShip(session.snapshot(), "red-1");
+        VehicleSnapshot attacker = findShip(session.snapshot(), "red-1");
         assertEquals(ENGINE_FLANK, attacker.engineOrder());
         assertTrue(attacker.rudderDegrees() > 0);
     }
@@ -2713,8 +2713,8 @@ class GameSessionTest {
 
         GameSnapshot snapshot = tickUntilShipState(session, "blue-1", "sunk", 24);
 
-        ShipSnapshot attacker = findShip(snapshot, "red-1");
-        ShipSnapshot target = findShip(snapshot, "blue-1");
+        VehicleSnapshot attacker = findShip(snapshot, "red-1");
+        VehicleSnapshot target = findShip(snapshot, "blue-1");
         assertNotNull(attacker);
         assertNotNull(target);
         assertEquals("active", attacker.state());
@@ -3113,8 +3113,8 @@ class GameSessionTest {
         session.update(0, radarService, navigationService, session.worldMap());
 
         GameSnapshot snapshot = session.snapshot();
-        ShipSnapshot submarine = findShip(snapshot, "red-1");
-        ShipSnapshot torpedoBoat = findShip(snapshot, "blue-1");
+        VehicleSnapshot submarine = findShip(snapshot, "red-1");
+        VehicleSnapshot torpedoBoat = findShip(snapshot, "blue-1");
         assertEquals("active", submarine.state());
         assertEquals("active", torpedoBoat.state());
         assertEquals(0.0, submarine.speed(), 0.001);
@@ -3218,7 +3218,7 @@ class GameSessionTest {
         );
 
         GameSnapshot snapshot = session.snapshot();
-        ShipSnapshot torpedoBoat = findShip(snapshot, "red-1");
+        VehicleSnapshot torpedoBoat = findShip(snapshot, "red-1");
         assertEquals("active", torpedoBoat.state());
         assertEquals("sunk", findShip(snapshot, "blue-1").state());
         assertEquals(0.0, torpedoBoat.speed(), 0.001);
@@ -3492,8 +3492,8 @@ class GameSessionTest {
 
         GameSnapshot snapshot = tickUntilShipsTouch(session, 30);
 
-        ShipSnapshot attacker = findShip(snapshot, "red-1");
-        ShipSnapshot target = findShip(snapshot, "blue-1");
+        VehicleSnapshot attacker = findShip(snapshot, "red-1");
+        VehicleSnapshot target = findShip(snapshot, "blue-1");
         assertEquals("active", attacker.state());
         assertEquals("active", target.state());
         assertEquals(0, snapshot.destroyedShipsByTeam().get("red"));
@@ -3516,8 +3516,8 @@ class GameSessionTest {
 
         GameSnapshot snapshot = tickUntilShipsUseEngineOrder(session, ENGINE_FULL_ASTERN, 1);
 
-        ShipSnapshot attacker = findShip(snapshot, "red-1");
-        ShipSnapshot target = findShip(snapshot, "blue-1");
+        VehicleSnapshot attacker = findShip(snapshot, "red-1");
+        VehicleSnapshot target = findShip(snapshot, "blue-1");
         assertEquals("active", attacker.state());
         assertEquals("active", target.state());
         assertEquals(ENGINE_FULL_ASTERN, attacker.engineOrder());
@@ -3543,8 +3543,8 @@ class GameSessionTest {
             snapshot = session.snapshot();
         }
 
-        ShipSnapshot attacker = findShip(snapshot, "red-1");
-        ShipSnapshot target = findShip(snapshot, "blue-1");
+        VehicleSnapshot attacker = findShip(snapshot, "red-1");
+        VehicleSnapshot target = findShip(snapshot, "blue-1");
         assertEquals("active", attacker.state());
         assertEquals("active", target.state());
         assertEquals(ENGINE_FULL_ASTERN, attacker.engineOrder());
@@ -3575,8 +3575,8 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        ShipSnapshot rightOfWay = findShip(session.snapshot(), "red-a");
-        ShipSnapshot yielding = findShip(session.snapshot(), "red-b");
+        VehicleSnapshot rightOfWay = findShip(session.snapshot(), "red-a");
+        VehicleSnapshot yielding = findShip(session.snapshot(), "red-b");
         assertNotEquals(ENGINE_FULL_ASTERN, rightOfWay.engineOrder());
         assertTrue(yielding.engineOrder() >= ENGINE_STOP);
         assertTrue(rightOfWay.rudderDegrees() < 0, "Pass to port");
@@ -3599,7 +3599,7 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        ShipSnapshot yielding = findShip(session.snapshot(), "red-b");
+        VehicleSnapshot yielding = findShip(session.snapshot(), "red-b");
         assertTrue(yielding.engineOrder() >= ENGINE_STOP);
         assertTrue(Math.abs(yielding.rudderDegrees()) == 35);
     }
@@ -3758,7 +3758,7 @@ class GameSessionTest {
 
         List<String> controlledShips = session.snapshot().ships().stream()
                 .filter(ship -> "player-BP-test".equals(ship.controlledBy()))
-                .map(ShipSnapshot::id)
+                .map(VehicleSnapshot::id)
                 .toList();
         assertEquals(1, controlledShips.size());
         assertTrue(List.of("red-1", "red-2", "red-3").contains(controlledShips.get(0)));
@@ -3784,11 +3784,11 @@ class GameSessionTest {
                 "player-DD-test", "red", 180, 0, 0, 0, 0, 2, 0, 0, false, "torpedo-boat"
         ), navigationService, session.worldMap());
 
-        List<ShipSnapshot> redShips = snapshot.ships().stream()
+        List<VehicleSnapshot> redShips = snapshot.ships().stream()
                 .filter(ship -> "red".equals(ship.teamId()))
                 .toList();
         assertEquals(4, redShips.size());
-        ShipSnapshot joinedShip = redShips.stream()
+        VehicleSnapshot joinedShip = redShips.stream()
                 .filter(ship -> "player-DD-test".equals(ship.controlledBy()))
                 .findFirst()
                 .orElseThrow();
@@ -3817,7 +3817,7 @@ class GameSessionTest {
 
         session.releasePlayer("player-CC-test");
 
-        List<ShipSnapshot> redShips = session.snapshot().ships().stream()
+        List<VehicleSnapshot> redShips = session.snapshot().ships().stream()
                 .filter(ship -> "red".equals(ship.teamId()))
                 .toList();
         assertEquals(2, redShips.size());
@@ -3850,7 +3850,7 @@ class GameSessionTest {
         sinkShip(session, extraShipId);
         session.update(10, radarService, navigationService, session.worldMap());
 
-        List<ShipSnapshot> redShips = session.snapshot().ships().stream()
+        List<VehicleSnapshot> redShips = session.snapshot().ships().stream()
                 .filter(ship -> "red".equals(ship.teamId()))
                 .toList();
         assertEquals(2, redShips.size());
@@ -3874,7 +3874,7 @@ class GameSessionTest {
                 navigationService,
                 session.worldMap()
         );
-        ShipSnapshot afterClientUpdate = findShip(session.snapshot(), "red-1");
+        VehicleSnapshot afterClientUpdate = findShip(session.snapshot(), "red-1");
         assertEquals(15, afterClientUpdate.x(), 0.001);
         assertEquals(25, afterClientUpdate.z(), 0.001);
         assertEquals(0.7, afterClientUpdate.heading(), 0.001);
@@ -3883,7 +3883,7 @@ class GameSessionTest {
 
         session.update(0.5, new RadarService(), navigationService, session.worldMap());
 
-        ShipSnapshot afterServerTick = findShip(session.snapshot(), "red-1");
+        VehicleSnapshot afterServerTick = findShip(session.snapshot(), "red-1");
         assertTrue(afterServerTick.x() > afterClientUpdate.x());
         assertTrue(afterServerTick.z() > afterClientUpdate.z());
         assertTrue(afterServerTick.heading() > afterClientUpdate.heading());
@@ -3891,7 +3891,7 @@ class GameSessionTest {
         session.updatePlayerState(
                 new PlayerStateUpdate("player-BP-test", "red", 16, 26, 0.75, 9.6, 0.12, 7, 14, 124, false),
                 navigationService, session.worldMap());
-        ShipSnapshot corrected = findShip(session.snapshot(), "red-1");
+        VehicleSnapshot corrected = findShip(session.snapshot(), "red-1");
         assertEquals(16, corrected.x(), 0.001);
         assertEquals(26, corrected.z(), 0.001);
         assertEquals(.75, corrected.heading(), 0.001);
@@ -3934,7 +3934,7 @@ class GameSessionTest {
                 session.worldMap()
         );
 
-        ShipSnapshot snapshot = findShip(session.snapshot(), "red-1");
+        VehicleSnapshot snapshot = findShip(session.snapshot(), "red-1");
         assertEquals(MathSupport.round(Math.PI), snapshot.flakYaw(), 0.001);
         assertEquals(0.33, snapshot.flakPitch(), 0.001);
         assertEquals(-0.72, snapshot.cannonYaw(), 0.001);
@@ -3958,7 +3958,7 @@ class GameSessionTest {
                 session.worldMap()
         );
 
-        ShipSnapshot ship = findShip(session.snapshot(), "light-1");
+        VehicleSnapshot ship = findShip(session.snapshot(), "light-1");
         assertEquals("scout-plane", ship.vehicleType());
         assertEquals(64, ship.y(), 0.001);
 
@@ -4036,7 +4036,7 @@ class GameSessionTest {
         assertEquals(List.of(1, 1), twoShipDuel.fleets().stream().map(fleet -> fleet.ships().size()).toList());
         assertEquals(List.of("scenario", "scenario"), twoShipDuel.fleets().stream()
                 .flatMap(fleet -> fleet.ships().stream())
-                .map(ShipSetup::controlledBy)
+                .map(VehicleSetup::controlledBy)
                 .toList());
         assertEquals(0, countScoutPlanes(twoShipDuel));
 
@@ -4099,7 +4099,7 @@ class GameSessionTest {
                 .filter(ship -> "bot".equals(ship.controlledBy()))
                 .filter(ship -> !"scout-plane".equals(ship.vehicleType()))
                 .collect(java.util.stream.Collectors.toMap(
-                        ShipSnapshot::id,
+                        VehicleSnapshot::id,
                         ship -> new Vector2(ship.x(), ship.z())
                 ));
 
@@ -4130,7 +4130,7 @@ class GameSessionTest {
                 .count();
         long shipTorpedoes = finalSnapshot.torpedoes().stream()
                 .filter(torpedo -> {
-                    ShipSnapshot shooter = findShip(finalSnapshot, torpedo.shipId());
+                    VehicleSnapshot shooter = findShip(finalSnapshot, torpedo.shipId());
                     return shooter != null && !"scout-plane".equals(shooter.vehicleType());
                 })
                 .count();
@@ -4219,7 +4219,7 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        ShipSnapshot bot = findShip(session.snapshot(), "red-1");
+        VehicleSnapshot bot = findShip(session.snapshot(), "red-1");
         assertEquals(ENGINE_ONE_THIRD, bot.engineOrder());
         assertTrue(bot.rudderDegrees() != 0);
     }
@@ -4241,7 +4241,7 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        ShipSnapshot bot = findShip(session.snapshot(), "red-1");
+        VehicleSnapshot bot = findShip(session.snapshot(), "red-1");
         assertEquals(ENGINE_FULL_ASTERN, bot.engineOrder());
         assertNotEquals(0, bot.rudderDegrees(), "Reverse escape must also turn toward a different course");
     }
@@ -4265,7 +4265,7 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        ShipSnapshot bot = findShip(session.snapshot(), "red-1");
+        VehicleSnapshot bot = findShip(session.snapshot(), "red-1");
         assertEquals(ENGINE_SLOW, bot.engineOrder());
     }
 
@@ -4283,7 +4283,7 @@ class GameSessionTest {
                 trace.add(s.x() + "," + s.z() + " heading=" + s.heading() + " engine=" + s.engineOrder() + " rudder=" + s.rudderDegrees());
             }
         }
-        ShipSnapshot bot = findShip(session.snapshot(), "red-1");
+        VehicleSnapshot bot = findShip(session.snapshot(), "red-1");
         assertTrue(Math.hypot(bot.x(), bot.z()) > 20, "Bot must make sustained progress away from the obstruction: " + trace);
         assertTrue(Math.abs(bot.heading()) > .3, "Escape must change course");
     }
@@ -4311,7 +4311,7 @@ class GameSessionTest {
             var trace = new java.util.ArrayList<String>();
             for (int tick = 0; tick < 1800; tick++) {
                 session.update(.1, radarService, navigationService, world);
-                ShipSnapshot bot = findShip(session.snapshot(), "light-S13");
+                VehicleSnapshot bot = findShip(session.snapshot(), "light-S13");
                 furthest = Math.max(furthest, Math.hypot(bot.x() - start[0], bot.z() - start[1]));
                 if (tick % 200 == 0) trace.add(bot.x() + "," + bot.z() + " h=" + bot.heading()
                         + " e=" + bot.engineOrder() + " r=" + bot.rudderDegrees());
@@ -4332,7 +4332,7 @@ class GameSessionTest {
             var trace = new java.util.ArrayList<String>();
             for (int tick = 0; tick < 1800; tick++) {
                 session.update(.1, radarService, navigationService, world);
-                ShipSnapshot bot = findShip(session.snapshot(), "light-S13");
+                VehicleSnapshot bot = findShip(session.snapshot(), "light-S13");
                 furthest = Math.max(furthest, Math.hypot(bot.x() - offset, bot.z()));
                 if (tick % 200 == 0) trace.add(bot.x() + "," + bot.z() + " h=" + bot.heading() + " e=" + bot.engineOrder());
             }
@@ -4383,10 +4383,10 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        ShipSnapshot bot = findShip(session.snapshot(), "red-bot");
+        VehicleSnapshot bot = findShip(session.snapshot(), "red-bot");
         assertEquals("active", bot.state());
         assertTrue(Math.abs(bot.rudderDegrees()) > 0);
-        assertNotNull(shipEntity(session, "red-bot").botNavigation.encounter);
+        assertNotNull(shipEntity(session, "red-bot").surface().botNavigation.encounter);
     }
 
     @Test
@@ -4431,7 +4431,7 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        ShipSnapshot bot = findShip(session.snapshot(), "red-bot");
+        VehicleSnapshot bot = findShip(session.snapshot(), "red-bot");
         assertTrue(bot.engineOrder() >= ENGINE_HALF,
                 "Ein eigener Bot soll ein U-Boot auf Sehrohrtiefe nicht wie einen aufgetauchten Flottenführer eskortieren.");
     }
@@ -4461,11 +4461,11 @@ class GameSessionTest {
 
         session.update(0.05, radarService, navigationService, session.worldMap());
 
-        ShipSnapshot bot = findShip(session.snapshot(), "red-bot");
+        VehicleSnapshot bot = findShip(session.snapshot(), "red-bot");
         assertEquals("active", bot.state());
         assertTrue(Math.abs(bot.rudderDegrees()) > 0,
                 "Ein eigener Bot muss weiterhin ausweichen, wenn das freundliche Sehrohr direkt voraus liegt.");
-        assertNotNull(shipEntity(session, "red-bot").botNavigation.encounter);
+        assertNotNull(shipEntity(session, "red-bot").surface().botNavigation.encounter);
     }
 
     @Test
@@ -4611,7 +4611,7 @@ class GameSessionTest {
     @Test
     void asternMovementCanLeaveBowGroundingWhenSternIsClear() {
         WorldMap worldMap = new WorldMap(9003, List.of(testIsland("bow-rock", 0, 5.2, 2.5, 2.5)));
-        Ship ship = new Ship("red-1", "red", new Vector2(0, 0), 0, "player-test");
+        Vehicle ship = new TorpedoBoat("red-1", "red", new Vector2(0, 0), 0, "player-test");
 
         assertTrue(navigationService.isShipBlocked(ship.position(), ship.heading(), worldMap));
         assertFalse(navigationService.isShipMovementBlocked(ship.position(), ship.heading(), -1, worldMap));
@@ -4627,7 +4627,7 @@ class GameSessionTest {
     @Test
     void asternMovementStaysBlockedWhenSternIsGrounded() {
         WorldMap worldMap = new WorldMap(9004, List.of(testIsland("stern-rock", 0, -1.05, 1.9, 1.9)));
-        Ship ship = new Ship("red-1", "red", new Vector2(0, 0), 0, "player-test");
+        Vehicle ship = new TorpedoBoat("red-1", "red", new Vector2(0, 0), 0, "player-test");
 
         assertTrue(navigationService.isShipBlocked(ship.position(), ship.heading(), worldMap));
         assertTrue(navigationService.isShipMovementBlocked(ship.position(), ship.heading(), -1, worldMap));
@@ -4636,7 +4636,7 @@ class GameSessionTest {
     @Test
     void playerReversePositionIsAcceptedWhileBowStillTouchesLand() {
         WorldMap map = new WorldMap(9003, List.of(testIsland("bow-rock", 0, 5.2, 2.5, 2.5)));
-        Ship ship = new Ship("red-1", "red", new Vector2(0, 0), 0, "player-test");
+        Vehicle ship = new TorpedoBoat("red-1", "red", new Vector2(0, 0), 0, "player-test");
         Vector2 requested = new Vector2(0, -0.2);
         assertTrue(navigationService.isShipBlocked(requested, 0, map));
         assertFalse(navigationService.isShipMovementBlocked(requested, 0, -1, map));
@@ -4651,7 +4651,7 @@ class GameSessionTest {
     @Test
     void playerReversePositionStillRejectsGroundedSternAndLargeJumps() {
         WorldMap map = new WorldMap(9004, List.of(testIsland("stern-rock", 0, -1.05, 1.9, 1.9)));
-        Ship ship = new Ship("red-1", "red", new Vector2(0, 0), 0, "player-test");
+        Vehicle ship = new TorpedoBoat("red-1", "red", new Vector2(0, 0), 0, "player-test");
         ship.applyPlayerState(new PlayerStateUpdate("player-test", "red", 0, -0.2, 0, -1,
                 0, 0, 0, 1, false, "torpedo-boat"), navigationService, map);
         assertEquals(new Vector2(0, 0), ship.position());
@@ -4673,7 +4673,7 @@ class GameSessionTest {
                 List.of(),
                 candidates
         ));
-        Ship sunkShip = new Ship("red-1", "red", new Vector2(0, -500), 0, "bot");
+        Vehicle sunkShip = new TorpedoBoat("red-1", "red", new Vector2(0, -500), 0, "bot");
 
         assertEquals(candidates.get(0), session.findRespawnPosition(sunkShip, navigationService, session.worldMap(), radarService));
         assertEquals(candidates.get(1), session.findRespawnPosition(sunkShip, navigationService, session.worldMap(), radarService));
@@ -4698,7 +4698,7 @@ class GameSessionTest {
                 ))),
                 candidates
         ));
-        Ship sunkShip = new Ship("red-1", "red", new Vector2(0, -500), 0, "bot");
+        Vehicle sunkShip = new TorpedoBoat("red-1", "red", new Vector2(0, -500), 0, "bot");
 
         Vector2 first = session.findRespawnPosition(sunkShip, navigationService, session.worldMap(), radarService);
         Vector2 second = session.findRespawnPosition(sunkShip, navigationService, session.worldMap(), radarService);
@@ -4819,7 +4819,7 @@ class GameSessionTest {
         sinkShip(session, "light-boat");
         session.update(8.05, radarService, navigationService, session.worldMap());
 
-        ShipSnapshot respawned = findShip(session.snapshot(), "light-boat");
+        VehicleSnapshot respawned = findShip(session.snapshot(), "light-boat");
         assertEquals("active", respawned.state());
         assertEquals("scout-plane", respawned.vehicleType());
         assertTrue(respawned.y() > 0);
@@ -4846,7 +4846,7 @@ class GameSessionTest {
         sinkShip(session, "light-boat");
         session.update(8.05, radarService, navigationService, session.worldMap());
 
-        ShipSnapshot respawned = findShip(session.snapshot(), "light-boat");
+        VehicleSnapshot respawned = findShip(session.snapshot(), "light-boat");
         assertEquals("active", respawned.state());
         assertEquals("torpedo-boat", respawned.vehicleType());
         assertEquals(0, respawned.y());
@@ -4871,7 +4871,7 @@ class GameSessionTest {
         sinkShip(session, "light-boat");
         session.update(8.05, radarService, navigationService, session.worldMap());
 
-        ShipSnapshot respawned = findShip(session.snapshot(), "light-boat");
+        VehicleSnapshot respawned = findShip(session.snapshot(), "light-boat");
         assertEquals("active", respawned.state());
         assertEquals("torpedo-boat", respawned.vehicleType());
         assertEquals(0, respawned.y());
@@ -4893,7 +4893,7 @@ class GameSessionTest {
                 ))),
                 candidates
         ));
-        Ship sunkShip = new Ship("blue-1", "blue", new Vector2(0, -500), 0, "bot");
+        Vehicle sunkShip = new TorpedoBoat("blue-1", "blue", new Vector2(0, -500), 0, "bot");
 
         assertEquals(candidates.get(2), session.findRespawnPosition(sunkShip, navigationService, session.worldMap(), radarService));
     }
@@ -5030,7 +5030,7 @@ class GameSessionTest {
         for (double elapsed = 0; elapsed < maxSeconds; elapsed += 0.05) {
             session.update(0.05, radarService, navigationService, session.worldMap());
             snapshot = session.snapshot();
-            ShipSnapshot ship = findShip(snapshot, shipId);
+            VehicleSnapshot ship = findShip(snapshot, shipId);
             if (ship != null && state.equals(ship.state())) {
                 return snapshot;
             }
@@ -5105,14 +5105,14 @@ class GameSessionTest {
     private Optional<Object> projectileHit(GameSession session, String shipId, FlakProjectile projectile) throws Exception {
         Method allShips = GameSession.class.getDeclaredMethod("allShips");
         allShips.setAccessible(true);
-        Ship ship = ((List<Ship>) allShips.invoke(session)).stream()
+        Vehicle ship = ((List<Vehicle>) allShips.invoke(session)).stream()
                 .filter(candidate -> shipId.equals(candidate.id()))
                 .findFirst()
                 .orElseThrow();
         Method flakProjectileHitsTarget = GameSession.class.getDeclaredMethod(
                 "flakProjectileHitsTarget",
                 FlakProjectile.class,
-                Ship.class
+                Vehicle.class
         );
         flakProjectileHitsTarget.setAccessible(true);
         return (Optional<Object>) flakProjectileHitsTarget.invoke(session, projectile, ship);
@@ -5154,15 +5154,15 @@ class GameSessionTest {
 
     @SuppressWarnings("unchecked")
     private Optional<String> scoutPlaneAttackHumanId(GameSession session, String planeId) throws Exception {
-        Ship plane = shipEntity(session, planeId);
-        Method scoutPlaneAttackHuman = GameSession.class.getDeclaredMethod("scoutPlaneAttackHuman", Ship.class);
+        Vehicle plane = shipEntity(session, planeId);
+        Method scoutPlaneAttackHuman = GameSession.class.getDeclaredMethod("scoutPlaneAttackHuman", Vehicle.class);
         scoutPlaneAttackHuman.setAccessible(true);
-        return ((Optional<Ship>) scoutPlaneAttackHuman.invoke(session, plane)).map(Ship::id);
+        return ((Optional<Vehicle>) scoutPlaneAttackHuman.invoke(session, plane)).map(Vehicle::id);
     }
 
     private boolean shouldForceHumanScoutPlaneTarget(GameSession session, String planeId) throws Exception {
-        Ship plane = shipEntity(session, planeId);
-        Optional<Ship> attackHuman = scoutPlaneAttackHumanId(session, planeId)
+        Vehicle plane = shipEntity(session, planeId);
+        Optional<Vehicle> attackHuman = scoutPlaneAttackHumanId(session, planeId)
                 .map(humanId -> {
                     try {
                         return shipEntity(session, humanId);
@@ -5172,7 +5172,7 @@ class GameSessionTest {
                 });
         Method shouldForceHumanScoutPlaneTarget = GameSession.class.getDeclaredMethod(
                 "shouldForceHumanScoutPlaneTarget",
-                Ship.class,
+                Vehicle.class,
                 Optional.class
         );
         shouldForceHumanScoutPlaneTarget.setAccessible(true);
@@ -5180,10 +5180,10 @@ class GameSessionTest {
     }
 
     @SuppressWarnings("unchecked")
-    private Ship shipEntity(GameSession session, String shipId) throws Exception {
+    private Vehicle shipEntity(GameSession session, String shipId) throws Exception {
         Method allShips = GameSession.class.getDeclaredMethod("allShips");
         allShips.setAccessible(true);
-        return ((List<Ship>) allShips.invoke(session)).stream()
+        return ((List<Vehicle>) allShips.invoke(session)).stream()
                 .filter(candidate -> shipId.equals(candidate.id()))
                 .findFirst()
                 .orElseThrow();
@@ -5192,8 +5192,8 @@ class GameSessionTest {
     private boolean fireTorpedoAtTargetForTest(GameSession session, String shooterId, String targetId) throws Exception {
         Method fireTorpedoAtTarget = GameSession.class.getDeclaredMethod(
                 "fireTorpedoAtTarget",
-                Ship.class,
-                Ship.class,
+                Vehicle.class,
+                Vehicle.class,
                 double.class,
                 double.class
         );
@@ -5207,8 +5207,8 @@ class GameSessionTest {
         );
     }
 
-    private void dropBombsFromScoutPlane(GameSession session, Ship plane, double cooldownSeconds) throws Exception {
-        Method dropBombsFromScoutPlane = GameSession.class.getDeclaredMethod("dropBombsFromScoutPlane", Ship.class, double.class);
+    private void dropBombsFromScoutPlane(GameSession session, Vehicle plane, double cooldownSeconds) throws Exception {
+        Method dropBombsFromScoutPlane = GameSession.class.getDeclaredMethod("dropBombsFromScoutPlane", Vehicle.class, double.class);
         dropBombsFromScoutPlane.setAccessible(true);
         dropBombsFromScoutPlane.invoke(session, plane, cooldownSeconds);
     }
@@ -5218,8 +5218,8 @@ class GameSessionTest {
         for (double elapsed = 0; elapsed < maxSeconds; elapsed += 0.05) {
             session.update(0.05, radarService, navigationService, session.worldMap());
             snapshot = session.snapshot();
-            ShipSnapshot red = findShip(snapshot, "red-1");
-            ShipSnapshot blue = findShip(snapshot, "blue-1");
+            VehicleSnapshot red = findShip(snapshot, "red-1");
+            VehicleSnapshot blue = findShip(snapshot, "blue-1");
             if (red != null && blue != null && new Vector2(red.x(), red.z()).distanceTo(new Vector2(blue.x(), blue.z())) < 6 * TORPEDO_BOAT_MODEL_SCALE) {
                 return snapshot;
             }
@@ -5232,8 +5232,8 @@ class GameSessionTest {
         for (double elapsed = 0; elapsed < maxSeconds; elapsed += 0.05) {
             session.update(0.05, radarService, navigationService, session.worldMap());
             snapshot = session.snapshot();
-            ShipSnapshot red = findShip(snapshot, "red-1");
-            ShipSnapshot blue = findShip(snapshot, "blue-1");
+            VehicleSnapshot red = findShip(snapshot, "red-1");
+            VehicleSnapshot blue = findShip(snapshot, "blue-1");
             if (red != null && blue != null
                     && red.engineOrder() == engineOrder
                     && blue.engineOrder() == engineOrder) {
@@ -5257,7 +5257,7 @@ class GameSessionTest {
             );
             session.update(0.05, radarService, navigationService, session.worldMap());
             snapshot = session.snapshot();
-            ShipSnapshot ship = findShip(snapshot, shipId);
+            VehicleSnapshot ship = findShip(snapshot, shipId);
             if (ship != null && state.equals(ship.state())) {
                 return snapshot;
             }
@@ -5286,7 +5286,7 @@ class GameSessionTest {
         );
     }
 
-    private ShipSnapshot findShip(GameSnapshot snapshot, String shipId) {
+    private VehicleSnapshot findShip(GameSnapshot snapshot, String shipId) {
         return snapshot.ships().stream()
                 .filter(ship -> shipId.equals(ship.id()))
                 .findFirst()
@@ -5309,7 +5309,7 @@ class GameSessionTest {
     }
 
     private void recordBotScoutPlaneAttack(GameSession session, String planeId, String targetId) throws Exception {
-        Method recordBotScoutPlaneAttack = GameSession.class.getDeclaredMethod("recordBotScoutPlaneAttack", Ship.class, Ship.class);
+        Method recordBotScoutPlaneAttack = GameSession.class.getDeclaredMethod("recordBotScoutPlaneAttack", Vehicle.class, Vehicle.class);
         recordBotScoutPlaneAttack.setAccessible(true);
         recordBotScoutPlaneAttack.invoke(session, shipEntity(session, planeId), shipEntity(session, targetId));
     }
@@ -5318,40 +5318,40 @@ class GameSessionTest {
     private Optional<String> selectBotScoutPlaneTargetId(GameSession session, String planeId) throws Exception {
         Method allShips = GameSession.class.getDeclaredMethod("allShips");
         allShips.setAccessible(true);
-        List<Ship> activeShips = ((List<Ship>) allShips.invoke(session)).stream()
+        List<Vehicle> activeShips = ((List<Vehicle>) allShips.invoke(session)).stream()
                 .filter(ship -> "active".equals(ship.state()))
                 .toList();
         Method selectBotScoutPlaneTarget = GameSession.class.getDeclaredMethod(
                 "selectBotScoutPlaneTarget",
-                Ship.class,
+                Vehicle.class,
                 List.class,
                 Map.class
         );
         selectBotScoutPlaneTarget.setAccessible(true);
-        return ((Optional<Ship>) selectBotScoutPlaneTarget.invoke(session, shipEntity(session, planeId), activeShips, Map.of()))
-                .map(Ship::id);
+        return ((Optional<Vehicle>) selectBotScoutPlaneTarget.invoke(session, shipEntity(session, planeId), activeShips, Map.of()))
+                .map(Vehicle::id);
     }
 
     @SuppressWarnings("unchecked")
     private Optional<String> selectBotTargetId(GameSession session, String shipId) throws Exception {
         Method allShips = GameSession.class.getDeclaredMethod("allShips");
         allShips.setAccessible(true);
-        List<Ship> activeShips = ((List<Ship>) allShips.invoke(session)).stream()
+        List<Vehicle> activeShips = ((List<Vehicle>) allShips.invoke(session)).stream()
                 .filter(ship -> "active".equals(ship.state()))
                 .filter(ship -> !ship.isScoutPlane())
                 .toList();
         RadarService.VisibilityCache visibilityCache = radarService.visibilityCache(session.worldMap(), activeShips);
         Method visibleTargets = GameSession.class.getDeclaredMethod(
                 "visibleTargets",
-                Ship.class,
+                Vehicle.class,
                 RadarService.VisibilityCache.class
         );
         visibleTargets.setAccessible(true);
-        List<Ship> targets = (List<Ship>) visibleTargets.invoke(session, shipEntity(session, shipId), visibilityCache);
-        Method chooseBotTarget = GameSession.class.getDeclaredMethod("chooseBotTarget", Ship.class, List.class);
+        List<Vehicle> targets = (List<Vehicle>) visibleTargets.invoke(session, shipEntity(session, shipId), visibilityCache);
+        Method chooseBotTarget = GameSession.class.getDeclaredMethod("chooseBotTarget", Vehicle.class, List.class);
         chooseBotTarget.setAccessible(true);
-        return ((Optional<Ship>) chooseBotTarget.invoke(session, shipEntity(session, shipId), targets))
-                .map(Ship::id);
+        return ((Optional<Vehicle>) chooseBotTarget.invoke(session, shipEntity(session, shipId), targets))
+                .map(Vehicle::id);
     }
 
     @Test
@@ -5361,7 +5361,7 @@ class GameSessionTest {
             var map = new WorldMap(9107, List.of());
             var session = new GameSession(new GameSetup("timed-periscope-pursuit", map, List.of(
                     new FleetSetup("red", List.of(ship("boat", "red", 0, 0, 0, "bot", ENGINE_FLANK, 0, 9999))),
-                    new FleetSetup("blue", List.of(new ShipSetup("sub", "blue", new Vector2(0, startGap), 0,
+                    new FleetSetup("blue", List.of(new VehicleSetup("sub", "blue", new Vector2(0, startGap), 0,
                             "player-sub", ENGINE_FLANK, 0, 9999, "submarine", -5.58)))), List.of()));
             double caughtAt = Double.NaN, gapAtTen = Double.NaN, gapAtTwenty = Double.NaN;
             for (int tick = 0; tick < 500; tick++) {
@@ -5391,7 +5391,7 @@ class GameSessionTest {
     @Test
     void surfaceBoatUsesModerateDistanceBasedSpeedsAgainstBotsIncludingPeriscopes() throws Exception {
         var session = fastSubmarinePursuitSession();
-        Ship target = shipEntity(session, "sub");
+        Vehicle target = shipEntity(session, "sub");
         target.controlledBy("bot");
         for (String depth : new String[]{"surface", "periscope"}) {
             target.applyPlayerState(new PlayerStateUpdate("bot", "blue", 0, 200, 0, 0, 0,
@@ -5417,7 +5417,7 @@ class GameSessionTest {
                     List.of(new Vector2(2000, 2000))));
             session.update(.1, radarService, navigationService, session.worldMap());
             assertEquals(botDistance <= 320 ? "enemy-bot" : "human",
-                    shipEntity(session, "attacker").botNavigation.target.id(),
+                    shipEntity(session, "attacker").surface().botNavigation.target.id(),
                     "Human priority must affect the selected target, including beyond normal radar range");
         }
     }
@@ -5425,7 +5425,7 @@ class GameSessionTest {
     @Test
     void boatUsesTopGearFromOneRadarRingRegardlessOfTargetMotion() throws Exception {
         var session = fastSubmarinePursuitSession();
-        Ship target = shipEntity(session, "sub");
+        Vehicle target = shipEntity(session, "sub");
         for (double heading : new double[]{0, Math.PI / 2, Math.PI}) {
             for (double speed : new double[]{0, 6.18, 13.5}) {
                 target.applyPlayerState(new PlayerStateUpdate("player-sub", "blue", 0, 600, heading, speed, 0,
@@ -5480,32 +5480,32 @@ class GameSessionTest {
     @Test
     void divingFromASlowerSurfaceApproachKeepsTheLastSeenAttackForTenSeconds() throws Exception {
         GameSession session = submarineAttackContinuationSession();
-        Ship sub = shipEntity(session, "sub"), boat = shipEntity(session, "boat");
+        Vehicle sub = shipEntity(session, "sub"), boat = shipEntity(session, "boat");
         sub.applyPlayerState(new PlayerStateUpdate("player-sub", "blue", 0, 200, 0, 0, 0,
                 ENGINE_STOP, 0, 0, true, "submarine", -.78, 0,
                 null, null, null, null, "surface"), navigationService, session.worldMap());
         commandAttackBot(session, 0);
         assertNotEquals(ENGINE_FLANK, boat.snapshot().engineOrder(), "This approach did not yet use top gear");
-        var lastSeen = boat.botSubmarineAttackCourse;
+        var lastSeen = boat.surface().botSubmarineAttackCourse;
         assertNotNull(lastSeen, "Remember a close submarine attack even before the ram sprint");
         sub.applyPlayerState(new PlayerStateUpdate("player-sub", "blue", 0, 200, 0, 0, 0,
                 ENGINE_STOP, 0, 0, true, "submarine", -5.58, 0,
                 null, null, null, null, "periscope"), navigationService, session.worldMap());
         for (double t : new double[]{1, 2, 4, 6, 8, 9.9}) {
             commandAttackBot(session, t);
-            assertSame(lastSeen, boat.botSubmarineAttackCourse, "Scheduled target searches must not abandon this attack");
+            assertSame(lastSeen, boat.surface().botSubmarineAttackCourse, "Scheduled target searches must not abandon this attack");
             assertEquals(ENGINE_FLANK, boat.snapshot().engineOrder());
             assertEquals(0, boat.snapshot().rudderDegrees());
         }
         commandAttackBot(session, 10.1);
-        assertNull(boat.botSubmarineAttackCourse, "Hidden contacts do not extend the timer");
+        assertNull(boat.surface().botSubmarineAttackCourse, "Hidden contacts do not extend the timer");
     }
 
     @Test
     void periscopeContactUsesActualMastHeightDuringADiveInsteadOfTheDepthOrder() throws Exception {
         GameSession session = submarineAttackContinuationSession();
-        Ship sub = shipEntity(session, "sub"), boat = shipEntity(session, "boat");
-        Method visible = GameSession.class.getDeclaredMethod("isVisiblePeriscopeRamContact", Ship.class, Ship.class);
+        Vehicle sub = shipEntity(session, "sub"), boat = shipEntity(session, "boat");
+        Method visible = GameSession.class.getDeclaredMethod("isVisiblePeriscopeRamContact", Vehicle.class, Vehicle.class);
         visible.setAccessible(true);
         for (String order : new String[]{"periscope", "submerged"}) {
             for (double y : new double[]{-5.58, -8}) {
@@ -5520,33 +5520,33 @@ class GameSessionTest {
     @Test
     void boatContinuesLastObservedSubmarineCourseForTenSecondsWithoutTrackingHiddenTurns() throws Exception {
         GameSession session = submarineAttackContinuationSession();
-        Ship boat = shipEntity(session, "boat");
+        Vehicle boat = shipEntity(session, "boat");
         commandAttackBot(session, 0);
-        var observed = boat.botSubmarineAttackCourse;
+        var observed = boat.surface().botSubmarineAttackCourse;
         assertNotNull(observed);
         assertEquals(ENGINE_FLANK, boat.snapshot().engineOrder());
         hideAttackSubmarine(session, 800, -500, Math.PI);
         commandAttackBot(session, 1);
-        assertSame(observed, boat.botSubmarineAttackCourse);
+        assertSame(observed, boat.surface().botSubmarineAttackCourse);
         assertEquals(ENGINE_FLANK, boat.snapshot().engineOrder());
         assertEquals(0, boat.snapshot().rudderDegrees(), "Follow the observed northbound line, not the hidden turn");
         commandAttackBot(session, 9.99);
         assertEquals(ENGINE_FLANK, boat.snapshot().engineOrder());
         commandAttackBot(session, 10);
-        assertNull(boat.botSubmarineAttackCourse);
+        assertNull(boat.surface().botSubmarineAttackCourse);
         commandAttackBot(session, 11);
-        assertNotNull(boat.botNavigation.submarineSearch, "After the direct attack expires search the last sighting for the rest of its minute");
+        assertNotNull(boat.surface().botNavigation.submarineSearch, "After the direct attack expires search the last sighting for the rest of its minute");
         assertEquals(ENGINE_FLANK, boat.snapshot().engineOrder());
         commandAttackBot(session, 61);
-        assertNull(boat.botNavigation.submarineSearch);
+        assertNull(boat.surface().botNavigation.submarineSearch);
         assertTrue(boat.snapshot().rudderDegrees() > 0, "After the area search expires resume the normal course toward map centre");
     }
 
     @Test
     void attackContinuationJoinsObservedCourseAndReacquiresVisibleSubmarine() throws Exception {
         GameSession session = submarineAttackContinuationSession();
-        Ship boat = shipEntity(session, "boat");
-        Ship sub = shipEntity(session, "sub");
+        Vehicle boat = shipEntity(session, "boat");
+        Vehicle sub = shipEntity(session, "sub");
         sub.applyPlayerState(new PlayerStateUpdate("player-sub", "blue", 0, 70, Math.PI / 2, 8, 0,
                 ENGINE_TWO_THIRDS, 0, 0, true, "submarine", -5.58, 0,
                 null, null, null, null, "periscope"), navigationService, session.worldMap());
@@ -5559,9 +5559,9 @@ class GameSessionTest {
                 null, null, null, null, "periscope"), navigationService, session.worldMap());
         commandAttackBot(session, 2);
         assertTrue(boat.snapshot().rudderDegrees() < 0, "A fresh visible contact supersedes the remembered line");
-        assertEquals(12, boat.botSubmarineAttackCourse.until(), .0001);
+        assertEquals(12, boat.surface().botSubmarineAttackCourse.until(), .0001);
         boat.respawn(new Vector2(0, 0), 0, 3);
-        assertNull(boat.botSubmarineAttackCourse, "A replacement boat must not inherit the old attack");
+        assertNull(boat.surface().botSubmarineAttackCourse, "A replacement boat must not inherit the old attack");
     }
 
     @Test
@@ -5569,9 +5569,9 @@ class GameSessionTest {
         GameSession session = submarineAttackContinuationSession();
         hideAttackSubmarine(session, 0, 70, 0);
         commandAttackBot(session, 0);
-        Ship boat = shipEntity(session, "boat");
-        assertNull(boat.botSubmarineAttackCourse);
-        assertNull(boat.botNavigation.target);
+        Vehicle boat = shipEntity(session, "boat");
+        assertNull(boat.surface().botSubmarineAttackCourse);
+        assertNull(boat.surface().botNavigation.target);
     }
 
     @Test
@@ -5579,12 +5579,12 @@ class GameSessionTest {
         GameSession session = submarineAttackContinuationSession();
         commandAttackBot(session, 0);
         hideAttackSubmarine(session, 0, 70, 0);
-        Ship boat = shipEntity(session, "boat");
-        var course = boat.botSubmarineAttackCourse;
-        boat.botReverseUntil = 5;
+        Vehicle boat = shipEntity(session, "boat");
+        var course = boat.surface().botSubmarineAttackCourse;
+        boat.surface().botReverseUntil = 5;
         commandAttackBot(session, 1);
         assertEquals(ENGINE_FULL_ASTERN, boat.snapshot().engineOrder());
-        assertSame(course, boat.botSubmarineAttackCourse, "Safety must not extend or update the remembered attack");
+        assertSame(course, boat.surface().botSubmarineAttackCourse, "Safety must not extend or update the remembered attack");
     }
 
     @Test
@@ -5622,22 +5622,22 @@ class GameSessionTest {
     @Test
     void controllerChangesAndRespawnsClearThePreviousSonarSample() throws Exception {
         var session = submarineAttackContinuationSession();
-        Ship boat = shipEntity(session, "boat");
+        Vehicle boat = shipEntity(session, "boat");
         hideAttackSubmarine(session, 0, 70, 0);
         tryDepthChargesForTest(session);
-        assertTrue(boat.botNavigation.previousSubmarineEcho > 0);
+        assertTrue(boat.surface().botNavigation.previousSubmarineEcho > 0);
         boat.controlledBy("player-crew");
         boat.controlledBy("bot");
-        assertEquals(0, boat.botNavigation.previousSubmarineEcho);
+        assertEquals(0, boat.surface().botNavigation.previousSubmarineEcho);
         tryDepthChargesForTest(session);
         boat.respawn(new Vector2(0, 0), 0, 0);
-        assertEquals(0, boat.botNavigation.previousSubmarineEcho);
+        assertEquals(0, boat.surface().botNavigation.previousSubmarineEcho);
     }
 
     private void tryDepthChargesForTest(GameSession session) throws Exception {
         var cache = radarService.visibilityCache(session.worldMap(),
                 List.of(shipEntity(session, "boat"), shipEntity(session, "sub")));
-        Method charges = GameSession.class.getDeclaredMethod("tryBotDepthCharges", Ship.class, RadarService.VisibilityCache.class);
+        Method charges = GameSession.class.getDeclaredMethod("tryBotDepthCharges", Vehicle.class, RadarService.VisibilityCache.class);
         charges.setAccessible(true);
         charges.invoke(session, shipEntity(session, "boat"), cache);
     }
@@ -5650,7 +5650,7 @@ class GameSessionTest {
         commandAttackBot(session, 1);
         var cache = radarService.visibilityCache(session.worldMap(),
                 List.of(shipEntity(session, "boat"), shipEntity(session, "sub")));
-        Method charges = GameSession.class.getDeclaredMethod("tryBotDepthCharges", Ship.class,
+        Method charges = GameSession.class.getDeclaredMethod("tryBotDepthCharges", Vehicle.class,
                 RadarService.VisibilityCache.class);
         charges.setAccessible(true);
         charges.invoke(session, shipEntity(session, "boat"), cache);
@@ -5666,7 +5666,7 @@ class GameSessionTest {
     private GameSession submarineAttackContinuationSession() {
         return new GameSession(new GameSetup("submarine-attack-continuation", new WorldMap(80016, List.of()),
                 List.of(new FleetSetup("red", List.of(ship("boat", "red", 0, 0, 0, "bot", ENGINE_STOP, 0, 99))),
-                        new FleetSetup("blue", List.of(new ShipSetup("sub", "blue", new Vector2(0, 70), 0,
+                        new FleetSetup("blue", List.of(new VehicleSetup("sub", "blue", new Vector2(0, 70), 0,
                                 "player-sub", ENGINE_TWO_THIRDS, 0, 99, "submarine", -5.58)))),
                 List.of(new Vector2(2000, 2000))));
     }
@@ -5681,9 +5681,9 @@ class GameSessionTest {
         Field clock = GameSession.class.getDeclaredField("nowSeconds");
         clock.setAccessible(true);
         clock.setDouble(session, time);
-        List<Ship> ships = List.of(shipEntity(session, "boat"), shipEntity(session, "sub"));
+        List<Vehicle> ships = List.of(shipEntity(session, "boat"), shipEntity(session, "sub"));
         var cache = radarService.visibilityCache(session.worldMap(), ships);
-        Method command = GameSession.class.getDeclaredMethod("commandBot", Ship.class,
+        Method command = GameSession.class.getDeclaredMethod("commandBot", Vehicle.class,
                 RadarService.VisibilityCache.class, NavigationService.class, WorldMap.class, List.class);
         command.setAccessible(true);
         command.invoke(session, ships.get(0), cache, navigationService, session.worldMap(), ships);
@@ -5715,8 +5715,8 @@ class GameSessionTest {
         var session = new GameSession(new GameSetup("center-patrol", map,
                 List.of(new FleetSetup("red", List.of(ship("boat", "red", -900, -100, 0, "bot", ENGINE_STOP, 0, 999)))),
                 List.of()));
-        Ship boat = shipEntity(session, "boat");
-        Method course = GameSession.class.getDeclaredMethod("desiredBotCourse", Ship.class, Ship.class, WorldMap.class);
+        Vehicle boat = shipEntity(session, "boat");
+        Method course = GameSession.class.getDeclaredMethod("desiredBotCourse", Vehicle.class, Vehicle.class, WorldMap.class);
         course.setAccessible(true);
         var fallback = (BotNavigation.Course) course.invoke(session, boat, null, map);
         assertEquals(Math.atan2(900, 100), fallback.heading(), .00001);
@@ -5728,7 +5728,7 @@ class GameSessionTest {
 
     @Test
     void repeatedPlayerSubmarineDeathsAndReentriesKeepTheFleetComposition() throws Exception {
-        var boats = new ArrayList<ShipSetup>();
+        var boats = new ArrayList<VehicleSetup>();
         for (int i = 0; i < 6; i++) boats.add(ship("red-" + i, "red", i * 400, 0, 0, "bot", ENGINE_STOP, 0,
                 9999, i < 2 ? "submarine" : "torpedo-boat"));
         var spawns = new ArrayList<Vector2>();
@@ -5776,18 +5776,18 @@ class GameSessionTest {
     void targetIsHeldBetweenScheduledSelectionsAndRecycledShipIsNotFollowed() throws Exception {
         GameSession session = submarineAttackContinuationSession();
         commandAttackBot(session, 0);
-        Ship boat = shipEntity(session, "boat"), target = shipEntity(session, "sub");
-        assertSame(target, boat.botNavigation.target);
-        long observedLife = boat.botNavigation.targetLife;
+        Vehicle boat = shipEntity(session, "boat"), target = shipEntity(session, "sub");
+        assertSame(target, boat.surface().botNavigation.target);
+        long observedLife = boat.surface().botNavigation.targetLife;
         target.respawn(new Vector2(300, 300), 0, .1);
         commandAttackBot(session, .1);
-        assertEquals(observedLife, boat.botNavigation.targetLife,
+        assertEquals(observedLife, boat.surface().botNavigation.targetLife,
                 "A new fleet incarnation must not be silently adopted between target searches");
-        assertNotNull(boat.botSubmarineAttackCourse);
-        assertEquals(new Vector2(0, 70), boat.botSubmarineAttackCourse.position(),
+        assertNotNull(boat.surface().botSubmarineAttackCourse);
+        assertEquals(new Vector2(0, 70), boat.surface().botSubmarineAttackCourse.position(),
                 "Do not replace the last observed position with a recycled ship's new position");
         commandAttackBot(session, 2.1);
-        assertEquals(target.lifeId(), boat.botNavigation.targetLife);
+        assertEquals(target.lifeId(), boat.surface().botNavigation.targetLife);
     }
 
     @Test
@@ -5822,7 +5822,7 @@ class GameSessionTest {
         return new GameSession(new GameSetup("wreck-crossing",world,List.of(
                 new FleetSetup("red",List.of(ship("wreck-source","red",0,0,0,"player-source",ENGINE_STOP,0,99),
                         ship("distant","red",1000,1000,0,"scenario",ENGINE_STOP,0,99))),
-                new FleetSetup("blue",List.of(new ShipSetup("crossing-sub","blue",new Vector2(-40,0),0,"player-sub",
+                new FleetSetup("blue",List.of(new VehicleSetup("crossing-sub","blue",new Vector2(-40,0),0,"player-sub",
                         ENGINE_STOP,0,99,"submarine",-6)))),List.of(new Vector2(1500,1500),new Vector2(-1500,-1500))));
     }
 
@@ -5843,16 +5843,16 @@ class GameSessionTest {
     @Test
     void acquiredPeriscopeRemainsVisibleAtTheSideAndBehindAcrossScheduledTargetSearches() throws Exception {
         var session = submarineAttackContinuationSession();
-        Ship boat = shipEntity(session, "boat");
+        Vehicle boat = shipEntity(session, "boat");
         showAttackPeriscope(session, 0, 70);
         commandAttackBot(session, 0);
-        assertTrue(boat.botNavigation.trackingPeriscope);
+        assertTrue(boat.surface().botNavigation.trackingPeriscope);
         for (int step = 1; step <= 6; step++) {
             double x = step % 2 == 0 ? 0 : 120, z = step % 2 == 0 ? -70 : 0;
             showAttackPeriscope(session, x, z);
             commandAttackBot(session, step * 2.1);
-            assertTrue(boat.botNavigation.trackingPeriscope);
-            assertEquals(new Vector2(x, z), boat.botSubmarineAttackCourse.position(),
+            assertTrue(boat.surface().botNavigation.trackingPeriscope);
+            assertEquals(new Vector2(x, z), boat.surface().botSubmarineAttackCourse.position(),
                     "Refresh from the live contact, rather than blindly following the old line");
         }
     }
@@ -5861,24 +5861,24 @@ class GameSessionTest {
     void divingOrLeavingRangeClearsTrackingAndReturningBehindRequiresANewDirectionalSighting() throws Exception {
         for (boolean dive : new boolean[]{true, false}) {
             var session = submarineAttackContinuationSession();
-            Ship boat = shipEntity(session, "boat");
+            Vehicle boat = shipEntity(session, "boat");
             showAttackPeriscope(session, 0, 70);
             commandAttackBot(session, 0);
-            assertTrue(boat.botNavigation.trackingPeriscope);
-            var lastSeen = boat.botSubmarineAttackCourse;
+            assertTrue(boat.surface().botNavigation.trackingPeriscope);
+            var lastSeen = boat.surface().botSubmarineAttackCourse;
             if (dive) hideAttackSubmarine(session, 0, 70, 0);
             else showAttackPeriscope(session, 0, 1000);
             commandAttackBot(session, .5);
-            assertFalse(boat.botNavigation.trackingPeriscope);
-            assertSame(lastSeen, boat.botSubmarineAttackCourse, "The separate short search still remembers only the old course");
+            assertFalse(boat.surface().botNavigation.trackingPeriscope);
+            assertSame(lastSeen, boat.surface().botSubmarineAttackCourse, "The separate short search still remembers only the old course");
             showAttackPeriscope(session, 0, -70);
             commandAttackBot(session, 2.1);
-            assertFalse(boat.botNavigation.trackingPeriscope, "No automatic rear reacquisition after contact was lost");
-            assertSame(lastSeen, boat.botSubmarineAttackCourse);
+            assertFalse(boat.surface().botNavigation.trackingPeriscope, "No automatic rear reacquisition after contact was lost");
+            assertSame(lastSeen, boat.surface().botSubmarineAttackCourse);
             showAttackPeriscope(session, 0, 70);
             commandAttackBot(session, 4.2);
-            assertTrue(boat.botNavigation.trackingPeriscope, "Normal forward detection reacquires the contact");
-            assertEquals(14.2, boat.botSubmarineAttackCourse.until(), .0001);
+            assertTrue(boat.surface().botNavigation.trackingPeriscope, "Normal forward detection reacquires the contact");
+            assertEquals(14.2, boat.surface().botSubmarineAttackCourse.until(), .0001);
         }
     }
 
@@ -5887,8 +5887,8 @@ class GameSessionTest {
         var session = submarineAttackContinuationSession();
         showAttackPeriscope(session, 0, -70);
         commandAttackBot(session, 0);
-        assertNull(shipEntity(session, "boat").botNavigation.target);
-        assertFalse(shipEntity(session, "boat").botNavigation.trackingPeriscope);
+        assertNull(shipEntity(session, "boat").surface().botNavigation.target);
+        assertFalse(shipEntity(session, "boat").surface().botNavigation.trackingPeriscope);
     }
 
     private void showAttackPeriscope(GameSession session, double x, double z) throws Exception {
@@ -5902,14 +5902,14 @@ class GameSessionTest {
         double length=(3.68+4.2)*TORPEDO_BOAT_MODEL_SCALE;
         double[] speeds={0,.9*10/13.5,2.93*10/13.5,6.18*10/13.5,10.4*10/13.5,12*10/13.5,10};
         double[] lengths={2,2,4,6,8,10,12};
-        Method visible=GameSession.class.getDeclaredMethod("isVisiblePeriscopeRamContact",Ship.class,Ship.class);
+        Method visible=GameSession.class.getDeclaredMethod("isVisiblePeriscopeRamContact",Vehicle.class,Vehicle.class);
         visible.setAccessible(true);
         for(int i=0;i<speeds.length;i++) {
             GameSession session=new GameSession(new GameSetup("sight-stage",new WorldMap(80015,List.of()),
                     List.of(new FleetSetup("red",List.of(ship("observer","red",0,0,0,"bot",ENGINE_STOP,0,99))),
                             new FleetSetup("blue",List.of(ship("sub","blue",0,length*lengths[i]-.1,0,"player-sub",ENGINE_STOP,0,99,"submarine")))),
                     List.of(new Vector2(2000,2000))));
-            Ship target=shipEntity(session,"sub"),observer=shipEntity(session,"observer");
+            Vehicle target=shipEntity(session,"sub"),observer=shipEntity(session,"observer");
             target.applyPlayerState(new PlayerStateUpdate("player-sub","blue",0,length*lengths[i]-.1,0,speeds[i],0,
                     ENGINE_STOP,0,0,true,"submarine",-5.58,0,null,null,null,null,"periscope"),navigationService,session.worldMap());
             assertEquals(length*lengths[i],GameSession.botPeriscopeRamDetectionRange(target)*.8,.0001);
@@ -5927,8 +5927,8 @@ class GameSessionTest {
                                      double distance, double targetBearing) throws Exception {
         Method botAttackEngineOrder = GameSession.class.getDeclaredMethod(
                 "botAttackEngineOrder",
-                Ship.class,
-                Ship.class,
+                Vehicle.class,
+                Vehicle.class,
                 double.class,
                 double.class
         );
@@ -5946,38 +5946,38 @@ class GameSessionTest {
     private void sinkShip(GameSession session, String shipId) throws Exception {
         Method allShips = GameSession.class.getDeclaredMethod("allShips");
         allShips.setAccessible(true);
-        Ship ship = ((List<Ship>) allShips.invoke(session)).stream()
+        Vehicle ship = ((List<Vehicle>) allShips.invoke(session)).stream()
                 .filter(candidate -> shipId.equals(candidate.id()))
                 .findFirst()
                 .orElseThrow();
-        Method sinkShip = GameSession.class.getDeclaredMethod("sinkShip", Ship.class, String.class);
+        Method sinkShip = GameSession.class.getDeclaredMethod("sinkShip", Vehicle.class, String.class);
         sinkShip.setAccessible(true);
         sinkShip.invoke(session, ship, null);
     }
 
     private double distanceBetween(GameSnapshot snapshot, String leftShipId, String rightShipId) {
-        ShipSnapshot left = findShip(snapshot, leftShipId);
-        ShipSnapshot right = findShip(snapshot, rightShipId);
+        VehicleSnapshot left = findShip(snapshot, leftShipId);
+        VehicleSnapshot right = findShip(snapshot, rightShipId);
         return new Vector2(left.x(), left.z()).distanceTo(new Vector2(right.x(), right.z()));
     }
 
-    private ShipSetup ship(String id, String teamId, double x, double z, double heading, int engineOrder, int rudderDegrees) {
+    private VehicleSetup ship(String id, String teamId, double x, double z, double heading, int engineOrder, int rudderDegrees) {
         return ship(id, teamId, x, z, heading, "scenario", engineOrder, rudderDegrees);
     }
 
-    private ShipSetup ship(String id, String teamId, double x, double z, double heading, String controlledBy,
+    private VehicleSetup ship(String id, String teamId, double x, double z, double heading, String controlledBy,
                            int engineOrder, int rudderDegrees) {
         return ship(id, teamId, x, z, heading, controlledBy, engineOrder, rudderDegrees, 99);
     }
 
-    private ShipSetup ship(String id, String teamId, double x, double z, double heading, String controlledBy,
+    private VehicleSetup ship(String id, String teamId, double x, double z, double heading, String controlledBy,
                            int engineOrder, int rudderDegrees, double nextFireDelaySeconds) {
         return ship(id, teamId, x, z, heading, controlledBy, engineOrder, rudderDegrees, nextFireDelaySeconds, "torpedo-boat");
     }
 
-    private ShipSetup ship(String id, String teamId, double x, double z, double heading, String controlledBy,
+    private VehicleSetup ship(String id, String teamId, double x, double z, double heading, String controlledBy,
                            int engineOrder, int rudderDegrees, double nextFireDelaySeconds, String vehicleType) {
-        return new ShipSetup(
+        return new VehicleSetup(
                 id,
                 teamId,
                 new Vector2(x, z),

@@ -35,7 +35,7 @@ final class ScenarioScriptParser {
         ParsedScript parsed = ParsedScript.from(script);
         Map<Character, Vector2> markers = mapMarkers(parsed.mapRows(), parsed.cellSize());
         List<Landmass> landmasses = landmasses(parsed.mapRows(), parsed.cellSize());
-        Map<String, List<ShipSetup>> vehiclesByTeam = new LinkedHashMap<>();
+        Map<String, List<VehicleSetup>> vehiclesByTeam = new LinkedHashMap<>();
         List<Vector2> respawnCandidates = new ArrayList<>();
         List<ScenarioInitialState> initialStates = new ArrayList<>();
 
@@ -51,7 +51,7 @@ final class ScenarioScriptParser {
             String teamId = normalizeTeam(object.team());
             String vehicleType = normalizeVehicleType(object.vehicleType());
             String id = teamId + "-" + vehiclePrefix(vehicleType) + object.marker();
-            ShipSetup vehicleSetup = new ShipSetup(
+            VehicleSetup vehicleSetup = new VehicleSetup(
                     id,
                     teamId,
                     position,

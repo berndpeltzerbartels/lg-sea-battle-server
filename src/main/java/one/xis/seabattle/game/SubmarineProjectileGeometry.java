@@ -23,7 +23,7 @@ final class SubmarineProjectileGeometry {
     private record TowerVolume(double minZ, double maxZ, double[][] planes) {}
     private static final List<TowerVolume> TOWER = towerVolumes();
 
-    static double hitFraction(double ax, double ay, double az, double bx, double by, double bz, Ship ship) {
+    static double hitFraction(double ax, double ay, double az, double bx, double by, double bz, Vehicle ship) {
         double scale = SeaBattleGameConfig.TORPEDO_BOAT_SCALE;
         double cos = Math.cos(ship.heading()), sin = Math.sin(ship.heading());
         double ox = ax - ship.position().x(), oz = az - ship.position().z();

@@ -4,10 +4,10 @@ package one.xis.seabattle.game;
 public final class NearestTargetSelection implements BotTargetSelection {
     @Override
     public String select(BotTargetSituation situation, long tickId) {
-        ShipSnapshot observer = situation.observer();
-        ShipSnapshot nearest = null;
+        VehicleSnapshot observer = situation.observer();
+        VehicleSnapshot nearest = null;
         double best = Double.POSITIVE_INFINITY;
-        for (ShipSnapshot candidate : situation.candidates()) {
+        for (VehicleSnapshot candidate : situation.candidates()) {
             double dx = candidate.x() - observer.x(), dz = candidate.z() - observer.z();
             double distanceSquared = dx * dx + dz * dz;
             if (distanceSquared < best) {

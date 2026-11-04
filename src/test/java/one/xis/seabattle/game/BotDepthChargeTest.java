@@ -9,8 +9,8 @@ class BotDepthChargeTest {
     private final NavigationService navigation = new NavigationService();
 
     private GameSession session(String controller, String boatType, String targetTeam, String depth, double distance) {
-        var boat = new ShipSetup("boat", "light", new Vector2(0, 0), 0, controller, 2, 0, 999, boatType, 0);
-        var target = new ShipSetup("sub", targetTeam, new Vector2(distance, 0), 0, "player-DIV-test", 2, 0, 999, "submarine", 0);
+        var boat = new VehicleSetup("boat", "light", new Vector2(0, 0), 0, controller, 2, 0, 999, boatType, 0);
+        var target = new VehicleSetup("sub", targetTeam, new Vector2(distance, 0), 0, "player-DIV-test", 2, 0, 999, "submarine", 0);
         var fleets = targetTeam.equals("light") ? List.of(new FleetSetup("light", List.of(boat, target)))
                 : List.of(new FleetSetup("light", List.of(boat)), new FleetSetup(targetTeam, List.of(target)));
         var session = new GameSession(new GameSetup("bot-charges", new WorldMap(42, List.of()), fleets,

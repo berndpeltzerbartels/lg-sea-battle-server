@@ -12,15 +12,15 @@ import java.util.concurrent.ThreadLocalRandom;
 final class Fleet {
 
     private final String teamId;
-    private final List<Ship> ships;
+    private final List<Vehicle> ships;
     private final int intendedSubmarineCount;
     private final Map<String, String> activeShipIdByPlayerId = new HashMap<>();
     private final Set<String> additionalHumanShipIds = new HashSet<>();
 
-    Fleet(String teamId, List<Ship> ships) {
+    Fleet(String teamId, List<Vehicle> ships) {
         this.teamId = teamId;
         this.ships = new ArrayList<>(ships);
-        intendedSubmarineCount = (int) ships.stream().filter(Ship::isSubmarine).count();
+        intendedSubmarineCount = (int) ships.stream().filter(Vehicle::isSubmarine).count();
     }
 
     String teamId() {
@@ -29,11 +29,11 @@ final class Fleet {
 
     int intendedSubmarineCount() { return intendedSubmarineCount; }
 
-    List<Ship> ships() {
+    List<Vehicle> ships() {
         return ships;
     }
 
-    List<Ship> activeShips() {
+    List<Vehicle> activeShips() {
         return ships.stream()
                 .filter(ship -> "active".equals(ship.state()))
                 .toList();
@@ -43,50 +43,51 @@ final class Fleet {
         return !activeShips().isEmpty();
     }
 
-    Optional<Ship> assignNextShipToPlayer(String playerId) {
+    Optional<Vehicle> assignNextShipToPlayer(String playerId) {
         return assignNextShipToPlayer(playerId, null);
     }
 
-    Optional<Ship> assignNextShipToPlayer(String playerId, String vehicleType) {
-        Optional<Ship> assignedShip = assignedShip(playerId);
+    Optional<Vehicle> assignNextShipToPlayer(String playerId, String vehicleType) {
+        Optional<Vehicle> assignedShip = assignedShip(playerId);
         if (assignedShip.isPresent()) {
             if (vehicleType != null) {
-                assignedShip.get().vehicleType(vehicleType);
+                return Optional.of(changeVehicleType(assignedShip.get(), vehicleType));
             }
             return assignedShip;
         }
 
-        List<Ship> availableShips = activeShips().stream()
+        List<Vehicle> availableShips = activeShips().stream()
                 .filter(ship -> "bot".equals(ship.controlledBy()))
                 .filter(ship -> !ship.isScoutPlane())
                 .toList();
         // Prefer the chosen type instead of permanently converting another fleet slot on every login.
-        List<Ship> matchingShips = vehicleType == null ? List.of() : availableShips.stream()
+        List<Vehicle> matchingShips = vehicleType == null ? List.of() : availableShips.stream()
                 .filter(ship -> vehicleType.equals(ship.vehicleType())).toList();
-        Optional<Ship> availableShip = randomShip(matchingShips.isEmpty() ? availableShips : matchingShips);
+        Optional<Vehicle> availableShip = randomShip(matchingShips.isEmpty() ? availableShips : matchingShips);
         if (availableShip.isEmpty() && ships.size() == 1) {
             availableShip = activeShips().stream().filter(ship -> ship.isServerSimulated() || playerId.equals(ship.controlledBy())).findFirst();
         }
-        availableShip.ifPresent(ship -> {
-            if (vehicleType != null) {
-                ship.vehicleType(vehicleType);
-            }
+        return availableShip.map(available -> {
+            Vehicle ship = changeVehicleType(available, vehicleType);
             ship.controlledBy(playerId);
             ship.nextFireTime(0);
             activeShipIdByPlayerId.put(playerId, ship.id());
+            return ship;
         });
-        return availableShip;
     }
 
-    Ship assignAdditionalShipToPlayer(String playerId, Vector2 position, double heading, String vehicleType, double y) {
-        Ship ship = new Ship(
-                nextAdditionalShipId(),
-                teamId,
-                position,
-                MathSupport.normalizeAngle(heading),
-                playerId
-        );
-        ship.vehicleType(vehicleType);
+    Vehicle changeVehicleType(Vehicle current, String type) {
+        Vehicle replacement = current.convertedTo(type);
+        if (replacement == current) return current;
+        int index = ships.indexOf(current);
+        if (index < 0) throw new IllegalArgumentException("Vehicle is not in fleet: " + current.id());
+        ships.set(index, replacement);
+        current.retired();
+        return replacement;
+    }
+
+    Vehicle assignAdditionalShipToPlayer(String playerId, Vector2 position, double heading, String vehicleType, double y) {
+        Vehicle ship = Vehicle.create(vehicleType, nextAdditionalShipId(), teamId, position, MathSupport.normalizeAngle(heading), playerId);
         ship.y(y);
         ship.nextFireTime(0);
         ships.add(ship);
@@ -95,14 +96,14 @@ final class Fleet {
         return ship;
     }
 
-    private Optional<Ship> randomShip(List<Ship> candidates) {
+    private Optional<Vehicle> randomShip(List<Vehicle> candidates) {
         if (candidates.isEmpty()) {
             return Optional.empty();
         }
         return Optional.of(candidates.get(ThreadLocalRandom.current().nextInt(candidates.size())));
     }
 
-    Optional<Ship> assignedShip(String playerId) {
+    Optional<Vehicle> assignedShip(String playerId) {
         String shipId = activeShipIdByPlayerId.get(playerId);
         if (shipId == null) {
             return Optional.empty();
@@ -144,7 +145,7 @@ final class Fleet {
         ships.stream().filter(s -> s.id().equals(shipId)).findFirst().ifPresent(s -> s.controlledBy(next));
     }
 
-    void removeUnoccupiedShipAt(ShipSnapshot previous) {
+    void removeUnoccupiedShipAt(VehicleSnapshot previous) {
         ships.removeIf(s -> s.id().equals(previous.id()) && "bot".equals(s.controlledBy())
                 && s.position().distanceTo(new Vector2(previous.x(), previous.z())) < 0.01);
     }

@@ -106,8 +106,8 @@ public class SeaBattleDiagnosticsService {
     }
 
     public void logFireRequest(String playerId, String teamId, GameSnapshot before, GameSnapshot after, String result) {
-        ShipSnapshot beforeShip = findPlayerShip(before, playerId);
-        ShipSnapshot afterShip = findPlayerShip(after, playerId);
+        VehicleSnapshot beforeShip = findPlayerShip(before, playerId);
+        VehicleSnapshot afterShip = findPlayerShip(after, playerId);
         int beforeTorpedoes = before == null || before.torpedoes() == null ? -1 : before.torpedoes().size();
         int afterTorpedoes = after == null || after.torpedoes() == null ? -1 : after.torpedoes().size();
         LOGGER.info(() -> String.format(
@@ -150,7 +150,7 @@ public class SeaBattleDiagnosticsService {
         long activeShips = snapshot.ships().stream().filter(ship -> "active".equals(ship.state())).count();
         String humanShips = snapshot.ships().stream()
                 .filter(ship -> ship.controlledBy() != null && ship.controlledBy().startsWith("player-"))
-                .sorted(Comparator.comparing(ShipSnapshot::controlledBy))
+                .sorted(Comparator.comparing(VehicleSnapshot::controlledBy))
                 .map(this::shipSummary)
                 .collect(Collectors.joining(";"));
         LOGGER.info(() -> String.format(
@@ -175,7 +175,7 @@ public class SeaBattleDiagnosticsService {
                 .collect(Collectors.joining(";"));
     }
 
-    private String shipSummary(ShipSnapshot ship) {
+    private String shipSummary(VehicleSnapshot ship) {
         return String.format(
                 Locale.ROOT,
                 "%s/%s/%s stock=%d pos=(%.0f,%.0f) speed=%.1f state=%s",
@@ -190,7 +190,7 @@ public class SeaBattleDiagnosticsService {
         );
     }
 
-    private ShipSnapshot findPlayerShip(GameSnapshot snapshot, String playerId) {
+    private VehicleSnapshot findPlayerShip(GameSnapshot snapshot, String playerId) {
         if (snapshot == null || playerId == null) {
             return null;
         }
@@ -200,11 +200,11 @@ public class SeaBattleDiagnosticsService {
                 .orElse(null);
     }
 
-    private String shipId(ShipSnapshot ship) {
+    private String shipId(VehicleSnapshot ship) {
         return ship == null ? "-" : ship.id();
     }
 
-    private int torpedoStock(ShipSnapshot ship) {
+    private int torpedoStock(VehicleSnapshot ship) {
         return ship == null ? -1 : ship.torpedoesRemaining();
     }
 

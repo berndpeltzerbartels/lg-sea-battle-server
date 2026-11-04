@@ -8,7 +8,7 @@ public record GameSnapshot(
         String sessionId,
         String state,
         double t,
-        List<ShipSnapshot> ships,
+        List<VehicleSnapshot> ships,
         List<TorpedoSnapshot> torpedoes,
         List<TorpedoImpactSnapshot> torpedoImpacts,
         List<BombSnapshot> bombs,

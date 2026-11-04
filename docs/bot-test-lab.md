@@ -92,7 +92,7 @@ Ein minimales, absichtlich dummes Beispiel liegt in `src/test/java/one/xis/seaba
 ```java
 public final class StraightAheadCalculation implements BotCalculation {
     public void calculate(BotSituation situation, long tickId, Map<String, BotGoal> goals) {
-        for (ShipSnapshot ship : situation.ships()) {
+        for (VehicleSnapshot ship : situation.ships()) {
             if ("bot".equals(ship.controlledBy()) && "active".equals(ship.state())) {
                 situation.steer(ship.id(), 8, 0);
             }
@@ -125,7 +125,7 @@ assertTrue(run.minimumSeparation('1', '2') > 5);
 
 // Jede einzelne Runde ist zugänglich:
 for (BotTestRun.Frame frame : run.frames()) {
-    ShipSnapshot ship = frame.ship('1');
+    VehicleSnapshot ship = frame.ship('1');
     // Beispielsweise unerwünschtes Rückwärtsfahren oder Ruderausschläge prüfen.
 }
 run.writeReport(Path.of("build/mein-test"));
@@ -227,7 +227,7 @@ Das Beispiel `GoalFollowingCalculation.java` verwendet genau diese Übergabe: Es
 
 ```java
 public void calculate(BotSituation situation, long tickId, Map<String, BotGoal> goals) {
-    for (ShipSnapshot ship : situation.ships()) {
+    for (VehicleSnapshot ship : situation.ships()) {
         BotGoal goal = goals.get(ship.id());
         if (goal == null || goal.kind() == BotGoal.Kind.NONE) continue;
         double heading = Math.atan2(goal.x() - ship.x(), goal.z() - ship.z());
@@ -242,3 +242,18 @@ public void calculate(BotSituation situation, long tickId, Map<String, BotGoal> 
   -Palgorithm=one.xis.seabattle.game.GoalFollowingCalculation \
   -Pscenario=scenarios/target-choice.txt -Poutput=build/eigene-fahrt
 ```
+
+
+## Fahrzeugmodell
+
+`Vehicle` enthält die gemeinsame Identität, Position, Bewegung und den Lebenszyklus.
+Die konkreten Typen sind `TorpedoBoat`, `Submarine` und `ScoutPlane`.
+`SurfaceVehicle` bündelt die Navigation und Flak der beiden Wasserfahrzeuge.
+Nur das Torpedoboot enthält Kanonenzustand, nur das U-Boot Tauchtiefe und
+U-Boot-Botzustand, nur das Flugzeug vertikale Geschwindigkeit und Flughöhenziel.
+
+Ein Typwechsel ersetzt das Objekt in der Flotte; Kennung, Lebens-ID und
+Spielerzuordnung bleiben erhalten. Alte Zielreferenzen werden ungültig.
+Die Bot-Schnittstellen erhalten weiterhin unveränderliche `VehicleSnapshot`-Werte.
+Dieser flache Transportdatensatz behält die bisherigen Netzwerkfelder bei,
+damit der Browser unverändert funktioniert. Er ist kein veränderliches Fahrzeugmodell.

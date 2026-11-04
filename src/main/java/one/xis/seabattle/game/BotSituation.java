@@ -12,8 +12,8 @@ public final class BotSituation {
     private final NavigationService navigation;
     private final WorldMap world;
     private final GameSession.BotRound round;
-    private List<ShipSnapshot> snapshots;
-    private java.util.Map<String, Ship> bots;
+    private List<VehicleSnapshot> snapshots;
+    private java.util.Map<String, Vehicle> bots;
     private boolean standardCalled;
 
     BotSituation(GameSession session, RadarService radar, NavigationService navigation, WorldMap world, GameSession.BotRound round) {
@@ -27,8 +27,8 @@ public final class BotSituation {
     public double timeSeconds() { return session.calculationTime(); }
 
     /** Captured lazily once, before any subsequent commands issued by this implementation. */
-    public List<ShipSnapshot> ships() {
-        if (snapshots == null) snapshots = session.calculationShips().stream().map(Ship::snapshot).toList();
+    public List<VehicleSnapshot> ships() {
+        if (snapshots == null) snapshots = session.calculationShips().stream().map(Vehicle::snapshot).toList();
         return snapshots;
     }
 
@@ -62,13 +62,13 @@ public final class BotSituation {
         session.calculateStandardBots(radar, navigation, world, round, goals);
     }
 
-    private Ship bot(String id) {
+    private Vehicle bot(String id) {
         if (bots == null) {
             bots = new java.util.HashMap<>();
-            for (Ship ship : session.calculationShips())
+            for (Vehicle ship : session.calculationShips())
                 if (ship.isBotControlled() && "active".equals(ship.state())) bots.put(ship.id(), ship);
         }
-        Ship ship = bots.get(id);
+        Vehicle ship = bots.get(id);
         if (ship == null) throw new IllegalArgumentException("No active bot: " + id);
         return ship;
     }

@@ -5,8 +5,8 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DepthChargeTest {
-    private ShipSetup ship(String id, String team, double x, double z, String type, double y) {
-        return new ShipSetup(id, team, new Vector2(x, z), 0, "player-" + id, 2, 0, 999, type, y);
+    private VehicleSetup ship(String id, String team, double x, double z, String type, double y) {
+        return new VehicleSetup(id, team, new Vector2(x, z), 0, "player-" + id, 2, 0, 999, type, y);
     }
     private GameSession session() {
         return new GameSession(new GameSetup("charges", new WorldMap(42, List.of()), List.of(
@@ -147,7 +147,7 @@ class DepthChargeTest {
             Vector2 right = new Vector2(Math.cos(heading), -Math.sin(heading));
             Vector2 portTarget = origin.add(right.scale(-40));
             Vector2 starboardTarget = origin.add(right.scale(40));
-            var boat = new ShipSetup("boat", "light", origin, heading, "player-boat", 2, 0, 999, "torpedo-boat", 0);
+            var boat = new VehicleSetup("boat", "light", origin, heading, "player-boat", 2, 0, 999, "torpedo-boat", 0);
             var s = new GameSession(new GameSetup("throwers", new WorldMap(42, List.of()), List.of(
                     new FleetSetup("light", List.of(boat)),
                     new FleetSetup("dark", List.of(

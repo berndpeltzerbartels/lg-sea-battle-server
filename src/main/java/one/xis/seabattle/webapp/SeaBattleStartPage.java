@@ -4,7 +4,7 @@ import one.xis.*;
 import one.xis.seabattle.game.GameSnapshot;
 import one.xis.seabattle.game.GameStateService;
 import one.xis.seabattle.game.SeaBattlePlayerRegistry;
-import one.xis.seabattle.game.ShipSnapshot;
+import one.xis.seabattle.game.VehicleSnapshot;
 import one.xis.seabattle.webapp.account.AccountService;
 
 import java.util.*;
@@ -63,13 +63,13 @@ public class SeaBattleStartPage {
     List<PlayerEntry> players() {
         GameSnapshot snapshot = gameStateService.snapshot();
         Map<String, Integer> kills = snapshot.killsByPlayer();
-        Map<String, ShipSnapshot> shipsByPlayer = snapshot.ships().stream()
+        Map<String, VehicleSnapshot> shipsByPlayer = snapshot.ships().stream()
                 .filter(ship -> ship.controlledBy() != null && ship.controlledBy().startsWith("player-"))
-                .collect(Collectors.toMap(ShipSnapshot::controlledBy, ship -> ship, (left, ignored) -> left));
+                .collect(Collectors.toMap(VehicleSnapshot::controlledBy, ship -> ship, (left, ignored) -> left));
 
         return playerRegistry.players().stream()
                 .map(player -> {
-                    ShipSnapshot ship = player.playerId() == null ? null : shipsByPlayer.get(player.playerId());
+                    VehicleSnapshot ship = player.playerId() == null ? null : shipsByPlayer.get(player.playerId());
                     String teamId = ship == null ? player.teamId() : ship.teamId();
                     String playerId = player.playerId();
                     return new PlayerEntry(

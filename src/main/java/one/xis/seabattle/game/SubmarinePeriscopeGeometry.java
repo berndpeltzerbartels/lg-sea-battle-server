@@ -20,7 +20,7 @@ final class SubmarinePeriscopeGeometry {
     }
 
     // Exact segment/cylinder intersection catches a thin mast even between projectile samples.
-    static double hitParameter(Ship ship, double ax, double ay, double az, double bx, double by, double bz) {
+    static double hitParameter(Vehicle ship, double ax, double ay, double az, double bx, double by, double bz) {
         double sin = Math.sin(ship.heading()), cos = Math.cos(ship.heading());
         double x = ((ax - ship.position().x()) * cos - (az - ship.position().z()) * sin) / SCALE;
         double z = ((ax - ship.position().x()) * sin + (az - ship.position().z()) * cos) / SCALE;

@@ -29,7 +29,7 @@ final class ScenarioScriptParserTest {
         assertEquals(2, setup.fleets().size());
         assertEquals(List.of("light", "dark"), setup.fleets().stream().map(FleetSetup::teamId).toList());
 
-        ShipSetup boat = setup.fleets().get(0).ships().get(0);
+        VehicleSetup boat = setup.fleets().get(0).ships().get(0);
         assertEquals("light-S1", boat.id());
         assertEquals("player-scenario-1", boat.controlledBy());
         assertEquals("torpedo-boat", boat.vehicleType());
@@ -38,7 +38,7 @@ final class ScenarioScriptParserTest {
         assertEquals(Math.PI / 2, boat.heading(), 0.001);
         assertEquals(0, boat.y(), 0.001);
 
-        ShipSetup plane = setup.fleets().get(1).ships().get(0);
+        VehicleSetup plane = setup.fleets().get(1).ships().get(0);
         assertEquals("dark-F2", plane.id());
         assertEquals("bot", plane.controlledBy());
         assertEquals("scout-plane", plane.vehicleType());
@@ -76,7 +76,7 @@ final class ScenarioScriptParserTest {
                 1: submarine light human
                 """);
 
-        ShipSetup submarine = setup.fleets().get(0).ships().get(0);
+        VehicleSetup submarine = setup.fleets().get(0).ships().get(0);
         assertEquals("light-U1", submarine.id());
         assertEquals("submarine", submarine.vehicleType());
         assertEquals(0, submarine.y(), 0.001);

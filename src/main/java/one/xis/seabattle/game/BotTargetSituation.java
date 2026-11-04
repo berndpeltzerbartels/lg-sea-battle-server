@@ -8,18 +8,18 @@ import java.util.function.Supplier;
  * which include strategic surface-human contacts beyond ordinary visual range.
  */
 public final class BotTargetSituation {
-    private final Ship observer;
-    private final List<Ship> candidates;
+    private final Vehicle observer;
+    private final List<Vehicle> candidates;
     private final String currentTargetId;
     private final double timeSeconds;
-    private final Supplier<Ship> standard;
-    private ShipSnapshot observerSnapshot;
-    private List<ShipSnapshot> snapshots;
+    private final Supplier<Vehicle> standard;
+    private VehicleSnapshot observerSnapshot;
+    private List<VehicleSnapshot> snapshots;
     private boolean standardComputed;
     private String standardId;
 
-    BotTargetSituation(Ship observer, List<Ship> candidates, String currentTargetId, double timeSeconds,
-                       Supplier<Ship> standard) {
+    BotTargetSituation(Vehicle observer, List<Vehicle> candidates, String currentTargetId, double timeSeconds,
+                       Supplier<Vehicle> standard) {
         this.observer = observer;
         this.candidates = List.copyOf(candidates);
         this.currentTargetId = currentTargetId;
@@ -28,12 +28,12 @@ public final class BotTargetSituation {
     }
 
     public String observerId() { return observer.id(); }
-    public ShipSnapshot observer() {
+    public VehicleSnapshot observer() {
         if (observerSnapshot == null) observerSnapshot = observer.snapshot();
         return observerSnapshot;
     }
-    public List<ShipSnapshot> candidates() {
-        if (snapshots == null) snapshots = candidates.stream().map(Ship::snapshot).toList();
+    public List<VehicleSnapshot> candidates() {
+        if (snapshots == null) snapshots = candidates.stream().map(Vehicle::snapshot).toList();
         return snapshots;
     }
     public int candidateCount() { return candidates.size(); }
@@ -44,14 +44,14 @@ public final class BotTargetSituation {
     /** Existing ranking including human preference (boats) or reservations/attack history (aircraft). */
     public String standardTargetId() {
         if (!standardComputed) {
-            Ship target = standard.get();
+            Vehicle target = standard.get();
             standardId = target == null ? null : target.id();
             standardComputed = true;
         }
         return standardId;
     }
 
-    Ship resolve(String targetId) {
+    Vehicle resolve(String targetId) {
         if (targetId == null) return null;
         return candidates.stream().filter(ship -> ship.id().equals(targetId)).findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Target is not an eligible candidate for "

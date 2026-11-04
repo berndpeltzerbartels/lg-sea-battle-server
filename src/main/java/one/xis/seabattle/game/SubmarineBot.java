@@ -22,7 +22,7 @@ final class SubmarineBot {
 
     private boolean backingAway;
 
-    int attackEngineOrder(Ship ship, Ship target, double distance, double targetBearing) {
+    int attackEngineOrder(Vehicle ship, Vehicle target, double distance, double targetBearing) {
         // Keep steerage while turning; once aimed, match radial target speed and close the range error.
         if (Math.abs(targetBearing) > Math.PI / 3) {
             backingAway = false;
@@ -46,13 +46,13 @@ final class SubmarineBot {
         return bestOrder;
     }
 
-    Vector2 update(Ship ship, List<Ship> contacts, double now) {
+    Vector2 update(Vehicle ship, List<Vehicle> contacts, double now) {
         return update(ship, contacts, now, false);
     }
 
-    Vector2 update(Ship ship, List<Ship> contacts, double now, boolean hasShotOpportunity) {
+    Vector2 update(Vehicle ship, List<Vehicle> contacts, double now, boolean hasShotOpportunity) {
         if (!ship.isFullySubmerged()) {
-            Ship aircraft = contacts.stream()
+            Vehicle aircraft = contacts.stream()
                     .filter(other -> other.isScoutPlane() && "active".equals(other.state()))
                     .filter(other -> !other.teamId().equals(ship.teamId()))
                     .min(java.util.Comparator.comparingDouble(
@@ -60,7 +60,7 @@ final class SubmarineBot {
             lastAircraftPosition = aircraft == null ? null : aircraft.position();
             aircraftMemoryUntil = now + 10;
         }
-        Ship nearest = contacts.stream()
+        Vehicle nearest = contacts.stream()
                 .filter(other -> !other.teamId().equals(ship.teamId()))
                 .filter(other -> "active".equals(other.state()) && !other.isScoutPlane())
                 .filter(other -> !ship.isFullySubmerged()
@@ -135,7 +135,7 @@ final class SubmarineBot {
         return "submerged".equals(depth) ? threatPosition : null;
     }
 
-    private void startDive(Ship ship, double now) {
+    private void startDive(Vehicle ship, double now) {
         if ("surface".equals(depth)) {
             progressPosition = ship.position();
             progressTime = now;

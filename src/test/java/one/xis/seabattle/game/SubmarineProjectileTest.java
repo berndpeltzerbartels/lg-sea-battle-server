@@ -39,7 +39,7 @@ class SubmarineProjectileTest {
 
     @Test
     void hullAndBothThinPeriscopesAreHitButEmptySpaceIsNot() {
-        Ship submarine = submarine(0, 0, 0, 0);
+        Vehicle submarine = submarine(0, 0, 0, 0);
         assertTrue(Double.isFinite(cross(submarine, .2, 0)));
         assertTrue(Double.isFinite(cross(submarine, 1.9, .022)));
         assertTrue(Double.isFinite(cross(submarine, 1.9, .184)));
@@ -51,7 +51,7 @@ class SubmarineProjectileTest {
 
     @Test
     void collisionFollowsPositionHeadingAndActualDepth() {
-        Ship submarine = submarine(100, 200, Math.PI / 2, -9);
+        Vehicle submarine = submarine(100, 200, Math.PI / 2, -9);
         double t = SubmarineProjectileGeometry.hitFraction(100, -9, 210, 100, -9, 190, submarine);
         assertTrue(Double.isFinite(t));
         assertFalse(Double.isFinite(SubmarineProjectileGeometry.hitFraction(100, 0, 210, 100, 0, 190, submarine)));
@@ -60,7 +60,7 @@ class SubmarineProjectileTest {
     @Test
     void sessionUsesSubmarineGeometryForBothWeaponsAlongTravelledSegment() throws Exception {
         GameSession session = new GameSession(new GameSetup("sub-hit", new WorldMap(99, List.of()), List.of(), List.of()));
-        Method targetHit = GameSession.class.getDeclaredMethod("flakProjectileHitsTarget", FlakProjectile.class, Ship.class);
+        Method targetHit = GameSession.class.getDeclaredMethod("flakProjectileHitsTarget", FlakProjectile.class, Vehicle.class);
         targetHit.setAccessible(true);
         for (String id : List.of("flak-test", "cannon-test")) {
             FlakProjectile projectile = new FlakProjectile(id, "light", "shooter", -8, 0, 0, 30, -10, 0, 0);
@@ -72,7 +72,7 @@ class SubmarineProjectileTest {
         }
     }
 
-    private static double cross(Ship ship, double y, double z) {
+    private static double cross(Vehicle ship, double y, double z) {
         return SubmarineProjectileGeometry.hitFraction(-10, y * SCALE, z * SCALE, 10, y * SCALE, z * SCALE, ship);
     }
 
@@ -81,14 +81,14 @@ class SubmarineProjectileTest {
         for (boolean cannon : List.of(false, true)) {
             for (double mastZ : new double[]{.022, .184, Double.NaN}) {
                 GameSession session = new GameSession(new GameSetup("sub-kill", new WorldMap(99, List.of()),
-                        List.of(new FleetSetup("light", List.of(new ShipSetup("shooter", "light", new Vector2(-100, 0),
+                        List.of(new FleetSetup("light", List.of(new VehicleSetup("shooter", "light", new Vector2(-100, 0),
                                 0, "captain", 2, 0, 1000, "torpedo-boat", 0))),
-                                new FleetSetup("dark", List.of(new ShipSetup("sub", "dark", new Vector2(0, 0),
+                                new FleetSetup("dark", List.of(new VehicleSetup("sub", "dark", new Vector2(0, 0),
                                         0, "diver", 2, 0, 1000, "submarine", 0)))), List.of()));
                 Method allShips = GameSession.class.getDeclaredMethod("allShips");
                 allShips.setAccessible(true);
-                @SuppressWarnings("unchecked") List<Ship> ships = (List<Ship>) allShips.invoke(session);
-                Ship target = ships.stream().filter(s -> s.id().equals("sub")).findFirst().orElseThrow();
+                @SuppressWarnings("unchecked") List<Vehicle> ships = (List<Vehicle>) allShips.invoke(session);
+                Vehicle target = ships.stream().filter(s -> s.id().equals("sub")).findFirst().orElseThrow();
                 boolean underwater = Double.isNaN(mastZ);
                 double depth = underwater ? -2.5 : -1.86 * SCALE;
                 target.applyPlayerState(new PlayerStateUpdate("diver", "dark", 0, 0, 0, 0, 0, 2, 0, 0,
@@ -107,8 +107,8 @@ class SubmarineProjectileTest {
         }
     }
 
-    private static Ship submarine(double x, double z, double heading, double y) {
-        Ship ship = new Ship("sub", "dark", new Vector2(x, z), heading, "human");
+    private static Vehicle submarine(double x, double z, double heading, double y) {
+        Vehicle ship = new Submarine("sub", "dark", new Vector2(x, z), heading, "human");
         ship.applyPlayerState(new PlayerStateUpdate("player", "dark", x, z, heading, 0, 0, 2, 0, 0, false, "submarine", y),
                 new NavigationService(), new WorldMap(99, List.of()));
         return ship;

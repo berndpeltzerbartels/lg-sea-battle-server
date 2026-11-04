@@ -1,6 +1,6 @@
 package one.xis.seabattle.game;
 
-record Vector2(double x, double z) {
+public record Vector2(double x, double z) {
 
     Vector2 add(Vector2 vector) {
         return new Vector2(x + vector.x, z + vector.z);

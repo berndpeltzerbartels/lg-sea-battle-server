@@ -1,6 +1,6 @@
 package one.xis.seabattle.game;
 
-record ShipSetup(
+record VehicleSetup(
         String id,
         String teamId,
         Vector2 position,

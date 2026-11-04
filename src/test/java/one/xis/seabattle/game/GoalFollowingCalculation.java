@@ -6,7 +6,7 @@ import java.util.Map;
 public final class GoalFollowingCalculation implements BotCalculation {
     @Override
     public void calculate(BotSituation situation, long tickId, Map<String, BotGoal> goals) {
-        for (ShipSnapshot ship : situation.ships()) {
+        for (VehicleSnapshot ship : situation.ships()) {
             BotGoal goal = goals.get(ship.id());
             if (goal == null || !"active".equals(ship.state())) continue;
             if (goal.kind() == BotGoal.Kind.NONE) {

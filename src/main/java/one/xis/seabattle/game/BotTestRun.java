@@ -17,11 +17,11 @@ public record BotTestRun(String script, List<Frame> frames, List<TargetDecision>
     public record TargetDecision(long tickId, double seconds, String observerId, String previousTargetId,
                                  String targetId, long targetLifeId, int candidateCount) {}
 
-    public record Frame(double seconds, List<ShipSnapshot> ships, int torpedoes, int bombs, int wrecks) {
+    public record Frame(double seconds, List<VehicleSnapshot> ships, int torpedoes, int bombs, int wrecks) {
         public Frame { ships = List.copyOf(ships); }
-        public ShipSnapshot ship(char marker) {
+        public VehicleSnapshot ship(char marker) {
             return ships.stream().filter(s -> s.id().endsWith("" + marker)).findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException("Ship absent in frame: " + marker));
+                    .orElseThrow(() -> new IllegalArgumentException("Vehicle absent in frame: " + marker));
         }
     }
 
@@ -33,14 +33,14 @@ public record BotTestRun(String script, List<Frame> frames, List<TargetDecision>
     public Frame last() { return frames.get(frames.size() - 1); }
 
     public double displacement(char marker) {
-        ShipSnapshot a = first().ship(marker), b = last().ship(marker);
+        VehicleSnapshot a = first().ship(marker), b = last().ship(marker);
         return Math.hypot(b.x() - a.x(), b.z() - a.z());
     }
 
     /** Distance of hull CENTERS at tick boundaries, not a collision proof. */
     public double minimumSeparation(char a, char b) {
         return frames.stream().mapToDouble(frame -> {
-            ShipSnapshot x = frame.ship(a), y = frame.ship(b);
+            VehicleSnapshot x = frame.ship(a), y = frame.ship(b);
             return Math.hypot(x.x() - y.x(), x.z() - y.z());
         }).min().orElseThrow();
     }
@@ -67,7 +67,7 @@ public record BotTestRun(String script, List<Frame> frames, List<TargetDecision>
         Files.createDirectories(directory);
         Files.writeString(directory.resolve("scenario.txt"), script);
         StringBuilder csv = new StringBuilder("seconds,id,team,type,x,z,headingDegrees,speed,engine,rudder,depth,y,state,lifeId\n");
-        for (Frame frame : frames) for (ShipSnapshot s : frame.ships()) {
+        for (Frame frame : frames) for (VehicleSnapshot s : frame.ships()) {
             csv.append(String.format(Locale.ROOT, "%.1f,%s,%s,%s,%.4f,%.4f,%.3f,%.4f,%d,%d,%s,%.3f,%s,%d%n",
                     frame.seconds(), s.id(), s.teamId(), s.vehicleType(), s.x(), s.z(), Math.toDegrees(s.heading()),
                     s.speed(), s.engineOrder(), s.rudderDegrees(), s.depthState(), s.y(), s.state(), s.lifeId()));

@@ -2,5 +2,5 @@ package one.xis.seabattle.game;
 
 import java.util.List;
 
-record FleetSetup(String teamId, List<ShipSetup> ships) {
+record FleetSetup(String teamId, List<VehicleSetup> ships) {
 }

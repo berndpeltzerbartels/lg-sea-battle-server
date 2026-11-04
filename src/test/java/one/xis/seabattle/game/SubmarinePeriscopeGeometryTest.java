@@ -5,8 +5,8 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SubmarinePeriscopeGeometryTest {
-    private Ship submarine(double heading) {
-        Ship ship = new Ship("sub", "dark", new Vector2(0, 0), heading, "captain");
+    private Vehicle submarine(double heading) {
+        Vehicle ship = new Submarine("sub", "dark", new Vector2(0, 0), heading, "captain");
         ship.applyPlayerState(new PlayerStateUpdate("captain", "dark", 0, 0, heading, 0, 0, 2, 0, 0,
                 true, "submarine", -5.58, 0, null, null, null, null, "periscope"),
                 new NavigationService(), new WorldMap(1, List.of()));
@@ -21,7 +21,7 @@ class SubmarinePeriscopeGeometryTest {
         assertEquals(0, SubmarinePeriscopeGeometry.lift(-19.26), 1e-10);
     }
     @Test void fastShotsHitTheExtendedTipAndTheTrialWidthButMissOutsideIt() {
-        Ship ship = submarine(0);
+        Vehicle ship = submarine(0);
         double y = -5.58 + (SubmarinePeriscopeGeometry.TOP + SubmarinePeriscopeGeometry.EXTRA_LIFT / 2) * 3;
         double z = .022 * 3;
         double hit = SubmarinePeriscopeGeometry.hitParameter(ship, -10, y, z, 10, y, z);
@@ -34,7 +34,7 @@ class SubmarinePeriscopeGeometryTest {
         assertFalse(Double.isFinite(SubmarinePeriscopeGeometry.hitParameter(ship, -10, above, z, 10, above, z)));
     }
     @Test void rotatedMastAndVerticalShotsUseTheSameVisibleGeometry() {
-        Ship ship = submarine(Math.PI / 2);
+        Vehicle ship = submarine(Math.PI / 2);
         double x = .022 * 3;
         assertTrue(Double.isFinite(SubmarinePeriscopeGeometry.hitParameter(ship, x, 2, 0, x, -4, 0)));
         assertFalse(Double.isFinite(SubmarinePeriscopeGeometry.hitParameter(ship, x, 2, .08, x, -4, .08)));

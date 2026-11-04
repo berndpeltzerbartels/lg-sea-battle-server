@@ -84,9 +84,9 @@ class SubmarineGunfireIntegrationTest {
         double startX = side * distance * cos + aim.z() * SCALE * sin;
         double startZ = -side * distance * sin + aim.z() * SCALE * cos;
         GameSession session = new GameSession(new GameSetup("sub-hull-integration", map,
-                List.of(new FleetSetup("light", List.of(new ShipSetup("shooter", "light", new Vector2(-200, -200),
+                List.of(new FleetSetup("light", List.of(new VehicleSetup("shooter", "light", new Vector2(-200, -200),
                         0, "captain", 2, 0, 1000, "torpedo-boat", 0))),
-                        new FleetSetup("dark", List.of(new ShipSetup("sub", "dark", new Vector2(0, 0),
+                        new FleetSetup("dark", List.of(new VehicleSetup("sub", "dark", new Vector2(0, 0),
                                 heading, "diver", 2, 0, 1000, "submarine", 0)))), List.of()));
         session.updatePlayerState(new PlayerStateUpdate("diver", "dark", 0, 0, heading, 0, 0, 2, 0, 0,
                 false, "submarine", depth, 0, null, null, null, null, mode), navigation, map);

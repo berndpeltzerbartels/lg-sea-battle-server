@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** Ship-wide sightings for human crews; independent of occupied stations or target controller. */
+/** Vehicle-wide sightings for human crews; independent of occupied stations or target controller. */
 public final class PeriscopeWarnings {
     // Effective periscope depth starts 0.08 model units before the settled depth (main.js).
     private static final double PERISCOPE_BAND_TOP = -(0.26 + 1.52) * SeaBattleGameConfig.TORPEDO_BOAT_SCALE;
@@ -29,7 +29,7 @@ public final class PeriscopeWarnings {
 
     Map<String, Warning> snapshot() { return published; }
 
-    void update(double now, List<Ship> humanShips, RadarService.VisibilityCache visibility, WorldMap world) {
+    void update(double now, List<Vehicle> humanShips, RadarService.VisibilityCache visibility, WorldMap world) {
         if (now < nextCheck) return;
         nextCheck = now + 1;
         if (humanShips.isEmpty()) {
@@ -39,7 +39,7 @@ public final class PeriscopeWarnings {
         }
         Map<String, Warning> next = new HashMap<>();
         Set<String> observers = new HashSet<>();
-        for (Ship observer : humanShips) {
+        for (Vehicle observer : humanShips) {
             if (!"active".equals(observer.state()) || observer.isScoutPlane()
                     || observer.isSubmarine() && observer.y() < SURFACE_BAND_BOTTOM) continue;
             observers.add(observer.id());
@@ -47,11 +47,11 @@ public final class PeriscopeWarnings {
             contacts.values().removeIf(contact -> now - contact.lastSeen >= CONTACT_RESET_SECONDS);
             Warning previous = published.get(observer.id());
             if (previous != null && previous.expiresAt() > now) next.put(observer.id(), previous);
-            Ship nearest = null;
+            Vehicle nearest = null;
             double nearestDistance = Double.POSITIVE_INFINITY;
             int newContacts = 0;
             // Same index used by bot decisions; cheap filters precede terrain intersection.
-            for (Ship target : visibility.candidates(observer, 300)) {
+            for (Vehicle target : visibility.candidates(observer, 300)) {
                 if (target.teamId().equals(observer.teamId()) || !"active".equals(target.state())
                         || !target.isSubmarine() || target.y() > PERISCOPE_BAND_TOP
                         || target.y() + SubmarinePeriscopeGeometry.topAboveRoot(target.y()) <= 0) continue;
@@ -78,7 +78,7 @@ public final class PeriscopeWarnings {
         contactsByObserver.keySet().retainAll(observers);
         published = Map.copyOf(next);
     }
-    static String direction(Ship observer, Ship contact) {
+    static String direction(Vehicle observer, Vehicle contact) {
         double bearing = Math.atan2(contact.position().x() - observer.position().x(),
                 contact.position().z() - observer.position().z()) - observer.heading();
         int sector = Math.floorMod((int) Math.round(bearing / (Math.PI / 4)), 8);

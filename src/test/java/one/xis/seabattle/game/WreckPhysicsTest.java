@@ -4,8 +4,8 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class WreckPhysicsTest {
-    private ShipSnapshot ship(String type,double x,double y,double z,double speed) {
-        return new ShipSnapshot("test","red",x,z,0,speed,0,0,2,"active","player",12,type,y,0,0,0,0,"submerged",1);
+    private VehicleSnapshot ship(String type,double x,double y,double z,double speed) {
+        return new VehicleSnapshot("test","red",x,z,0,speed,0,0,2,"active","player",12,type,y,0,0,0,0,"submerged",1);
     }
     @Test void wreckSinksAtTheImpactPositionRegardlessOfItsFormerSpeed() {
         var w=new ShipWreckSnapshot("wreck",0,ship("torpedo-boat",0,0,0,17.5));

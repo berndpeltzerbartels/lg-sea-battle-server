@@ -10,7 +10,7 @@ final class WreckPhysics {
 
     record Pose(double x, double y, double z, double pitch, double yaw, double roll) {}
     static Pose pose(ShipWreckSnapshot wreck, double age) {
-        ShipSnapshot s = wreck.ship();
+        VehicleSnapshot s = wreck.ship();
         age = Math.max(0, age);
         double t = MathSupport.clamp(age / wreck.sinkSeconds(), 0, 1);
         double ease = t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
@@ -20,7 +20,7 @@ final class WreckPhysics {
                 submerged ? 0 : wreck.sinkSide()*(.12+1.45*ease));
     }
 
-    static boolean hits(ShipWreckSnapshot wreck, double age, ShipSnapshot target) {
+    static boolean hits(ShipWreckSnapshot wreck, double age, VehicleSnapshot target) {
         if (age < 0 || age >= wreck.sinkSeconds() || "scout-plane".equals(wreck.ship().vehicleType())
                 || "scout-plane".equals(target.vehicleType())) return false;
         Pose p = pose(wreck, age);
