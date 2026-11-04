@@ -4,22 +4,22 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
-class SubmarineBotTest {
+class SubmarineTacticsTest {
     @Test
     void aircraftTriggersDiveAndLastSeenPositionExpiresUnderwater() {
         Vehicle sub = submarine();
         Vehicle plane = enemy(400);
         plane = plane.convertedTo("scout-plane");
-        sub.submarineBot().update(sub, List.of(plane), 0);
+        SubmarineBotCalculation.updateDiveAndEscape((Submarine) sub, List.of(plane), 0);
         assertTrue(sub.isAtPeriscopeDepth());
         Vehicle nearPlane = enemy(100);
         nearPlane = nearPlane.convertedTo("scout-plane");
-        assertEquals(new Vector2(0, 100), sub.submarineBot().update(sub, List.of(nearPlane), 1));
+        assertEquals(new Vector2(0, 100), SubmarineBotCalculation.updateDiveAndEscape((Submarine) sub, List.of(nearPlane), 1));
         assertTrue(sub.isFullySubmerged());
         // No live tracking under water, even when the aircraft moves elsewhere.
-        assertEquals(new Vector2(0, 100), sub.submarineBot().update(sub, List.of(plane), 5));
+        assertEquals(new Vector2(0, 100), SubmarineBotCalculation.updateDiveAndEscape((Submarine) sub, List.of(plane), 5));
         assertTrue(sub.isFullySubmerged());
-        sub.submarineBot().update(sub, List.of(nearPlane), 11);
+        SubmarineBotCalculation.updateDiveAndEscape((Submarine) sub, List.of(nearPlane), 11);
         assertTrue(sub.isOnSurface());
     }
 
@@ -28,7 +28,7 @@ class SubmarineBotTest {
         Vehicle sub = submarine();
         Vehicle plane = new TorpedoBoat("friend", "light", new Vector2(0, 10), 0, "bot");
         plane = plane.convertedTo("scout-plane");
-        sub.submarineBot().update(sub, List.of(plane), 0);
+        SubmarineBotCalculation.updateDiveAndEscape((Submarine) sub, List.of(plane), 0);
         assertTrue(sub.isOnSurface());
     }
 
@@ -67,11 +67,11 @@ class SubmarineBotTest {
     void periscopeAttackSlowsDownAndBacksAwayInsteadOfCharging() {
         Vehicle sub = submarine();
         Vehicle target = enemy(300);
-        assertEquals(4, sub.submarineBot().attackEngineOrder(sub, target, 300, 0));
-        assertEquals(1, sub.submarineBot().attackEngineOrder(sub, target, 240, 0));
-        assertEquals(1, sub.submarineBot().attackEngineOrder(sub, target, 300, 0));
-        assertEquals(7, sub.submarineBot().attackEngineOrder(sub, target, 650, 0));
-        assertEquals(5, sub.submarineBot().attackEngineOrder(sub, target, 300, Math.PI));
+        assertEquals(4, SubmarineBotCalculation.holdPeriscopeAttackDistance((Submarine) sub, target, 300, 0));
+        assertEquals(1, SubmarineBotCalculation.holdPeriscopeAttackDistance((Submarine) sub, target, 240, 0));
+        assertEquals(1, SubmarineBotCalculation.holdPeriscopeAttackDistance((Submarine) sub, target, 300, 0));
+        assertEquals(7, SubmarineBotCalculation.holdPeriscopeAttackDistance((Submarine) sub, target, 650, 0));
+        assertEquals(5, SubmarineBotCalculation.holdPeriscopeAttackDistance((Submarine) sub, target, 300, Math.PI));
     }
 
     @Test
@@ -81,13 +81,13 @@ class SubmarineBotTest {
         Vehicle target = enemy(300);
         target.applyCommand(7, 0);
         target.update(20, new NavigationService(), new WorldMap(99009, List.of()));
-        assertEquals(7, sub.submarineBot().attackEngineOrder(sub, target, 300, 0));
+        assertEquals(7, SubmarineBotCalculation.holdPeriscopeAttackDistance((Submarine) sub, target, 300, 0));
         Vehicle approaching = new TorpedoBoat("approaching", "dark", new Vector2(0, 300), Math.PI, "bot");
         approaching.applyCommand(7, 0);
         approaching.update(20, new NavigationService(), new WorldMap(99009, List.of()));
-        assertEquals(0, sub.submarineBot().attackEngineOrder(sub, approaching, 300, 0));
+        assertEquals(0, SubmarineBotCalculation.holdPeriscopeAttackDistance((Submarine) sub, approaching, 300, 0));
         for (int distance = 130; distance <= 650; distance++) {
-            assertNotEquals(2, sub.submarineBot().attackEngineOrder(sub, target, distance, 0));
+            assertNotEquals(2, SubmarineBotCalculation.holdPeriscopeAttackDistance((Submarine) sub, target, distance, 0));
         }
     }
 
@@ -101,9 +101,9 @@ class SubmarineBotTest {
         boolean movedForward = false;
         boolean movedBackward = false;
         for (int tick = 0; tick < 6000; tick++) {
-            sub.submarineBot().update(sub, List.of(target), tick * 0.1);
+            SubmarineBotCalculation.updateDiveAndEscape((Submarine) sub, List.of(target), tick * 0.1);
             double distance = sub.position().distanceTo(target.position());
-            sub.applyCommand(sub.submarineBot().attackEngineOrder(sub, target, distance, 0), 0);
+            sub.applyCommand(SubmarineBotCalculation.holdPeriscopeAttackDistance((Submarine) sub, target, distance, 0), 0);
             sub.update(0.1, navigation, world);
             assertTrue(sub.isAtPeriscopeDepth(), "Must not trigger idle surfacing or emergency diving");
             assertTrue(distance > 220 && distance <= 400, "Must stay in firing range: " + distance);
@@ -210,20 +210,20 @@ class SubmarineBotTest {
     @Test
     void returnsToPeriscopeAtReducedSafeDistance() {
         Vehicle ship = submarine();
-        ship.submarineBot().update(ship, List.of(enemy(100)), 0);
-        assertNotNull(ship.submarineBot().update(ship, List.of(enemy(219)), 1));
-        assertNull(ship.submarineBot().update(ship, List.of(enemy(220)), 2));
+        SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(100)), 0);
+        assertNotNull(SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(219)), 1));
+        assertNull(SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(220)), 2));
         assertTrue(ship.isAtPeriscopeDepth());
     }
 
     @Test
     void alignedShotAllowsEarlierAscentButNearbyThreatStillPreventsIt() {
         Vehicle ship = submarine();
-        ship.submarineBot().update(ship, List.of(enemy(100)), 0);
-        assertNotNull(ship.submarineBot().update(ship, List.of(enemy(200), enemy(150)), 1, true));
+        SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(100)), 0);
+        assertNotNull(SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(200), enemy(150)), 1, true));
         assertTrue(ship.isFullySubmerged());
-        assertNotNull(ship.submarineBot().update(ship, List.of(enemy(180)), 2, false));
-        assertNull(ship.submarineBot().update(ship, List.of(enemy(180)), 3, true));
+        assertNotNull(SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(180)), 2, false));
+        assertNull(SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(180)), 3, true));
         assertTrue(ship.isAtPeriscopeDepth());
     }
 
@@ -245,41 +245,40 @@ class SubmarineBotTest {
     @Test
     void divesAndUsesCurrentUnderwaterContactsWithHysteresis() {
         Vehicle ship = submarine();
-        SubmarineBot bot = ship.submarineBot();
-        assertNull(bot.update(ship, List.of(enemy(400)), 0));
+        assertNull(SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(400)), 0));
         assertTrue(ship.isAtPeriscopeDepth());
-        assertEquals(new Vector2(0, 100), bot.update(ship, List.of(enemy(100)), 1));
+        assertEquals(new Vector2(0, 100), SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(100)), 1));
         assertTrue(ship.isFullySubmerged());
-        assertEquals(new Vector2(0, 200), bot.update(ship, List.of(enemy(200)), 2));
+        assertEquals(new Vector2(0, 200), SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(200)), 2));
         assertTrue(ship.isFullySubmerged());
-        assertNull(bot.update(ship, List.of(enemy(300)), 3));
+        assertNull(SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(300)), 3));
         assertTrue(ship.isAtPeriscopeDepth());
-        bot.update(ship, List.of(enemy(550)), 4);
+        SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(550)), 4);
         assertTrue(ship.isAtPeriscopeDepth());
-        bot.update(ship, List.of(enemy(700)), 5);
+        SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(700)), 5);
         assertTrue(ship.isOnSurface());
     }
 
     @Test
     void ignoresFriendsPlanesAndContactsOutsideUnderwaterRange() {
         Vehicle ship = submarine();
-        ship.submarineBot().update(ship, List.of(enemy(100)), 0);
+        SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(100)), 0);
         Vehicle friend = new TorpedoBoat("friend", "light", new Vector2(0, 10), 0, "bot");
         Vehicle plane = enemy(20);
         plane = plane.convertedTo("scout-plane");
-        ship.submarineBot().update(ship, List.of(friend, plane, enemy(SubmarineBot.UNDERWATER_RANGE + 1)), 1);
+        SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(friend, plane, enemy(GameRules.BOT_SUBMARINE_UNDERWATER_RANGE + 1)), 1);
         assertTrue(ship.isOnSurface());
     }
 
     @Test
     void stuckBotSurfacesAndDoesNotImmediatelyDiveAgain() {
         Vehicle ship = submarine();
-        ship.submarineBot().update(ship, List.of(enemy(100)), 0);
-        ship.submarineBot().update(ship, List.of(enemy(100)), 15);
+        SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(100)), 0);
+        SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(100)), 15);
         assertTrue(ship.isOnSurface());
-        ship.submarineBot().update(ship, List.of(enemy(100)), 44);
+        SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(100)), 44);
         assertTrue(ship.isOnSurface());
-        ship.submarineBot().update(ship, List.of(enemy(100)), 46);
+        SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(100)), 46);
         assertTrue(ship.isFullySubmerged());
     }
 
@@ -287,15 +286,15 @@ class SubmarineBotTest {
     void recoveredBoatDivesAgainBeforeSurfaceTimeoutWhenEnemyRemainsNearby() {
         for (double distance : List.of(100.0, 400.0)) {
             Vehicle ship = submarine();
-            ship.submarineBot().update(ship, List.of(enemy(distance)), 0);
-            ship.submarineBot().update(ship, List.of(enemy(distance)), 15);
+            SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(distance)), 0);
+            SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(distance)), 15);
             assertTrue(ship.isOnSurface());
             ship.applyCommand(7, 0);
             ship.update(4, new NavigationService(), new WorldMap(99009, List.of()));
             Vehicle contact = new TorpedoBoat("enemy", "dark", ship.position().add(new Vector2(0, distance)), 0, "bot");
-            ship.submarineBot().update(ship, List.of(contact), 19);
+            SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(contact), 19);
             assertTrue(distance == 100 ? ship.isFullySubmerged() : ship.isAtPeriscopeDepth());
-            ship.submarineBot().update(ship, List.of(contact), 20);
+            SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(contact), 20);
             assertFalse(ship.isOnSurface(), "Recovery must restart the underwater progress timer");
         }
     }
@@ -303,11 +302,11 @@ class SubmarineBotTest {
     @Test
     void recoveredBoatStaysOnSurfaceWithoutEnemy() {
         Vehicle ship = submarine();
-        ship.submarineBot().update(ship, List.of(enemy(100)), 0);
-        ship.submarineBot().update(ship, List.of(enemy(100)), 15);
+        SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(100)), 0);
+        SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(100)), 15);
         ship.applyCommand(7, 0);
         ship.update(4, new NavigationService(), new WorldMap(99009, List.of()));
-        ship.submarineBot().update(ship, List.of(), 19);
+        SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(), 19);
         assertTrue(ship.isOnSurface());
     }
 
@@ -318,16 +317,16 @@ class SubmarineBotTest {
         NavigationService navigation = new NavigationService();
         for (int t = 0; t <= 120; t++) {
             Vehicle contact = new TorpedoBoat("enemy", "dark", ship.position().add(new Vector2(0, 100)), 0, "bot");
-            ship.submarineBot().update(ship, List.of(contact), t);
+            SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(contact), t);
             ship.applyCommand(7, 0);
             ship.update(1, navigation, world);
         }
         assertTrue(ship.isFullySubmerged());
         assertTrue(ship.canFire(120), "Settled deep boats can now fire depth-running torpedoes");
         Vehicle distant = new TorpedoBoat("enemy", "dark", ship.position().add(new Vector2(0, 300)), 0, "bot");
-        ship.submarineBot().update(ship, List.of(distant), 121);
+        SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(distant), 121);
         assertTrue(ship.isAtPeriscopeDepth());
-        ship.submarineBot().update(ship, List.of(), 122);
+        SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(), 122);
         assertTrue(ship.isOnSurface());
     }
 

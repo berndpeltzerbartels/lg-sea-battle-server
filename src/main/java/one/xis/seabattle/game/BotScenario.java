@@ -68,6 +68,19 @@ public final class BotScenario {
             botNanos[index[0]] = System.nanoTime() - start;
         };
         BotTargetSelection measuredSelection = new BotTargetSelection() {
+          @Override public void observe(BotTargetSituation situation, long tickId) {
+            long start = System.nanoTime();
+            selector.observe(situation, tickId);
+            targetNanos[index[0]] += System.nanoTime() - start;
+          }
+          @Override public void depthChargeContact(BotTargetSituation situation, Submarine target, long tickId) {
+            long start = System.nanoTime();
+            selector.depthChargeContact(situation, target, tickId);
+            targetNanos[index[0]] += System.nanoTime() - start;
+          }
+          @Override public java.util.Map<String, BotSubmarineHunt.Detection> submarineDetections(double now) {
+            return selector.submarineDetections(now);
+          }
           @Override public Vehicle select(BotTargetSituation situation, long tickId) {
             long start = System.nanoTime();
             Vehicle selected = selector.select(situation, tickId);

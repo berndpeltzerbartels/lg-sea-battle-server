@@ -21,30 +21,33 @@ final class BotTestAccess {
   private Optional<Vehicle> scoutPlaneAttackHuman(Vehicle plane) throws Exception {
     return (Optional<Vehicle>)
         call(
-            new StandardBotTargetSelection(session),
+            new ScoutPlaneBotTargetSelection(),
             "scoutPlaneAttackHuman",
-            new Class[] {Vehicle.class},
-            plane);
+            new Class[] {GameSession.class, ScoutPlane.class},
+            session,
+            (ScoutPlane) plane);
   }
 
   private boolean shouldForceHumanScoutPlaneTarget(Vehicle plane, Optional<Vehicle> human)
       throws Exception {
     return (boolean)
         call(
-            new StandardBotTargetSelection(session),
+            new ScoutPlaneBotTargetSelection(),
             "shouldForceHumanScoutPlaneTarget",
-            new Class[] {Vehicle.class, Optional.class},
-            plane,
+            new Class[] {GameSession.class, ScoutPlane.class, Optional.class},
+            session,
+            (ScoutPlane) plane,
             human);
   }
 
-  private Optional<Vehicle> chooseBotTarget(Vehicle boat, List<Vehicle> targets) throws Exception {
+  private Optional<Vehicle> chooseBotTarget(Vehicle vehicle, List<Vehicle> targets)
+      throws Exception {
     return (Optional<Vehicle>)
         call(
-            new StandardBotTargetSelection(session),
+            new WaterBotTargetSelection(),
             "chooseBotTarget",
-            new Class[] {Vehicle.class, List.class},
-            boat,
+            new Class[] {SurfaceVehicle.class, List.class},
+            (SurfaceVehicle) vehicle,
             targets);
   }
 
@@ -61,45 +64,38 @@ final class BotTestAccess {
             .select(new BotTargetSituation(session, plane, candidates, cache, reservations), 0));
   }
 
-  private BotNavigation.Course desiredBotCourse(Vehicle boat, Vehicle target, WorldMap world)
+  private BotNavigation.Course desiredBotCourse(Vehicle vehicle, Vehicle target, WorldMap world)
       throws Exception {
     var context =
         new BotTargetSituation(
             session,
-            boat,
+            vehicle,
             List.of(),
             new RadarService().visibilityCache(world, session.calculationShips()),
             Map.of());
     BotGoal goal = new StandardBotTargetSelection().goal(context, target, true);
-    return (BotNavigation.Course)
-        call(
-            new StandardBotCalculation(session),
-            "courseForGoal",
-            new Class[] {Vehicle.class, Vehicle.class, BotGoal.class},
-            boat,
-            target,
-            goal);
+    WaterBotNavigation navigation = new WaterBotNavigation(session);
+    if (vehicle instanceof TorpedoBoat torpedoBoat) {
+      return navigation.courseForGoal(
+          torpedoBoat, target, goal, TorpedoBoatBotCalculation::attackEngineOrder);
+    }
+    return navigation.courseForGoal(
+        (Submarine) vehicle, target, goal, SubmarineBotCalculation::attackEngineOrder);
   }
 
-  private int botAttackEngineOrder(Vehicle boat, Vehicle target, double distance, double bearing)
-      throws Exception {
-    return (int)
-        call(
-            new StandardBotCalculation(session),
-            "botAttackEngineOrder",
-            new Class[] {Vehicle.class, Vehicle.class, double.class, double.class},
-            boat,
-            target,
-            distance,
-            bearing);
+  private int botAttackEngineOrder(
+      Vehicle vehicle, Vehicle target, double distance, double bearing) {
+    return vehicle instanceof TorpedoBoat boat
+        ? TorpedoBoatBotCalculation.attackEngineOrder(boat, target, distance, bearing)
+        : SubmarineBotCalculation.attackEngineOrder((Submarine) vehicle, target, distance, bearing);
   }
 
   private void commandBot(
-      Vehicle boat,
+      Vehicle vehicle,
       RadarService.VisibilityCache cache,
       NavigationService navigation,
       WorldMap world,
-      List<Vehicle> ships)
+      List<Vehicle> vehicles)
       throws Exception {
     var intent =
         (GameSession.BotIntent)
@@ -107,29 +103,23 @@ final class BotTestAccess {
                 session,
                 "prepareBotIntent",
                 new Class[] {Vehicle.class, RadarService.VisibilityCache.class},
-                boat,
+                vehicle,
                 cache);
     BotGoal goal =
         new StandardBotTargetSelection()
             .goal(intent.situation(), intent.contact(), intent.routeUpdated());
-    call(
-        new StandardBotCalculation(session),
-        "commandBot",
-        new Class[] {
-          Vehicle.class,
-          RadarService.VisibilityCache.class,
-          NavigationService.class,
-          WorldMap.class,
-          List.class,
-          GameSession.BotIntent.class,
-          BotGoal.class
-        },
-        boat,
-        cache,
-        navigation,
-        world,
-        ships,
-        intent,
-        goal);
+    var round =
+        new GameSession.BotRound(
+            vehicles,
+            vehicles,
+            cache,
+            Map.of(vehicle, intent),
+            Map.of(),
+            Map.of(vehicle.id(), goal));
+    var situation = new BotSituation(session, new RadarService(), navigation, world, round);
+    long tick = (long) Math.floor(session.calculationTime() * 10 + 1e-6);
+    if (vehicle instanceof TorpedoBoat torpedoBoat)
+      new TorpedoBoatBotCalculation().calculate(torpedoBoat, situation, tick, goal);
+    else new SubmarineBotCalculation().calculate((Submarine) vehicle, situation, tick, goal);
   }
 }

@@ -76,14 +76,14 @@ Eine Bewegungsimplementierung wird einmal je Spielsitzung erzeugt und einmal je 
 
 `BotSituation` bietet:
 
-- `ships()`: direkte Referenzen auf die aktiven `Vehicle`-Instanzen mit ihren echten Unterklassen; keine Kopien und keine Rundung. Enthält auch menschliche Schiffe und versteckte Gegner. Eigene Algorithmen sind selbst für ihre Wahrnehmungsregeln verantwortlich.
+- `vehicles()`: direkte Referenzen auf die aktiven `Vehicle`-Instanzen mit ihren echten Unterklassen; keine Kopien und keine Rundung. Enthält auch menschliche Schiffe und versteckte Gegner. Eigene Algorithmen sind selbst für ihre Wahrnehmungsregeln verantwortlich.
 - `timeSeconds()`: aktuelle Simulationszeit.
 - `isLand(x, z)` und `isHullBlocked(x, z, heading)`: vorhandene Land-/Rumpfprüfung verwenden.
 - `steer(shipId, engineOrder, rudderDegrees)`: Gas und Ruder eines aktiven Bots setzen; die bisherigen Grenzwerte bleiben wirksam.
 - `dive(shipId, depth)`: Tauchtiefe eines Bot-U-Boots setzen.
 - `runStandard(goals)`: vorhandene Navigation und Kampfsteuerung mit den übergebenen Zielen ausführen. Dabei wird die Zielauswahl nicht erneut aufgerufen. `runStandard()` verwendet dieselbe vorbereitete Sammlung als Kurzform.
 
-`ships()` liefert die echten, veränderlichen Serverobjekte. Nur eigene Fahrzeuge über die Steuerbefehle verändern; fremde Fahrzeuge lediglich lesen. Den Kontext nur innerhalb von `calculate()` verwenden und nicht für spätere Runden speichern. Befehle wirken direkt auf die Spielsituation; separate Ergebnisobjekte sind nicht nötig. Bewegung und Treffer werden anschließend vom bestehenden Backend berechnet. Eine reine Ersatzimplementierung mit `steer()` schießt nicht automatisch; für Versuche mit dem vorhandenen Kampfverhalten `runStandard(goals)` verwenden.
+`vehicles()` liefert die echten, veränderlichen Serverobjekte. Nur eigene Fahrzeuge über die Steuerbefehle verändern; fremde Fahrzeuge lediglich lesen. Den Kontext nur innerhalb von `calculate()` verwenden und nicht für spätere Runden speichern. Befehle wirken direkt auf die Spielsituation; separate Ergebnisobjekte sind nicht nötig. Bewegung und Treffer werden anschließend vom bestehenden Backend berechnet. Eine reine Ersatzimplementierung mit `steer()` schießt nicht automatisch; für Versuche mit dem vorhandenen Kampfverhalten `runStandard(goals)` verwenden.
 
 Die Standardimplementierung verwendet weiter dieselben Wahrnehmungs-, Waffen- und Navigationsregeln. Ihre Einbindung kopiert weder Welt noch Flotten; die zusätzliche Kontextinstanz pro Runde enthält nur Referenzen. Fahrzeug-Snapshots entstehen ausschließlich für die Ausgabe; auch eigene Algorithmen rechnen direkt mit `Vehicle`.
 
@@ -92,9 +92,9 @@ Ein minimales, absichtlich dummes Beispiel liegt in `src/main/java/one/xis/seaba
 ```java
 public final class StraightAheadCalculation implements BotCalculation {
     public void calculate(BotSituation situation, long tickId, Map<String, BotGoal> goals) {
-        for (Vehicle ship : situation.ships()) {
-            if ("bot".equals(ship.controlledBy()) && "active".equals(ship.state())) {
-                situation.steer(ship, 8, 0);
+        for (Vehicle vehicle : situation.vehicles()) {
+            if ("bot".equals(vehicle.controlledBy()) && "active".equals(vehicle.state())) {
+                situation.steer(vehicle, 8, 0);
             }
         }
     }
@@ -146,7 +146,7 @@ Sinnvolle Tests sind: Engstelle verlassen, trotz Insel das Ziel erreichen, keine
 Zusätzlich zur Vorschau entstehen pro Algorithmus `benchmark.csv`-Dateien. Vor jeder Messreihe laufen zwei Aufwärmdurchläufe. Jede Runde startet mit frischer Spielsituation und frischer Algorithmusinstanz. Gemessen werden separat:
 
 1. Bewegungs-/Steuerberechnung (`calculate`), einschließlich eigener Abfragen und Befehle.
-2. Zielauswahl und Zielpunkte (`select` / `goal`), getrennt von der Bewegungsberechnung.
+2. Zielauswahl einschließlich Wahrnehmungsmeldungen und Zielpunkten, getrennt von der Bewegungsberechnung.
 3. Gesamte Backend-Runde, einschließlich Zielvorbereitung, Steuerung, Bewegung und Kampfauflösung.
 
 Ausgegeben werden Mittelwert sowie p95/p99 je Durchlauf; die Java-API enthält auch Median und Maximum. Vorschau, Ausgabe und Momentaufnahmen liegen außerhalb der gemessenen Zeit. Die Java-API unterstützt zudem `scenario.withThreads(2, true)` für die vorhandenen Parallelisierungsoptionen; nicht parallel im Sinn mehrerer Benchmark-Prozesse starten.
@@ -167,7 +167,7 @@ public interface BotTargetSelection {
 Eingaben:
 
 - `observer()` / `observerId()`: das auswählende Schiff oder Flugzeug.
-- `candidates()`: direkte Referenzen auf die tatsächlichen Fahrzeuginstanzen der nach den **bestehenden** Wahrnehmungsregeln zulässigen Gegner. Anders als `BotSituation.ships()` ist das keine Liste aller Schiffe. Darin können auch die bisherigen strategisch erkannten menschlichen Überwassergegner außerhalb der normalen Sichtweite stehen.
+- `candidates()`: direkte Referenzen auf die tatsächlichen Fahrzeuginstanzen der nach den **bestehenden** Wahrnehmungsregeln zulässigen Gegner. Anders als `BotSituation.vehicles()` ist das keine Liste aller Schiffe. Darin können auch die bisherigen strategisch erkannten menschlichen Überwassergegner außerhalb der normalen Sichtweite stehen.
 - `currentTargetId()`: bisher gespeichertes Navigationsziel von Boot/U-Boot, eventuell `null`. Flugzeuge speichern dieses Navigationsziel nicht und liefern hier `null`. Die ID allein garantiert keinen aktuellen Kontakt.
 - `timeSeconds()` und die übergebene `tickId`.
 - `standardTarget()`: auf Wunsch die bisherige Zielgewichtung verwenden. Das Ergebnis wird pro Auswahlaufruf nur einmal berechnet. Bei Booten bleibt die menschliche Zielpriorität erhalten; bei Flugzeugen deren Verteilung und Angriffshistorie.
@@ -202,7 +202,7 @@ assertTrue(run.targetDecisions().stream()
 
 Im Bericht zeigen gelbe gestrichelte Linien und die Spalte **Letzte Zielwahl** die zuletzt ausgewählte Ziel-ID. Das ist ein Auswahlprotokoll, kein garantierter aktueller Sichtkontakt. `targets.csv` protokolliert jeden tatsächlichen Aufruf mit Tick, Zeit, Beobachter, vorherigem Ziel, gewähltem Ziel, dessen Lebens-ID und Kandidatenzahl. `run.targetDecisions()` macht dieselben Entscheidungen für eigene JUnit-Prüfungen zugänglich. Ein fehlendes Ziel steht dort als `null` und in der CSV als leeres Feld.
 
-`benchmark.csv` und `run.timing().targetSelection()` messen zusätzlich die Zeit **innerhalb der Auswahlimplementierung (`select` und `goal`)**. Kandidatensuche, Erkennungsprüfung und nachfolgende Navigation liegen außerhalb dieser Teilmessung und bleiben in der Gesamtrundenmessung enthalten; Navigation liegt zusätzlich in der Bewegungs-/Steuerzeit. Die Zielzeit wird je Simulationstakt summiert; `goal` läuft auch zwischen den Auswahl-Takten, damit Zielpunkte aktuell bleiben. `targetSelectionCalls` gibt zusätzlich die Anzahl tatsächlicher Auswahlaufrufe an. Die Zielgewichtung läuft vor `calculate()` und ist daher nicht in dessen Bewegungs-/Steuerzeit enthalten. Die Gesamtrundenmessung enthält beide Phasen sowie Vorbereitung und Physik.  Das Auswahlprotokoll wird nur für den sichtbaren Probelauf gesammelt, nicht während der anschließenden Benchmark-Durchläufe.
+`benchmark.csv` und `run.timing().targetSelection()` messen zusätzlich die Zeit **innerhalb der Auswahlimplementierung (`observe`, `depthChargeContact`, `select` und `goal`)**. Kandidatensuche, Erkennungsprüfung und nachfolgende Navigation liegen außerhalb dieser Teilmessung und bleiben in der Gesamtrundenmessung enthalten; Navigation liegt zusätzlich in der Bewegungs-/Steuerzeit. Die Zielzeit wird je Simulationstakt summiert; `goal` läuft auch zwischen den Auswahl-Takten, damit Zielpunkte aktuell bleiben. `targetSelectionCalls` gibt zusätzlich die Anzahl tatsächlicher Auswahlaufrufe an. Die Zielgewichtung läuft vor `calculate()` und ist daher nicht in dessen Bewegungs-/Steuerzeit enthalten. Die Gesamtrundenmessung enthält beide Phasen sowie Vorbereitung und Physik.  Das Auswahlprotokoll wird nur für den sichtbaren Probelauf gesammelt, nicht während der anschließenden Benchmark-Durchläufe.
 
 
 ## Explizite Übergabe der Zielsammlung an die Bewegung
@@ -229,10 +229,10 @@ Das Beispiel `GoalFollowingCalculation.java` verwendet genau diese Übergabe: Es
 
 ```java
 public void calculate(BotSituation situation, long tickId, Map<String, BotGoal> goals) {
-    for (Vehicle ship : situation.ships()) {
-        BotGoal goal = goals.get(ship.id());
+    for (Vehicle vehicle : situation.vehicles()) {
+        BotGoal goal = goals.get(vehicle.id());
         if (goal == null || goal.kind() == BotGoal.Kind.NONE) continue;
-        double heading = Math.atan2(goal.x() - ship.position().x(), goal.z() - ship.position().z());
+        double heading = Math.atan2(goal.x() - vehicle.position().x(), goal.z() - vehicle.position().z());
         // Eigene Navigation: Hindernisse prüfen, Kursfehler bestimmen, Gas/Ruder setzen.
     }
 }
@@ -263,8 +263,9 @@ damit der Browser unverändert funktioniert. Er ist kein veränderliches Fahrzeu
 
 ## Austausch im normalen Spiel
 
-`StandardBotTargetSelection` enthält die bisherige Zielgewichtung und die Entscheidung
-zwischen direktem Kontakt, U-Boot-Jagd, gemerktem Angriffskurs und Patrouille.
+`StandardBotTargetSelection` verteilt die Zielauswahl auf die Implementierung des jeweiligen
+Fahrzeugtyps. Diese enthalten Zielgewichtung und die Entscheidung zwischen direktem Kontakt,
+U-Boot-Jagd, gemerktem Angriffskurs und Patrouille.
 `StandardBotCalculation` enthält Navigation, taktisches Tauchen und die bisherigen
 Angriffsentscheidungen. Sie rufen keine versteckte Standardberechnung in `GameSession` auf.
 Die Sitzung stellt Wahrnehmung, Zeitplanung, Physik und Waffeneffekte bereit.
@@ -344,3 +345,160 @@ nicht verändert. Erst die Ausgabe erstellt `VehicleSnapshot` bzw. `ShipWreckSna
   0,227 ms vorher und 0,217 ms danach. Das zeigt hier keinen zusätzlichen Laufzeitbedarf;
   es ist keine Garantie für Produktionslast oder komplexe Landschaften. Zusätzlich
   bestehen die vorhandenen Lasttests mit Landschaft und größeren Flotten.
+
+
+## Standardberechnung nach Fahrzeugtyp
+
+`StandardBotCalculation` koordiniert nur die Runde und reicht jedes Fahrzeug an seine
+konkrete Implementierung weiter:
+
+- `TorpedoBoatBotCalculation`: Verfolgung und Angriffsgeschwindigkeit des Torpedoboots.
+- `SubmarineBotCalculation`: Tauchen, Rückzug und Angriffsgeschwindigkeit des U-Boots.
+- `ScoutPlaneBotCalculation`: Anflug, Flughöhe, Geländeprüfung, Torpedos und Bomben.
+
+Die Klassen implementieren `VehicleBotCalculation<TorpedoBoat>`,
+`VehicleBotCalculation<Submarine>` bzw. `VehicleBotCalculation<ScoutPlane>`.
+Die jeweilige Methode bekommt direkt das konkrete Fahrzeug, den Rundenkontext, die
+Tick-ID und sein vorbereitetes `BotGoal`. Flugzeuge heißen im Code `plane`, U-Boote
+`submarine`, Torpedoboote `boat` und typübergreifende Objekte `vehicle` oder `target`.
+
+`WaterBotNavigation` bündelt ausschließlich die gemeinsamen Wasserfahrzeug-Regeln:
+Kursplanung, Kollisionsvermeidung, Ausweichmanöver, Ruder und Torpedofeuer. Eine eigene
+Vererbungshierarchie für die Berechnung gibt es nicht. Die Standardrunde behält ihre
+bisherige optionale parallele Vorausberechnung und wendet Befehle in derselben Reihenfolge an.
+
+Einzelne Fahrzeugtypen können unabhängig ersetzt werden:
+
+```java
+BotCalculation calculation = new StandardBotCalculation(
+    new TorpedoBoatBotCalculation(),
+    (submarine, situation, tickId, goal) -> situation.steer(submarine, 5, 0),
+    new ScoutPlaneBotCalculation());
+```
+
+Der Konstruktor mit eigenen Implementierungen lässt deren Planung vollständig bei diesen
+Implementierungen; er führt keine gemeinsame parallele Vorausberechnung darüber aus.
+`new StandardBotCalculation()` verwendet weiterhin die bisherige optionale Bündelung.
+
+`BotSituation.vehicles()` ist der passende Name für die aktive Fahrzeugliste.
+`ships()` bleibt als kompatibler Alias für bestehende Experimente erhalten.
+
+
+Die Aufteilung nach Fahrzeugtypen ist zusätzlich durch einen Integrationstest abgesichert:
+Jede eigene Implementierung erhält genau die ursprüngliche Instanz ihres Fahrzeugtyps;
+menschlich gesteuerte Fahrzeuge werden dabei übersprungen. Die Rudergrenzen bleiben erhalten.
+Stand nach der Aufteilung: 626 Tests, davon 624 bestanden und 2 übersprungen. Der erneute
+Freiwasser-Vergleich mit 40 Fahrzeugen liegt vor und nach der Aufteilung bei rund 0,22 ms
+pro Runde; innerhalb dieser Messung ist kein relevanter Mehrbedarf erkennbar.
+
+
+## Jagdentscheidungen gehören zur Zielauswahl
+
+Die Jagdverwaltung gehört vollständig zur Standard-Zielauswahl: `TorpedoBoatBotTargetSelection`
+entscheidet über Jagd- und Fortsetzungsziele. `WaterBotTargetSelection` und `BotSubmarineHunt`
+verwalten gemeinsame Sichtungsmeldungen und Rekrutierung. Die Spielsitzung erzeugt keine Jagdaufträge und verwaltet keine
+Jagdgruppen mehr. Sie stellt lediglich die bestehenden Wahrnehmungen und bestätigte
+Sonarkontakte bereit. Der Standard entscheidet daraus über Meldung, Rekrutierung,
+Jagdgebiet, Dauer, Suchpunkte, Angriffsfortsetzung und deren Priorität.
+
+Das Interface hat dafür optionale Methoden mit wirkungslosen Standardimplementierungen:
+
+- `observe(situation, tickId)`: aktualisierte Kandidaten beim bisherigen Auswahl-Takt.
+  Der Standard meldet hier sichtbare feindliche menschliche U-Boote.
+- `depthChargeContact(situation, submarine, tickId)`: bestätigter feindlicher Sonarkontakt,
+  sobald tatsächlich eine Wasserbomben-Salve startet. Der Standard kann daraus die Jagd auslösen.
+- `submarineDetections(now)`: kurzlebige Hinweise für die Ausgabe; standardmäßig eine leere Map.
+
+Eine eigene `BotTargetSelection` erhält damit weder automatisch Jagdaufträge noch
+Angriffsfortsetzungen. Auch `situation.standardTarget()` verwendet ausdrücklich nur die
+Standardgewichtung und löst selbst keine Jagd aus. Wer die ganze Standardstrategie
+dekorieren möchte, delegiert zusätzlich zu `select` und `goal` auch diese drei Methoden.
+Die Messimplementierung des Testlabors tut genau das; Jagdverhalten und Ausgabe bleiben
+somit identisch zum normalen Spiel, und die Arbeit der Beobachtungsmethoden wird mitgemessen.
+
+Jagdaufträge liegen am `TorpedoBoat`, nicht mehr in `BotNavigation`. Bei Controllerwechsel
+oder Wiedergeburt werden sie verworfen. Andere Fahrzeugtypen speichern keinen Jagdauftrag.
+Die Navigation liest weder diesen Auftrag noch den gemerkten U-Boot-Angriffskurs direkt.
+Sie richtet Jagdgeschwindigkeit und Beschleunigung ausschließlich nach dem vorbereiteten
+`BotGoal` (`SEARCH` bzw. `LAST_KNOWN_COURSE`). Ein ignorierter alter Auftrag beeinflusst
+folglich keine selbst gewählte Patrouille; ein eigenes Suchziel funktioniert auch ohne
+irgendeinen versteckten Standard-Jagdstatus.
+
+
+Die Jagdauslagerung ist mit sechs zusätzlichen Szenarien geprüft: Standard-Rekrutierung,
+eigene Zielgewichtung ohne implizite Jagd, Sonarmeldung ohne Standard-Rekrutierung,
+Patrouille trotz ignoriertem Altauftrag, ein eigenes Suchziel ohne Standardstatus und
+Weiterleitung der Beobachtungsmethoden im Testlabor. Insgesamt: 632 Tests, davon 630
+bestanden und 2 übersprungen; auch die vorhandenen Performance-Grenztests bestehen.
+Ein zusätzlicher Vergleich mit 40 Fahrzeugen und einem menschlichen U-Boot auf Sehrohrtiefe
+liegt im Median der Durchlaufmittelwerte vor und nach der Änderung bei rund 0,20 ms.
+Ein neuer Durchlauf hatte einen Ausreißer von rund 0,35 ms. Der Kurzvergleich ist kein
+Nachweis für unveränderte Produktionslast; es gibt jedoch keine zusätzlichen globalen
+Suchschleifen. Bestehende Kandidaten und räumliche Abfragen werden weiterverwendet.
+
+
+## Zielauswahl nach Fahrzeugtyp
+
+`StandardBotTargetSelection` verteilt `select`, `observe`, `goal` und bestätigte
+Sonarkontakte auf drei eigenständig austauschbare Implementierungen:
+
+- `TorpedoBoatBotTargetSelection`: Gegnerpriorität, U-Boot-Suche und gemerkter Angriffskurs.
+- `SubmarineBotTargetSelection`: Gegnerpriorität, Sichtungsmeldungen und Fahrziel des U-Boots.
+- `ScoutPlaneBotTargetSelection`: Anflugwinkel, verteilte Angreifer und die bisherige Rotation
+  von Angriffen auf menschliche Spieler. Flugzeuge melden keine U-Boot-Jagd.
+
+Alle implementieren `VehicleBotTargetSelection<V>`. Die Methoden erhalten das konkrete
+Fahrzeug (`TorpedoBoat`, `Submarine` oder `ScoutPlane`) und dieselbe `BotTargetSituation`.
+Es entstehen keine Fahrzeugkopien oder Snapshots. Das Interface ist funktional; für eine
+reine Zielgewichtung genügt eine Lambda-Funktion. Eigene Suchziele werden mit `goal`
+berechnet. Wahrnehmung und Auswahl-Takte bleiben bei der Spielsitzung.
+
+Die Standardinstanzen für Torpedoboote und U-Boote teilen die gemeinsamen Regeln in
+`WaterBotTargetSelection` und einen Sichtungsspeicher. So löst auch eine zulässige Sichtung
+durch ein U-Boot dieselbe Jagd aus. Beim Einsetzen unabhängig erzeugter Standardinstanzen
+hat jede ihren eigenen Sichtungsspeicher; Meldungen werden für die Ausgabe zusammengeführt.
+
+Beispiel: nur die Zielgewichtung für Flugzeuge ersetzen:
+
+```java
+BotTargetSelection selection = new StandardBotTargetSelection(
+    new TorpedoBoatBotTargetSelection(),
+    new SubmarineBotTargetSelection(),
+    (plane, situation, tickId) -> situation.candidates().stream()
+        .min(java.util.Comparator.comparingDouble(
+            target -> plane.position().distanceTo(target.position())))
+        .orElse(null));
+```
+
+Für die Konfiguration im normalen Spiel kann eine eigene `BotTargetSelection` diese
+Zusammenstellung delegieren. Die bisherigen JVM- und Testlabor-Einstiegspunkte bleiben gültig.
+
+Die Aufteilung ist mit drei weiteren Tests geprüft: typisierte Weiterleitung im laufenden
+Spiel einschließlich der erzeugten Navigationsziele, Austausch nur der Flugzeugauswahl
+und gemeinsame Jagdmeldungen aus U-Boot-Sichtungen. Die gesamte Suite umfasst nun 635 Tests:
+633 bestanden, 2 übersprungen; alle sieben Performance-Grenztests bestehen.
+Ein lokaler Vorher-nachher-Vergleich über 38.400 gemessene Updates bei aktiver Jagd zeigt
+keine relevante Verlangsamung: Median der Laufmittelwerte bei 40 Fahrzeugen 0,078 / 0,074 ms,
+bei 100 Fahrzeugen 0,173 / 0,172 ms. Gemessen wurde die vollständige Berechnungsrunde auf
+einer offenen Karte, nach JVM-Aufwärmung und mit unterdrückter Schussabgabe. Beschuss und
+Landschaft sind separat durch die Grenztests abgedeckt. Das ersetzt keinen Produktionslasttest.
+
+
+## U-Boot-Taktik: Entscheidung und Zustand
+
+Alle U-Boot-Entscheidungen stehen in `SubmarineBotCalculation`. Die frühere Klasse
+`SubmarineBot` ist durch `SubmarineBotState` ersetzt. Dieser Speicher liegt pro U-Boot
+am `Submarine` und enthält ausschließlich Erinnerungswerte; er wird bei Controllerwechsel
+und Wiedergeburt erneuert. `Vehicle` hat keinen U-Boot-spezifischen Bot-Zugriff mehr.
+
+Die beiden Bewegungsabsichten sind ausdrücklich getrennt:
+
+- `holdPeriscopeAttackDistance`: Abstandsregel beim Angriff auf Sehrohrtiefe. Passt die
+  Geschwindigkeit an und kann rückwärtsfahren, um den Schussabstand zu halten.
+- `updateDiveAndEscape`: Tauchtaktik und Flucht vor nahen Bedrohungen. Liefert bei Gefahr
+  die Bedrohungsposition; `WaterBotNavigation` setzt daraus einen Fluchtkurs mit voller
+  Vorwärtskraft um. Tieftauchende U-Boote verwenden nicht die Rückwärts-Abstandsregel.
+
+Hindernisvermeidung und Befreiungsmanöver bleiben in der gemeinsamen Navigation.
+Das ist unabhängig von der taktischen Rückwärtsfahrt beim Angriff. Die bestehende
+Unterwasser-Kontaktreichweite steht zentral in `GameRules.BOT_SUBMARINE_UNDERWATER_RANGE`.

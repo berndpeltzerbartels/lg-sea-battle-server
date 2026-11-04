@@ -53,8 +53,13 @@ public final class BotSituation {
   }
 
   /** Actual active vehicles, including human participants. No copies or rounding. */
+  public List<Vehicle> vehicles() {
+    return round.activeVehicles();
+  }
+
+  /** Compatibility name for existing experiments; includes aircraft too. */
   public List<Vehicle> ships() {
-    return round.activeShips();
+    return round.activeVehicles();
   }
 
   public boolean isLand(double x, double z) {

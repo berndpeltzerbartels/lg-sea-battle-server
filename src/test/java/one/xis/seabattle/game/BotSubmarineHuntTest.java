@@ -35,20 +35,20 @@ class BotSubmarineHuntTest {
         neighbors.addAll(List.of(observer, outside, human, sub, plane, enemy));
         AtomicInteger scans = new AtomicInteger();
         hunt.sighting(observer, target, 5, () -> { scans.incrementAndGet(); return neighbors; });
-        var original = observer.surface().botNavigation.submarineSearch;
+        var original = observer.submarineSearch();
         assertNotNull(original);
         assertEquals(65, original.area().until());
         assertEquals(new Vector2(0, 0), original.area().center());
-        assertEquals(9, neighbors.stream().filter(s -> !s.isScoutPlane()).filter(s -> s.surface().botNavigation.submarineSearch != null).count());
-        for (Vehicle ignored : List.of(outside, human, sub, enemy)) assertNull(ignored.surface().botNavigation.submarineSearch);
+        assertEquals(9, neighbors.stream().filter(s -> !s.isScoutPlane()).filter(s -> s.submarineSearch() != null).count());
+        for (Vehicle ignored : List.of(outside, human, sub, enemy)) assertNull(ignored.submarineSearch());
         target.respawn(new Vector2(500, 500), 0, 0); // A replacement is a new contact, but cannot replace active assignments.
         hunt.sighting(observer, target, 10, () -> { scans.incrementAndGet(); return neighbors; });
-        assertSame(original, observer.surface().botNavigation.submarineSearch);
+        assertSame(original, observer.submarineSearch());
         assertEquals(new Vector2(0, 0), original.area().center());
         assertTrue(original.active(64.999)); assertFalse(original.active(65));
         hunt.sighting(observer, target, 71, () -> { scans.incrementAndGet(); return neighbors; });
-        assertNotSame(original, observer.surface().botNavigation.submarineSearch);
-        assertEquals(131, observer.surface().botNavigation.submarineSearch.area().until());
+        assertNotSame(original, observer.submarineSearch());
+        assertEquals(131, observer.submarineSearch().area().until());
         assertEquals(3, scans.get());
     }
 
@@ -58,7 +58,7 @@ class BotSubmarineHuntTest {
         Vehicle target = boat("target", "dark", "player-human", "submarine", 0, 0);
         AtomicInteger scans = new AtomicInteger();
         hunt.sighting(observer, target, 0, () -> { scans.incrementAndGet(); return List.of(observer); });
-        var original = observer.surface().botNavigation.submarineSearch;
+        var original = observer.submarineSearch();
         target.applyPlayerState(new PlayerStateUpdate("player-human", "dark", 800, 800, 1, 10, 0, 8, 0, 0, true,
                 "submarine", SeaBattleGameConfig.SUBMARINE_DEEP_Y, 0, null, null, null, null, "submerged"), navigation, water);
         for (int t = 1; t < 60; t++) hunt.sighting(observer, target, t, () -> { scans.incrementAndGet(); return List.of(observer); });
@@ -67,9 +67,9 @@ class BotSubmarineHuntTest {
         assertEquals(60, original.area().until());
         Vehicle other = boat("other", "dark", "other-human", "submarine", 0, 20);
         hunt.sighting(observer, other, 10, () -> List.of(observer));
-        assertSame(original, observer.surface().botNavigation.submarineSearch, "Another report cannot steal this boat's minute");
+        assertSame(original, observer.submarineSearch(), "Another report cannot steal this boat's minute");
         observer.respawn(new Vector2(0, -40), 0, 0);
-        assertNull(observer.surface().botNavigation.submarineSearch, "A replacement does not inherit the lost boat's search");
+        assertNull(observer.submarineSearch(), "A replacement does not inherit the lost boat's search");
     }
 
     @SuppressWarnings("unchecked")
@@ -106,10 +106,10 @@ class BotSubmarineHuntTest {
             GameSession session = scenario(parallel, true);
             session.update(0, radar, navigation, water);
             List<Vehicle> all = ships(session);
-            List<Vehicle> recruited = all.stream().filter(s -> s.surface().botNavigation.submarineSearch != null).toList();
+            List<Vehicle> recruited = all.stream().filter(s -> s.submarineSearch() != null).toList();
             assertEquals(9, recruited.size());
-            assertNull(all.stream().filter(s -> s.id().equals("outside")).findFirst().orElseThrow().surface().botNavigation.submarineSearch);
-            var area = recruited.get(0).surface().botNavigation.submarineSearch.area();
+            assertNull(all.stream().filter(s -> s.id().equals("outside")).findFirst().orElseThrow().submarineSearch());
+            var area = recruited.get(0).submarineSearch().area();
             Vehicle target = all.stream().filter(s -> s.id().equals("sub")).findFirst().orElseThrow();
             depth(target, 3000, 3000, "submerged", 0);
             Set<String> arrived = new HashSet<>(), crossed = new HashSet<>();
@@ -117,7 +117,7 @@ class BotSubmarineHuntTest {
             for (int t = 0; t < 590; t++) {
                 session.update(.1, radar, navigation, water);
                 for (Vehicle hunter : recruited) {
-                    var search = hunter.surface().botNavigation.submarineSearch;
+                    var search = hunter.submarineSearch();
                     if (search != null && search.waypoint() > 0) arrived.add(hunter.id());
                     if (search != null && search.waypoint() > 1) crossed.add(hunter.id());
                     if (hunter.position().distanceTo(area.center()) > 10 * BotNavigation.SHIP_LENGTH && hunter.snapshot().engineOrder() == 8)
@@ -129,7 +129,7 @@ class BotSubmarineHuntTest {
             assertTrue(fullSpeedApproachSamples > 300, "Travel uses top gear, not the slow map-centre patrol");
             assertEquals(new Vector2(0, 0), area.center(), "Never follow the teleported hidden position");
             session.update(1.2, radar, navigation, water);
-            assertTrue(recruited.stream().allMatch(s -> s.surface().botNavigation.submarineSearch == null));
+            assertTrue(recruited.stream().allMatch(s -> s.submarineSearch() == null));
             System.out.println("Hunt " + (parallel ? "parallel" : "serial") + ": " + arrived.size() + "/9 arrived; " + crossed.size() + " crossed; full-speed approach samples=" + fullSpeedApproachSamples);
         }
     }
@@ -139,13 +139,13 @@ class BotSubmarineHuntTest {
         Vehicle sub = ships(session).stream().filter(s -> s.id().equals("sub")).findFirst().orElseThrow();
         depth(sub, 0, 0, "surface", 0);
         session.update(0, radar, navigation, water);
-        List<Vehicle> recruited = ships(session).stream().filter(s -> s.surface().botNavigation.submarineSearch != null).toList();
+        List<Vehicle> recruited = ships(session).stream().filter(s -> s.submarineSearch() != null).toList();
         assertEquals(9, recruited.size());
-        var area = recruited.get(0).surface().botNavigation.submarineSearch.area();
+        var area = recruited.get(0).submarineSearch().area();
         depth(sub, 3000, 3000, "submerged", 0);
         for (int t = 0; t < 120; t++) session.update(.1, radar, navigation, water);
         for (Vehicle boat : recruited) {
-            assertSame(area, boat.surface().botNavigation.submarineSearch.area());
+            assertSame(area, boat.submarineSearch().area());
             assertEquals(new Vector2(0, 0), area.center());
             assertEquals(60, area.until());
         }
@@ -156,7 +156,7 @@ class BotSubmarineHuntTest {
         Vehicle sub = ships(session).stream().filter(s -> s.id().equals("sub")).findFirst().orElseThrow();
         depth(sub, 3000, 3000, "surface", 0);
         session.update(0, radar, navigation, water);
-        assertTrue(ships(session).stream().allMatch(s -> s.surface().botNavigation.submarineSearch == null));
+        assertTrue(ships(session).stream().allMatch(s -> s.submarineSearch() == null));
     }
 
     @Test void submarineBotsReportAtSurfaceAndPeriscopeDepthButNotDeepUnderwater() throws Exception {
@@ -169,9 +169,9 @@ class BotSubmarineHuntTest {
             detector = fleets.get("light").changeVehicleType(detector, "submarine");
             depth(detector, 0, -60, state, 0);
             session.update(0, radar, navigation, water);
-            long recruits = ships(session).stream().filter(b -> b.surface().botNavigation.submarineSearch != null).count();
+            long recruits = ships(session).stream().filter(b -> b.submarineSearch() != null).count();
             assertEquals(state.equals("submerged") ? 0 : 8, recruits, "reporting observer depth=" + state);
-            assertNull(detector.surface().botNavigation.submarineSearch, "Submarine reports to surface hunters, not to itself");
+            assertNull(detector.submarineSearch(), "Submarine reports to surface hunters, not to itself");
         }
     }
 
@@ -186,7 +186,7 @@ class BotSubmarineHuntTest {
             depth(target, 0, -60 + distance, "submerged", 0);
             drop.invoke(session, detector, radar.visibilityCache(water, all));
             assertTrue(session.snapshot().submarineDetections().isEmpty(), "First/rising/steady echo cannot report a drop");
-            assertNull(detector.surface().botNavigation.submarineSearch);
+            assertNull(detector.submarineSearch());
         }
         depth(target, 0, -37, "submerged", 0); // 23: first weakening after closest pass.
         drop.invoke(session, detector, radar.visibilityCache(water, all));
@@ -195,13 +195,13 @@ class BotSubmarineHuntTest {
         assertNotNull(detection);
         assertEquals(target.lifeId(), detection.lifeId());
         assertEquals(3, detection.until());
-        assertEquals(9, all.stream().filter(b -> b.surface().botNavigation.submarineSearch != null).count());
-        assertEquals(new Vector2(0, -37), detector.surface().botNavigation.submarineSearch.area().center());
+        assertEquals(9, all.stream().filter(b -> b.submarineSearch() != null).count());
+        assertEquals(new Vector2(0, -37), detector.submarineSearch().area().center());
         depth(target, 3000, 3000, "submerged", 0);
         session.update(3.1, radar, navigation, water);
         assertTrue(session.snapshot().submarineDetections().isEmpty(), "Notice ends independently after three seconds");
-        assertNotNull(detector.surface().botNavigation.submarineSearch, "The one-minute search continues after the notice");
-        assertEquals(60, detector.surface().botNavigation.submarineSearch.area().until());
+        assertNotNull(detector.submarineSearch(), "The one-minute search continues after the notice");
+        assertEquals(60, detector.submarineSearch().area().until());
     }
 
     @Test void unseenDeepSubmarineOutsideSonarDoesNotCreateSearchOrders() throws Exception {
@@ -209,7 +209,7 @@ class BotSubmarineHuntTest {
         Vehicle sub = ships(session).stream().filter(b -> b.id().equals("sub")).findFirst().orElseThrow();
         depth(sub, 3000, 3000, "submerged", 0);
         for (int t = 0; t < 40; t++) session.update(.1, radar, navigation, water);
-        assertTrue(ships(session).stream().allMatch(s -> s.surface().botNavigation.submarineSearch == null));
+        assertTrue(ships(session).stream().allMatch(s -> s.submarineSearch() == null));
     }
 
     @Test void localCombatAndEscapeOverrideTheSearchWithoutCancellingOrExtendingIt() throws Exception {
@@ -217,13 +217,13 @@ class BotSubmarineHuntTest {
         session.update(0, radar, navigation, water);
         List<Vehicle> all = ships(session);
         Vehicle hunter = all.stream().filter(s -> s.id().equals("hunter-0")).findFirst().orElseThrow();
-        var search = hunter.surface().botNavigation.submarineSearch;
+        var search = hunter.submarineSearch();
         Vehicle closeEnemy = boat("close", "dark", "bot", "torpedo-boat", hunter.position().x() + 30, hunter.position().z());
         Method course = BotTestAccess.class.getDeclaredMethod("desiredBotCourse", Vehicle.class, Vehicle.class, WorldMap.class);
         course.setAccessible(true);
         var local = (BotNavigation.Course) course.invoke(new BotTestAccess(session), hunter, closeEnemy, water);
         assertEquals(Math.PI / 2, local.heading(), 1e-8);
-        assertSame(search, hunter.surface().botNavigation.submarineSearch);
+        assertSame(search, hunter.submarineSearch());
         Vehicle distantEnemy = boat("distant", "dark", "player-other", "torpedo-boat", hunter.position().x() + 1000, hunter.position().z());
         var searchCourse = (BotNavigation.Course) course.invoke(new BotTestAccess(session), hunter, distantEnemy, water);
         assertEquals(8, searchCourse.engineOrder(), "A routine distant target must not slow or steal the search");
@@ -233,7 +233,7 @@ class BotSubmarineHuntTest {
         depth(sub, 3000, 3000, "submerged", 0);
         session.update(.1, radar, navigation, water);
         assertEquals(0, hunter.snapshot().engineOrder(), "Existing escape is higher priority than top-speed search travel");
-        assertSame(search, hunter.surface().botNavigation.submarineSearch);
+        assertSame(search, hunter.submarineSearch());
         assertEquals(60, search.area().until());
     }
 }

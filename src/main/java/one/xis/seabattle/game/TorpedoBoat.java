@@ -2,9 +2,31 @@ package one.xis.seabattle.game;
 
 public final class TorpedoBoat extends SurfaceVehicle {
   private double cannonYaw, cannonPitch;
+  private BotSubmarineHunt.Search submarineSearch;
 
   public TorpedoBoat(String id, String team, Vector2 position, double heading, String controller) {
     super(id, team, position, heading, controller);
+  }
+
+  @Override
+  public BotSubmarineHunt.Search submarineSearch() {
+    return submarineSearch;
+  }
+
+  void submarineSearch(BotSubmarineHunt.Search search) {
+    submarineSearch = search;
+  }
+
+  @Override
+  protected void resetControllerState() {
+    super.resetControllerState();
+    submarineSearch = null;
+  }
+
+  @Override
+  protected void resetSubtypeForRespawn() {
+    super.resetSubtypeForRespawn();
+    submarineSearch = null;
   }
 
   @Override

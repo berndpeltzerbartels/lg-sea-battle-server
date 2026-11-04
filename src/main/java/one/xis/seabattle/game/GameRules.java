@@ -128,6 +128,8 @@ final class GameRules {
   static final double BOT_CLOSE_MANEUVER_RANGE = 130;
   static final double BOT_APPROACH_SLOW_RANGE = 230;
   static final double BOT_AIM_ERROR = 0.025;
+  // Same range as the player's deeply submerged radar.
+  static final double BOT_SUBMARINE_UNDERWATER_RANGE = 945 * 2.5 * 0.62 * 0.58;
   static final double BOT_SUBMARINE_ATTACK_CONTINUATION_SECONDS = 10;
   static final double BOT_RAM_RANGE = 34 * BOT_SHIP_TACTICAL_SCALE;
   static final double BOT_TORPEDO_EVADE_RANGE = 115 * BOT_SHIP_TACTICAL_SCALE;

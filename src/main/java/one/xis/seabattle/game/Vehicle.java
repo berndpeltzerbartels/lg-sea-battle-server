@@ -110,6 +110,13 @@ public abstract sealed class Vehicle permits SurfaceVehicle, ScoutPlane {
     return !isSubmarine() || "surface".equals(depthState());
   }
 
+  public final boolean isHumanControlled() {
+    return controlledBy != null
+        && !controlledBy.isBlank()
+        && !"bot".equals(controlledBy)
+        && !"scenario".equals(controlledBy);
+  }
+
   public final boolean isBotControlled() {
     return "bot".equals(controlledBy);
   }
@@ -128,10 +135,6 @@ public abstract sealed class Vehicle permits SurfaceVehicle, ScoutPlane {
   final SurfaceVehicle surface() {
     if (this instanceof SurfaceVehicle surface) return surface;
     throw new IllegalStateException("Aircraft has no surface navigation state: " + id);
-  }
-
-  final SubmarineBot submarineBot() {
-    return ((Submarine) this).bot();
   }
 
   void botDepth(String depth) {}
@@ -170,6 +173,11 @@ public abstract sealed class Vehicle permits SurfaceVehicle, ScoutPlane {
 
   public double verticalSpeed() {
     return 0;
+  }
+
+  /** Standard hunt order, if this vehicle can receive one. It is not a navigation command. */
+  public BotSubmarineHunt.Search submarineSearch() {
+    return null;
   }
 
   public String depthState() {
