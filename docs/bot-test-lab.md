@@ -263,8 +263,9 @@ damit der Browser unverändert funktioniert. Er ist kein veränderliches Fahrzeu
 
 ## Austausch im normalen Spiel
 
-`StandardBotTargetSelection` enthält die bisherige Zielgewichtung und die Entscheidung
-zwischen direktem Kontakt, U-Boot-Jagd, gemerktem Angriffskurs und Patrouille.
+`StandardBotTargetSelection` verteilt die Zielauswahl auf die Implementierung des jeweiligen
+Fahrzeugtyps. Diese enthalten Zielgewichtung und die Entscheidung zwischen direktem Kontakt,
+U-Boot-Jagd, gemerktem Angriffskurs und Patrouille.
 `StandardBotCalculation` enthält Navigation, taktisches Tauchen und die bisherigen
 Angriffsentscheidungen. Sie rufen keine versteckte Standardberechnung in `GameSession` auf.
 Die Sitzung stellt Wahrnehmung, Zeitplanung, Physik und Waffeneffekte bereit.
@@ -393,8 +394,9 @@ pro Runde; innerhalb dieser Messung ist kein relevanter Mehrbedarf erkennbar.
 
 ## Jagdentscheidungen gehören zur Zielauswahl
 
-Die Jagdverwaltung gehört vollständig zu `StandardBotTargetSelection` und deren Hilfsklasse
-`BotSubmarineHunt`. Die Spielsitzung erzeugt keine Jagdaufträge und verwaltet keine
+Die Jagdverwaltung gehört vollständig zur Standard-Zielauswahl: `TorpedoBoatBotTargetSelection`
+entscheidet über Jagd- und Fortsetzungsziele. `WaterBotTargetSelection` und `BotSubmarineHunt`
+verwalten gemeinsame Sichtungsmeldungen und Rekrutierung. Die Spielsitzung erzeugt keine Jagdaufträge und verwaltet keine
 Jagdgruppen mehr. Sie stellt lediglich die bestehenden Wahrnehmungen und bestätigte
 Sonarkontakte bereit. Der Standard entscheidet daraus über Meldung, Rekrutierung,
 Jagdgebiet, Dauer, Suchpunkte, Angriffsfortsetzung und deren Priorität.
@@ -433,3 +435,50 @@ liegt im Median der Durchlaufmittelwerte vor und nach der Änderung bei rund 0,2
 Ein neuer Durchlauf hatte einen Ausreißer von rund 0,35 ms. Der Kurzvergleich ist kein
 Nachweis für unveränderte Produktionslast; es gibt jedoch keine zusätzlichen globalen
 Suchschleifen. Bestehende Kandidaten und räumliche Abfragen werden weiterverwendet.
+
+
+## Zielauswahl nach Fahrzeugtyp
+
+`StandardBotTargetSelection` verteilt `select`, `observe`, `goal` und bestätigte
+Sonarkontakte auf drei eigenständig austauschbare Implementierungen:
+
+- `TorpedoBoatBotTargetSelection`: Gegnerpriorität, U-Boot-Suche und gemerkter Angriffskurs.
+- `SubmarineBotTargetSelection`: Gegnerpriorität, Sichtungsmeldungen und Fahrziel des U-Boots.
+- `ScoutPlaneBotTargetSelection`: Anflugwinkel, verteilte Angreifer und die bisherige Rotation
+  von Angriffen auf menschliche Spieler. Flugzeuge melden keine U-Boot-Jagd.
+
+Alle implementieren `VehicleBotTargetSelection<V>`. Die Methoden erhalten das konkrete
+Fahrzeug (`TorpedoBoat`, `Submarine` oder `ScoutPlane`) und dieselbe `BotTargetSituation`.
+Es entstehen keine Fahrzeugkopien oder Snapshots. Das Interface ist funktional; für eine
+reine Zielgewichtung genügt eine Lambda-Funktion. Eigene Suchziele werden mit `goal`
+berechnet. Wahrnehmung und Auswahl-Takte bleiben bei der Spielsitzung.
+
+Die Standardinstanzen für Torpedoboote und U-Boote teilen die gemeinsamen Regeln in
+`WaterBotTargetSelection` und einen Sichtungsspeicher. So löst auch eine zulässige Sichtung
+durch ein U-Boot dieselbe Jagd aus. Beim Einsetzen unabhängig erzeugter Standardinstanzen
+hat jede ihren eigenen Sichtungsspeicher; Meldungen werden für die Ausgabe zusammengeführt.
+
+Beispiel: nur die Zielgewichtung für Flugzeuge ersetzen:
+
+```java
+BotTargetSelection selection = new StandardBotTargetSelection(
+    new TorpedoBoatBotTargetSelection(),
+    new SubmarineBotTargetSelection(),
+    (plane, situation, tickId) -> situation.candidates().stream()
+        .min(java.util.Comparator.comparingDouble(
+            target -> plane.position().distanceTo(target.position())))
+        .orElse(null));
+```
+
+Für die Konfiguration im normalen Spiel kann eine eigene `BotTargetSelection` diese
+Zusammenstellung delegieren. Die bisherigen JVM- und Testlabor-Einstiegspunkte bleiben gültig.
+
+Die Aufteilung ist mit drei weiteren Tests geprüft: typisierte Weiterleitung im laufenden
+Spiel einschließlich der erzeugten Navigationsziele, Austausch nur der Flugzeugauswahl
+und gemeinsame Jagdmeldungen aus U-Boot-Sichtungen. Die gesamte Suite umfasst nun 635 Tests:
+633 bestanden, 2 übersprungen; alle sieben Performance-Grenztests bestehen.
+Ein lokaler Vorher-nachher-Vergleich über 38.400 gemessene Updates bei aktiver Jagd zeigt
+keine relevante Verlangsamung: Median der Laufmittelwerte bei 40 Fahrzeugen 0,078 / 0,074 ms,
+bei 100 Fahrzeugen 0,173 / 0,172 ms. Gemessen wurde die vollständige Berechnungsrunde auf
+einer offenen Karte, nach JVM-Aufwärmung und mit unterdrückter Schussabgabe. Beschuss und
+Landschaft sind separat durch die Grenztests abgedeckt. Das ersetzt keinen Produktionslasttest.

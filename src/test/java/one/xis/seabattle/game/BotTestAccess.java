@@ -21,20 +21,22 @@ final class BotTestAccess {
   private Optional<Vehicle> scoutPlaneAttackHuman(Vehicle plane) throws Exception {
     return (Optional<Vehicle>)
         call(
-            new StandardBotTargetSelection(session),
+            new ScoutPlaneBotTargetSelection(),
             "scoutPlaneAttackHuman",
-            new Class[] {Vehicle.class},
-            plane);
+            new Class[] {GameSession.class, ScoutPlane.class},
+            session,
+            (ScoutPlane) plane);
   }
 
   private boolean shouldForceHumanScoutPlaneTarget(Vehicle plane, Optional<Vehicle> human)
       throws Exception {
     return (boolean)
         call(
-            new StandardBotTargetSelection(session),
+            new ScoutPlaneBotTargetSelection(),
             "shouldForceHumanScoutPlaneTarget",
-            new Class[] {Vehicle.class, Optional.class},
-            plane,
+            new Class[] {GameSession.class, ScoutPlane.class, Optional.class},
+            session,
+            (ScoutPlane) plane,
             human);
   }
 
@@ -42,10 +44,10 @@ final class BotTestAccess {
       throws Exception {
     return (Optional<Vehicle>)
         call(
-            new StandardBotTargetSelection(session),
+            new WaterBotTargetSelection(),
             "chooseBotTarget",
-            new Class[] {Vehicle.class, List.class},
-            vehicle,
+            new Class[] {SurfaceVehicle.class, List.class},
+            (SurfaceVehicle) vehicle,
             targets);
   }
 
