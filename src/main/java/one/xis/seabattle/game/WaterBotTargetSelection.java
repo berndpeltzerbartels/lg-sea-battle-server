@@ -20,8 +20,15 @@ final class WaterBotTargetSelection {
     }
   }
 
-  public void depthChargeContact(BotTargetSituation situation, Submarine target, long tickId) {
-    if (target.isHumanControlled()) report(situation, target);
+  public void sonarContact(BotTargetSituation situation, Submarine target, long tickId) {
+    if (!BotSubmarineHunt.canReport(situation.observer())
+        || target.teamId().equals(situation.observer().teamId())
+        || !situation.hasSonarContact(target)) return;
+    if (submarineHunts == null) submarineHunts = new BotSubmarineHunt();
+    double radius = BotSubmarineHunt.RECRUIT_RADIUS
+        + situation.observer().position().distanceTo(target.position());
+    submarineHunts.sonarContact(situation.observer(), target, situation.timeSeconds(),
+        () -> situation.nearbyVehicles(radius));
   }
 
   public Map<String, BotSubmarineHunt.Detection> submarineDetections(double now) {

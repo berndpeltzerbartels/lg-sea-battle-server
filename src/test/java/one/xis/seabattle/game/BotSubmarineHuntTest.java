@@ -175,7 +175,7 @@ class BotSubmarineHuntTest {
         }
     }
 
-    @Test void actualSonarTriggeredDepthChargeDropReportsTheStrongestHostileContact() throws Exception {
+    @Test void actualSonarReportsBeforeDroppingAndKeepsTheStrongestHostileContact() throws Exception {
         GameSession session = scenario(false, false);
         List<Vehicle> all = ships(session);
         Vehicle target = all.stream().filter(b -> b.id().equals("sub")).findFirst().orElseThrow();
@@ -185,8 +185,8 @@ class BotSubmarineHuntTest {
         for (double distance : new double[]{100, 60, 20, 20}) {
             depth(target, 0, -60 + distance, "submerged", 0);
             drop.invoke(session, detector, radar.visibilityCache(water, all));
-            assertTrue(session.snapshot().submarineDetections().isEmpty(), "First/rising/steady echo cannot report a drop");
-            assertNull(detector.submarineSearch());
+            assertTrue(session.snapshot().depthCharges().isEmpty(), "First/rising/steady echo cannot drop");
+            assertNotNull(detector.submarineSearch(), "Sonar contact starts a hunt without firing");
         }
         depth(target, 0, -37, "submerged", 0); // 23: first weakening after closest pass.
         drop.invoke(session, detector, radar.visibilityCache(water, all));

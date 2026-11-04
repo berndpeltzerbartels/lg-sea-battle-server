@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
-/** A sighting shares a fixed search area, never the submerged submarine's live position. */
+/** Shares the last confirmed position; only a fresh sonar contact can renew an existing area. */
 public final class BotSubmarineHunt {
   static final double DURATION = 60;
   static final double DETECTION_NOTICE_SECONDS = 3;
@@ -16,7 +16,25 @@ public final class BotSubmarineHunt {
 
   private record Contact(String team, String target, long life) {}
 
-  public record Area(Vector2 center, double until) {}
+  public static final class Area {
+    private Vector2 center;
+    private double until;
+    private final double noticeUntil;
+
+    public Area(Vector2 center, double until) {
+      this.center = center;
+      this.until = until;
+      noticeUntil = until - DURATION + DETECTION_NOTICE_SECONDS;
+    }
+
+    public Vector2 center() { return center; }
+    public double until() { return until; }
+
+    private void renew(Vector2 confirmedPosition, double now) {
+      center = confirmedPosition;
+      until = now + DURATION;
+    }
+  }
 
   private final Map<Contact, Area> sightings = new HashMap<>();
   private double nextExpiry = Double.POSITIVE_INFINITY;
@@ -42,7 +60,7 @@ public final class BotSubmarineHunt {
     Map<String, Detection> result = new HashMap<>();
     sightings.forEach(
         (contact, area) -> {
-          double until = area.until() - DURATION + DETECTION_NOTICE_SECONDS;
+          double until = area.noticeUntil;
           if (until > now)
             result.merge(
                 contact.target(),
@@ -56,12 +74,26 @@ public final class BotSubmarineHunt {
   }
 
   void sighting(Vehicle observer, Vehicle target, double now, Supplier<List<Vehicle>> neighbors) {
+    contact(observer, target, now, neighbors, false);
+  }
+
+  void sonarContact(Vehicle observer, Vehicle target, double now, Supplier<List<Vehicle>> neighbors) {
+    contact(observer, target, now, neighbors, true);
+  }
+
+  private void contact(Vehicle observer, Vehicle target, double now,
+                       Supplier<List<Vehicle>> neighbors, boolean renew) {
     if (!canReport(observer)) return;
     if (!target.isSubmarine() || observer.teamId().equals(target.teamId())) return;
     expire(now);
     Contact contact = new Contact(observer.teamId(), target.id(), target.lifeId());
-    // Continued visibility does not move the area or restart its minute.
-    if (sightings.containsKey(contact)) return;
+    Area previous = sightings.get(contact);
+    if (previous != null) {
+      // Shared by the assigned hunters: renew in O(1), without another neighborhood query.
+      // Visual observations retain their old policy; only confirmed sonar renews the search.
+      if (renew) previous.renew(target.position(), now);
+      return;
+    }
     Area area = new Area(target.position(), now + DURATION);
     sightings.put(contact, area);
     nextExpiry = Math.min(nextExpiry, area.until());
@@ -82,12 +114,14 @@ public final class BotSubmarineHunt {
     private final double entryAngle;
     private int waypoint;
     private Vector2 destination;
+    private Vector2 destinationCenter;
 
     Search(Area area, Vector2 approachFrom) {
       this.area = area;
       Vector2 offset = approachFrom.subtract(area.center());
       entryAngle = Math.atan2(offset.x(), offset.z());
       destination = point();
+      destinationCenter = area.center();
     }
 
     public boolean active(double now) {
@@ -103,10 +137,15 @@ public final class BotSubmarineHunt {
     }
 
     public Vector2 currentDestination() {
+      if (!area.center().equals(destinationCenter)) {
+        destinationCenter = area.center();
+        destination = point();
+      }
       return destination;
     }
 
     Vector2 destination(Vehicle boat) {
+      currentDestination();
       if (boat.position().distanceTo(destination) <= WAYPOINT_REACHED) {
         waypoint++;
         destination = point();

@@ -44,7 +44,7 @@ class VehicleBotTargetSelectionTest {
     }
 
     @Override
-    public void depthChargeContact(
+    public void sonarContact(
         V vehicle, BotTargetSituation situation, Submarine target, long tickId) {
       check(vehicle, situation);
       sonarContacts++;
@@ -99,7 +99,7 @@ class VehicleBotTargetSelectionTest {
       assertTrue(session.calculationShips().stream().anyMatch(v -> v == policy.original));
     }
     var cache = radar.visibilityCache(session.worldMap(), session.calculationShips());
-    selection.depthChargeContact(
+    selection.sonarContact(
         new BotTargetSituation(session, boats.original, List.of(), cache, Map.of()),
         submarines.original,
         26);

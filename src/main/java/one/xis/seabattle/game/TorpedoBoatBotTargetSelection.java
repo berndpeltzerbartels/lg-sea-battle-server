@@ -28,9 +28,9 @@ public final class TorpedoBoatBotTargetSelection implements VehicleBotTargetSele
   }
 
   @Override
-  public void depthChargeContact(
+  public void sonarContact(
       TorpedoBoat boat, BotTargetSituation situation, Submarine target, long tickId) {
-    waterTargets.depthChargeContact(situation, target, tickId);
+    waterTargets.sonarContact(situation, target, tickId);
   }
 
   @Override

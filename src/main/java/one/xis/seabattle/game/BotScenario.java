@@ -73,9 +73,9 @@ public final class BotScenario {
             selector.observe(situation, tickId);
             targetNanos[index[0]] += System.nanoTime() - start;
           }
-          @Override public void depthChargeContact(BotTargetSituation situation, Submarine target, long tickId) {
+          @Override public void sonarContact(BotTargetSituation situation, Submarine target, long tickId) {
             long start = System.nanoTime();
-            selector.depthChargeContact(situation, target, tickId);
+            selector.sonarContact(situation, target, tickId);
             targetNanos[index[0]] += System.nanoTime() - start;
           }
           @Override public java.util.Map<String, BotSubmarineHunt.Detection> submarineDetections(double now) {
