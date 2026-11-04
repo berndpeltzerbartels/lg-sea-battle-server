@@ -120,7 +120,7 @@ class BotHuntStrategyTest {
           }
 
           @Override
-          public void depthChargeContact(
+          public void sonarContact(
               BotTargetSituation situation, Submarine target, long tick) {
             assertEquals("observer", situation.observerId());
             assertEquals("target", target.id());
@@ -141,7 +141,7 @@ class BotHuntStrategyTest {
           session, observer, radar.visibilityCache(session.worldMap(), session.calculationShips()));
     }
     assertEquals(
-        1, reports.get(), "Report only the actual salvo, not every weaker echo while reloading");
+        6, reports.get(), "Report current sonar contact even before a drop or while reloading");
     assertFalse(session.snapshot().depthCharges().isEmpty());
     assertTrue(session.snapshot().submarineDetections().isEmpty());
     assertTrue(session.calculationShips().stream().allMatch(v -> v.submarineSearch() == null));

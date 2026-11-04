@@ -14,8 +14,8 @@ public interface BotTargetSelection {
   /** New perception candidates at the observer's staggered selection tick. No implicit policy. */
   default void observe(BotTargetSituation situation, long tickId) {}
 
-  /** Confirmed hostile sonar contact when a depth-charge salvo actually starts. */
-  default void depthChargeContact(BotTargetSituation situation, Submarine target, long tickId) {}
+  /** Current hostile sonar contact, at the existing half-second depth-charge check. */
+  default void sonarContact(BotTargetSituation situation, Submarine target, long tickId) {}
 
   /** Optional short-lived detection notices for output. The default has no hunt state. */
   default Map<String, BotSubmarineHunt.Detection> submarineDetections(double now) {

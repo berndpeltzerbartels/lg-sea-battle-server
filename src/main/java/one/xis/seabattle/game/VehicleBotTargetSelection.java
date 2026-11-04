@@ -9,7 +9,7 @@ public interface VehicleBotTargetSelection<V extends Vehicle> {
 
   default void observe(V vehicle, BotTargetSituation situation, long tickId) {}
 
-  default void depthChargeContact(
+  default void sonarContact(
       V vehicle, BotTargetSituation situation, Submarine target, long tickId) {}
 
   default Map<String, BotSubmarineHunt.Detection> submarineDetections(double now) {

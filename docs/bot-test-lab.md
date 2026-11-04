@@ -202,7 +202,7 @@ assertTrue(run.targetDecisions().stream()
 
 Im Bericht zeigen gelbe gestrichelte Linien und die Spalte **Letzte Zielwahl** die zuletzt ausgewählte Ziel-ID. Das ist ein Auswahlprotokoll, kein garantierter aktueller Sichtkontakt. `targets.csv` protokolliert jeden tatsächlichen Aufruf mit Tick, Zeit, Beobachter, vorherigem Ziel, gewähltem Ziel, dessen Lebens-ID und Kandidatenzahl. `run.targetDecisions()` macht dieselben Entscheidungen für eigene JUnit-Prüfungen zugänglich. Ein fehlendes Ziel steht dort als `null` und in der CSV als leeres Feld.
 
-`benchmark.csv` und `run.timing().targetSelection()` messen zusätzlich die Zeit **innerhalb der Auswahlimplementierung (`observe`, `depthChargeContact`, `select` und `goal`)**. Kandidatensuche, Erkennungsprüfung und nachfolgende Navigation liegen außerhalb dieser Teilmessung und bleiben in der Gesamtrundenmessung enthalten; Navigation liegt zusätzlich in der Bewegungs-/Steuerzeit. Die Zielzeit wird je Simulationstakt summiert; `goal` läuft auch zwischen den Auswahl-Takten, damit Zielpunkte aktuell bleiben. `targetSelectionCalls` gibt zusätzlich die Anzahl tatsächlicher Auswahlaufrufe an. Die Zielgewichtung läuft vor `calculate()` und ist daher nicht in dessen Bewegungs-/Steuerzeit enthalten. Die Gesamtrundenmessung enthält beide Phasen sowie Vorbereitung und Physik.  Das Auswahlprotokoll wird nur für den sichtbaren Probelauf gesammelt, nicht während der anschließenden Benchmark-Durchläufe.
+`benchmark.csv` und `run.timing().targetSelection()` messen zusätzlich die Zeit **innerhalb der Auswahlimplementierung (`observe`, `sonarContact`, `select` und `goal`)**. Kandidatensuche, Erkennungsprüfung und nachfolgende Navigation liegen außerhalb dieser Teilmessung und bleiben in der Gesamtrundenmessung enthalten; Navigation liegt zusätzlich in der Bewegungs-/Steuerzeit. Die Zielzeit wird je Simulationstakt summiert; `goal` läuft auch zwischen den Auswahl-Takten, damit Zielpunkte aktuell bleiben. `targetSelectionCalls` gibt zusätzlich die Anzahl tatsächlicher Auswahlaufrufe an. Die Zielgewichtung läuft vor `calculate()` und ist daher nicht in dessen Bewegungs-/Steuerzeit enthalten. Die Gesamtrundenmessung enthält beide Phasen sowie Vorbereitung und Physik.  Das Auswahlprotokoll wird nur für den sichtbaren Probelauf gesammelt, nicht während der anschließenden Benchmark-Durchläufe.
 
 
 ## Explizite Übergabe der Zielsammlung an die Bewegung
@@ -405,8 +405,12 @@ Das Interface hat dafür optionale Methoden mit wirkungslosen Standardimplementi
 
 - `observe(situation, tickId)`: aktualisierte Kandidaten beim bisherigen Auswahl-Takt.
   Der Standard meldet hier sichtbare feindliche menschliche U-Boote.
-- `depthChargeContact(situation, submarine, tickId)`: bestätigter feindlicher Sonarkontakt,
-  sobald tatsächlich eine Wasserbomben-Salve startet. Der Standard kann daraus die Jagd auslösen.
+- `sonarContact(situation, submarine, tickId)`: bestätigter feindlicher Sonarkontakt,
+  beim bestehenden Sonarcheck alle 0,5 Sekunden, unabhängig von Abwurf oder Nachladen.
+  Der Standard startet oder erneuert damit eine 60-Sekunden-Jagd auf feindliche U-Boote
+  (Bots und Menschen). Eigene U-Boote und verlorene Kontakte erneuern nichts.
+  Bereits beteiligte Jäger teilen das aktualisierte Gebiet; eine Erneuerung benötigt keine
+  weitere Nachbarschaftssuche. Die kurze Erkannt-Anzeige behält ihre eigene Laufzeit.
 - `submarineDetections(now)`: kurzlebige Hinweise für die Ausgabe; standardmäßig eine leere Map.
 
 Eine eigene `BotTargetSelection` erhält damit weder automatisch Jagdaufträge noch

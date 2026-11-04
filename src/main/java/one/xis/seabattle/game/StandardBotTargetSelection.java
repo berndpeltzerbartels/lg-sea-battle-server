@@ -56,18 +56,18 @@ public final class StandardBotTargetSelection implements BotTargetSelection {
   }
 
   @Override
-  public void depthChargeContact(BotTargetSituation situation, Submarine target, long tickId) {
+  public void sonarContact(BotTargetSituation situation, Submarine target, long tickId) {
     Vehicle vehicle = situation.observer();
     if (vehicle instanceof TorpedoBoat boat) {
-      torpedoBoats.depthChargeContact(boat, situation, target, tickId);
+      torpedoBoats.sonarContact(boat, situation, target, tickId);
       return;
     }
     if (vehicle instanceof Submarine submarine) {
-      submarines.depthChargeContact(submarine, situation, target, tickId);
+      submarines.sonarContact(submarine, situation, target, tickId);
       return;
     }
     if (vehicle instanceof ScoutPlane plane) {
-      planes.depthChargeContact(plane, situation, target, tickId);
+      planes.sonarContact(plane, situation, target, tickId);
       return;
     }
     throw new IllegalArgumentException("Unsupported vehicle type: " + vehicle.getClass());

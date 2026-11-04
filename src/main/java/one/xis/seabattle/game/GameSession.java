@@ -757,6 +757,11 @@ public final class GameSession {
         }
         double previous = ship.surface().botNavigation.previousSubmarineEcho;
         ship.surface().botNavigation.previousSubmarineEcho = strength;
+        // A confirmed enemy echo is contact even on approach, or while launchers reload.
+        if (sonarContact instanceof Submarine submarine) {
+            targetSelection.sonarContact(new BotTargetSituation(this, ship, List.of(), visibilityCache, Map.of()),
+                    submarine, (long) Math.floor(nowSeconds * 10 + 1e-6));
+        }
         // Like the visible echo meter: strongest at the closest pass, independent of speed.
         // No signal, first contact, steady or growing signal: do not drop.
         if (strength <= 0 || previous <= 0 || strength >= previous - 1e-6) return;
@@ -765,10 +770,6 @@ public final class GameSession {
         if (reload != null && (reload.queuedPlayer != null
                 || java.util.Arrays.stream(reload.readyAt).anyMatch(t -> nowSeconds < t))) return;
         dropDepthCharges(ship.controlledBy(), ship.controlledBy(), ship.id());
-        if (sonarContact instanceof Submarine submarine) {
-            targetSelection.depthChargeContact(new BotTargetSituation(this, ship, List.of(), visibilityCache, Map.of()),
-                    submarine, (long) Math.floor(nowSeconds * 10 + 1e-6));
-        }
     }
 
     private Optional<Vehicle> selectBotScoutPlaneTarget(Vehicle plane, List<Vehicle> activeShips,
