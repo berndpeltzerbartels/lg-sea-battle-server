@@ -140,14 +140,14 @@ final class BotNavigation {
     void checkNear(Vehicle ship, List<Vehicle> ships, NavigationService navigation, WorldMap world) {
         nearbyTraffic = false;
         Course intended = forward != null ? forward : encounter != null ? encounter : route;
-        if (intended == null || trafficClear(ship, intended, ships, NEAR_RANGE, 3, 22)) {
+        if (intended == null || trafficClear(ship, intended, ships, NEAR_RANGE, 3, SHIP_LENGTH)) {
             near = null;
             return;
         }
         world = nearbyLand(ship, world, Math.max(16, Math.abs(ship.speed()) * 2));
-        if (near != null && trafficClear(ship, near, ships, NEAR_RANGE, 3, 22)
+        if (near != null && trafficClear(ship, near, ships, NEAR_RANGE, 3, SHIP_LENGTH)
                 && pathClear(ship, near.heading, Math.max(16, Math.abs(ship.speed()) * 2), navigation, world)) return;
-        near = avoidTraffic(ship, intended, ships, NEAR_RANGE, 3, 22, navigation, world);
+        near = avoidTraffic(ship, intended, ships, NEAR_RANGE, 3, SHIP_LENGTH, navigation, world);
     }
 
     private Course avoidTraffic(Vehicle ship, Course intended, List<Vehicle> ships, double range,
@@ -177,15 +177,13 @@ final class BotNavigation {
             // Reuse this scan: a close passing situation must not be slowed by the cruise startup ramp.
             if (range == NEAR_RANGE) nearbyTraffic = true;
             if (d2 < clearance * clearance) {
-                // At an existing close contact, equal velocities do not mean the hulls are clear.
-                // The trailing boat yields; crossing boats use stable right of way. Never both shunt.
-                if (!other.isBotControlled()) return false;
-                double alignment = Math.cos(ship.heading() - other.heading());
-                double along = dx * (Math.sin(ship.heading()) + Math.sin(other.heading()))
-                        + dz * (Math.cos(ship.heading()) + Math.cos(other.heading()));
-                boolean yield = alignment > .5 && Math.abs(along) > 1
-                        ? along > 0 : ship.id().compareTo(other.id()) > 0;
-                if (yield) return false;
+                // Existing close groups must be able to open up, even when normally yielding.
+                double ownApproach = dx * vx + dz * vz;
+                double relativeApproach = dx * (Math.sin(other.heading()) * other.speed() - vx)
+                        + dz * (Math.cos(other.heading()) * other.speed() - vz);
+                double actualApproach = (dx * Math.sin(ship.heading()) + dz * Math.cos(ship.heading())) * ship.speed();
+                if (ownApproach < -.001 && actualApproach <= 0 && relativeApproach >= 0) continue;
+                if (mustYieldTo(ship, other)) return false;
                 continue;
             }
             double rvx = Math.sin(other.heading()) * other.speed() - vx;
@@ -200,6 +198,30 @@ final class BotNavigation {
         }
         return true;
     }
+    static boolean mustYieldTo(Vehicle vehicle, Vehicle other) {
+        if (!other.isBotControlled()) return true;
+        double alignment = Math.cos(vehicle.heading() - other.heading());
+        double dx = other.position().x() - vehicle.position().x();
+        double dz = other.position().z() - vehicle.position().z();
+        double along = dx * (Math.sin(vehicle.heading()) + Math.sin(other.heading()))
+                + dz * (Math.cos(vehicle.heading()) + Math.cos(other.heading()));
+        return alignment > .5 && Math.abs(along) > 1
+                ? along > 0 : vehicle.id().compareTo(other.id()) > 0;
+    }
+
+    // Only needed when a land escape actually requests reverse, not during every planning layer.
+    static boolean reverseTrafficClear(Vehicle vehicle, List<Vehicle> vehicles) {
+        Vector2 stern = Vector2.fromHeading(vehicle.heading()).scale(-1);
+        for (Vehicle other : vehicles) {
+            if (other == vehicle || !"active".equals(other.state()) || other.isScoutPlane()
+                    || !other.teamId().equals(vehicle.teamId()) || !sameDepth(vehicle, other)) continue;
+            Vector2 offset = other.position().subtract(vehicle.position());
+            if (offset.x() * stern.x() + offset.z() * stern.z() >= 0
+                    && offset.x() * offset.x() + offset.z() * offset.z() < SHIP_LENGTH * SHIP_LENGTH) return false;
+        }
+        return true;
+    }
+
     private static boolean sameDepth(Vehicle a, Vehicle b) {
         if (Math.abs(a.y() - b.y()) < 5) return true;
         // A friendly mast at periscope depth is still a surface collision obstacle.

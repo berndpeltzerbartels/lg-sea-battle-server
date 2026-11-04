@@ -986,6 +986,12 @@ public final class GameSession {
                     continue;
                 }
 
+                if (left.teamId().equals(right.teamId()) && left.isBotControlled() && right.isBotControlled()) {
+                    backOffYieldingFriend(left, right);
+                    backOffYieldingFriend(right, left);
+                    continue;
+                }
+
                 if (left.isBotControlled() && right.isBotControlled()) {
                     resolveGlancingRam(left, right);
                     continue;
@@ -1145,18 +1151,27 @@ public final class GameSession {
         stopAfterRamImpact(left);
     }
 
+    private void backOffYieldingFriend(Vehicle vehicle, Vehicle other) {
+        if (!vehicle.isBotControlled() || !BotNavigation.mustYieldTo(vehicle, other)) return;
+        Vector2 offset = other.position().subtract(vehicle.position());
+        Vector2 motion = Vector2.fromHeading(vehicle.heading()).scale(vehicle.speed());
+        // A boat already leaving a close group must not be pinned by the contact response.
+        if (offset.x() * motion.x() + offset.z() * motion.z() < 0) return;
+        vehicle.backOffAfterGlancingRam(nowSeconds, BOT_GLANCING_RAM_BACKOFF_SECONDS, other);
+    }
+
     private void resolveGlancingRam(Vehicle left, Vehicle right) {
         double side = Math.signum(MathSupport.normalizeAngle(right.heading() - left.heading()));
         if (side == 0) {
             side = 1;
         }
-        resolveGlancingShip(left, right.position(), -side * RAM_GLANCING_HEADING_IMPULSE);
-        resolveGlancingShip(right, left.position(), side * RAM_GLANCING_HEADING_IMPULSE);
+        resolveGlancingShip(left, right, -side * RAM_GLANCING_HEADING_IMPULSE);
+        resolveGlancingShip(right, left, side * RAM_GLANCING_HEADING_IMPULSE);
     }
 
-    private void resolveGlancingShip(Vehicle ship, Vector2 targetPosition, double headingImpulse) {
+    private void resolveGlancingShip(Vehicle ship, Vehicle other, double headingImpulse) {
         if (ship.isBotControlled()) {
-            ship.backOffAfterGlancingRam(nowSeconds, BOT_GLANCING_RAM_BACKOFF_SECONDS, targetPosition);
+            ship.backOffAfterGlancingRam(nowSeconds, BOT_GLANCING_RAM_BACKOFF_SECONDS, other);
         } else {
             ship.glanceOff(headingImpulse, 0.55);
         }

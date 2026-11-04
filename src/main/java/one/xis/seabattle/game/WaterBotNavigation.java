@@ -94,13 +94,23 @@ final class WaterBotNavigation {
     plan.checkNear(vehicle, waterVehicles, navigationService, worldMap);
 
     // Emergency rules have highest priority. They never overwrite a stored route/encounter plan.
-    if (escapeBlockedWater(vehicle, navigationService, worldMap)) return;
+    if (vehicle.hasGlancingRamBackoff(session.nowSeconds)) {
+      boolean rearBlocked =
+          navigationService.isShipMovementBlocked(
+                  vehicle.position(), vehicle.heading(), -1, worldMap)
+              || !BotNavigation.reverseTrafficClear(vehicle, waterVehicles);
+      if (rearBlocked) {
+        vehicle.cancelGlancingRamBackoff();
+        vehicle.applyCommand(ENGINE_STOP, 0);
+      } else vehicle.applyGlancingRamBackoff(session.nowSeconds);
+      return;
+    }
+    if (escapeBlockedWater(vehicle, waterVehicles, navigationService, worldMap)) return;
     Optional<Torpedo> threat = visibleIncomingTorpedo(vehicle);
     if (threat.isPresent()) {
       evadeTorpedo(vehicle, threat.get(), navigationService, worldMap);
       return;
     }
-    if (vehicle.applyGlancingRamBackoff(session.nowSeconds)) return;
     BotNavigation.Course urgent =
         escapeFromThreat == null
             ? null
@@ -167,12 +177,20 @@ final class WaterBotNavigation {
   }
 
   private boolean escapeBlockedWater(
-      SurfaceVehicle vehicle, NavigationService navigationService, WorldMap worldMap) {
+      SurfaceVehicle vehicle,
+      List<Vehicle> waterVehicles,
+      NavigationService navigationService,
+      WorldMap worldMap) {
     BotCommand command =
         plannedEscapes == null
             ? escapeCommand(vehicle, navigationService, worldMap)
             : plannedEscapes.get(vehicle);
     if (command == null) return false;
+    if (command.engineOrder() < ENGINE_STOP
+        && !BotNavigation.reverseTrafficClear(vehicle, waterVehicles)) {
+      vehicle.applyCommand(ENGINE_STOP, 0);
+      return true;
+    }
     command.apply(vehicle);
     return true;
   }
@@ -193,6 +211,11 @@ final class WaterBotNavigation {
             || navigationService.isShipBlocked(
                 vehicle.position().add(forward.scale(14)), vehicle.heading(), worldMap)
             || navigationService.isShipBlocked(farLookAhead, vehicle.heading(), worldMap);
+
+    if (session.nowSeconds < vehicle.botReverseUntil && !blockedHere && !blockedNear) {
+      vehicle.botReverseUntil = 0;
+      vehicle.botEscapeUntil = session.nowSeconds + 4;
+    }
 
     if (session.nowSeconds < vehicle.botForwardEscapeUntil) {
       return new BotCommand(
@@ -219,8 +242,8 @@ final class WaterBotNavigation {
             vehicle.position(), vehicle.heading(), -1, worldMap)) {
       double safeHeading = retainedEscapeHeading(vehicle, navigationService, worldMap);
       if (session.nowSeconds >= vehicle.botReverseUntil)
-        vehicle.botReverseUntil = session.nowSeconds + 6;
-      return new BotCommand(ENGINE_FULL_ASTERN, -rudderTowardHeading(vehicle, safeHeading));
+        vehicle.botReverseUntil = session.nowSeconds + 2;
+      return new BotCommand(ENGINE_ASTERN, -rudderTowardHeading(vehicle, safeHeading));
     }
 
     if (blockedHere) {
@@ -239,8 +262,8 @@ final class WaterBotNavigation {
       if (asternClear) {
         double safeHeading = retainedEscapeHeading(vehicle, navigationService, worldMap);
         if (session.nowSeconds >= vehicle.botReverseUntil)
-          vehicle.botReverseUntil = session.nowSeconds + 6;
-        return new BotCommand(ENGINE_FULL_ASTERN, -rudderTowardHeading(vehicle, safeHeading));
+          vehicle.botReverseUntil = session.nowSeconds + 2;
+        return new BotCommand(ENGINE_ASTERN, -rudderTowardHeading(vehicle, safeHeading));
       }
       if (forwardClear) {
         return new BotCommand(ENGINE_SLOW, 0);

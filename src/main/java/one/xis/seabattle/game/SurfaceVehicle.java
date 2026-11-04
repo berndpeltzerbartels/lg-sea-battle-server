@@ -4,7 +4,9 @@ package one.xis.seabattle.game;
 public abstract sealed class SurfaceVehicle extends Vehicle permits TorpedoBoat, Submarine {
   private double flakYaw = Math.PI, flakPitch;
   private double backoffUntil = Double.NEGATIVE_INFINITY;
-  private Vector2 backoffTarget;
+  private Vehicle backoffContact;
+  private long backoffContactLife;
+  private Vector2 backoffStart;
   double botEscapeHeading, botEscapeUntil, botReverseUntil, botForwardEscapeUntil;
 
   public record SubmarineAttackCourse(
@@ -23,6 +25,7 @@ public abstract sealed class SurfaceVehicle extends Vehicle permits TorpedoBoat,
   protected void resetControllerState() {
     botNavigation = new BotNavigation(id());
     botSubmarineAttackCourse = null;
+    clearImpactState();
   }
 
   @Override
@@ -73,42 +76,57 @@ public abstract sealed class SurfaceVehicle extends Vehicle permits TorpedoBoat,
     return "active".equals(state) && now >= nextFireTime;
   }
 
-  @Override
-  boolean applyGlancingRamBackoff(double now) {
-    if (!"active".equals(state) || now >= backoffUntil) {
-      backoffTarget = null;
+  boolean hasGlancingRamBackoff(double now) {
+    if (backoffContact == null) return false;
+    if (!"active".equals(backoffContact.state())
+        || backoffContact.lifeId() != backoffContactLife
+        || position.distanceTo(backoffContact.position()) >= BotNavigation.SHIP_LENGTH) {
+      clearImpactState();
       return false;
     }
-    applyCommand(0, backoffRudder());
+    return "active".equals(state) && now < backoffUntil && position.distanceTo(backoffStart) < 1.5;
+  }
+
+  @Override
+  boolean applyGlancingRamBackoff(double now) {
+    if (!hasGlancingRamBackoff(now)) return false;
+    applyCommand(GameRules.ENGINE_ASTERN, backoffRudder());
     return true;
   }
 
+  void cancelGlancingRamBackoff() {
+    backoffUntil = Double.NEGATIVE_INFINITY;
+    // Keep the contact latch: an obstructed stern must not start another attempt next tick.
+  }
+
   @Override
-  void backOffAfterGlancingRam(double now, double duration, Vector2 target) {
+  void backOffAfterGlancingRam(double now, double duration, Vehicle other) {
     if (!"active".equals(state)) return;
-    boolean backing = now < backoffUntil;
-    backoffUntil = Math.max(backoffUntil, now + duration);
-    backoffTarget = target;
-    if (!backing) {
-      speed = Math.min(0, speed * .15);
-      turnVelocity *= .25;
-    }
-    engineOrder = 0;
-    rudderDegrees = backoffRudder();
+    if (backoffContact != null
+        && "active".equals(backoffContact.state())
+        && backoffContact.lifeId() == backoffContactLife
+        && position.distanceTo(backoffContact.position()) < BotNavigation.SHIP_LENGTH) return;
+    backoffContact = other;
+    backoffContactLife = other.lifeId();
+    backoffStart = position;
+    backoffUntil = now + duration;
+    speed = Math.min(0, speed * .15);
+    turnVelocity *= .25;
+    // The next navigation round checks land and friendly traffic behind before reversing.
+    engineOrder = GameRules.ENGINE_STOP;
+    rudderDegrees = 0;
   }
 
   private int backoffRudder() {
-    if (backoffTarget == null) return 0;
-    double bearing = Math.atan2(backoffTarget.x() - position.x(), backoffTarget.z() - position.z());
-    return (int)
-        Math.round(
-            MathSupport.clamp(-MathSupport.normalizeAngle(bearing - heading) / .58, -1, 1)
-                * maxRudderDegrees());
+    // Reverse rudder supports the normal port-side passing manoeuvre.
+    return maxRudderDegrees();
   }
 
   @Override
   protected void clearImpactState() {
     backoffUntil = Double.NEGATIVE_INFINITY;
+    backoffContact = null;
+    backoffStart = null;
   }
 
   @Override
@@ -118,7 +136,6 @@ public abstract sealed class SurfaceVehicle extends Vehicle permits TorpedoBoat,
     botForwardEscapeUntil = 0;
     botSubmarineAttackCourse = null;
     botNavigation = new BotNavigation(id());
-    backoffUntil = Double.NEGATIVE_INFINITY;
-    backoffTarget = null;
+    clearImpactState();
   }
 }

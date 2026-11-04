@@ -52,7 +52,7 @@ class BotBlockedReverseTest {
                 if(direction!=0)previousDirection=direction;
             }
             assertTrue(exception,"The rear island must actually trigger the exceptional replan");
-            assertTrue(firstEscape>0&&firstEscape<75,"Must leave the gap with the target unchanged: time="+firstEscape+", distance="+maximum);
+            assertTrue(firstEscape>0&&firstEscape<90,"Slow reverse must still leave the gap with the target unchanged: time="+firstEscape+", distance="+maximum);
             assertTrue(changes<15,"Do not keep hectically reversing: "+changes);
             boat.respawn(new Vector2(0,200),0,100);
             assertEquals(0,boat.surface().botForwardEscapeUntil);
