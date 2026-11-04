@@ -4,9 +4,9 @@ package one.xis.seabattle.game;
 public final class StraightAheadCalculation implements BotCalculation {
   @Override
   public void calculate(BotSituation situation, long tickId, java.util.Map<String, BotGoal> goals) {
-    for (Vehicle ship : situation.ships()) {
-      if ("bot".equals(ship.controlledBy()) && "active".equals(ship.state())) {
-        situation.steer(ship, 8, 0);
+    for (Vehicle vehicle : situation.vehicles()) {
+      if ("bot".equals(vehicle.controlledBy()) && "active".equals(vehicle.state())) {
+        situation.steer(vehicle, 8, 0);
       }
     }
   }

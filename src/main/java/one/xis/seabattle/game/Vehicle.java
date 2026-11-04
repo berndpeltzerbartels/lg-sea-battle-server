@@ -110,6 +110,13 @@ public abstract sealed class Vehicle permits SurfaceVehicle, ScoutPlane {
     return !isSubmarine() || "surface".equals(depthState());
   }
 
+  public final boolean isHumanControlled() {
+    return controlledBy != null
+        && !controlledBy.isBlank()
+        && !"bot".equals(controlledBy)
+        && !"scenario".equals(controlledBy);
+  }
+
   public final boolean isBotControlled() {
     return "bot".equals(controlledBy);
   }

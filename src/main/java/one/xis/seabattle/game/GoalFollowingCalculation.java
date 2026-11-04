@@ -6,18 +6,19 @@ import java.util.Map;
 public final class GoalFollowingCalculation implements BotCalculation {
   @Override
   public void calculate(BotSituation situation, long tickId, Map<String, BotGoal> goals) {
-    for (Vehicle ship : situation.ships()) {
-      BotGoal goal = goals.get(ship.id());
-      if (goal == null || !"active".equals(ship.state())) continue;
+    for (Vehicle vehicle : situation.vehicles()) {
+      BotGoal goal = goals.get(vehicle.id());
+      if (goal == null || !"active".equals(vehicle.state())) continue;
       if (goal.kind() == BotGoal.Kind.NONE) {
-        situation.steer(ship, 2, 0);
+        situation.steer(vehicle, 2, 0);
         continue;
       }
-      double heading = Math.atan2(goal.x() - ship.position().x(), goal.z() - ship.position().z());
+      double heading =
+          Math.atan2(goal.x() - vehicle.position().x(), goal.z() - vehicle.position().z());
       double error =
-          Math.atan2(Math.sin(heading - ship.heading()), Math.cos(heading - ship.heading()));
+          Math.atan2(Math.sin(heading - vehicle.heading()), Math.cos(heading - vehicle.heading()));
       int rudder = (int) Math.round(Math.max(-35, Math.min(35, Math.toDegrees(error))));
-      situation.steer(ship, 5, rudder);
+      situation.steer(vehicle, 5, rudder);
     }
   }
 }

@@ -76,14 +76,14 @@ Eine Bewegungsimplementierung wird einmal je Spielsitzung erzeugt und einmal je 
 
 `BotSituation` bietet:
 
-- `ships()`: direkte Referenzen auf die aktiven `Vehicle`-Instanzen mit ihren echten Unterklassen; keine Kopien und keine Rundung. Enthält auch menschliche Schiffe und versteckte Gegner. Eigene Algorithmen sind selbst für ihre Wahrnehmungsregeln verantwortlich.
+- `vehicles()`: direkte Referenzen auf die aktiven `Vehicle`-Instanzen mit ihren echten Unterklassen; keine Kopien und keine Rundung. Enthält auch menschliche Schiffe und versteckte Gegner. Eigene Algorithmen sind selbst für ihre Wahrnehmungsregeln verantwortlich.
 - `timeSeconds()`: aktuelle Simulationszeit.
 - `isLand(x, z)` und `isHullBlocked(x, z, heading)`: vorhandene Land-/Rumpfprüfung verwenden.
 - `steer(shipId, engineOrder, rudderDegrees)`: Gas und Ruder eines aktiven Bots setzen; die bisherigen Grenzwerte bleiben wirksam.
 - `dive(shipId, depth)`: Tauchtiefe eines Bot-U-Boots setzen.
 - `runStandard(goals)`: vorhandene Navigation und Kampfsteuerung mit den übergebenen Zielen ausführen. Dabei wird die Zielauswahl nicht erneut aufgerufen. `runStandard()` verwendet dieselbe vorbereitete Sammlung als Kurzform.
 
-`ships()` liefert die echten, veränderlichen Serverobjekte. Nur eigene Fahrzeuge über die Steuerbefehle verändern; fremde Fahrzeuge lediglich lesen. Den Kontext nur innerhalb von `calculate()` verwenden und nicht für spätere Runden speichern. Befehle wirken direkt auf die Spielsituation; separate Ergebnisobjekte sind nicht nötig. Bewegung und Treffer werden anschließend vom bestehenden Backend berechnet. Eine reine Ersatzimplementierung mit `steer()` schießt nicht automatisch; für Versuche mit dem vorhandenen Kampfverhalten `runStandard(goals)` verwenden.
+`vehicles()` liefert die echten, veränderlichen Serverobjekte. Nur eigene Fahrzeuge über die Steuerbefehle verändern; fremde Fahrzeuge lediglich lesen. Den Kontext nur innerhalb von `calculate()` verwenden und nicht für spätere Runden speichern. Befehle wirken direkt auf die Spielsituation; separate Ergebnisobjekte sind nicht nötig. Bewegung und Treffer werden anschließend vom bestehenden Backend berechnet. Eine reine Ersatzimplementierung mit `steer()` schießt nicht automatisch; für Versuche mit dem vorhandenen Kampfverhalten `runStandard(goals)` verwenden.
 
 Die Standardimplementierung verwendet weiter dieselben Wahrnehmungs-, Waffen- und Navigationsregeln. Ihre Einbindung kopiert weder Welt noch Flotten; die zusätzliche Kontextinstanz pro Runde enthält nur Referenzen. Fahrzeug-Snapshots entstehen ausschließlich für die Ausgabe; auch eigene Algorithmen rechnen direkt mit `Vehicle`.
 
@@ -92,9 +92,9 @@ Ein minimales, absichtlich dummes Beispiel liegt in `src/main/java/one/xis/seaba
 ```java
 public final class StraightAheadCalculation implements BotCalculation {
     public void calculate(BotSituation situation, long tickId, Map<String, BotGoal> goals) {
-        for (Vehicle ship : situation.ships()) {
-            if ("bot".equals(ship.controlledBy()) && "active".equals(ship.state())) {
-                situation.steer(ship, 8, 0);
+        for (Vehicle vehicle : situation.vehicles()) {
+            if ("bot".equals(vehicle.controlledBy()) && "active".equals(vehicle.state())) {
+                situation.steer(vehicle, 8, 0);
             }
         }
     }
@@ -167,7 +167,7 @@ public interface BotTargetSelection {
 Eingaben:
 
 - `observer()` / `observerId()`: das auswählende Schiff oder Flugzeug.
-- `candidates()`: direkte Referenzen auf die tatsächlichen Fahrzeuginstanzen der nach den **bestehenden** Wahrnehmungsregeln zulässigen Gegner. Anders als `BotSituation.ships()` ist das keine Liste aller Schiffe. Darin können auch die bisherigen strategisch erkannten menschlichen Überwassergegner außerhalb der normalen Sichtweite stehen.
+- `candidates()`: direkte Referenzen auf die tatsächlichen Fahrzeuginstanzen der nach den **bestehenden** Wahrnehmungsregeln zulässigen Gegner. Anders als `BotSituation.vehicles()` ist das keine Liste aller Schiffe. Darin können auch die bisherigen strategisch erkannten menschlichen Überwassergegner außerhalb der normalen Sichtweite stehen.
 - `currentTargetId()`: bisher gespeichertes Navigationsziel von Boot/U-Boot, eventuell `null`. Flugzeuge speichern dieses Navigationsziel nicht und liefern hier `null`. Die ID allein garantiert keinen aktuellen Kontakt.
 - `timeSeconds()` und die übergebene `tickId`.
 - `standardTarget()`: auf Wunsch die bisherige Zielgewichtung verwenden. Das Ergebnis wird pro Auswahlaufruf nur einmal berechnet. Bei Booten bleibt die menschliche Zielpriorität erhalten; bei Flugzeugen deren Verteilung und Angriffshistorie.
@@ -229,10 +229,10 @@ Das Beispiel `GoalFollowingCalculation.java` verwendet genau diese Übergabe: Es
 
 ```java
 public void calculate(BotSituation situation, long tickId, Map<String, BotGoal> goals) {
-    for (Vehicle ship : situation.ships()) {
-        BotGoal goal = goals.get(ship.id());
+    for (Vehicle vehicle : situation.vehicles()) {
+        BotGoal goal = goals.get(vehicle.id());
         if (goal == null || goal.kind() == BotGoal.Kind.NONE) continue;
-        double heading = Math.atan2(goal.x() - ship.position().x(), goal.z() - ship.position().z());
+        double heading = Math.atan2(goal.x() - vehicle.position().x(), goal.z() - vehicle.position().z());
         // Eigene Navigation: Hindernisse prüfen, Kursfehler bestimmen, Gas/Ruder setzen.
     }
 }
@@ -344,3 +344,48 @@ nicht verändert. Erst die Ausgabe erstellt `VehicleSnapshot` bzw. `ShipWreckSna
   0,227 ms vorher und 0,217 ms danach. Das zeigt hier keinen zusätzlichen Laufzeitbedarf;
   es ist keine Garantie für Produktionslast oder komplexe Landschaften. Zusätzlich
   bestehen die vorhandenen Lasttests mit Landschaft und größeren Flotten.
+
+
+## Standardberechnung nach Fahrzeugtyp
+
+`StandardBotCalculation` koordiniert nur die Runde und reicht jedes Fahrzeug an seine
+konkrete Implementierung weiter:
+
+- `TorpedoBoatBotCalculation`: Verfolgung und Angriffsgeschwindigkeit des Torpedoboots.
+- `SubmarineBotCalculation`: Tauchen, Rückzug und Angriffsgeschwindigkeit des U-Boots.
+- `ScoutPlaneBotCalculation`: Anflug, Flughöhe, Geländeprüfung, Torpedos und Bomben.
+
+Die Klassen implementieren `VehicleBotCalculation<TorpedoBoat>`,
+`VehicleBotCalculation<Submarine>` bzw. `VehicleBotCalculation<ScoutPlane>`.
+Die jeweilige Methode bekommt direkt das konkrete Fahrzeug, den Rundenkontext, die
+Tick-ID und sein vorbereitetes `BotGoal`. Flugzeuge heißen im Code `plane`, U-Boote
+`submarine`, Torpedoboote `boat` und typübergreifende Objekte `vehicle` oder `target`.
+
+`WaterBotNavigation` bündelt ausschließlich die gemeinsamen Wasserfahrzeug-Regeln:
+Kursplanung, Kollisionsvermeidung, Ausweichmanöver, Ruder und Torpedofeuer. Eine eigene
+Vererbungshierarchie für die Berechnung gibt es nicht. Die Standardrunde behält ihre
+bisherige optionale parallele Vorausberechnung und wendet Befehle in derselben Reihenfolge an.
+
+Einzelne Fahrzeugtypen können unabhängig ersetzt werden:
+
+```java
+BotCalculation calculation = new StandardBotCalculation(
+    new TorpedoBoatBotCalculation(),
+    (submarine, situation, tickId, goal) -> situation.steer(submarine, 5, 0),
+    new ScoutPlaneBotCalculation());
+```
+
+Der Konstruktor mit eigenen Implementierungen lässt deren Planung vollständig bei diesen
+Implementierungen; er führt keine gemeinsame parallele Vorausberechnung darüber aus.
+`new StandardBotCalculation()` verwendet weiterhin die bisherige optionale Bündelung.
+
+`BotSituation.vehicles()` ist der passende Name für die aktive Fahrzeugliste.
+`ships()` bleibt als kompatibler Alias für bestehende Experimente erhalten.
+
+
+Die Aufteilung nach Fahrzeugtypen ist zusätzlich durch einen Integrationstest abgesichert:
+Jede eigene Implementierung erhält genau die ursprüngliche Instanz ihres Fahrzeugtyps;
+menschlich gesteuerte Fahrzeuge werden dabei übersprungen. Die Rudergrenzen bleiben erhalten.
+Stand nach der Aufteilung: 626 Tests, davon 624 bestanden und 2 übersprungen. Der erneute
+Freiwasser-Vergleich mit 40 Fahrzeugen liegt vor und nach der Aufteilung bei rund 0,22 ms
+pro Runde; innerhalb dieser Messung ist kein relevanter Mehrbedarf erkennbar.

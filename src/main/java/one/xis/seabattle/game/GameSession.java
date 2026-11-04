@@ -684,7 +684,7 @@ public final class GameSession {
     List<Vehicle> calculationShips() { return allShips(); }
 
     record BotIntent(Vehicle contact, boolean routeUpdated, BotTargetSituation situation) {}
-    record BotRound(List<Vehicle> activeShips, List<Vehicle> surfaceShips, RadarService.VisibilityCache cache,
+    record BotRound(List<Vehicle> activeVehicles, List<Vehicle> waterVehicles, RadarService.VisibilityCache cache,
                     Map<Vehicle, BotIntent> boats, Map<Vehicle, Vehicle> planes, Map<String, BotGoal> goals) {}
 
     private BotRound prepareBotRound(RadarService radarService, NavigationService navigationService, WorldMap worldMap) {
