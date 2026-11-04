@@ -482,7 +482,8 @@ final class DefaultGameSetupFactory {
                 fleets.set(team, new FleetSetup(fleet.teamId(), ships));
             }
         }
-        return fleets;
+        return fleets.stream().map(fleet -> new FleetSetup(fleet.teamId(),
+                FleetStartPositions.shuffle(fleet.ships(), java.util.concurrent.ThreadLocalRandom.current()))).toList();
     }
 
     private static List<String> activeTeamIds(List<String> requestedTeamIds) {
