@@ -545,3 +545,39 @@ Laufmittelwerte Standardlandschaft 0,417 / 0,398 ms, 40 Fahrzeuge 0,186 / 0,176 
 100 Fahrzeuge 0,677 / 0,641 ms. Keine Verlangsamung im Gesamtvergleich erkennbar.
 Die Messung umfasst den durch die Verteilung veränderten Spielverlauf und ist keine
 isolierte Messung des zusätzlichen Verwaltungsaufwands. Netzwerk und Grafik sind ausgenommen.
+
+
+## Rumpfkontakt zwischen Bots
+
+Die Torpedoboot-Abmessungen der Kollisionsprüfung entsprechen weiterhin dem sichtbaren
+Modell: Heck -4,2, Bug +3,68, maximale Halbbreite 0,79, jeweils mit Faktor 3 skaliert.
+Das ergibt 23,64 Länge und 4,74 maximale Breite. Es handelt sich nicht um die alte,
+ungeskalierte Schiff-gegen-Schiff-Geometrie.
+
+Eine bloße Berührungsmeldung und Gas-/Ruderkorrektur hielten die Bots bisher nicht
+zuverlässig außerhalb des anderen Rumpfs. Die bestehende Kollisionsrunde begrenzt nun
+neu entstehende Überlappungen zwischen zwei Bots anhand dieser Rumpfform. Nur in den
+Kontakt hinein bewegte Boote werden soweit nötig zurückgedrängt; ein stehendes oder
+bereits wegfahrendes Boot bleibt dabei möglichst unverändert. Bei schrägem Kontakt
+bleibt das Vorbeigleiten möglich. Die kleine Korrektur wird gegen Land geprüft; ist sie
+nicht möglich, wird die Bewegung auf die zuvor freie Position begrenzt.
+
+`SurfaceVehicle` hält dafür nur Position und Richtung vom Beginn des aktuellen
+Bewegungsschritts, ohne Snapshot-Erstellung. Eine begrenzte Suche mit fünf Schritten
+läuft ausschließlich bei tatsächlichen Bot-Rumpfkontakten; es gibt keine zusätzliche
+Flottensuche. Die Rumpfbreitentabelle wird einmal angelegt statt bei jeder Punktprüfung.
+Die Kontaktsperre des kurzen Rückstoßes verwendet nun denselben skalierten Nahbereich
+wie die Kollisions-Vorprüfung. Maximaldauer 0,8 Sekunden und Rückwärtsgeschwindigkeit
+bleiben unverändert. Bereits in einem importierten Szenario überlappende Boote werden
+nicht nachträglich versetzt und können sich weiterhin daraus herausbewegen.
+
+Drei zusätzliche Tests prüfen die aktuellen Modellabmessungen, die feste Grenze gegen
+ein absichtlich weiter geradeaus fahrendes Boot und die erhaltene Fluchtbewegung eines
+vorausfahrenden Boots. Der bestehende Engstellen-Test besteht ebenfalls. Gesamtsuite:
+651 Tests, 649 bestanden und 2 übersprungen; alle Performance-Grenztests bestehen.
+
+Ein lokaler Vergleich über 57.600 gemessene Runden mit `main` (`5b79a65`) zeigt im
+Median der Laufmittelwerte keine Verlangsamung: Standardlandschaft 0,399 / 0,392 ms,
+40 Fahrzeuge 0,172 / 0,171 ms, 100 Fahrzeuge 0,616 / 0,611 ms. Bei 100 Fahrzeugen steigt
+das 95. Perzentil leicht von 0,805 auf 0,823 ms. Die Messung umfasst den veränderten
+Spielverlauf; Netzwerk und Grafik sind ausgenommen.
