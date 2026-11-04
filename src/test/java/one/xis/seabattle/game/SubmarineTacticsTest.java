@@ -64,53 +64,63 @@ class SubmarineTacticsTest {
         assertEquals(EngineOrders.speedFor(8), sub.speed(), .001);
     }
     @Test
-    void periscopeAttackSlowsDownAndBacksAwayInsteadOfCharging() {
-        Vehicle sub = submarine();
+    void periscopeAttackHoldsTheWholeBandAndReversesOnlyBelowItsMinimum() {
+        var sub = new Submarine("sub", "light", new Vector2(0, 0), 0, "bot");
         Vehicle target = enemy(300);
-        assertEquals(4, SubmarineBotCalculation.holdPeriscopeAttackDistance((Submarine) sub, target, 300, 0));
-        assertEquals(1, SubmarineBotCalculation.holdPeriscopeAttackDistance((Submarine) sub, target, 240, 0));
-        assertEquals(1, SubmarineBotCalculation.holdPeriscopeAttackDistance((Submarine) sub, target, 300, 0));
-        assertEquals(7, SubmarineBotCalculation.holdPeriscopeAttackDistance((Submarine) sub, target, 650, 0));
-        assertEquals(5, SubmarineBotCalculation.holdPeriscopeAttackDistance((Submarine) sub, target, 300, Math.PI));
+        for (double distance : new double[]{250, 275, 300, 350, 400})
+            assertEquals(GameRules.ENGINE_STOP,
+                    SubmarineBotCalculation.holdPeriscopeAttackDistance(sub, target, distance, 0));
+        assertEquals(GameRules.ENGINE_ASTERN,
+                SubmarineBotCalculation.holdPeriscopeAttackDistance(sub, target, 249.99, 0));
+        assertEquals(GameRules.ENGINE_STOP,
+                SubmarineBotCalculation.holdPeriscopeAttackDistance(sub, target, 250, 0),
+                "No remembered reverse command may carry into the valid band");
+        assertTrue(SubmarineBotCalculation.holdPeriscopeAttackDistance(sub, target, 400.01, 0) > GameRules.ENGINE_STOP);
+        assertEquals(GameRules.ENGINE_ONE_THIRD,
+                SubmarineBotCalculation.holdPeriscopeAttackDistance(sub, target, 300, Math.toRadians(15)));
+        assertEquals(GameRules.ENGINE_HALF,
+                SubmarineBotCalculation.holdPeriscopeAttackDistance(sub, target, 300, Math.PI));
     }
 
     @Test
-    void periscopeAttackMatchesMovingTargetAndNeverOrdersStop() {
-        Vehicle sub = new TorpedoBoat("sub", "light", new Vector2(0, 0), 0, "bot");
-        sub = sub.convertedTo("submarine");
-        Vehicle target = enemy(300);
-        target.applyCommand(7, 0);
-        target.update(20, new NavigationService(), new WorldMap(99009, List.of()));
-        assertEquals(7, SubmarineBotCalculation.holdPeriscopeAttackDistance((Submarine) sub, target, 300, 0));
-        Vehicle approaching = new TorpedoBoat("approaching", "dark", new Vector2(0, 300), Math.PI, "bot");
-        approaching.applyCommand(7, 0);
-        approaching.update(20, new NavigationService(), new WorldMap(99009, List.of()));
-        assertEquals(0, SubmarineBotCalculation.holdPeriscopeAttackDistance((Submarine) sub, approaching, 300, 0));
-        for (int distance = 130; distance <= 650; distance++) {
-            assertNotEquals(2, SubmarineBotCalculation.holdPeriscopeAttackDistance((Submarine) sub, target, distance, 0));
-        }
+    void approachingTargetsDoNotCausePrematureReverseWithinTheBand() {
+        var sub = new Submarine("sub", "light", new Vector2(0, 0), 0, "bot");
+        var target = new TorpedoBoat("approaching", "dark", new Vector2(0, 300), Math.PI, "bot");
+        target.speed = 12;
+        for (int distance = 250; distance <= 400; distance++)
+            assertEquals(GameRules.ENGINE_STOP,
+                    SubmarineBotCalculation.holdPeriscopeAttackDistance(sub, target, distance, 0));
+        assertEquals(GameRules.ENGINE_FULL_ASTERN,
+                SubmarineBotCalculation.holdPeriscopeAttackDistance(sub, target, 240, 0));
+        target.heading = 0;
+        assertEquals(GameRules.ENGINE_FULL,
+                SubmarineBotCalculation.holdPeriscopeAttackDistance(sub, target, 450, 0),
+                "Follow a departing target once it leaves the band");
     }
 
     @Test
-    void distanceControlKeepsMovingWithinFiringRangeForTenMinutes() {
-        Vehicle sub = new TorpedoBoat("sub", "light", new Vector2(0, 0), 0, "bot");
-        sub = sub.convertedTo("submarine");
-        Vehicle target = enemy(400);
-        WorldMap world = new WorldMap(99009, List.of());
-        NavigationService navigation = new NavigationService();
-        boolean movedForward = false;
-        boolean movedBackward = false;
-        for (int tick = 0; tick < 6000; tick++) {
-            SubmarineBotCalculation.updateDiveAndEscape((Submarine) sub, List.of(target), tick * 0.1);
-            double distance = sub.position().distanceTo(target.position());
-            sub.applyCommand(SubmarineBotCalculation.holdPeriscopeAttackDistance((Submarine) sub, target, distance, 0), 0);
-            sub.update(0.1, navigation, world);
-            assertTrue(sub.isAtPeriscopeDepth(), "Must not trigger idle surfacing or emergency diving");
-            assertTrue(distance > 220 && distance <= 400, "Must stay in firing range: " + distance);
-            movedForward |= sub.speed() > 0.5;
-            movedBackward |= sub.speed() < -0.5;
+    void stationaryTargetsAllowDifferentHoldingDistancesForTenMinutesWithoutForcedSurfacing() {
+        for (double initialDistance : new double[]{240, 300, 350, 450}) {
+            var sub = new Submarine("sub", "light", new Vector2(0, 0), 0, "bot");
+            Vehicle target = enemy(initialDistance);
+            WorldMap world = new WorldMap(99009, List.of());
+            NavigationService navigation = new NavigationService();
+            for (int tick = 0; tick < 6000; tick++) {
+                SubmarineBotCalculation.updateDiveAndEscape(sub, List.of(target), tick * .1);
+                double distance = sub.position().distanceTo(target.position());
+                int order = SubmarineBotCalculation.holdPeriscopeAttackDistance(sub, target, distance, 0);
+                sub.applyCommand(order, 0);
+                sub.update(.1, navigation, world);
+                assertTrue(sub.isAtPeriscopeDepth(), "Holding must never trigger idle surfacing");
+                assertTrue(distance > 220 && distance <= 450, "Remain in firing range: " + distance);
+                if (distance >= 250 && distance <= 400) assertEquals(GameRules.ENGINE_STOP, order);
+            }
+            double finalDistance = sub.position().distanceTo(target.position());
+            assertTrue(finalDistance >= 250 && finalDistance <= 400);
+            if (initialDistance == 300 || initialDistance == 350)
+                assertEquals(initialDistance, finalDistance, 1e-8, "No convergence on one common distance");
+            assertEquals(0, sub.speed(), .001);
         }
-        assertTrue(movedForward && movedBackward);
     }
     @Test
     void sessionMaintainsShotDistanceInsteadOfDivingBesideStationaryTarget() {
@@ -129,6 +139,32 @@ class SubmarineTacticsTest {
             double distance = Math.hypot(sub.x(), sub.z() - 400);
             assertTrue(distance > 220 && distance < 410, "Shot distance: " + distance);
             assertEquals("active", sub.state());
+        }
+    }
+
+    @Test
+    void friendlySubmarinesKeepDifferentAttackDistancesEvenWithoutHumanPlayers() {
+        var world = new WorldMap(99009, List.of());
+        var setup = new GameSetup("bot-only-holding-range", world, List.of(
+                new FleetSetup("light", List.of(
+                        new VehicleSetup("near-sub", "light", new Vector2(0, 100), 0, "bot", 2, 0, 9999, "submarine", -5.58),
+                        new VehicleSetup("far-sub", "light", new Vector2(0, 50), 0, "bot", 2, 0, 9999, "submarine", -5.58))),
+                new FleetSetup("dark", List.of(
+                        new VehicleSetup("target", "dark", new Vector2(0, 400), 0, "bot", 2, 0, 9999, "torpedo-boat", 0)))), List.of());
+        var calculation = new StandardBotCalculation(
+                (boat, situation, tick, goal) -> situation.steer(boat, GameRules.ENGINE_STOP, 0),
+                new SubmarineBotCalculation(), (plane, situation, tick, goal) -> {});
+        var session = new GameSession(setup, 1, false, calculation, BotTargetSelection.standard());
+        for (Vehicle vehicle : session.calculationShips()) if (vehicle instanceof Submarine sub) sub.botDepth("periscope");
+        var radar = new RadarService();
+        var navigation = new NavigationService();
+        for (int tick = 0; tick < 1200; tick++) {
+            session.update(.1, radar, navigation, world);
+            for (Vehicle vehicle : session.calculationShips()) if (vehicle instanceof Submarine sub) {
+                assertEquals("periscope", sub.depthState());
+                assertEquals(GameRules.ENGINE_STOP, sub.engineOrder());
+                assertEquals(sub.id().equals("near-sub") ? 100 : 50, sub.position().z(), 1e-8);
+            }
         }
     }
 
@@ -271,42 +307,36 @@ class SubmarineTacticsTest {
     }
 
     @Test
-    void stuckBotSurfacesAndDoesNotImmediatelyDiveAgain() {
-        Vehicle ship = submarine();
-        SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(100)), 0);
-        SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(100)), 15);
-        assertTrue(ship.isOnSurface());
-        SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(100)), 44);
-        assertTrue(ship.isOnSurface());
-        SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(100)), 46);
-        assertTrue(ship.isFullySubmerged());
-    }
-
-    @Test
-    void recoveredBoatDivesAgainBeforeSurfaceTimeoutWhenEnemyRemainsNearby() {
-        for (double distance : List.of(100.0, 400.0)) {
-            Vehicle ship = submarine();
-            SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(distance)), 0);
-            SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(distance)), 15);
-            assertTrue(ship.isOnSurface());
-            ship.applyCommand(7, 0);
-            ship.update(4, new NavigationService(), new WorldMap(99009, List.of()));
-            Vehicle contact = new TorpedoBoat("enemy", "dark", ship.position().add(new Vector2(0, distance)), 0, "bot");
-            SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(contact), 19);
-            assertTrue(distance == 100 ? ship.isFullySubmerged() : ship.isAtPeriscopeDepth());
-            SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(contact), 20);
-            assertFalse(ship.isOnSurface(), "Recovery must restart the underwater progress timer");
+    void lackOfMovementNeverForcesSurfacingAtEitherDivingDepth() {
+        for (double enemyDistance : new double[]{100, 300}) {
+            var ship = (Submarine) submarine();
+            for (int second = 0; second <= 120; second++) {
+                SubmarineBotCalculation.updateDiveAndEscape(ship, List.of(enemy(enemyDistance)), second);
+                assertFalse(ship.isOnSurface(), "Blocked or holding boats stay submerged despite elapsed time");
+                assertEquals(enemyDistance == 100 ? "submerged" : "periscope", ship.depthState());
+            }
         }
     }
 
     @Test
-    void recoveredBoatStaysOnSurfaceWithoutEnemy() {
-        Vehicle ship = submarine();
-        SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(100)), 0);
-        SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(enemy(100)), 15);
-        ship.applyCommand(7, 0);
-        ship.update(4, new NavigationService(), new WorldMap(99009, List.of()));
-        SubmarineBotCalculation.updateDiveAndEscape((Submarine) ship, List.of(), 19);
+    void aBlockedBoatStillReassessesThreatsInsteadOfWaitingForASurfaceRecoveryTimeout() {
+        var ship = (Submarine) submarine();
+        SubmarineBotCalculation.updateDiveAndEscape(ship, List.of(enemy(100)), 0);
+        SubmarineBotCalculation.updateDiveAndEscape(ship, List.of(enemy(100)), 30);
+        assertTrue(ship.isFullySubmerged());
+        SubmarineBotCalculation.updateDiveAndEscape(ship, List.of(enemy(300)), 31);
+        assertTrue(ship.isAtPeriscopeDepth());
+        SubmarineBotCalculation.updateDiveAndEscape(ship, List.of(enemy(100)), 32);
+        assertTrue(ship.isFullySubmerged(), "A close threat still has priority over holding position");
+    }
+
+    @Test
+    void lossOfEnemyContactCanStillLeadToNormalSurfacing() {
+        var ship = (Submarine) submarine();
+        SubmarineBotCalculation.updateDiveAndEscape(ship, List.of(enemy(100)), 0);
+        SubmarineBotCalculation.updateDiveAndEscape(ship, List.of(enemy(100)), 30);
+        assertTrue(ship.isFullySubmerged());
+        SubmarineBotCalculation.updateDiveAndEscape(ship, List.of(), 31);
         assertTrue(ship.isOnSurface());
     }
 

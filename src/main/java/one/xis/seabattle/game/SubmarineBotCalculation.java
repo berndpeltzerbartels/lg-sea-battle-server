@@ -11,6 +11,9 @@ public final class SubmarineBotCalculation implements VehicleBotCalculation<Subm
   private static final double SAFE_RANGE = 220;
   private static final double SHOT_ASCENT_RANGE = 180;
   private static final double SURFACE_RANGE = 650;
+  static final double ATTACK_MIN_RANGE = 250;
+  static final double ATTACK_MAX_RANGE = 400;
+  private static final double AIM_TOLERANCE = Math.toRadians(5);
 
   private final WaterBotNavigation navigation;
   private static final WaterBotNavigation.AttackSpeed<Submarine> ATTACK_SPEED =
@@ -91,34 +94,34 @@ public final class SubmarineBotCalculation implements VehicleBotCalculation<Subm
     return ENGINE_HALF;
   }
 
-  /** Attack spacing: may reverse to keep the firing distance. Used only at periscope depth. */
+  /** Keep a firing band, not a single distance. Only a too-close target calls for reverse. */
   static int holdPeriscopeAttackDistance(
       Submarine submarine, Vehicle target, double distance, double targetBearing) {
-    SubmarineBotState state = submarine.botState();
-    // Keep steerage while turning; once aimed, match radial target speed and close the range error.
-    if (Math.abs(targetBearing) > Math.PI / 3) {
-      state.holdingDistanceAstern = false;
-      return 5;
+    double bearing = Math.abs(targetBearing);
+    // If the target is behind us, turn ahead; reversing would move closer to it.
+    if (bearing > Math.PI / 3) return ENGINE_HALF;
+    double radialTargetSpeed = target.speed()
+        * Math.cos(target.heading() - submarine.heading() - targetBearing);
+    if (distance < ATTACK_MIN_RANGE) {
+      double retreatSpeed = -Math.max(2.2,
+          (ATTACK_MIN_RANGE - distance) * .04 + Math.max(0, -radialTargetSpeed));
+      return closestEngineOrder(retreatSpeed, ENGINE_FULL_ASTERN, ENGINE_ASTERN);
     }
-    double targetRadialSpeed =
-        target.speed() * Math.cos(target.heading() - submarine.heading() - targetBearing);
-    double desiredSpeed = targetRadialSpeed + (distance - 300) * 0.04;
-    // Separate reversal thresholds keep the boat moving instead of hovering at zero speed.
-    if (desiredSpeed < -2) state.holdingDistanceAstern = true;
-    else if (desiredSpeed > 2) state.holdingDistanceAstern = false;
-    // Slow ahead (4), not dead slow: reversals must still make progress for the anti-idle guard.
-    int bestOrder = 4;
+    if (bearing > AIM_TOLERANCE) return ENGINE_ONE_THIRD;
+    if (distance <= ATTACK_MAX_RANGE) return ENGINE_STOP;
+    double approachSpeed = Math.max(EngineOrders.speedFor(ENGINE_ONE_THIRD),
+        Math.max(0, radialTargetSpeed) + (distance - ATTACK_MAX_RANGE) * .04);
+    return closestEngineOrder(approachSpeed, ENGINE_ONE_THIRD, ENGINE_FULL);
+  }
+
+  private static int closestEngineOrder(double speed, int first, int last) {
+    int best = first;
     double bestError = Double.POSITIVE_INFINITY;
-    for (int order = state.holdingDistanceAstern ? 0 : 4;
-        order <= (state.holdingDistanceAstern ? 1 : 7);
-        order++) {
-      double error = Math.abs(EngineOrders.speedFor(order) - desiredSpeed);
-      if (error < bestError) {
-        bestOrder = order;
-        bestError = error;
-      }
+    for (int order = first; order <= last; order++) {
+      double error = Math.abs(EngineOrders.speedFor(order) - speed);
+      if (error < bestError) { best = order; bestError = error; }
     }
-    return bestOrder;
+    return best;
   }
 
   /** Dive/escape: returns a threat position to flee from with forward power, not reverse. */
@@ -169,37 +172,11 @@ public final class SubmarineBotCalculation implements VehicleBotCalculation<Subm
       }
     }
 
-    if (!"surface".equals(state.divePhase)) {
-      if (state.progressPosition == null
-          || submarine.position().distanceTo(state.progressPosition) >= 8) {
-        state.progressPosition = submarine.position();
-        state.progressTime = now;
-      }
-      if (now - state.progressTime >= 15) {
-        state.surfaceUntil = now + 30;
-        state.surfaceRecoveryPosition = submarine.position();
-        state.surfaceRecoveryStarted = now;
-        surface(state);
-      }
-    }
-    // Keep genuinely stuck boats visible, but resume diving once movement has recovered.
-    if (now < state.surfaceUntil
-        && now - state.surfaceRecoveryStarted >= 3
-        && state.surfaceRecoveryPosition != null
-        && submarine.position().distanceTo(state.surfaceRecoveryPosition) >= 8) {
-      state.surfaceUntil = now;
-    }
-    if (now < state.surfaceUntil) {
-      submarine.botDepth("surface");
-      return null;
-    }
-
     // Follow deep contacts at their depth; escape only when they are dangerously close.
     if (!aircraftThreat
         && nearest != null
         && nearest.isFullySubmerged()
         && distance <= BOT_SUBMARINE_UNDERWATER_RANGE) {
-      startDive(submarine, now);
       state.divePhase = "submerged";
       submarine.botDepth(state.divePhase);
       return distance < DEEP_RANGE ? threatPosition : null;
@@ -217,10 +194,8 @@ public final class SubmarineBotCalculation implements VehicleBotCalculation<Subm
       return null; // Reacquire contacts on the next simulation tick.
     }
     if (distance <= DEEP_RANGE) {
-      startDive(submarine, now);
       state.divePhase = "submerged";
     } else if (distance <= DIVE_RANGE) {
-      startDive(submarine, now);
       state.divePhase = "periscope";
     } else if (distance > SURFACE_RANGE) {
       surface(state);
@@ -229,16 +204,7 @@ public final class SubmarineBotCalculation implements VehicleBotCalculation<Subm
     return "submerged".equals(state.divePhase) ? threatPosition : null;
   }
 
-  private static void startDive(Submarine submarine, double now) {
-    SubmarineBotState state = submarine.botState();
-    if ("surface".equals(state.divePhase)) {
-      state.progressPosition = submarine.position();
-      state.progressTime = now;
-    }
-  }
-
   private static void surface(SubmarineBotState state) {
     state.divePhase = "surface";
-    state.progressPosition = null;
   }
 }

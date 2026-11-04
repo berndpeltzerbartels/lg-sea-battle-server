@@ -1576,10 +1576,11 @@ public final class GameSession {
                     && target.y() < -1.87 * TORPEDO_BOAT_MODEL_SCALE
                     && Math.abs(y - (target.y() + .2 * TORPEDO_BOAT_MODEL_SCALE)) <= .5 * TORPEDO_BOAT_MODEL_SCALE;
         }
-        if (!target.isSubmarine() || target.isOnSurface()) {
-            return true;
-        }
-        return false;
+        if (!target.isSubmarine()) return true;
+        // Broad vertical envelope only. The exact hull/mast intersection below decides the hit.
+        // A selected dive state must neither expose an underwater hull nor hide an emerging one.
+        return y >= target.y() - .27 * TORPEDO_BOAT_MODEL_SCALE
+                && y <= target.y() + SubmarinePeriscopeGeometry.topAboveRoot(target.y());
     }
 
     private void sinkPointBlankSubmarineShooter(Torpedo torpedo) {
@@ -2154,7 +2155,7 @@ public final class GameSession {
                 && ship.position().distanceTo(torpedo.previousPosition()) > TORPEDO_BROAD_PHASE_RADIUS * TORPEDO_BOAT_MODEL_SCALE) {
             return false;
         }
-        if (torpedo.y() < -1 && ship.isSubmarine()) {
+        if (ship.isSubmarine()) {
             return Double.isFinite(SubmarineProjectileGeometry.hitFraction(
                     torpedo.previousPosition().x(), torpedo.y(), torpedo.previousPosition().z(),
                     torpedo.position().x(), torpedo.y(), torpedo.position().z(), ship));
@@ -2617,7 +2618,7 @@ public final class GameSession {
     }
 
     private boolean torpedoLineHitsShipAtDepth(Vector2 start, Vector2 forward, Vehicle target, double y) {
-        if (y < -1) {
+        if (target.isSubmarine()) {
             Vector2 end = start.add(forward.scale(BOT_FIRE_MAX_RANGE));
             return Double.isFinite(SubmarineProjectileGeometry.hitFraction(
                     start.x(), y, start.z(), end.x(), y, end.z(), target));

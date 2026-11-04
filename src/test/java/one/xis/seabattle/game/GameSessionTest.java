@@ -310,7 +310,7 @@ class GameSessionTest {
         );
         session.updatePlayerState(
                 new PlayerStateUpdate("player-dark", "dark", 0, 0, Math.PI, 0, 0, ENGINE_STOP, 0, 0,
-                        false, "submarine", 0, 0, null, null, null, null, "submerged"),
+                        false, "submarine", SeaBattleGameConfig.SUBMARINE_DEEP_Y, 0, null, null, null, null, "submerged"),
                 navigationService,
                 session.worldMap()
         );
@@ -324,7 +324,7 @@ class GameSessionTest {
     }
 
     @Test
-    void torpedoCannotSinkPeriscopeDepthSubmarine() {
+    void torpedoCanSinkPeriscopeDepthSubmarineOnDirectMastHit() {
         GameSession session = new GameSession(new GameSetup(
                 "periscope-submarine-torpedo-ignore-test",
                 new WorldMap(9032, List.of()),
@@ -346,7 +346,7 @@ class GameSessionTest {
         );
         session.updatePlayerState(
                 new PlayerStateUpdate("player-dark", "dark", 0, 0, Math.PI, 0, 0, ENGINE_STOP, 0, 0,
-                        false, "submarine", 0, 0, null, null, null, null, "periscope"),
+                        false, "submarine", -1.86 * SeaBattleGameConfig.TORPEDO_BOAT_SCALE, 0, null, null, null, null, "periscope"),
                 navigationService,
                 session.worldMap()
         );
@@ -356,7 +356,9 @@ class GameSessionTest {
             session.update(0.1, radarService, navigationService, session.worldMap());
         }
 
-        assertEquals("active", findShip(session.snapshot(), "dark-U1").state());
+        assertEquals("sunk", findShip(session.snapshot(), "dark-U1").state());
+        assertTrue(session.snapshot().torpedoImpacts().stream()
+                .anyMatch(impact -> "dark-U1".equals(impact.targetShipId()) && "ship-hit".equals(impact.reason())));
     }
 
     @Test

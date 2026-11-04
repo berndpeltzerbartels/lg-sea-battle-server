@@ -40,28 +40,8 @@ final class SubmarineProjectileGeometry {
                 }
             }
         }
-        double mastBase = .66 + .64*.9 - .012;
-        nearest = Math.min(nearest, mast(x,y,z,dx,dy,dz,.022,mastBase,mastBase+.986*.9));
-        nearest = Math.min(nearest, mast(x,y,z,dx,dy,dz,.184,mastBase,mastBase+.816*.9));
-        return nearest;
-    }
-
-    private static double mast(double x,double y,double z,double dx,double dy,double dz,double mastZ,double bottom,double top) {
-        double lo=0, hi=1;
-        if (Math.abs(dy)<1e-12) { if (y<bottom || y>top) return Double.POSITIVE_INFINITY; }
-        else {
-            double a=(bottom-y)/dy, b=(top-y)/dy;
-            lo=Math.max(lo,Math.min(a,b)); hi=Math.min(hi,Math.max(a,b));
-        }
-        double qz=z-mastZ, a=dx*dx+dz*dz, b=2*(x*dx+qz*dz), c=x*x+qz*qz-.019*.019;
-        if (a<1e-20) { if(c>0) return Double.POSITIVE_INFINITY; }
-        else {
-            double disc=b*b-4*a*c;
-            if(disc<0) return Double.POSITIVE_INFINITY;
-            double root=Math.sqrt(disc);
-            lo=Math.max(lo,(-b-root)/(2*a)); hi=Math.min(hi,(-b+root)/(2*a));
-        }
-        return lo<=hi ? lo : Double.POSITIVE_INFINITY;
+        // One set of mast dimensions for torpedoes, gunfire and the visible extended periscopes.
+        return Math.min(nearest, SubmarinePeriscopeGeometry.hitParameter(ship, ax, ay, az, bx, by, bz));
     }
 
     private static List<TowerVolume> towerVolumes() {

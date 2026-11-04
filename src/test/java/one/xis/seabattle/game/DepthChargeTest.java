@@ -20,6 +20,40 @@ class DepthChargeTest {
     private void tick(GameSession s, double dt) {
         s.updateIdle(dt, new RadarService(), new NavigationService(), s.worldMap());
     }
+
+    @Test void explosionAlsoDestroysFriendlySubmarinesRegardlessOfBotOrHumanControl() {
+        for (String launcherController : List.of("bot", "captain")) {
+            for (String victimController : List.of("bot", "diver")) {
+                for (String team : List.of("light", "dark")) {
+                    for (double y : new double[]{0, -5.58, SeaBattleGameConfig.SUBMARINE_DEEP_Y}) {
+                        var boat = new VehicleSetup("boat", "light", new Vector2(0, 0), 0,
+                                launcherController, 2, 0, 999, "torpedo-boat", 0);
+                        var sub = new VehicleSetup("sub", team, new Vector2(0, -13), 0,
+                                victimController, 2, 0, 999, "submarine", y);
+                        var outside = new VehicleSetup("outside", team, new Vector2(30, -13), 0,
+                                "outside-player", 2, 0, 999, "submarine", y);
+                        var fleets = team.equals("light")
+                                ? List.of(new FleetSetup("light", List.of(boat, sub, outside)))
+                                : List.of(new FleetSetup("light", List.of(boat)),
+                                        new FleetSetup(team, List.of(sub, outside)));
+                        var s = new GameSession(new GameSetup("friendly-depth-charges",
+                                new WorldMap(42, List.of()), fleets, List.of(new Vector2(1000, 1000))));
+                        s.dropDepthCharges(launcherController, launcherController, "boat");
+                        tick(s, 2.5);
+                        var explosion = s.snapshot().depthCharges().get(0);
+                        String context = "launcher=" + launcherController + " victim=" + victimController
+                                + " team=" + team + " y=" + y;
+                        assertEquals(List.of("sub"), explosion.targetShipIds(), context);
+                        assertEquals("sunk", s.snapshot().ships().stream()
+                                .filter(v -> v.id().equals("sub")).findFirst().orElseThrow().state(), context);
+                        assertEquals("active", s.snapshot().ships().stream()
+                                .filter(v -> v.id().equals("outside")).findFirst().orElseThrow().state(), context);
+                    }
+                }
+            }
+        }
+    }
+
     @Test void sternThenPairedSidesThenSternExplodeOnceAcrossDepthsWithoutHurtingSurfaceShips() {
         var s = session();
         s.dropDepthCharges("player-boat", "player-boat", "boat");
