@@ -708,6 +708,14 @@ public final class GameSession {
         aircraftWarnings.expire(nowSeconds);
         boolean checkDepthCharges = nowSeconds >= nextBotDepthChargeCheck;
         if (checkDepthCharges) nextBotDepthChargeCheck = nowSeconds + .5;
+        // One fleet pass per round, not another fleet scan for each selecting bot.
+        Map<String, Map<String, Integer>> waterTargetReservations = new HashMap<>();
+        for (Vehicle vehicle : surfaceShips) {
+            SurfaceVehicle boat = (SurfaceVehicle) vehicle;
+            if (!boat.isBotControlled()) continue;
+            Map<String, Integer> assigned = waterTargetReservations.computeIfAbsent(boat.teamId(), ignored -> new HashMap<>());
+            if (hasAssignedWaterTarget(boat)) assigned.merge(boat.botNavigation.target.id(), 1, Integer::sum);
+        }
         Map<String, Integer> scoutPlaneTargetReservations = new LinkedHashMap<>();
         Map<Vehicle, BotIntent> boats = new LinkedHashMap<>();
         Map<Vehicle, Vehicle> planes = new LinkedHashMap<>();
@@ -719,7 +727,7 @@ public final class GameSession {
                 if (target != null) scoutPlaneTargetReservations.merge(target.id(), 1, Integer::sum);
             } else {
                 if (checkDepthCharges) tryBotDepthCharges(ship, visibilityCache);
-                boats.put(ship, prepareBotIntent(ship, visibilityCache));
+                boats.put(ship, prepareBotIntent(ship, visibilityCache, waterTargetReservations.get(ship.teamId())));
             }
         }
         Map<String, BotGoal> goals = new LinkedHashMap<>();
@@ -817,23 +825,36 @@ public final class GameSession {
         return attackingTeamId + ">" + humanShipId;
     }
 
-    private BotIntent prepareBotIntent(Vehicle ship, RadarService.VisibilityCache visibilityCache) {
+    private BotIntent prepareBotIntent(Vehicle ship, RadarService.VisibilityCache visibilityCache, Map<String, Integer> assignedTargets) {
         BotNavigation plan = ship.surface().botNavigation;
         long tick = (long) Math.floor(nowSeconds * 10 + 1e-6);
         boolean targetSelectionDue = plan.targetDue(tick);
         List<Vehicle> targets = targetSelectionDue ? visibleTargets(ship, visibilityCache) : List.of();
-        BotTargetSituation situation = new BotTargetSituation(this, ship, targets, visibilityCache, Map.of());
+        BotTargetSituation situation = new BotTargetSituation(this, ship, targets, visibilityCache, Map.of(), assignedTargets);
         if (targetSelectionDue) {
             targetSelection.observe(situation, tick);
             Vehicle nextTarget = situation.validate(targetSelection.select(situation, tick));
             if (nextTarget != plan.target || nextTarget != null && nextTarget.lifeId() != plan.targetLife) {
                 plan.trackingPeriscope = false;
             }
+            if (hasAssignedWaterTarget(ship.surface())) {
+                String previousId = plan.target.id();
+                int count = assignedTargets.getOrDefault(previousId, 0);
+                if (count <= 1) assignedTargets.remove(previousId);
+                else assignedTargets.put(previousId, count - 1);
+            }
             plan.target = nextTarget;
             plan.targetLife = plan.target == null ? -1 : plan.target.lifeId();
+            if (hasAssignedWaterTarget(ship.surface())) assignedTargets.merge(plan.target.id(), 1, Integer::sum);
         }
         Vehicle contact = observedBotTarget(ship, plan, visibilityCache);
         return new BotIntent(contact, plan.routeDue(tick), situation);
+    }
+
+    private static boolean hasAssignedWaterTarget(SurfaceVehicle vehicle) {
+        Vehicle target = vehicle.botNavigation.target;
+        return target != null && target.lifeId() == vehicle.botNavigation.targetLife
+                && "active".equals(target.state()) && !target.teamId().equals(vehicle.teamId());
     }
 
     private Vehicle observedBotTarget(Vehicle ship, BotNavigation plan, RadarService.VisibilityCache cache) {

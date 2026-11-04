@@ -4106,11 +4106,16 @@ class GameSessionTest {
         for (int index = 0; index < 120; index += 1) {
             session.update(0.1, radarService, navigationService, session.worldMap());
         }
-        int warmupTorpedoes = session.snapshot().torpedoes().size();
+        java.util.Set<String> observedTorpedoes = session.snapshot().torpedoes().stream()
+                .map(torpedo -> torpedo.id()).collect(java.util.stream.Collectors.toSet());
+        int shotsAfterWarmup = 0;
 
         for (int index = 0; index < 280; index += 1) {
             session.update(0.1, radarService, navigationService, session.worldMap());
             snapshot = session.snapshot();
+            for (var torpedo : snapshot.torpedoes()) {
+                if (startPositions.containsKey(torpedo.shipId()) && observedTorpedoes.add(torpedo.id())) shotsAfterWarmup++;
+            }
         }
 
         GameSnapshot finalSnapshot = snapshot;
@@ -4128,16 +4133,9 @@ class GameSessionTest {
                     return start != null && start.distanceTo(new Vector2(ship.x(), ship.z())) >= 55;
                 })
                 .count();
-        long shipTorpedoes = finalSnapshot.torpedoes().stream()
-                .filter(torpedo -> {
-                    VehicleSnapshot shooter = findShip(finalSnapshot, torpedo.shipId());
-                    return shooter != null && !"scout-plane".equals(shooter.vehicleType());
-                })
-                .count();
-
         assertTrue(movingBotBoats >= 6);
         assertTrue(botBoatsThatMadeWay >= 6);
-        assertTrue(shipTorpedoes > warmupTorpedoes);
+        assertTrue(shotsAfterWarmup > 0, "Boats must launch new torpedoes after warmup; live projectile count also depends on hits and expiry");
     }
 
     @Test

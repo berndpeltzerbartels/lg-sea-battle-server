@@ -502,3 +502,46 @@ Die beiden Bewegungsabsichten sind ausdrücklich getrennt:
 Hindernisvermeidung und Befreiungsmanöver bleiben in der gemeinsamen Navigation.
 Das ist unabhängig von der taktischen Rückwärtsfahrt beim Angriff. Die bestehende
 Unterwasser-Kontaktreichweite steht zentral in `GameRules.BOT_SUBMARINE_UNDERWATER_RANGE`.
+
+
+## Bereits vergebene Wasserfahrzeug-Ziele
+
+`BotTargetSituation.otherAssignedWaterAttackers(target)` liefert die Anzahl anderer
+befreundeter Wasser-Bots, die dieses Ziel bereits ausgewählt haben. Die eigene Auswahl
+ist ausgenommen. Die Zählung gilt pro Partei und umfasst auch die gültigen bisherigen
+Ziele von Bots, deren Auswahl-Takt in dieser Runde noch nicht fällig ist. Vernichtete
+Ziele und frühere Fahrzeugleben zählen nicht. Flugzeugreservierungen bleiben unabhängig.
+
+Die Sitzung bereitet die Zählungen mit einem zusätzlichen linearen Durchlauf über die
+aktive Wasserflotte vor. Nach jeder neuen Wahl wird die gemeinsame Zählung aktualisiert;
+die nächste Auswahl sieht dadurch die bereits vorgenommenen Entscheidungen. Es gibt
+keine Kopie der Flotte und keine Suche durch alle anderen Bots pro Auswahl.
+
+`WaterBotTargetSelection` bestimmt zunächst das bisherige bevorzugte Ziel. Sind ihm
+schon mindestens zwei andere befreundete Wasser-Bots zugeteilt, darf der nächstgelegene
+zulässige Gegner mit weniger als zwei Angreifern gewählt werden, sofern er höchstens
+30 Prozent weiter entfernt ist. Fehlt eine solche Alternative, bleibt das bisherige Ziel;
+zwei Angreifer sind eine bevorzugte Verteilung und keine harte Angriffssperre.
+
+Ein bevorzugtes menschliches Ziel darf nur durch ein anderes menschliches Ziel ersetzt
+werden. Aktive Jagdaufträge und noch gültige U-Boot-Angriffsfortsetzungen werden von
+der Umverteilung ausgenommen. Wahrnehmung und Auswahl-Takte bleiben unverändert.
+Die zusätzliche Kandidatenschleife läuft nur, wenn das ursprüngliche Ziel bereits zwei
+andere Angreifer hat. Sie vergleicht quadrierte Entfernungen und benötigt keine weiteren
+Sichtprüfungen oder Weltabfragen.
+
+
+Die Verteilung ist mit sechs zusätzlichen Tests abgesichert: Grenze bei 30 Prozent,
+freie und bereits belegte Alternativen, Ausschluss der eigenen bisherigen Wahl,
+Menschenpriorität, unveränderte Jagd/Angriffsfortsetzung sowie die Zählung und Aktualisierung
+im echten Rundenablauf einschließlich getrennter Parteien. Gesamtsuite: 648 Tests,
+646 bestanden und 2 übersprungen; alle sieben Performance-Grenztests bestehen.
+Ein bestehender Schusstest zählt nun neue Torpedostarts nach der Aufwärmphase statt
+nur am Ende noch fliegende Torpedos; deren Anzahl hängt auch von Treffern und Ablauf ab.
+
+Lokaler Vergleich mit `main` (`0b14fa4`), 57.600 gemessene Updates nach JVM-Aufwärmung,
+drei frische JVMs pro Variante und Szenario, abwechselnde Reihenfolge: Median der
+Laufmittelwerte Standardlandschaft 0,417 / 0,398 ms, 40 Fahrzeuge 0,186 / 0,176 ms,
+100 Fahrzeuge 0,677 / 0,641 ms. Keine Verlangsamung im Gesamtvergleich erkennbar.
+Die Messung umfasst den durch die Verteilung veränderten Spielverlauf und ist keine
+isolierte Messung des zusätzlichen Verwaltungsaufwands. Netzwerk und Grafik sind ausgenommen.

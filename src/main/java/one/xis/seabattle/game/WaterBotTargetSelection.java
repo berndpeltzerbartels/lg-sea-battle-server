@@ -48,7 +48,40 @@ final class WaterBotTargetSelection {
         && !situation.isVisible(situation.currentTarget())
         && !situation.isStrategicContact(situation.currentTarget()))
       return situation.currentTarget();
-    return chooseBotTarget(vehicle, situation.candidates()).orElse(null);
+    Vehicle preferred = chooseBotTarget(vehicle, situation.candidates()).orElse(null);
+    // Hunt/search and remembered approaches retain their existing priorities and group size.
+    if (preferred == null
+        || situation.submarineSearch() != null
+        || situation.lastSubmarineCourse() != null
+            && situation.lastSubmarineCourse().until() > situation.timeSeconds()
+        || situation.otherAssignedWaterAttackers(preferred) < BOT_WATER_TARGET_PREFERRED_ATTACKERS)
+      return preferred;
+    return lessCrowdedAlternative(vehicle, situation, preferred);
+  }
+
+  private Vehicle lessCrowdedAlternative(
+      SurfaceVehicle vehicle, BotTargetSituation situation, Vehicle preferred) {
+    Vector2 offset = preferred.position().subtract(vehicle.position());
+    double limitSquared =
+        (offset.x() * offset.x() + offset.z() * offset.z())
+            * BOT_WATER_TARGET_ALTERNATIVE_DISTANCE_FACTOR
+            * BOT_WATER_TARGET_ALTERNATIVE_DISTANCE_FACTOR;
+    Vehicle alternative = null;
+    double nearestSquared = Double.POSITIVE_INFINITY;
+    for (Vehicle candidate : situation.candidates()) {
+      if (candidate == preferred || preferred.isHumanControlled() && !candidate.isHumanControlled())
+        continue;
+      double dx = candidate.position().x() - vehicle.position().x();
+      double dz = candidate.position().z() - vehicle.position().z();
+      double distanceSquared = dx * dx + dz * dz;
+      if (distanceSquared > limitSquared
+          || distanceSquared >= nearestSquared
+          || situation.otherAssignedWaterAttackers(candidate)
+              >= BOT_WATER_TARGET_PREFERRED_ATTACKERS) continue;
+      alternative = candidate;
+      nearestSquared = distanceSquared;
+    }
+    return alternative == null ? preferred : alternative;
   }
 
   private Optional<Vehicle> chooseBotTarget(SurfaceVehicle vehicle, List<Vehicle> targets) {

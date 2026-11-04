@@ -149,6 +149,8 @@ final class GameRules {
   static final double[] PERISCOPE_SIGHT_LENGTHS = {2, 4, 6, 8, 10, 12};
   static final double BOT_RADAR_INTERCEPT_RANGE = 360;
   static final double BOT_HUMAN_TARGET_PRIORITY_CLEARANCE = 320;
+  static final int BOT_WATER_TARGET_PREFERRED_ATTACKERS = 2;
+  static final double BOT_WATER_TARGET_ALTERNATIVE_DISTANCE_FACTOR = 1.3;
   static final double BOT_GLANCING_RAM_BACKOFF_SECONDS = .8;
   static final boolean SCOUT_PLANE_EXPERIMENT_PEACEFUL_BOTS = false;
   static final boolean TEMPORARILY_DISABLE_BOTS = false;
