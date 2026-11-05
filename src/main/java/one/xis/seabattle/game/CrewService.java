@@ -21,6 +21,18 @@ public class CrewService {
     public synchronized String startOwnShip(Account account, String vehicle) {
         // Capture before departure: an active player changing vehicles is continuing the same game.
         boolean soloStart = players.players().isEmpty();
+        if (game.gameMode() == GameMode.BURN_DOWN) {
+            String player = "player-" + account.alias() + "-" + UUID.randomUUID().toString().substring(0, 12);
+            var previousPlayers = players.players().stream().map(SeaBattlePlayerRegistry.RegisteredPlayer::playerId)
+                    .filter(p -> account.id().equals(players.accountIdForPlayer(p))).toList();
+            // Validate while the old registration still counts as a replacement.
+            game.registerPlayer(player, account.alias(), account.nickname(), account.team(), account.id());
+            // Release a previous controller without destroying its hull.
+            for (String previous : previousPlayers) { leave(previous); game.releasePlayer(previous); }
+            game.reenter(player, account.team(), vehicle);
+            reconcileReentry(player);
+            return player;
+        }
         departForSelection(account.id());
         if ("finished".equals(game.snapshot().state())) {
             game.resetCurrentSetup();
@@ -30,7 +42,7 @@ public class CrewService {
         ReturnState previous = returnsByAccount.get(account.id());
         game.restorePlayer(player, account.team(), vehicle, soloStart || previous == null ? null : previous.ship(),
                 retainedScore(previous));
-        players.register(player, account.alias(), account.nickname(), account.team(), account.id());
+        game.registerPlayer(player, account.alias(), account.nickname(), account.team(), account.id());
         return player;
     }
 
@@ -47,6 +59,7 @@ public class CrewService {
     public CrewService(GameStateService game, SeaBattlePlayerRegistry players) {
         this.game = game;
         this.players = players;
+        game.usePlayerRegistry(players);
     }
 
     private static class Crew {
@@ -176,6 +189,7 @@ public class CrewService {
     private Crew crew(String player) {
         refreshRound();
         if (!players.isRegisteredPlayer(player)) return null;
+        if (game.gameMode() == GameMode.BURN_DOWN) reconcileReentry(player);
         Crew crew = byPlayer.get(player);
         if (crew == null) {
             var ship = game.snapshot().ships().stream().filter(s -> player.equals(s.controlledBy())
@@ -186,6 +200,44 @@ public class CrewService {
             byPlayer.put(player, crew);
         }
         return crew;
+    }
+
+    /** Runs only for a player without an active hull. Surviving crews are never rearranged. */
+    private void reconcileReentry(String player) {
+        if (!"running".equals(game.snapshot().state())) return;
+        Crew group = byPlayer.get(player);
+        String controller = group == null ? player : group.controller;
+        if (game.snapshot().ships().stream().anyMatch(v -> controller.equals(v.controlledBy()) && "active".equals(v.state()))) return;
+        String team = players.teamIdForPlayer(player);
+        var replacement = game.reenter(controller, team, group == null ? null : "torpedo-boat");
+        if (replacement.isPresent()) {
+            if (group != null) { group.shipId = replacement.get().id(); group.respawnAt = 0; group.aimRequests.clear(); }
+            return;
+        }
+        // Materialize crews for surviving solo torpedo-boat controllers before counting free seats.
+        for (var ship : game.snapshot().ships()) {
+            if (!team.equals(ship.teamId()) || !"active".equals(ship.state()) || !"torpedo-boat".equals(ship.vehicleType())
+                    || !players.isRegisteredPlayer(ship.controlledBy()) || byPlayer.containsKey(ship.controlledBy())) continue;
+            Crew existing = new Crew(ship.controlledBy(), ship);
+            existing.members.put(existing.controller, new Member(existing.controller, players.playerName(players.aliasForPlayer(existing.controller)), "bridge", ++revision));
+            byPlayer.put(existing.controller, existing);
+        }
+        List<Member> displaced = group == null
+                ? List.of(new Member(player, players.playerName(players.aliasForPlayer(player)), "bridge", ++revision))
+                : List.copyOf(group.members.values());
+        var active = game.snapshot().ships().stream().filter(v -> "active".equals(v.state())).map(VehicleSnapshot::id).collect(java.util.stream.Collectors.toSet());
+        var destinations = new HashSet<>(byPlayer.values()).stream()
+                .filter(c -> c != group && c.team.equals(team) && active.contains(c.shipId) && c.members.size() < 4)
+                .sorted(Comparator.<Crew>comparingInt(c -> c.members.size()).thenComparing(c -> c.id)).toList();
+        if (destinations.stream().mapToInt(c -> 4 - c.members.size()).sum() < displaced.size()) return;
+        Crew together = destinations.stream().filter(c -> 4 - c.members.size() >= displaced.size()).findFirst().orElse(null);
+        for (Member member : displaced) {
+            Crew destination = together != null ? together : destinations.stream().filter(c -> c.members.size() < 4).findFirst().orElseThrow();
+            String station = STATIONS.stream().filter(s -> destination.members.values().stream().noneMatch(m -> s.equals(m.station()))).findFirst().orElseThrow();
+            destination.members.put(member.playerId(), new Member(member.playerId(), member.name(), station, ++revision));
+            byPlayer.put(member.playerId(), destination);
+        }
+        if (group != null) { group.members.clear(); group.aimRequests.clear(); }
     }
 
     public synchronized boolean managed(String player) { return crew(player) != null; }
@@ -244,7 +296,7 @@ public class CrewService {
                 && "active".equals(s.state())).findFirst().orElse(null);
         if (ship != null) { c.shipId = ship.id(); c.respawnAt = 0; }
         else if (c.respawnAt == 0) c.respawnAt = System.currentTimeMillis() + 6000;
-        else if (System.currentTimeMillis() >= c.respawnAt) {
+        else if (game.gameMode() == GameMode.ENDLESS && System.currentTimeMillis() >= c.respawnAt) {
             game.assignPlayerVehicle(c.controller, c.team, "torpedo-boat");
             c.respawnAt = System.currentTimeMillis() + 1000;
         }
@@ -265,7 +317,7 @@ public class CrewService {
         if (game.snapshot().ships().stream().noneMatch(s -> s.id().equals(c.shipId) && c.controller.equals(s.controlledBy()) && "active".equals(s.state())))
             throw new IllegalArgumentException("Schiff nicht aktiv.");
         String player = "player-" + applicant.alias() + "-" + UUID.randomUUID().toString().substring(0, 12);
-        players.register(player, applicant.alias(), applicant.nickname(), applicant.team(), applicant.id());
+        game.registerPlayer(player, applicant.alias(), applicant.nickname(), applicant.team(), applicant.id());
         ReturnState previous = returnsByAccount.get(applicant.id());
         if (previous != null) game.restorePersonalScore(player, retainedScore(previous));
         c.members.put(player, new Member(player, applicant.nickname(), station, ++revision));
@@ -347,6 +399,7 @@ public class CrewService {
     }
 
     private void requireActive(Crew c) {
+        if (!"running".equals(game.snapshot().state())) throw new IllegalArgumentException("Die Runde ist beendet.");
         if (game.snapshot().ships().stream().noneMatch(s -> s.id().equals(c.shipId) && c.controller.equals(s.controlledBy()) && "active".equals(s.state())))
             throw new IllegalArgumentException("Schiff nicht aktiv.");
     }

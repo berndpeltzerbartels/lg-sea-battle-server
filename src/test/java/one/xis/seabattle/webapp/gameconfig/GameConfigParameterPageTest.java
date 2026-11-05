@@ -12,6 +12,9 @@ class GameConfigParameterPageTest {
     private static class TestAdministration implements one.xis.seabattle.webapp.admin.GameAdministration {
         String selected = "dense-land";
         int restarts;
+        String mode = "ENDLESS";
+        public String currentMode() { return mode; }
+        public void start(String setup, String mode) { this.selected = setup; this.mode = mode; }
         public java.util.List<SetupOption> setups() {
             return java.util.List.of(new SetupOption("dense-land", "Inselgruppe"), new SetupOption("two-ship-duel", "Zwei Schiffe"));
         }
@@ -138,6 +141,16 @@ class GameConfigParameterPageTest {
         document.getElementById("apply-setup").click();
         assertEquals("two-ship-duel", game.selected);
         assertEquals(original, service.findAll());
+    }
+
+    @Test void administratorSelectsBurnDownOnlyWhenStartingANewRound() throws Exception {
+        var document = context(service(), "ADMIN").openPage("/admin/game-config.html").getDocument();
+        ((one.xis.test.dom.SelectElement) document.getElementById("mode-choice")).setValue("BURN_DOWN");
+        assertEquals("ENDLESS",game.mode);
+        document.getElementById("apply-setup").click();
+        assertEquals("BURN_DOWN",game.mode);
+        document.getElementById("restart-game").click();
+        assertEquals("BURN_DOWN",game.mode);
     }
 
     @Test void coloursHaveIndependentFleetSizesAndInvalidCountsAreRejected() throws Exception {

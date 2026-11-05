@@ -46,6 +46,12 @@
                             <option value="${setup.id}">${setup.title}</option>
                         </xis:foreach>
                     </select>
+                    <label for="mode-choice">Spielmodus</label>
+                    <select id="mode-choice" xis:binding="mode">
+                        <option value="ENDLESS">Endlos</option>
+                        <option value="BURN_DOWN">Burn-down · endliche Flotte</option>
+                    </select>
+                    <p class="hint">Burn-down: Keine Ersatzfahrzeuge. Eine Partei verliert, wenn kein Torpedoboot oder nicht genug Plätze für ihre Menschen übrig sind (vier je Boot). U-Boote und Flugzeuge zählen nicht für den Sieg. Flottengrößen gelten bei Rundenstart.</p>
                     <button id="apply-setup" type="submit" xis:action="selectSetup">Auswahl starten</button>
                 </div>
                 <div class="field">
@@ -67,7 +73,7 @@
                     <input id="fleet-dark" type="number" step="1" min="0" max="200" xis:binding="dark" xis:error-class="error" required>
                     <div class="error" xis:message-for="dark"></div></div>
             </div>
-            <p class="hint">Torpedoboote, U-Boote und Flugzeuge zählen mit, auch von Menschen gesteuerte Fahrzeuge. Bei einer Verringerung bleiben vorhandene Fahrzeuge erhalten; Verluste werden bis zur Sollgröße nicht ersetzt. Bei einer Erhöhung kommt insgesamt alle drei Sekunden ein Fahrzeug auf einem freien Wasserpunkt hinzu. Feste Testaufstellungen behalten ihre Besetzung.</p>
+            <p class="hint">Torpedoboote, U-Boote und Flugzeuge zählen mit, auch von Menschen gesteuerte Fahrzeuge. Bei einer Verringerung bleiben vorhandene Fahrzeuge erhalten; Verluste werden bis zur Sollgröße nicht ersetzt. Bei einer Erhöhung kommt insgesamt alle drei Sekunden ein Fahrzeug auf einem freien Wasserpunkt hinzu. Feste Testaufstellungen behalten ihre Besetzung. Im Burn-down gilt die Flottengröße nur beim Start einer neuen Runde; während der Runde gibt es keinen Nachschub.</p>
             <button id="save-fleet-size" type="submit" xis:action="saveFleetSize">Flottengrößen speichern</button>
         </fieldset>
     </form>

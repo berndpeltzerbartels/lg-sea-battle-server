@@ -70,6 +70,45 @@ public final class GameSession {
     double nowSeconds;
     double nextBotScoutPlaneTorpedoTime;
     private String state = "running";
+    private GameMode mode = GameMode.ENDLESS;
+    private String winningTeam;
+    private Supplier<Map<String, Integer>> humanCounts = Map::of;
+
+    synchronized void configureRound(GameMode mode, Supplier<Map<String, Integer>> humanCounts) {
+        if (nowSeconds != 0) throw new IllegalStateException("Der Spielmodus wird vor Rundenbeginn festgelegt.");
+        this.mode = Objects.requireNonNull(mode);
+        this.humanCounts = Objects.requireNonNull(humanCounts);
+        if (mode == GameMode.BURN_DOWN && adjustableFleet) {
+            var size = runtimeConfigSource.get().fleetSize();
+            if (size != null) for (Fleet fleet : fleets.values()) {
+                int target = "light".equals(fleet.teamId()) ? size.light() : size.dark();
+                if (target < 0 || target > 200) throw new IllegalArgumentException("Flottengröße muss zwischen 0 und 200 liegen.");
+                fleet.trimInitialFleet(target);
+                while (fleet.ships().size() < target) {
+                    Vehicle vehicle = fleet.reinforcementCandidate();
+                    if (!placeReinforcement(fleet, vehicle)) throw new IllegalArgumentException("Nicht genug freie Startplätze für die Flotte.");
+                    fleet.addReinforcement(vehicle);
+                }
+            }
+        }
+    }
+
+    synchronized Optional<VehicleSnapshot> reenter(String player, String team, String preferred) {
+        if (!"running".equals(state)) return Optional.empty();
+        Fleet fleet = fleets.get(team);
+        if (fleet == null) return Optional.empty();
+        return assignPlayerShip(fleet, player, preferred == null ? fleet.previousVehicleType(player) : preferred).map(Vehicle::snapshot);
+    }
+
+    synchronized int torpedoBoatCapacity(String team) {
+        Fleet fleet = fleets.get(team);
+        if (fleet == null) return 0;
+        int count = 0;
+        for (Vehicle vehicle : fleet.ships())
+            if (vehicle instanceof TorpedoBoat && "active".equals(vehicle.state())) count += 4;
+        return count;
+    }
+
 
     private final BotCalculation botCalculation;
     private final BotTargetSelection targetSelection;
@@ -231,7 +270,7 @@ public final class GameSession {
                 periscopeWarnings.snapshot(),
                 aircraftWarnings.snapshot(),
                 targetSelection.submarineDetections(nowSeconds),
-                wrecks.stream().map(Wreck::snapshot).toList()
+                wrecks.stream().map(Wreck::snapshot).toList(), mode, winningTeam
         );
     }
 
@@ -241,6 +280,7 @@ public final class GameSession {
     }
 
     public synchronized void dropDepthCharges(String controller, String actor, String shipId) {
+        if (!"running".equals(state)) return;
         Vehicle ship = findShipById(shipId).filter(s -> controller.equals(s.controlledBy())
                 && "active".equals(s.state()) && !s.isSubmarine() && !s.isScoutPlane()).orElseThrow(
                         () -> new IllegalArgumentException("Kein aktives Torpedoboot."));
@@ -334,6 +374,7 @@ public final class GameSession {
     }
 
     public synchronized void assignPlayerVehicle(String playerId, String teamId, String vehicleType) {
+        if (mode == GameMode.BURN_DOWN && !"running".equals(state)) return;
         Fleet fleet = fleets.get(teamId);
         if (fleet == null) {
             return;
@@ -343,13 +384,14 @@ public final class GameSession {
     }
 
     private Optional<Vehicle> assignPlayerShip(Fleet fleet, String player, String type) {
-        Optional<Vehicle> assigned = fleet.assignNextShipToPlayer(player, type);
+        Optional<Vehicle> assigned = mode == GameMode.BURN_DOWN
+                ? fleet.assignExistingVehicle(player, type) : fleet.assignNextShipToPlayer(player, type);
         assigned.ifPresent(ship -> prepareHumanReentry(ship, player));
         return assigned;
     }
 
     private void prepareHumanReentry(Vehicle ship, String player) {
-        if (!playersAwaitingRespawn.remove(player) || isTwoShipDuel()) return;
+        if (!playersAwaitingRespawn.remove(player) || isTwoShipDuel() || mode == GameMode.BURN_DOWN) return;
         var navigation = new NavigationService();
         Vector2 point = findHumanRespawnPosition(ship, navigation, worldMap, Set.of());
         if (!navigation.isShipBlocked(point, ship.heading(), worldMap)
@@ -375,7 +417,7 @@ public final class GameSession {
     }
 
     private Vehicle additionalPlayerShip(Fleet fleet, String player, Vector2 position, double heading, String vehicle, double y) {
-        if (isTwoShipDuel()) throw duelSlotUnavailable();
+        if (isTwoShipDuel() || mode == GameMode.BURN_DOWN) throw duelSlotUnavailable();
         Vehicle ship = fleet.assignAdditionalShipToPlayer(player, position, heading, vehicle, y);
         prepareHumanReentry(ship, player);
         return ship;
@@ -391,7 +433,9 @@ public final class GameSession {
     public synchronized void restorePlayer(String player, String team, String vehicle, VehicleSnapshot previous, int score) {
         Fleet fleet = fleets.get(team);
         if (fleet == null) throw new IllegalArgumentException("Unknown team");
-        if (isTwoShipDuel()) {
+        if (mode == GameMode.BURN_DOWN) {
+            assignPlayerShip(fleet, player, vehicle);
+        } else if (isTwoShipDuel()) {
             assignPlayerShip(fleet, player, vehicle).orElseThrow(this::duelSlotUnavailable);
         } else if (previous != null) {
             fleets.values().forEach(f -> f.removeUnoccupiedShipAt(previous));
@@ -432,8 +476,12 @@ public final class GameSession {
             return;
         }
 
+        if (!"running".equals(state)) return;
         Optional<Vehicle> assignedShip = fleet.assignedShip(update.playerId())
-                .map(current -> fleet.changeVehicleType(current, update.vehicleType()));
+                .map(current -> mode == GameMode.BURN_DOWN ? current : fleet.changeVehicleType(current, update.vehicleType()));
+        if (mode == GameMode.BURN_DOWN && (assignedShip.isEmpty()
+                || !assignedShip.get().vehicleType().equals(update.vehicleType())
+                || assignedShip.get().position().distanceTo(new Vector2(update.x(), update.z())) > 2 * BotNavigation.SHIP_LENGTH)) return;
         Vehicle ship = assignedShip
                 .or(() -> assignPlayerShip(fleet, update.playerId(), update.vehicleType()))
                 .orElseGet(() -> additionalPlayerShip(fleet,
@@ -454,6 +502,7 @@ public final class GameSession {
 
     public synchronized void applyFireTorpedo(FireTorpedoRequest request) {
         Fleet fleet = fleets.get(request.teamId());
+        if (mode == GameMode.BURN_DOWN && (!"running".equals(state) || fleet == null || fleet.assignedShip(request.playerId()).isEmpty())) return;
         if (fleet == null) {
             return;
         }
@@ -467,6 +516,7 @@ public final class GameSession {
                         request.vehicleType(),
                         request.y()
                 ));
+        if (mode == GameMode.BURN_DOWN && !ship.vehicleType().equals(request.vehicleType())) return;
         if ("scout-plane".equals(request.vehicleType())) {
             if (!ship.isScoutPlane()) {
                 return;
@@ -496,6 +546,7 @@ public final class GameSession {
 
     public synchronized void applyDropBomb(BombDropRequest request) {
         Fleet fleet = fleets.get(request.teamId());
+        if (mode == GameMode.BURN_DOWN && (!"running".equals(state) || fleet == null || fleet.assignedShip(request.playerId()).isEmpty())) return;
         if (fleet == null) {
             return;
         }
@@ -553,6 +604,7 @@ public final class GameSession {
 
     public synchronized void applyFireFlak(FlakFireRequest request, String shooterPlayerId) {
         Fleet fleet = fleets.get(request.teamId());
+        if (mode == GameMode.BURN_DOWN && (!"running".equals(state) || fleet == null || fleet.assignedShip(request.playerId()).isEmpty())) return;
         if (fleet == null) {
             return;
         }
@@ -593,6 +645,7 @@ public final class GameSession {
 
     public synchronized void applyFireCannon(FlakFireRequest request, String shooterPlayerId) {
         Fleet fleet = fleets.get(request.teamId());
+        if (mode == GameMode.BURN_DOWN && (!"running".equals(state) || fleet == null || fleet.assignedShip(request.playerId()).isEmpty())) return;
         if (fleet == null) {
             return;
         }
@@ -629,6 +682,7 @@ public final class GameSession {
 
     public synchronized void applyClientPlaneHit(ClientPlaneHitRequest request) {
         Fleet fleet = fleets.get(request.teamId());
+        if (mode == GameMode.BURN_DOWN && (!"running".equals(state) || fleet == null || fleet.assignedShip(request.playerId()).isEmpty())) return;
         if (fleet == null) {
             return;
         }
@@ -689,11 +743,11 @@ public final class GameSession {
         // Capture once: target selection, navigation and firing see the same immutable values.
         runtimeConfig = Objects.requireNonNull(runtimeConfigSource.get(), "runtime configuration");
         nowSeconds += deltaSeconds;
-        fleetPopulation.configure(adjustableFleet ? runtimeConfig.fleetSize() : null, nowSeconds);
+        fleetPopulation.configure(mode.replacesLosses() && adjustableFleet ? runtimeConfig.fleetSize() : null, nowSeconds);
         // Refill fleet slots before combat. Deaths during this tick are replaced
         // on the next tick, without waiting for their visual wrecks to disappear.
         respawnSunkShips(navigationService, worldMap, radarService);
-        fleetPopulation.increase(fleets, nowSeconds, this::placeReinforcement);
+        if (mode.replacesLosses()) fleetPopulation.increase(fleets, nowSeconds, this::placeReinforcement);
         wrecks.removeIf(wreck -> nowSeconds - wreck.sunkAt() >= WRECK_VISIBILITY_SECONDS);
         updateDepthCharges();
         if (!TEMPORARILY_DISABLE_BOTS) {
@@ -745,9 +799,9 @@ public final class GameSession {
         // Capture once: target selection, navigation and firing see the same immutable values.
         runtimeConfig = Objects.requireNonNull(runtimeConfigSource.get(), "runtime configuration");
         nowSeconds += deltaSeconds;
-        fleetPopulation.configure(adjustableFleet ? runtimeConfig.fleetSize() : null, nowSeconds);
+        fleetPopulation.configure(mode.replacesLosses() && adjustableFleet ? runtimeConfig.fleetSize() : null, nowSeconds);
         respawnSunkShips(navigationService, worldMap, radarService);
-        fleetPopulation.increase(fleets, nowSeconds, this::placeReinforcement);
+        if (mode.replacesLosses()) fleetPopulation.increase(fleets, nowSeconds, this::placeReinforcement);
         wrecks.removeIf(wreck -> nowSeconds - wreck.sunkAt() >= WRECK_VISIBILITY_SECONDS);
         updateDepthCharges();
         updateTorpedoes(deltaSeconds, navigationService, worldMap);
@@ -2425,6 +2479,7 @@ public final class GameSession {
     }
 
     private void respawnSunkShips(NavigationService navigationService, WorldMap worldMap, RadarService radarService) {
+        if (!mode.replacesLosses()) return;
         Set<Vector2> reservedRespawnPositions = new HashSet<>();
         allShips().stream()
                 .filter(ship -> ship.isReadyToRespawn(nowSeconds))
@@ -2897,7 +2952,20 @@ public final class GameSession {
     }
 
     private void checkGameOver() {
-        state = "running";
+        if (mode != GameMode.BURN_DOWN || fleets.size() < 2) return;
+        Map<String, Integer> humans = humanCounts.get();
+        String survivor = null;
+        int survivors = 0;
+        boolean defeated = false;
+        for (Fleet fleet : fleets.values()) {
+            int boats = torpedoBoatCapacity(fleet.teamId()) / 4;
+            if (mode.defeated(boats, humans.getOrDefault(fleet.teamId(), 0))) defeated = true;
+            else { survivor = fleet.teamId(); survivors++; }
+        }
+        if (defeated) {
+            state = "finished";
+            winningTeam = survivors == 1 ? survivor : null;
+        }
     }
 
     private List<Vehicle> allShips() {

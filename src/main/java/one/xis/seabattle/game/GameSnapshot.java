@@ -26,6 +26,8 @@ public record GameSnapshot(
         Map<String, PeriscopeWarnings.Warning> periscopeWarnings,
         Map<String, AircraftAttackWarnings.Warning> aircraftWarnings,
         Map<String, BotSubmarineHunt.Detection> submarineDetections,
-        List<ShipWreckSnapshot> wrecks
+        List<ShipWreckSnapshot> wrecks,
+        GameMode mode,
+        String winningTeam
 ) {
 }

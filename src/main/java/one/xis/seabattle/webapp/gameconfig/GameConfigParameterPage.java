@@ -50,7 +50,9 @@ class GameConfigParameterPage {
     @Action("saveFleetSize")
     void saveFleetSize(@FormData("fleetSize") FleetSizeForm form, ToastMessages messages) {
         configuration.saveAll(form.applyTo(configuration.findAll()));
-        messages.show("Flottengrößen gespeichert. Übernahme innerhalb von 30 Sekunden; Nachschub einzeln alle drei Sekunden.", ToastLevel.SUCCESS);
+        messages.show("BURN_DOWN".equals(game.currentMode())
+                ? "Flottengrößen gespeichert. Im Burn-down gelten sie ab der nächsten Runde."
+                : "Flottengrößen gespeichert. Übernahme innerhalb von 30 Sekunden; Nachschub einzeln alle drei Sekunden.", ToastLevel.SUCCESS);
     }
 
     @ModelData("setups")
@@ -59,7 +61,7 @@ class GameConfigParameterPage {
     @FormData("gameSetup")
     GameSetupForm gameSetup() {
         String id = game.currentSetup();
-        return new GameSetupForm(game.setups().stream().anyMatch(s -> s.id().equals(id)) ? id : "dense-land");
+        return new GameSetupForm(game.setups().stream().anyMatch(s -> s.id().equals(id)) ? id : "dense-land", game.currentMode());
     }
 
     @Action("restartGame")
@@ -70,10 +72,12 @@ class GameConfigParameterPage {
 
     @Action("selectSetup")
     void selectSetup(@FormData("gameSetup") GameSetupForm form, ToastMessages messages) {
-        game.selectSetup(form.setupId());
+        game.start(form.setupId(), form.mode());
         messages.show("Spiel mit der gewählten Landschaft und Aufstellung neu gestartet.", ToastLevel.SUCCESS);
     }
 
-    record GameSetupForm(@Mandatory String setupId) { }
+    record GameSetupForm(@Mandatory String setupId, @Mandatory String mode) {
+        GameSetupForm(String setupId) { this(setupId, "ENDLESS"); }
+    }
 
 }

@@ -23,6 +23,11 @@ class DefaultGameAdministration implements GameAdministration {
     DefaultGameAdministration(GameStateService game) { this.game = game; }
     @Override public List<SetupOption> setups() { return SETUPS; }
     @Override public String currentSetup() { return game.currentSetupId(); }
+    @Override public String currentMode() { return game.gameMode().name(); }
+    @Override public void start(String setup, String mode) {
+        if (SETUPS.stream().noneMatch(option -> option.id().equals(setup))) throw new IllegalArgumentException("Unbekannte Aufstellung.");
+        game.startRound(setup, GameMode.valueOf(mode));
+    }
     @Override public void restart() { game.restartCurrentSetup(); }
     @Override public void selectSetup(String setupId) {
         if (SETUPS.stream().noneMatch(option -> option.id().equals(setupId)))

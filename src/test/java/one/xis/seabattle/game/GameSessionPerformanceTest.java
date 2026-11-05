@@ -98,8 +98,18 @@ class GameSessionPerformanceTest {
         assertTickBudget("bot-plane-attacks", botPlaneAttackSetup());
     }
 
+    @Test
+    void burnDownFleetTicksStayBelowBudgetAfterWarmup() {
+        assertTickBudget("burn-down-fleet", new DefaultGameSetupFactory(new WorldMapService()).defaultSetup(), GameMode.BURN_DOWN);
+    }
+
     private void assertTickBudget(String scenario, GameSetup setup) {
+        assertTickBudget(scenario, setup, GameMode.ENDLESS);
+    }
+
+    private void assertTickBudget(String scenario, GameSetup setup, GameMode mode) {
         GameSession session = new GameSession(setup);
+        session.configureRound(mode, () -> java.util.Map.of("light", 1, "dark", 1));
         int warmupTicks = 80;
         int measuredTicks = 320;
 
@@ -114,6 +124,7 @@ class GameSessionPerformanceTest {
             tickMillis.add((System.nanoTime() - started) / 1_000_000.0);
         }
 
+        org.junit.jupiter.api.Assertions.assertEquals("running", session.snapshot().state(), "Benchmark must measure a live round");
         List<Double> sorted = tickMillis.stream().sorted().toList();
         double average = sorted.stream().mapToDouble(Double::doubleValue).average().orElse(0);
         double p95 = percentile(sorted, 0.95);

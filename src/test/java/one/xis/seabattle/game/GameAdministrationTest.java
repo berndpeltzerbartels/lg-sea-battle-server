@@ -26,6 +26,21 @@ class GameAdministrationTest {
         assertEquals("two-ship-duel", game.snapshot().sessionId());
     }
 
+    @Test void roundModeSurvivesRestartAndAutomaticLoginCannotResetTheRound() {
+        var game = game();
+        var administration = new DefaultGameAdministration(game);
+        administration.start("two-ship-duel", "BURN_DOWN");
+        assertEquals(GameMode.BURN_DOWN, game.snapshot().mode());
+        var previous = game.snapshot().instanceId();
+        game.resetCurrentSetup();
+        assertEquals(previous,game.snapshot().instanceId());
+        administration.restart();
+        assertNotEquals(previous,game.snapshot().instanceId());
+        assertEquals("BURN_DOWN",administration.currentMode());
+        administration.start("two-ship-duel", "ENDLESS");
+        assertEquals(GameMode.ENDLESS,game.snapshot().mode());
+    }
+
     @Test void anExplicitRestartAlsoRestartsARunningTextScenario() {
         var game = game();
         game.resetToScenario(new ScenarioGameRequest("bernd", """
