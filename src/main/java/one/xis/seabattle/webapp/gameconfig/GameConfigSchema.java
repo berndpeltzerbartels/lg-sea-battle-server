@@ -68,6 +68,30 @@ class GameConfigSchema {
                 "Sollzahl aller aktiven Fahrzeuge der dunklen Partei, einschließlich Spielern und Flugzeugen.");
     }
 
+    @Change("004-seed-fleet-vehicle-types")
+    void seedFleetVehicleTypes(DDL ddl) {
+        // Migrate the former total to independent counts without changing its sum.
+        String total = "case when regexp_like(parameter_value, '^[0-9]{1,9}$') then cast(parameter_value as integer) else 0 end";
+        for (String team : new String[]{"LIGHT", "DARK"}) {
+            insertTypeDefault(ddl, team, "SUBMARINES", "U-Boote", "floor((" + total + ") * 0.15)");
+            insertTypeDefault(ddl, team, "PLANES", "Flugzeuge", "floor((" + total + ") * 0.05)");
+            insertTypeDefault(ddl, team, "TORPEDO_BOATS", "Torpedoboote",
+                    "(" + total + ") - floor((" + total + ") * 0.15) - floor((" + total + ") * 0.05)");
+        }
+        ddl.sql("delete from game_config_parameters where id in ('FLEET.LIGHT_VEHICLES','FLEET.DARK_VEHICLES')");
+    }
+
+    private void insertTypeDefault(DDL ddl, String team, String type, String title, String expression) {
+        String name = team + "_" + type, id = "FLEET." + name;
+        ddl.sql("""
+                insert into game_config_parameters
+                    (id, parameter_group, parameter_type, name, title, description, parameter_value)
+                select '%s', 'FLEET', 'NUMBER', '%s', '%s', 'Sollzahl dieses Fahrzeugtyps in dieser Partei.', cast(cast((%s) as integer) as varchar)
+                from game_config_parameters where id = 'FLEET.%s_VEHICLES'
+                and not exists (select 1 from game_config_parameters where id = '%s')
+                """.formatted(id, name, title, expression, team, id));
+    }
+
     private void insertDefault(DDL ddl, String name, GameConfigParameterType type, String value,
                                String title, String description) {
         insertDefault(ddl, GameConfigParameterGroup.TORPEDO_BOAT_BOT, name, type, value, title, description);

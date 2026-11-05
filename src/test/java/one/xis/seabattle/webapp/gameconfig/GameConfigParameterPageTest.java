@@ -151,8 +151,24 @@ class GameConfigParameterPageTest {
         document.getInputElementById("fleet-dark").setValue("28");
         document.getElementById("save-fleet-size").click();
         service.refresh();
-        assertEquals(new FleetSizeConfig(12,28), service.current().fleetSize());
+        assertEquals(new FleetSizeConfig(12,28,3,3,1,1), service.current().fleetSize());
         assertEquals(.4,service.current().torpedoBoatBot().aimResponse());
+    }
+
+    @Test void allThreeTypesAreIndependentForEachPartyAndTheTotalIsComputed() throws Exception {
+        var service = service();
+        var document = context(service,"ADMIN").openPage("/admin/game-config.html").getDocument();
+        document.getInputElementById("fleet-light").setValue("4");
+        document.getInputElementById("fleet-dark").setValue("8");
+        document.getInputElementById("fleet-light-submarines").setValue("2");
+        document.getInputElementById("fleet-dark-submarines").setValue("3");
+        document.getInputElementById("fleet-light-planes").setValue("0");
+        document.getInputElementById("fleet-dark-planes").setValue("1");
+        document.getElementById("save-fleet-size").click();
+        service.refresh();
+        assertEquals(new FleetSizeConfig(4,8,2,3,0,1),service.current().fleetSize());
+        assertEquals(6,service.current().fleetSize().light());
+        assertEquals(12,service.current().fleetSize().dark());
     }
 
 }

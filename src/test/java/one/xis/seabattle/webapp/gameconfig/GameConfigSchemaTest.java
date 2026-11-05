@@ -120,4 +120,24 @@ class GameConfigSchemaTest {
         }
     }
 
+    @Test void upgradingSplitsTheFormerTotalAndPreservesEditedTypeCounts() throws Exception {
+        var source = database(); create(source);
+        var ddl = new DDL(source); new GameConfigSchema().seedFleetSizes(ddl); ddl.execute();
+        try (var connection = source.getConnection(); var statement = connection.createStatement()) {
+            statement.executeUpdate("update game_config_parameters set parameter_value='12' where id='FLEET.LIGHT_VEHICLES'");
+        }
+        ddl = new DDL(source); new GameConfigSchema().seedFleetVehicleTypes(ddl); ddl.execute();
+        try (var connection = source.getConnection(); var statement = connection.createStatement()) {
+            try (var result = statement.executeQuery("select sum(cast(parameter_value as integer)) from game_config_parameters where id in ('FLEET.LIGHT_TORPEDO_BOATS','FLEET.LIGHT_SUBMARINES','FLEET.LIGHT_PLANES')")) {
+                assertTrue(result.next()); assertEquals(12,result.getInt(1));
+            }
+            statement.executeUpdate("update game_config_parameters set parameter_value='5' where id='FLEET.LIGHT_SUBMARINES'");
+        }
+        ddl = new DDL(source); new GameConfigSchema().seedFleetVehicleTypes(ddl); ddl.execute();
+        try (var connection = source.getConnection(); var statement = connection.createStatement();
+             var result = statement.executeQuery("select parameter_value from game_config_parameters where id='FLEET.LIGHT_SUBMARINES'")) {
+            assertTrue(result.next()); assertEquals("5",result.getString(1));
+        }
+    }
+
 }

@@ -60,14 +60,26 @@
         <fieldset><legend>Flottengröße je Partei</legend>
             <xis:global-messages/>
             <div class="fields">
-                <div class="field"><label for="fleet-light">Flotte Hell · Fahrzeuge insgesamt</label>
-                    <input id="fleet-light" type="number" step="1" min="0" max="200" xis:binding="light" xis:error-class="error" required>
-                    <div class="error" xis:message-for="light"></div></div>
-                <div class="field"><label for="fleet-dark">Flotte Dunkel · Fahrzeuge insgesamt</label>
-                    <input id="fleet-dark" type="number" step="1" min="0" max="200" xis:binding="dark" xis:error-class="error" required>
-                    <div class="error" xis:message-for="dark"></div></div>
+                <div class="field"><label for="fleet-light">Flotte Hell · Torpedoboote</label>
+                    <input id="fleet-light" type="number" step="1" min="0" max="200" xis:binding="lightTorpedoBoats" xis:error-class="error" required>
+                    <div class="error" xis:message-for="lightTorpedoBoats"></div></div>
+                <div class="field"><label for="fleet-dark">Flotte Dunkel · Torpedoboote</label>
+                    <input id="fleet-dark" type="number" step="1" min="0" max="200" xis:binding="darkTorpedoBoats" xis:error-class="error" required>
+                    <div class="error" xis:message-for="darkTorpedoBoats"></div></div>
+                <div class="field"><label for="fleet-light-submarines">Flotte Hell · U-Boote</label>
+                    <input id="fleet-light-submarines" type="number" step="1" min="0" max="200" xis:binding="lightSubmarines" xis:error-class="error" required>
+                    <div class="error" xis:message-for="lightSubmarines"></div></div>
+                <div class="field"><label for="fleet-dark-submarines">Flotte Dunkel · U-Boote</label>
+                    <input id="fleet-dark-submarines" type="number" step="1" min="0" max="200" xis:binding="darkSubmarines" xis:error-class="error" required>
+                    <div class="error" xis:message-for="darkSubmarines"></div></div>
+                <div class="field"><label for="fleet-light-planes">Flotte Hell · Flugzeuge</label>
+                    <input id="fleet-light-planes" type="number" step="1" min="0" max="200" xis:binding="lightPlanes" xis:error-class="error" required>
+                    <div class="error" xis:message-for="lightPlanes"></div></div>
+                <div class="field"><label for="fleet-dark-planes">Flotte Dunkel · Flugzeuge</label>
+                    <input id="fleet-dark-planes" type="number" step="1" min="0" max="200" xis:binding="darkPlanes" xis:error-class="error" required>
+                    <div class="error" xis:message-for="darkPlanes"></div></div>
             </div>
-            <p class="hint">Torpedoboote, U-Boote und Flugzeuge zählen mit, auch von Menschen gesteuerte Fahrzeuge. Bei einer Verringerung bleiben vorhandene Fahrzeuge erhalten; Verluste werden bis zur Sollgröße nicht ersetzt. Bei einer Erhöhung kommt insgesamt alle drei Sekunden ein Fahrzeug auf einem freien Wasserpunkt hinzu. Feste Testaufstellungen behalten ihre Besetzung.</p>
+            <p class="hint">Die Gesamtzahl ergibt sich aus den drei Fahrzeugzahlen je Partei. Von Menschen gesteuerte Fahrzeuge zählen mit. Bei einer Verringerung bleiben vorhandene Fahrzeuge erhalten; Verluste werden bis zur Sollgröße nicht ersetzt. Bei einer Erhöhung kommt insgesamt alle drei Sekunden ein Fahrzeug auf einem freien Wasserpunkt hinzu. Feste Testaufstellungen behalten ihre Besetzung.</p>
             <button id="save-fleet-size" type="submit" xis:action="saveFleetSize">Flottengrößen speichern</button>
         </fieldset>
     </form>
