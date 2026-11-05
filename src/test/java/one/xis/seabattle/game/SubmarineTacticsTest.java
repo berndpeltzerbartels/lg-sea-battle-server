@@ -191,7 +191,7 @@ class SubmarineTacticsTest {
             @Override WorldMap world() { return new WorldMap(99009, List.of()); }
         };
         GameStateService game = new GameStateService(new DefaultGameSetupFactory(maps),
-                new RadarService(), new NavigationService());
+                new RadarService(), new NavigationService(), TestGameConfigService.defaults());
         for (String setup : List.of("dense-land", "islands", "dense-land-crowded",
                 "dense-land-crowded-reverse", "scout-plane")) {
             for (int repeat = 0; repeat < 2; repeat++) {

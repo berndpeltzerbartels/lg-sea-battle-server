@@ -3,6 +3,7 @@ package one.xis.seabattle.game;
 import static one.xis.seabattle.game.GameRules.*;
 
 import java.util.*;
+import one.xis.seabattle.webapp.gameconfig.TorpedoBoatBotConfig;
 
 /** Shared water-contact priorities and search orders; no aircraft decisions. */
 final class WaterBotTargetSelection {
@@ -55,24 +56,25 @@ final class WaterBotTargetSelection {
         && !situation.isVisible(situation.currentTarget())
         && !situation.isStrategicContact(situation.currentTarget()))
       return situation.currentTarget();
-    Vehicle preferred = chooseBotTarget(vehicle, situation.candidates()).orElse(null);
+    TorpedoBoatBotConfig config = situation.session().botCombatConfig(vehicle);
+    Vehicle preferred = chooseBotTarget(vehicle, situation.candidates(), config).orElse(null);
     // Hunt/search and remembered approaches retain their existing priorities and group size.
     if (preferred == null
         || situation.submarineSearch() != null
         || situation.lastSubmarineCourse() != null
             && situation.lastSubmarineCourse().until() > situation.timeSeconds()
-        || situation.otherAssignedWaterAttackers(preferred) < BOT_WATER_TARGET_PREFERRED_ATTACKERS)
+        || situation.otherAssignedWaterAttackers(preferred) < config.targetPreferredAttackers())
       return preferred;
-    return lessCrowdedAlternative(vehicle, situation, preferred);
+    return lessCrowdedAlternative(vehicle, situation, preferred, config);
   }
 
   private Vehicle lessCrowdedAlternative(
-      SurfaceVehicle vehicle, BotTargetSituation situation, Vehicle preferred) {
+      SurfaceVehicle vehicle, BotTargetSituation situation, Vehicle preferred, TorpedoBoatBotConfig config) {
     Vector2 offset = preferred.position().subtract(vehicle.position());
     double limitSquared =
         (offset.x() * offset.x() + offset.z() * offset.z())
-            * BOT_WATER_TARGET_ALTERNATIVE_DISTANCE_FACTOR
-            * BOT_WATER_TARGET_ALTERNATIVE_DISTANCE_FACTOR;
+            * config.targetAlternativeDistanceFactor()
+            * config.targetAlternativeDistanceFactor();
     Vehicle alternative = null;
     double nearestSquared = Double.POSITIVE_INFINITY;
     for (Vehicle candidate : situation.candidates()) {
@@ -84,14 +86,14 @@ final class WaterBotTargetSelection {
       if (distanceSquared > limitSquared
           || distanceSquared >= nearestSquared
           || situation.otherAssignedWaterAttackers(candidate)
-              >= BOT_WATER_TARGET_PREFERRED_ATTACKERS) continue;
+              >= config.targetPreferredAttackers()) continue;
       alternative = candidate;
       nearestSquared = distanceSquared;
     }
     return alternative == null ? preferred : alternative;
   }
 
-  private Optional<Vehicle> chooseBotTarget(SurfaceVehicle vehicle, List<Vehicle> targets) {
+  private Optional<Vehicle> chooseBotTarget(SurfaceVehicle vehicle, List<Vehicle> targets, TorpedoBoatBotConfig config) {
     if (targets.isEmpty()) {
       return Optional.empty();
     }
@@ -120,7 +122,7 @@ final class WaterBotTargetSelection {
 
     if (nearestHumanTarget != null
         && (nearestBotTarget == null
-            || nearestBotTarget.distance() > BOT_HUMAN_TARGET_PRIORITY_CLEARANCE)) {
+            || nearestBotTarget.distance() > config.humanTargetPriorityClearance())) {
       return Optional.of(nearestHumanTarget.vehicle());
     }
 

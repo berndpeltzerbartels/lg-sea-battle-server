@@ -9,6 +9,14 @@ import java.util.List;
 class WorldMapService {
 
     WorldMap world() {
+        // Clear the former rock field east of the central islands in the open landscape.
+        return new WorldMap(9, baseWorld().landmasses().stream()
+                .filter(land -> !land.name().startsWith("middle_skerry_")
+                        && !land.name().startsWith("l_passage_"))
+                .toList());
+    }
+
+    private WorldMap baseWorld() {
         return new WorldMap(8, List.of(
                 coastline("western_coast", -126, 58, 88, 76, 1, null, 0.22,
                         fjords(new Fjord(1.95, 0.2, 0.9))),
@@ -107,7 +115,7 @@ class WorldMapService {
 
     WorldMap denseWorld() {
         List<Landmass> landmasses = new ArrayList<>();
-        for (Landmass landmass : world().landmasses()) {
+        for (Landmass landmass : baseWorld().landmasses()) {
             if (keepInDenseWorld(landmass)) {
                 landmasses.add(landmass);
             }

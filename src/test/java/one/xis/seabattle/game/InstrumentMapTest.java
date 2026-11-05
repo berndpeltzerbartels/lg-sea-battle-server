@@ -41,7 +41,7 @@ class InstrumentMapTest {
     @Test
     void cachesCompleteDefaultMapAndRebuildsAfterWorldChange() throws Exception {
         var service = new GameStateService(new DefaultGameSetupFactory(new WorldMapService()),
-                new RadarService(), new NavigationService());
+                new RadarService(), new NavigationService(), TestGameConfigService.defaults());
         var world = service.worldMap();
         assertSame(world, service.worldMap());
         assertEquals(3, world.instrumentMap().layers().size());

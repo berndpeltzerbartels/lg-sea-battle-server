@@ -1,6 +1,9 @@
 package one.xis.seabattle.game;
 
 import one.xis.context.Service;
+import one.xis.seabattle.webapp.gameconfig.GameConfigService;
+import one.xis.seabattle.webapp.gameconfig.GameRuntimeConfig;
+import java.util.function.Supplier;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -25,6 +28,7 @@ public class GameStateService {
     private static final long TICK_METRICS_LOG_INTERVAL_NANOS = TimeUnit.MINUTES.toNanos(1);
 
     private volatile GameSession session;
+    private final Supplier<GameRuntimeConfig> runtimeConfigSource;
     private final DefaultGameSetupFactory setupFactory;
     private final RadarService radarService;
     private final NavigationService navigationService;
@@ -47,11 +51,13 @@ public class GameStateService {
     private boolean scenarioSetupActive;
     private GameSetup scenarioSetup;
 
-    public GameStateService(DefaultGameSetupFactory setupFactory, RadarService radarService, NavigationService navigationService) {
+    public GameStateService(DefaultGameSetupFactory setupFactory, RadarService radarService,
+                            NavigationService navigationService, GameConfigService configuration) {
+        this.runtimeConfigSource = configuration::current;
         this.setupFactory = setupFactory;
         this.radarService = radarService;
         this.navigationService = navigationService;
-        this.session = new GameSession(setupFactory.defaultSetup());
+        this.session = new GameSession(setupFactory.defaultSetup(), runtimeConfigSource);
         this.publishedModel = publishCurrentModel();
         executor.execute(this::runTickLoop);
     }
@@ -67,6 +73,8 @@ public class GameStateService {
         }
         return instrumentWorld;
     }
+
+    public List<Vector2> waterPoints() { return session.waterPoints(); }
 
     public List<Vector2> respawnCandidates() {
         return session.respawnCandidates();
@@ -267,7 +275,7 @@ public class GameStateService {
             scenarioSetupActive = true;
             scenarioSetup = setup;
             requestedTeamIds.clear();
-            session = new GameSession(setup);
+            session = new GameSession(setup, runtimeConfigSource);
             view = captureSessionView();
         }
         publishModel(view);
@@ -281,19 +289,25 @@ public class GameStateService {
             scenarioSetupActive = false;
             scenarioSetup = null;
             requestedTeamIds.clear();
-            session = new GameSession(setupFactory.setup(setupId, List.copyOf(requestedTeamIds)));
+            session = new GameSession(setupFactory.setup(setupId, List.copyOf(requestedTeamIds)), runtimeConfigSource);
             view = captureSessionView();
         }
         publishModel(view);
         return view.state();
     }
 
+    public synchronized String currentSetupId() { return setupId; }
+
     public synchronized GameSnapshot resetCurrentSetup() {
+        if (scenarioSetupActive && !"finished".equals(session.snapshot().state())) return snapshot();
+        return restartCurrentSetup();
+    }
+
+    /** Explicit administrator restart also restarts a currently running text scenario. */
+    public synchronized GameSnapshot restartCurrentSetup() {
         if (scenarioSetupActive) {
-            if ("finished".equals(session.snapshot().state())) {
-                session = new GameSession(scenarioSetup);
-                publishModel(captureSessionView());
-            }
+            session = new GameSession(scenarioSetup, runtimeConfigSource);
+            publishModel(captureSessionView());
             return snapshot();
         }
         return resetToSetup(setupId);

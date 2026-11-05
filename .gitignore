@@ -4,3 +4,6 @@ build/
 .idea/
 data/
 src/main/resources/sea-battle-client/
+
+# Local administrator credentials
+src/main/resources/application-local-dev.properties

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html xmlns:xis="https://xis.one/xsd" lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin-Anmeldung · Küstenkrieg</title>
+    <style>
+        :root { color-scheme:dark; font-family:system-ui,-apple-system,sans-serif; background:#092433; color:#f7fbff; }
+        * { box-sizing:border-box; } body { margin:0; }
+        main { width:min(440px,calc(100% - 32px)); margin:10vh auto; padding:28px; border:1px solid #395865; border-radius:8px; background:#061c27; }
+        form { display:grid; gap:12px; } h1 { margin-top:0; } p { color:#bfd3da; line-height:1.5; }
+        input,button { width:100%; min-height:48px; border-radius:6px; font:inherit; padding:12px; }
+        input { border:1px solid #698894; background:#092433; color:#fff; } input:focus { outline:2px solid #a8eeed; }
+        button { background:#d9f4f5; color:#082330; border:0; font-weight:700; cursor:pointer; margin-top:12px; }
+        label,a { color:#a8eeed; } .error { color:#ffb39f; }
+    </style>
+</head>
+<body>
+<main>
+    <h1>Admin-Anmeldung</h1>
+    <p>Zum Bearbeiten der Spielparameter ist ein Admin-Zugang erforderlich.</p>
+    <form id="admin-login" xis:binding="login">
+        <xis:global-messages/>
+        <label for="username">Benutzername</label>
+        <input id="username" xis:binding="username" autocomplete="username" xis:error-class="error" required>
+        <div xis:message-for="username"></div>
+        <label for="password">Passwort</label>
+        <input id="password" type="password" xis:binding="password" autocomplete="current-password" xis:error-class="error" required>
+        <div xis:message-for="password"></div>
+        <input type="hidden" xis:binding="state">
+        <button type="submit" xis:action="login">Anmelden</button>
+    </form>
+    <p><a href="/start.html">Zum Spiel</a></p>
+</main>
+</body>
+</html>

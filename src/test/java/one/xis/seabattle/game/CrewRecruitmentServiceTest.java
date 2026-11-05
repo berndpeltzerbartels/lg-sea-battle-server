@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class CrewRecruitmentServiceTest {
     private final GameStateService game = new GameStateService(new DefaultGameSetupFactory(new WorldMapService()),
-            new RadarService(), new NavigationService());
+            new RadarService(), new NavigationService(), TestGameConfigService.defaults());
     private final SeaBattlePlayerRegistry players = new SeaBattlePlayerRegistry();
     private final java.util.List<one.xis.RefreshEvent> events = new java.util.ArrayList<>();
     private final TestClock clock = new TestClock();

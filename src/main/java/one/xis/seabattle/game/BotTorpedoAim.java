@@ -9,6 +9,10 @@ record BotTorpedoAim(double heading, Vector2 targetPosition, double angularVeloc
   }
 
   static BotTorpedoAim forTarget(Vehicle shooter, Vehicle target) {
+    return forTarget(shooter, target, BOT_FIRE_MAX_RANGE);
+  }
+
+  static BotTorpedoAim forTarget(Vehicle shooter, Vehicle target, double maxRange) {
     Vector2 velocity = Vector2.fromHeading(target.heading()).scale(target.speed());
     Vector2 origin = shooter.position();
     double speed = speed(shooter);
@@ -29,7 +33,7 @@ record BotTorpedoAim(double heading, Vector2 targetPosition, double angularVeloc
         double second = (-b + Math.sqrt(discriminant)) / (2 * a);
         flight = first > 0 && second > 0 ? Math.min(first, second) : Math.max(first, second);
       }
-      if (flight < 0 || flight * speed > BOT_FIRE_MAX_RANGE) return null;
+      if (flight < 0 || flight * speed > maxRange) return null;
       future = target.position().add(velocity.scale(flight));
       Vector2 toFuture = future.subtract(shooter.position());
       heading = Math.atan2(toFuture.x(), toFuture.z());

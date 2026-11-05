@@ -14,13 +14,46 @@ final class Fleet {
     private final String teamId;
     private final List<Vehicle> ships;
     private final int intendedSubmarineCount;
+    private final Map<String, String> slotVehicleTypes = new HashMap<>();
+    private final Map<String, Integer> initialVehicleTypes = new java.util.LinkedHashMap<>();
+    private long nextReinforcementId;
     private final Map<String, String> activeShipIdByPlayerId = new HashMap<>();
     private final Set<String> additionalHumanShipIds = new HashSet<>();
 
     Fleet(String teamId, List<Vehicle> ships) {
         this.teamId = teamId;
         this.ships = new ArrayList<>(ships);
+        ships.forEach(vehicle -> {
+            slotVehicleTypes.put(vehicle.id(), vehicle.vehicleType());
+            initialVehicleTypes.merge(vehicle.vehicleType(), 1, Integer::sum);
+        });
         intendedSubmarineCount = (int) ships.stream().filter(Vehicle::isSubmarine).count();
+    }
+
+    String intendedVehicleType(Vehicle vehicle) {
+        return slotVehicleTypes.getOrDefault(vehicle.id(), vehicle.vehicleType());
+    }
+
+    Vehicle reinforcementCandidate() {
+        Map<String, Integer> activeTypes = new HashMap<>();
+        for (Vehicle vehicle : ships)
+            if ("active".equals(vehicle.state())) activeTypes.merge(vehicle.vehicleType(), 1, Integer::sum);
+        int total = activeTypes.values().stream().mapToInt(Integer::intValue).sum() + 1;
+        int original = initialVehicleTypes.values().stream().mapToInt(Integer::intValue).sum();
+        String type = "torpedo-boat";
+        double greatestDeficit = Double.NEGATIVE_INFINITY;
+        for (var entry : initialVehicleTypes.entrySet()) {
+            double deficit = total * (double) entry.getValue() / original - activeTypes.getOrDefault(entry.getKey(), 0);
+            if (deficit > greatestDeficit) { greatestDeficit = deficit; type = entry.getKey(); }
+        }
+        String id;
+        do { id = teamId + "-R" + ++nextReinforcementId; } while (shipIdExists(id));
+        return Vehicle.create(type, id, teamId, new Vector2(0, 0), 0, "bot");
+    }
+
+    void addReinforcement(Vehicle vehicle) {
+        ships.add(vehicle);
+        slotVehicleTypes.put(vehicle.id(), vehicle.vehicleType());
     }
 
     String teamId() {

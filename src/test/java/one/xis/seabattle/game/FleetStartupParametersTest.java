@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class FleetStartupParametersTest {
     @Test
     void configuredFleetSizeSurvivesRoundEndAndRestart() {
-        var game = new GameStateService(new DefaultGameSetupFactory(new WorldMapService()), new RadarService(), new NavigationService());
+        var game = new GameStateService(new DefaultGameSetupFactory(new WorldMapService()), new RadarService(), new NavigationService(), TestGameConfigService.defaults());
         var before = game.snapshot();
         int expected = Boolean.getBoolean("seaBattle.localFleetTrial") ? 20 : 15;
         var fleetSizes = before.ships().stream().collect(Collectors.groupingBy(VehicleSnapshot::teamId, Collectors.counting()));
@@ -25,7 +25,7 @@ class FleetStartupParametersTest {
 
     @Test
     void finishedCustomScenarioRestartsWithItsOriginalVehiclesAndMap() {
-        var game = new GameStateService(new DefaultGameSetupFactory(new WorldMapService()), new RadarService(), new NavigationService());
+        var game = new GameStateService(new DefaultGameSetupFactory(new WorldMapService()), new RadarService(), new NavigationService(), TestGameConfigService.defaults());
         var before = game.resetToScenario(new ScenarioGameRequest("bernd", """
                 scenario: restart-test
                 map:
@@ -45,7 +45,7 @@ class FleetStartupParametersTest {
 
     @Test
     void finishingWithoutPlayersCannotEndAnOccupiedRound() {
-        var game = new GameStateService(new DefaultGameSetupFactory(new WorldMapService()), new RadarService(), new NavigationService());
+        var game = new GameStateService(new DefaultGameSetupFactory(new WorldMapService()), new RadarService(), new NavigationService(), TestGameConfigService.defaults());
         game.connectPlayer("player-CAP-test");
         game.finishIfNoPlayers();
         assertEquals("running", game.snapshot().state());

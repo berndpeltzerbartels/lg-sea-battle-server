@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class CrewServiceTest {
-    private final GameStateService game = new GameStateService(new DefaultGameSetupFactory(new WorldMapService()), new RadarService(), new NavigationService());
+    private final GameStateService game = new GameStateService(new DefaultGameSetupFactory(new WorldMapService()), new RadarService(), new NavigationService(), TestGameConfigService.defaults());
     private final SeaBattlePlayerRegistry players = new SeaBattlePlayerRegistry();
     private long aimClock = 1000;
     private final CrewService crew = new CrewService(game, players) {

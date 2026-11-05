@@ -6,15 +6,26 @@ final class BotHelm {
 
     /** More precise tracking only on an unobstructed attack course; safety still wins. */
     static int aimRudder(double heading, double turnVelocity, double speed, BotTorpedoAim aim) {
+        return aimRudder(heading, turnVelocity, speed, aim, .40, .45, .0015);
+    }
+
+    static int aimRudder(double heading, double turnVelocity, double speed, BotTorpedoAim aim,
+                         one.xis.seabattle.webapp.gameconfig.TorpedoBoatBotConfig config) {
+        return aimRudder(heading, turnVelocity, speed, aim, config.aimResponse(),
+                config.aimTurnDamping(), config.aimMinCorrectionAngle());
+    }
+
+    private static int aimRudder(double heading, double turnVelocity, double speed, BotTorpedoAim aim,
+                                 double response, double damping, double minCorrectionAngle) {
         double error = MathSupport.normalizeAngle(aim.heading() - heading);
         double turnLimit = (speed >= 0 ? .24 : -.16)
                 * MathSupport.clamp(Math.abs(speed) / 4.2, 0, 1);
         if (Math.abs(turnLimit) < .005) return rudder(heading, turnVelocity, speed, aim.heading());
         double command = aim.angularVelocity() / turnLimit
-                + (error / .40 + (aim.angularVelocity() - turnVelocity) * .45)
+                + (error / response + (aim.angularVelocity() - turnVelocity) * damping)
                     * (speed >= 0 ? 1 : -1);
         int rudder = (int) Math.round(MathSupport.clamp(command, -1, 1) * 35);
-        if (rudder == 0 && Math.abs(error) > .0015)
+        if (rudder == 0 && Math.abs(error) > minCorrectionAngle)
             rudder = (error * turnLimit > 0 ? 1 : -1);
         return rudder;
     }

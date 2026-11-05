@@ -157,6 +157,8 @@ final class GameRules {
   static final double WRECK_VISIBILITY_SECONDS = 35;
   static final double RESPAWN_HUMAN_RADAR_MARGIN = 120;
   static final double RESPAWN_MIN_SHIP_DISTANCE = 170;
+  // Human re-entry: cheap enemy clearance, not a guarantee against every incoming shot.
+  static final double HUMAN_RESPAWN_ENEMY_CLEARANCE = 37.5 * BotNavigation.SHIP_LENGTH;
   static final double TORPEDO_IMPACT_VISIBILITY_SECONDS = 3.0;
   static final int ENGINE_FULL_ASTERN = 0;
   static final int ENGINE_ASTERN = 1;

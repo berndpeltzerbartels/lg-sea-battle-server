@@ -46,9 +46,9 @@ final class BotTestAccess {
         call(
             new WaterBotTargetSelection(),
             "chooseBotTarget",
-            new Class[] {SurfaceVehicle.class, List.class},
+            new Class[] {SurfaceVehicle.class, List.class, one.xis.seabattle.webapp.gameconfig.TorpedoBoatBotConfig.class},
             (SurfaceVehicle) vehicle,
-            targets);
+            targets, session.botCombatConfig(vehicle));
   }
 
   private Optional<Vehicle> selectBotScoutPlaneTarget(

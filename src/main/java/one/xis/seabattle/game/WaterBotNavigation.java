@@ -3,6 +3,7 @@ package one.xis.seabattle.game;
 import static one.xis.seabattle.game.GameRules.*;
 
 import java.util.*;
+import one.xis.seabattle.webapp.gameconfig.TorpedoBoatBotConfig;
 import one.xis.seabattle.game.GameSession.BotIntent;
 
 /** Shared collision avoidance, helm, escape manoeuvres and torpedo fire for water vehicles. */
@@ -13,7 +14,7 @@ final class WaterBotNavigation {
 
   @FunctionalInterface
   interface AttackSpeed<V extends SurfaceVehicle> {
-    int engineOrder(V vehicle, Vehicle target, double distance, double bearing);
+    int engineOrder(V vehicle, Vehicle target, double distance, double bearing, TorpedoBoatBotConfig config);
   }
 
   private record BotCommand(int engineOrder, int rudder) {
@@ -83,8 +84,9 @@ final class WaterBotNavigation {
     BotIntent intent = situation.round().boats().get(vehicle);
     BotNavigation plan = vehicle.botNavigation;
     Vehicle contact = goal.kind() == BotGoal.Kind.ENEMY ? goal.target() : null;
+    TorpedoBoatBotConfig config = session.botCombatConfig(vehicle);
     BotTorpedoAim aim = contact == null || contact.isAtPeriscopeDepth()
-        ? null : BotTorpedoAim.forTarget(vehicle, contact);
+        ? null : BotTorpedoAim.forTarget(vehicle, contact, config.fireMaxRange());
     boolean routeUpdated = intent.routeUpdated();
     if (routeUpdated) {
       BotNavigation.Course desired = courseForGoal(vehicle, contact, goal, attackSpeed);
@@ -147,7 +149,7 @@ final class WaterBotNavigation {
       vehicle.applyCommand(
           order,
           aim != null && plan.directAttackRoute && selected == plan.route
-              ? BotHelm.aimRudder(vehicle.heading(), vehicle.turnVelocity(), vehicle.speed(), aim)
+              ? BotHelm.aimRudder(vehicle.heading(), vehicle.turnVelocity(), vehicle.speed(), aim, config)
               : BotHelm.rudder(
                   vehicle.heading(), vehicle.turnVelocity(), vehicle.speed(), selected.heading()));
     }
@@ -172,7 +174,7 @@ final class WaterBotNavigation {
                   vehicle,
                   contact,
                   vehicle.position().distanceTo(destination),
-                  session.relativeBearing(vehicle, destination));
+                  session.relativeBearing(vehicle, destination), session.botCombatConfig(vehicle));
           case LAST_KNOWN_COURSE, SEARCH -> ENGINE_FLANK;
           case RETAINED_COURSE -> vehicle.botNavigation.route.engineOrder();
           case PATROL, NONE ->
@@ -180,7 +182,7 @@ final class WaterBotNavigation {
                   vehicle,
                   null,
                   vehicle.position().distanceTo(destination),
-                  session.relativeBearing(vehicle, destination));
+                  session.relativeBearing(vehicle, destination), session.botCombatConfig(vehicle));
         };
     return new BotNavigation.Course(bearingTo(vehicle, destination), order);
   }
@@ -487,22 +489,23 @@ final class WaterBotNavigation {
   }
 
   private void fireBotWeapons(SurfaceVehicle vehicle, Vehicle target, BotTorpedoAim aim) {
+    TorpedoBoatBotConfig config = session.botCombatConfig(vehicle);
     double distance = vehicle.position().distanceTo(target.position());
     if (aim == null) return;
     double targetBearing = MathSupport.normalizeAngle(aim.heading() - vehicle.heading());
     boolean closeInFront =
-        distance <= BOT_CLOSE_FIRE_RANGE && Math.abs(targetBearing) <= BOT_CLOSE_FIRE_ARC;
+        distance <= config.closeFireRange() && Math.abs(targetBearing) <= config.closeFireArc();
     boolean aimedShot =
-        distance >= BOT_FIRE_MIN_RANGE
-            && distance <= BOT_FIRE_MAX_RANGE
-            && Math.abs(targetBearing) <= BOT_FIRE_ARC;
+        distance >= config.fireMinRange()
+            && distance <= config.fireMaxRange()
+            && Math.abs(targetBearing) <= config.fireArc();
     if (!SCOUT_PLANE_EXPERIMENT_PEACEFUL_BOTS
         && !target.isAtPeriscopeDepth()
         && (closeInFront || aimedShot)) {
       session.fireTorpedoAtTarget(
           vehicle,
           target,
-          10.5 + Math.abs(Math.sin(session.stablePhase(vehicle.id()))) * 3.0,
+          config.torpedoCooldownMin() + Math.abs(Math.sin(session.stablePhase(vehicle.id()))) * config.torpedoCooldownVariation(),
           0);
     }
   }

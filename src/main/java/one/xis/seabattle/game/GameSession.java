@@ -3,9 +3,15 @@ package one.xis.seabattle.game;
 import static one.xis.seabattle.game.GameRules.*;
 
 import java.util.*;
+import java.util.function.Supplier;
+import one.xis.seabattle.webapp.gameconfig.GameRuntimeConfig;
+import one.xis.seabattle.webapp.gameconfig.TorpedoBoatBotConfig;
 
 public final class GameSession {
 
+    static final GameRuntimeConfig DEFAULT_RUNTIME_CONFIG = GameRuntimeConfig.defaults();
+    private final Supplier<GameRuntimeConfig> runtimeConfigSource;
+    private GameRuntimeConfig runtimeConfig = DEFAULT_RUNTIME_CONFIG;
     private final String id;
     private final String instanceId = java.util.UUID.randomUUID().toString();
     private final WorldMap worldMap;
@@ -14,6 +20,9 @@ public final class GameSession {
     final WorldMap scoutPlaneObstacleMap;
     private final Map<String, Fleet> fleets;
     private final List<Vector2> respawnCandidates;
+    private final FleetPopulation fleetPopulation = new FleetPopulation();
+    private final boolean adjustableFleet;
+    private WaterPointGrid waterPointGrid;
     final Vector2 patrolCenter;
     private final Map<String, Integer> destroyedShipsByTeam = new LinkedHashMap<>();
     private final Map<String, Integer> killsByPlayer = new LinkedHashMap<>();
@@ -56,6 +65,8 @@ public final class GameSession {
     private int nextFlakProjectileId = 1;
     private int nextRespawnCandidateIndex;
     private int lastRespawnCandidateIndex = -1;
+    private long humanRespawnSelections;
+    private final Set<String> playersAwaitingRespawn = new HashSet<>();
     double nowSeconds;
     double nextBotScoutPlaneTorpedoTime;
     private String state = "running";
@@ -67,6 +78,12 @@ public final class GameSession {
     GameSession(GameSetup setup) {
         this(setup, Integer.getInteger("seaBattle.simulationThreads", 1),
                 Boolean.getBoolean("seaBattle.parallelBotNavigation"));
+    }
+
+    GameSession(GameSetup setup, Supplier<GameRuntimeConfig> configuration) {
+        this(setup, Integer.getInteger("seaBattle.simulationThreads", 1),
+                Boolean.getBoolean("seaBattle.parallelBotNavigation"), BotAlgorithms.calculation(),
+                BotAlgorithms.targetSelection(), configuration);
     }
 
     GameSession(GameSetup setup, int simulationThreads) {
@@ -83,6 +100,12 @@ public final class GameSession {
 
     GameSession(GameSetup setup, int simulationThreads, boolean parallelBotNavigation, BotCalculation calculation,
                 BotTargetSelection targetSelection) {
+        this(setup, simulationThreads, parallelBotNavigation, calculation, targetSelection, () -> DEFAULT_RUNTIME_CONFIG);
+    }
+
+    GameSession(GameSetup setup, int simulationThreads, boolean parallelBotNavigation, BotCalculation calculation,
+                BotTargetSelection targetSelection, Supplier<GameRuntimeConfig> configuration) {
+        this.runtimeConfigSource = Objects.requireNonNull(configuration, "configuration");
         this.botCalculation = Objects.requireNonNull(calculation, "calculation");
         this.targetSelection = Objects.requireNonNull(targetSelection, "targetSelection");
         if (simulationThreads != 1 && simulationThreads != 2) {
@@ -98,8 +121,21 @@ public final class GameSession {
         );
         this.fleets = createFleets(setup.fleets());
         this.respawnCandidates = List.copyOf(setup.respawnCandidates());
+        this.adjustableFleet = Set.of("default", "dense-land", "islands", "scout-plane").contains(id);
+        // Static landscape work happens before the game loop, never on an increase tick.
+        if (adjustableFleet) this.waterPointGrid = WaterPointGrid.cached(worldMap, respawnCandidates);
         this.patrolCenter = mapCenter(worldMap, respawnCandidates);
         this.fleets.keySet().forEach(teamId -> destroyedShipsByTeam.put(teamId, 0));
+    }
+
+    GameRuntimeConfig runtimeConfig() {
+        return runtimeConfig;
+    }
+
+    /** Shared water routines keep legacy defaults for submarines and human weapons. */
+    TorpedoBoatBotConfig botCombatConfig(Vehicle vehicle) {
+        return vehicle instanceof TorpedoBoat && vehicle.isBotControlled()
+                ? runtimeConfig.torpedoBoatBot() : DEFAULT_RUNTIME_CONFIG.torpedoBoatBot();
     }
 
     WorldMap worldMap() {
@@ -108,6 +144,34 @@ public final class GameSession {
 
     List<Vector2> respawnCandidates() {
         return respawnCandidates;
+    }
+
+    synchronized List<Vector2> waterPoints() {
+        if (waterPointGrid == null) waterPointGrid = WaterPointGrid.cached(worldMap, respawnCandidates);
+        return waterPointGrid.points();
+    }
+
+    private boolean placeReinforcement(Fleet fleet, Vehicle vehicle) {
+        List<Vector2> points = waterPoints();
+        if (points.isEmpty()) return false;
+        var random = new SplittableRandom(Double.doubleToLongBits(nowSeconds) ^ vehicle.id().hashCode());
+        var navigation = new NavigationService();
+        for (int attempt = 0; attempt < Math.min(32, points.size()); attempt++) {
+            Vector2 point = points.get(random.nextInt(points.size()));
+            double heading = angleTo(patrolCenter, point);
+            if (activeShipsTooClose(point, Set.of()) || spawnOverlapsWreck(vehicle, point, worldMap)) continue;
+            Vector2 forward = Vector2.fromHeading(heading);
+            boolean clear = true;
+            for (int step = 0; step <= 6; step++) {
+                Vector2 ahead = point.add(forward.scale(step * BotNavigation.SHIP_LENGTH / 3));
+                if (navigation.isShipBlocked(ahead, heading, worldMap)) { clear = false; break; }
+            }
+            if (!clear) continue;
+            vehicle.respawn(point, heading, nowSeconds);
+            vehicle.applyCommand(vehicle.isScoutPlane() ? ENGINE_FULL : ENGINE_ONE_THIRD, 0);
+            return true;
+        }
+        return false;
     }
 
     boolean hasHumanControlledShip(Set<String> activePlayerIds) {
@@ -274,8 +338,32 @@ public final class GameSession {
         if (fleet == null) {
             return;
         }
-        var assigned = fleet.assignNextShipToPlayer(playerId, vehicleType);
+        var assigned = assignPlayerShip(fleet, playerId, vehicleType);
         if (isTwoShipDuel() && assigned.isEmpty()) throw duelSlotUnavailable();
+    }
+
+    private Optional<Vehicle> assignPlayerShip(Fleet fleet, String player, String type) {
+        Optional<Vehicle> assigned = fleet.assignNextShipToPlayer(player, type);
+        assigned.ifPresent(ship -> prepareHumanReentry(ship, player));
+        return assigned;
+    }
+
+    private void prepareHumanReentry(Vehicle ship, String player) {
+        if (!playersAwaitingRespawn.remove(player) || isTwoShipDuel()) return;
+        var navigation = new NavigationService();
+        Vector2 point = findHumanRespawnPosition(ship, navigation, worldMap, Set.of());
+        if (!navigation.isShipBlocked(point, ship.heading(), worldMap)
+                && !activeShipsTooCloseExcept(point, ship) && !spawnOverlapsWreck(ship, point, worldMap)) {
+            ship.respawn(point, respawnHeading(ship, point, worldMap), nowSeconds);
+            ship.controlledBy(player);
+            ship.nextFireTime(0);
+        }
+    }
+
+    private boolean activeShipsTooCloseExcept(Vector2 point, Vehicle own) {
+        double square = RESPAWN_MIN_SHIP_DISTANCE * RESPAWN_MIN_SHIP_DISTANCE;
+        return allShips().stream().anyMatch(v -> v != own && "active".equals(v.state())
+                && squaredDistance(point, v.position()) < square);
     }
 
     private boolean isTwoShipDuel() {
@@ -288,7 +376,9 @@ public final class GameSession {
 
     private Vehicle additionalPlayerShip(Fleet fleet, String player, Vector2 position, double heading, String vehicle, double y) {
         if (isTwoShipDuel()) throw duelSlotUnavailable();
-        return fleet.assignAdditionalShipToPlayer(player, position, heading, vehicle, y);
+        Vehicle ship = fleet.assignAdditionalShipToPlayer(player, position, heading, vehicle, y);
+        prepareHumanReentry(ship, player);
+        return ship;
     }
 
     public synchronized void addTeams(GameSetup setup) {
@@ -302,7 +392,7 @@ public final class GameSession {
         Fleet fleet = fleets.get(team);
         if (fleet == null) throw new IllegalArgumentException("Unknown team");
         if (isTwoShipDuel()) {
-            fleet.assignNextShipToPlayer(player, vehicle).orElseThrow(this::duelSlotUnavailable);
+            assignPlayerShip(fleet, player, vehicle).orElseThrow(this::duelSlotUnavailable);
         } else if (previous != null) {
             fleets.values().forEach(f -> f.removeUnoccupiedShipAt(previous));
             Vector2 position = new Vector2(previous.x(), previous.z());
@@ -314,7 +404,7 @@ public final class GameSession {
                     previous.heading(), vehicle, "submarine".equals(vehicle) ? previous.y() : 0);
             ship.applyCommand(previous.engineOrder(), previous.rudderDegrees());
         } else {
-            fleet.assignNextShipToPlayer(player, vehicle);
+            assignPlayerShip(fleet, player, vehicle);
         }
         killsByPlayer.put(player, score);
     }
@@ -345,7 +435,7 @@ public final class GameSession {
         Optional<Vehicle> assignedShip = fleet.assignedShip(update.playerId())
                 .map(current -> fleet.changeVehicleType(current, update.vehicleType()));
         Vehicle ship = assignedShip
-                .or(() -> fleet.assignNextShipToPlayer(update.playerId(), update.vehicleType()))
+                .or(() -> assignPlayerShip(fleet, update.playerId(), update.vehicleType()))
                 .orElseGet(() -> additionalPlayerShip(fleet,
                         update.playerId(),
                         new Vector2(update.x(), update.z()),
@@ -369,7 +459,7 @@ public final class GameSession {
         }
 
         Vehicle ship = fleet.assignedShip(request.playerId())
-                .or(() -> fleet.assignNextShipToPlayer(request.playerId(), request.vehicleType()))
+                .or(() -> assignPlayerShip(fleet, request.playerId(), request.vehicleType()))
                 .orElseGet(() -> additionalPlayerShip(fleet,
                         request.playerId(),
                         new Vector2(request.x(), request.z()),
@@ -411,7 +501,7 @@ public final class GameSession {
         }
 
         Vehicle ship = fleet.assignedShip(request.playerId())
-                .or(() -> fleet.assignNextShipToPlayer(request.playerId()))
+                .or(() -> assignPlayerShip(fleet, request.playerId(), null))
                 .orElseThrow(() -> new IllegalStateException("No active ship available for team: " + request.teamId()));
         if (!ship.isScoutPlane() && !"scout-plane".equals(request.vehicleType())) {
             return;
@@ -468,7 +558,7 @@ public final class GameSession {
         }
 
         Vehicle ship = fleet.assignedShip(request.playerId())
-                .or(() -> fleet.assignNextShipToPlayer(request.playerId()))
+                .or(() -> assignPlayerShip(fleet, request.playerId(), null))
                 .orElse(null);
         if (ship == null) {
             return;
@@ -508,7 +598,7 @@ public final class GameSession {
         }
 
         Vehicle ship = fleet.assignedShip(request.playerId())
-                .or(() -> fleet.assignNextShipToPlayer(request.playerId()))
+                .or(() -> assignPlayerShip(fleet, request.playerId(), null))
                 .orElse(null);
         if (ship == null) {
             return;
@@ -596,10 +686,14 @@ public final class GameSession {
         if (!"running".equals(state)) {
             return;
         }
+        // Capture once: target selection, navigation and firing see the same immutable values.
+        runtimeConfig = Objects.requireNonNull(runtimeConfigSource.get(), "runtime configuration");
         nowSeconds += deltaSeconds;
+        fleetPopulation.configure(adjustableFleet ? runtimeConfig.fleetSize() : null, nowSeconds);
         // Refill fleet slots before combat. Deaths during this tick are replaced
         // on the next tick, without waiting for their visual wrecks to disappear.
         respawnSunkShips(navigationService, worldMap, radarService);
+        fleetPopulation.increase(fleets, nowSeconds, this::placeReinforcement);
         wrecks.removeIf(wreck -> nowSeconds - wreck.sunkAt() >= WRECK_VISIBILITY_SECONDS);
         updateDepthCharges();
         if (!TEMPORARILY_DISABLE_BOTS) {
@@ -648,8 +742,12 @@ public final class GameSession {
         if (!"running".equals(state)) {
             return;
         }
+        // Capture once: target selection, navigation and firing see the same immutable values.
+        runtimeConfig = Objects.requireNonNull(runtimeConfigSource.get(), "runtime configuration");
         nowSeconds += deltaSeconds;
+        fleetPopulation.configure(adjustableFleet ? runtimeConfig.fleetSize() : null, nowSeconds);
         respawnSunkShips(navigationService, worldMap, radarService);
+        fleetPopulation.increase(fleets, nowSeconds, this::placeReinforcement);
         wrecks.removeIf(wreck -> nowSeconds - wreck.sunkAt() >= WRECK_VISIBILITY_SECONDS);
         updateDepthCharges();
         updateTorpedoes(deltaSeconds, navigationService, worldMap);
@@ -2211,6 +2309,7 @@ public final class GameSession {
         }
         if (isHumanController(sunkController)) {
             killsByPlayer.merge(sunkController, SCORE_PLAYER_SUNK, Integer::sum);
+            playersAwaitingRespawn.add(sunkController);
         }
         Optional.ofNullable(fleets.get(ship.teamId())).ifPresent(fleet -> fleet.releaseShip(ship.id()));
         return true;
@@ -2330,6 +2429,8 @@ public final class GameSession {
         allShips().stream()
                 .filter(ship -> ship.isReadyToRespawn(nowSeconds))
                 .forEach(ship -> {
+                    Fleet fleet = fleets.get(ship.teamId());
+                    if (!fleetPopulation.mayReplace(ship, fleet)) return;
                     Vector2 position = findRespawnPosition(ship, navigationService, worldMap, radarService, reservedRespawnPositions);
                     if (navigationService.isShipBlocked(position, ship.heading(), worldMap)
                             || activeShipsTooClose(position, reservedRespawnPositions)
@@ -2367,6 +2468,9 @@ public final class GameSession {
 
     private Vehicle prepareBotVehicleTypeForRespawn(Vehicle ship) {
         if (!ship.isBotControlled()) return ship;
+        Fleet managedFleet = fleets.get(ship.teamId());
+        if (fleetPopulation.manages(managedFleet))
+            return managedFleet.changeVehicleType(ship, managedFleet.intendedVehicleType(ship));
         // Count every fleet slot, including destroyed boats awaiting their replacement.
         // Otherwise overlapping deaths can refill the same submarine quota repeatedly.
         Fleet fleet = fleets.get(ship.teamId());
@@ -2428,6 +2532,8 @@ public final class GameSession {
         if (candidates.isEmpty()) {
             return ship.position();
         }
+        if (ship.isHumanControlled())
+            return findHumanRespawnPosition(ship, navigationService, worldMap, reservedRespawnPositions);
         RespawnChoice firstDifferentCandidate = null;
         RespawnChoice firstNavigableCandidate = null;
         RespawnChoice bestFallbackCandidate = null;
@@ -2479,6 +2585,62 @@ public final class GameSession {
         lastRespawnCandidateIndex = choice.index();
         nextRespawnCandidateIndex = Math.floorMod(choice.index() + 1, candidateCount);
         return choice.position();
+    }
+
+    private Vector2 findHumanRespawnPosition(Vehicle ship, NavigationService navigation, WorldMap world,
+                                            Set<Vector2> reserved) {
+        List<Vehicle> active = allShips().stream().filter(v -> "active".equals(v.state())).toList();
+        int count = respawnCandidates.size();
+        if (count == 0) return ship.position();
+        double[] enemyDistanceSquared = new double[count];
+        boolean[] available = new boolean[count];
+        double spacingSquared = RESPAWN_MIN_SHIP_DISTANCE * RESPAWN_MIN_SHIP_DISTANCE;
+        double clearanceSquared = HUMAN_RESPAWN_ENEMY_CLEARANCE * HUMAN_RESPAWN_ENEMY_CLEARANCE;
+        // One inexpensive distance pass. Terrain/wreck checks are deferred to the chosen points.
+        for (int i = 0; i < count; i++) {
+            Vector2 point = respawnCandidates.get(i);
+            double nearestEnemy = Double.POSITIVE_INFINITY;
+            boolean free = true;
+            for (Vehicle other : active) {
+                if (other == ship) continue;
+                double distance = squaredDistance(point, other.position());
+                if (distance < spacingSquared) free = false;
+                if (!other.teamId().equals(ship.teamId())) nearestEnemy = Math.min(nearestEnemy, distance);
+            }
+            for (Vector2 other : reserved)
+                if (squaredDistance(point, other) < spacingSquared) free = false;
+            enemyDistanceSquared[i] = nearestEnemy;
+            available[i] = free;
+        }
+        // Reproducible for simulation comparisons; different deaths/selections give varied choices.
+        var random = new SplittableRandom((31L * ship.id().hashCode() + humanRespawnSelections++)
+                ^ Double.doubleToLongBits(nowSeconds));
+        for (int attempt = 0; attempt < count; attempt++) {
+            int best = -1, bestPriority = -1, ties = 0;
+            for (int i = 0; i < count; i++) {
+                if (!available[i]) continue;
+                boolean safe = enemyDistanceSquared[i] >= clearanceSquared;
+                int priority = (safe ? 2 : 0) + (i != lastRespawnCandidateIndex ? 1 : 0);
+                if (priority > bestPriority) {
+                    best = i; bestPriority = priority; ties = 1;
+                } else if (priority == bestPriority) {
+                    if (safe ? random.nextInt(++ties) == 0
+                            : enemyDistanceSquared[i] > enemyDistanceSquared[best]) best = i;
+                }
+            }
+            if (best < 0) break;
+            available[best] = false;
+            Vector2 point = respawnCandidates.get(best);
+            if (!navigation.isShipBlocked(point, ship.heading(), world) && !spawnOverlapsWreck(ship, point, world))
+                return selectRespawnChoice(new RespawnChoice(best, point), count);
+        }
+        // Preserve the existing physical-validation/retry behavior if every point is occupied.
+        return selectRespawnChoice(new RespawnChoice(0, respawnCandidates.get(0)), count);
+    }
+
+    private static double squaredDistance(Vector2 a, Vector2 b) {
+        double dx = a.x() - b.x(), dz = a.z() - b.z();
+        return dx * dx + dz * dz;
     }
 
     private boolean activeShipsTooClose(Vector2 candidate, Set<Vector2> reservedRespawnPositions) {
@@ -2536,7 +2698,7 @@ public final class GameSession {
             return false;
         }
         if (target != null) {
-            BotTorpedoAim aim = BotTorpedoAim.forTarget(ship, target);
+            BotTorpedoAim aim = BotTorpedoAim.forTarget(ship, target, botCombatConfig(ship).fireMaxRange());
             if (aim == null || botTorpedoPathBlockedByLand(muzzlePosition, aim.targetPosition())) return false;
         }
         if (target != null && torpedoLaunchWouldHitFriendlyShip(ship, muzzlePosition, heading, launchY)) {
@@ -2570,7 +2732,7 @@ public final class GameSession {
         double speed = BotTorpedoAim.speed(shooter);
         Vector2 relativeVelocity = forward.scale(speed)
                 .subtract(Vector2.fromHeading(target.heading()).scale(target.speed()));
-        double duration = BOT_FIRE_MAX_RANGE / speed;
+        double duration = botCombatConfig(shooter).fireMaxRange() / speed;
         Vector2 end = start.add(relativeVelocity.scale(duration));
         if (target.isSubmarine()) {
             return Double.isFinite(SubmarineProjectileGeometry.hitFraction(
@@ -2622,7 +2784,7 @@ public final class GameSession {
         for (Vehicle friend : allShips()) {
             if (!"active".equals(friend.state()) || friend.isScoutPlane() || friend == shooter
                     || !friend.teamId().equals(shooter.teamId()) || !torpedoDepthCanDamageShip(launchY, friend)) continue;
-            if (torpedoLineHitsShipAtDepth(muzzlePosition, forward, friend, launchY)) return true;
+            if (torpedoLineHitsShipAtDepth(muzzlePosition, forward, friend, launchY, botCombatConfig(shooter).fireMaxRange())) return true;
             double dx = friend.position().x() - muzzlePosition.x(), dz = friend.position().z() - muzzlePosition.z();
             if (dx * dx + dz * dz > nearbyRange * nearbyRange) continue;
             // One relative-motion calculation, not a trajectory simulation or a second fleet scan.
@@ -2637,13 +2799,13 @@ public final class GameSession {
         return false;
     }
 
-    private boolean torpedoLineHitsShipAtDepth(Vector2 start, Vector2 forward, Vehicle target, double y) {
+    private boolean torpedoLineHitsShipAtDepth(Vector2 start, Vector2 forward, Vehicle target, double y, double maxRange) {
         if (target.isSubmarine()) {
-            Vector2 end = start.add(forward.scale(BOT_FIRE_MAX_RANGE));
+            Vector2 end = start.add(forward.scale(maxRange));
             return Double.isFinite(SubmarineProjectileGeometry.hitFraction(
                     start.x(), y, start.z(), end.x(), y, end.z(), target));
         }
-        return torpedoLineHitsShip(start, forward, target, BOT_FIRE_MAX_RANGE, TORPEDO_HULL_MARGIN);
+        return torpedoLineHitsShip(start, forward, target, maxRange, TORPEDO_HULL_MARGIN);
     }
 
     boolean torpedoLineHitsShip(Vector2 muzzlePosition, Vector2 forward, Vehicle target, double maxRange, double margin) {

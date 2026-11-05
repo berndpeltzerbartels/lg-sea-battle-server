@@ -55,6 +55,11 @@ public final class SubmarineBotCalculation implements VehicleBotCalculation<Subm
     navigation.calculate(submarine, situation, tickId, goal, escapeFromThreat, ATTACK_SPEED);
   }
 
+  static int attackEngineOrder(Submarine submarine, Vehicle target, double distance, double targetBearing,
+                               one.xis.seabattle.webapp.gameconfig.TorpedoBoatBotConfig ignored) {
+    return attackEngineOrder(submarine, target, distance, targetBearing);
+  }
+
   static int attackEngineOrder(
       Submarine submarine, Vehicle target, double distance, double targetBearing) {
     boolean humanTarget = target != null && target.isHumanControlled();

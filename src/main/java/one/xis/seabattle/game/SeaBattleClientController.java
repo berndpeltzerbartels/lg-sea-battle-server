@@ -96,6 +96,10 @@ public class SeaBattleClientController {
         return SeaBattleGameConfig.current();
     }
 
+    @Get("/game/debug/water-points")
+    @Produces(ContentType.JSON_UTF8)
+    public List<Vector2> getWaterPoints() { return gameStateService.waterPoints(); }
+
     @Get("/game/debug/respawn-candidates")
     @Produces(ContentType.JSON_UTF8)
     public List<Vector2> getRespawnCandidates() {

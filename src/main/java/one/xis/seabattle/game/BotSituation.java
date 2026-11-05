@@ -54,6 +54,11 @@ public final class BotSituation {
     return world;
   }
 
+  /** Immutable configuration captured at the beginning of this calculation round. */
+  public one.xis.seabattle.webapp.gameconfig.GameRuntimeConfig config() {
+    return session.runtimeConfig();
+  }
+
   public double timeSeconds() {
     return session.calculationTime();
   }

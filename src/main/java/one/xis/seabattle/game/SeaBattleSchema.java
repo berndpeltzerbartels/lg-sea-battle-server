@@ -5,7 +5,7 @@ import one.xis.ddl.ChangeSet;
 import one.xis.ddl.DDL;
 
 @ChangeSet("sea-battle-schema")
-class SeaBattleSchema {
+public class SeaBattleSchema {
 
     @Change("009-allow-unaffiliated-crew-applicants")
     void allowUnaffiliatedCrewApplicants(DDL ddl) {
@@ -93,5 +93,6 @@ class SeaBattleSchema {
         preferences.addColumn("weekly_updates").bool().notNull();
         preferences.addColumn("invite_to_play").bool().notNull();
         preferences.addColumn("invite_weekdays").varchar(120);
+    
     }
 }

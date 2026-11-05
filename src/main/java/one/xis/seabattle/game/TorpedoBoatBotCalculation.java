@@ -2,6 +2,8 @@ package one.xis.seabattle.game;
 
 import static one.xis.seabattle.game.GameRules.*;
 
+import one.xis.seabattle.webapp.gameconfig.TorpedoBoatBotConfig;
+
 /** Torpedo-boat pursuit and attack speed; water safety is shared with submarines. */
 public final class TorpedoBoatBotCalculation implements VehicleBotCalculation<TorpedoBoat> {
   private final WaterBotNavigation navigation;
@@ -23,10 +25,15 @@ public final class TorpedoBoatBotCalculation implements VehicleBotCalculation<To
 
   static int attackEngineOrder(
       TorpedoBoat boat, Vehicle target, double distance, double targetBearing) {
+    return attackEngineOrder(boat, target, distance, targetBearing, GameSession.DEFAULT_RUNTIME_CONFIG.torpedoBoatBot());
+  }
+
+  static int attackEngineOrder(TorpedoBoat boat, Vehicle target, double distance, double targetBearing,
+                               TorpedoBoatBotConfig config) {
     boolean humanTarget = target != null && target.isHumanControlled();
     if (target == null) return ENGINE_HALF; // Map-centre patrol stays relaxed.
     if (!humanTarget) {
-      if (distance <= BOT_APPROACH_SLOW_RANGE) return ENGINE_HALF;
+      if (distance <= config.approachSlowRange()) return ENGINE_HALF;
       return distance <= BotNavigation.RADAR_RING ? ENGINE_TWO_THIRDS : ENGINE_FULL;
     }
     if (target.isAtPeriscopeDepth()) {
@@ -37,27 +44,27 @@ public final class TorpedoBoatBotCalculation implements VehicleBotCalculation<To
       return ENGINE_FLANK;
     }
     double absoluteBearing = Math.abs(targetBearing);
-    if (distance < BOT_RAM_RANGE) {
+    if (distance < config.ramRange()) {
       return target.isSubmarine()
           ? ENGINE_FLANK
           : absoluteBearing <= Math.toRadians(30) ? ENGINE_HALF : ENGINE_FULL;
     }
-    if (humanTarget && Math.abs(boat.speed()) < 0.8 && distance <= BOT_APPROACH_SLOW_RANGE) {
+    if (humanTarget && Math.abs(boat.speed()) < 0.8 && distance <= config.approachSlowRange()) {
       return ENGINE_FULL;
     }
-    if (distance < BOT_CLOSE_MANEUVER_RANGE) {
+    if (distance < config.closeManeuverRange()) {
       if (absoluteBearing <= Math.toRadians(30)) {
         return ENGINE_HALF;
       }
-      if (absoluteBearing <= BOT_CLOSE_FIRE_ARC) {
+      if (absoluteBearing <= config.closeFireArc()) {
         return ENGINE_HALF;
       }
       return ENGINE_FULL;
     }
-    if (distance > BOT_RADAR_INTERCEPT_RANGE) {
+    if (distance > config.radarInterceptRange()) {
       return ENGINE_FULL;
     }
-    if (distance > BOT_APPROACH_SLOW_RANGE) {
+    if (distance > config.approachSlowRange()) {
       return ENGINE_TWO_THIRDS;
     }
     return ENGINE_HALF;

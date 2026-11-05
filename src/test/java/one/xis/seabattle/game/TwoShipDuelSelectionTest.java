@@ -46,7 +46,7 @@ class TwoShipDuelSelectionTest {
     }
 
     @Test void crewVehicleChangesUseExistingSlotsAndRejectSameColorWithoutReservingAlias() {
-        var game = new GameStateService(new DefaultGameSetupFactory(new WorldMapService()), new RadarService(), new NavigationService());
+        var game = new GameStateService(new DefaultGameSetupFactory(new WorldMapService()), new RadarService(), new NavigationService(), TestGameConfigService.defaults());
         game.resetToSetup("two-ship-duel");
         var registry = new SeaBattlePlayerRegistry();
         var crew = new CrewService(game, registry);

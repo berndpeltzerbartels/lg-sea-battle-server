@@ -15,7 +15,8 @@ class GameStateServiceTest {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
                 new RadarService(),
-                new NavigationService()
+                new NavigationService(),
+                TestGameConfigService.defaults()
         );
         GameSnapshot before = service.snapshot();
 
@@ -32,7 +33,8 @@ class GameStateServiceTest {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
                 new RadarService(),
-                new NavigationService()
+                new NavigationService(),
+                TestGameConfigService.defaults()
         );
 
         long planes = service.snapshot().ships().stream()
@@ -47,7 +49,8 @@ class GameStateServiceTest {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
                 new RadarService(),
-                new NavigationService()
+                new NavigationService(),
+                TestGameConfigService.defaults()
         );
 
         GameSnapshot snapshot = service.resetToScenario(new ScenarioGameRequest("bernd", """
@@ -70,7 +73,8 @@ class GameStateServiceTest {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
                 new RadarService(),
-                new NavigationService()
+                new NavigationService(),
+                TestGameConfigService.defaults()
         );
         service.resetToSetup("ram-side");
         String playerId = "player-red-test";
@@ -97,7 +101,8 @@ class GameStateServiceTest {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
                 new RadarService(),
-                new NavigationService()
+                new NavigationService(),
+                TestGameConfigService.defaults()
         );
         GameSnapshot setup = service.resetToScenario(new ScenarioGameRequest("bernd", """
                 scenario: reload-submarine-sync-test
@@ -143,7 +148,8 @@ class GameStateServiceTest {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
                 new RadarService(),
-                new NavigationService()
+                new NavigationService(),
+                TestGameConfigService.defaults()
         );
 
         GameSnapshot after = service.fireTorpedo(new FireTorpedoRequest(
@@ -246,7 +252,8 @@ class GameStateServiceTest {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
                 new RadarService(),
-                new NavigationService()
+                new NavigationService(),
+                TestGameConfigService.defaults()
         );
 
         GameSnapshot before = service.snapshot();
@@ -267,7 +274,8 @@ class GameStateServiceTest {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
                 new RadarService(),
-                new NavigationService()
+                new NavigationService(),
+                TestGameConfigService.defaults()
         );
         service.connectPlayer("player-BP-test");
 
@@ -289,7 +297,8 @@ class GameStateServiceTest {
         GameStateService service = new GameStateService(
                 new DefaultGameSetupFactory(new WorldMapService()),
                 new RadarService(),
-                new NavigationService()
+                new NavigationService(),
+                TestGameConfigService.defaults()
         );
         String playerId = "player-BP-test";
         service.connectPlayer(playerId);

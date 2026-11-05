@@ -16,7 +16,7 @@ class CrewInactivityTest {
     @Test void expiryOfCaptainPreservesShipAndFreesBridge() { checkExpiry(true); }
 
     private void checkExpiry(boolean captainLeaves) {
-        var game = new GameStateService(new DefaultGameSetupFactory(new WorldMapService()), new RadarService(), new NavigationService());
+        var game = new GameStateService(new DefaultGameSetupFactory(new WorldMapService()), new RadarService(), new NavigationService(), TestGameConfigService.defaults());
         var players = new SeaBattlePlayerRegistry();
         var crew = new CrewService(game, players);
         String captain = crew.startOwnShip(new Account("CAP", "Captain", "CAP", "light", null), "torpedo-boat");
