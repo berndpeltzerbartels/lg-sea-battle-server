@@ -15,7 +15,7 @@ class FleetPopulationTest {
         var dark = new Fleet("dark", List.of(vehicle("D", "dark", "scout-plane")));
         var fleets = Map.of("light", light, "dark", dark);
         var population = new FleetPopulation();
-        population.configure(new FleetSizeConfig(4, 4), 0);
+        population.configure(new FleetSizeConfig(0,0,4,0,0,4), 0);
         var added = new ArrayList<Vehicle>();
         java.util.function.BiPredicate<Fleet, Vehicle> place = (fleet, v) -> { added.add(v); return true; };
         population.increase(fleets, 2.99, place); assertTrue(added.isEmpty());
@@ -34,12 +34,12 @@ class FleetPopulationTest {
         Vehicle lost = vehicle("lost", "light", "scout-plane");
         var light = new Fleet("light", List.of(survivor, lost));
         var population = new FleetPopulation();
-        population.configure(new FleetSizeConfig(1, 0), 0);
+        population.configure(new FleetSizeConfig(1,0,0,0,0,0), 0);
         assertEquals(2, light.activeShips().size());
         lost.sink(0);
         assertFalse(population.mayReplace(lost, light));
         assertEquals("bernd", survivor.controlledBy());
-        population.configure(new FleetSizeConfig(2, 0), 10);
+        population.configure(new FleetSizeConfig(1,0,0,0,1,0), 10);
         assertFalse(population.mayReplace(lost, light));
         var placed = new ArrayList<Vehicle>();
         population.increase(Map.of("light", light), 12.99, (f,v) -> { placed.add(v); return true; });
@@ -53,11 +53,11 @@ class FleetPopulationTest {
     @Test void ordinaryLossesReserveCapacityAndABlockedIncreaseWaitsForAnotherInterval() {
         var lost = vehicle("lost", "light", "torpedo-boat"); lost.sink(20);
         var fleet = new Fleet("light", List.of(lost));
-        var population = new FleetPopulation(); population.configure(new FleetSizeConfig(1,0), 0);
+        var population = new FleetPopulation(); population.configure(new FleetSizeConfig(1,0,0,0,0,0), 0);
         var calls = new int[1];
         population.increase(Map.of("light", fleet), 3, (f,v) -> { calls[0]++; return true; });
         assertEquals(0, calls[0], "A pending normal replacement is not an increase");
-        population.configure(new FleetSizeConfig(2,0), 4);
+        population.configure(new FleetSizeConfig(2,0,0,0,0,0), 4);
         population.increase(Map.of("light", fleet), 7, (f,v) -> { calls[0]++; return false; });
         population.increase(Map.of("light", fleet), 7.1, (f,v) -> { calls[0]++; return true; });
         assertEquals(1, calls[0]);
@@ -65,4 +65,26 @@ class FleetPopulationTest {
         population.increase(Map.of("light", fleet), 10, (f,v) -> { calls[0]++; return true; });
         assertEquals(2, fleet.ships().size());
     }
+    @Test void independentTypeTargetsReplaceExcessBoatsOnlyAfterLossesAndKeepTheTotalLimit() {
+        var first = vehicle("A", "light", "torpedo-boat");
+        var second = vehicle("B", "light", "torpedo-boat");
+        var fleet = new Fleet("light", List.of(first, second));
+        var population = new FleetPopulation();
+        population.configure(new FleetSizeConfig(1,0,1,0,1,0), 0);
+        var fleets = Map.of("light",fleet);
+        java.util.function.BiPredicate<Fleet,Vehicle> place = (f,v) -> { v.respawn(new Vector2(300,300),0,0);return true; };
+        population.increase(fleets,3,place);
+        assertEquals(3,fleet.activeShips().size());
+        assertEquals(1,fleet.activeShips().stream().filter(Vehicle::isSubmarine).count());
+        population.increase(fleets,6,place);
+        assertEquals(3,fleet.activeShips().size(), "Do not exceed the sum to replace a surviving excess type");
+        first.sink(0);
+        assertFalse(population.mayReplace(first,fleet));
+        population.increase(fleets,9,place);
+        assertEquals(3,fleet.activeShips().size());
+        assertEquals(1,fleet.activeShips().stream().filter(Vehicle::isScoutPlane).count());
+        assertEquals(1,fleet.activeShips().stream().filter(v -> v instanceof TorpedoBoat).count());
+        assertEquals(3,fleet.ships().size(), "Reuse the lost hull's slot");
+    }
+
 }

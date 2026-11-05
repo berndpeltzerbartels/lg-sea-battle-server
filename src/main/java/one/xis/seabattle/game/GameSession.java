@@ -81,14 +81,30 @@ public final class GameSession {
         if (mode == GameMode.BURN_DOWN && adjustableFleet) {
             var size = runtimeConfigSource.get().fleetSize();
             if (size != null) for (Fleet fleet : fleets.values()) {
-                int target = "light".equals(fleet.teamId()) ? size.light() : size.dark();
-                if (target < 0 || target > 200) throw new IllegalArgumentException("Flottengröße muss zwischen 0 und 200 liegen.");
-                fleet.trimInitialFleet(target);
-                while (fleet.ships().size() < target) {
-                    Vehicle vehicle = fleet.reinforcementCandidate();
-                    if (!placeReinforcement(fleet, vehicle)) throw new IllegalArgumentException("Nicht genug freie Startplätze für die Flotte.");
-                    fleet.addReinforcement(vehicle);
-                }
+                configureInitialFleet(fleet, size);
+            }
+        }
+    }
+
+    /** Runs once before publication; live rounds never change their initial composition. */
+    private void configureInitialFleet(Fleet fleet, one.xis.seabattle.webapp.gameconfig.FleetSizeConfig size) {
+        int total = size.total(fleet.teamId());
+        if (total < 0 || total > 600) throw new IllegalArgumentException("Die Gesamtflotte muss zwischen 0 und 600 liegen.");
+        fleet.trimInitialFleet(total);
+        Map<String, Integer> counts = new HashMap<>();
+        fleet.ships().forEach(v -> counts.merge(v.vehicleType(), 1, Integer::sum));
+        for (String type : List.of("torpedo-boat", "submarine", "scout-plane")) {
+            while (counts.getOrDefault(type, 0) < size.count(fleet.teamId(), type)) {
+                Vehicle surplus = fleet.ships().stream().filter(v ->
+                        counts.getOrDefault(v.vehicleType(), 0) > size.count(fleet.teamId(), v.vehicleType())).findFirst().orElse(null);
+                Vehicle vehicle;
+                if (surplus != null) {
+                    counts.merge(surplus.vehicleType(), -1, Integer::sum);
+                    vehicle = fleet.restoreSlotAs(surplus, type);
+                } else vehicle = fleet.reinforcementCandidate(type);
+                if (!placeReinforcement(fleet, vehicle)) throw new IllegalArgumentException("Nicht genug freie Startplätze für die Flotte.");
+                if (surplus == null) fleet.addReinforcement(vehicle);
+                counts.merge(type, 1, Integer::sum);
             }
         }
     }

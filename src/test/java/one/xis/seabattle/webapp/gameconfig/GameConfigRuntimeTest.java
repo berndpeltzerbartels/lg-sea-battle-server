@@ -29,7 +29,7 @@ class GameConfigRuntimeTest {
         var ddl = new DDL(source);
         schema.createParameters(ddl);
         schema.seedTorpedoBoatBot(ddl);
-        if (includeFleet) schema.seedFleetSizes(ddl);
+        if (includeFleet) { schema.seedFleetSizes(ddl); schema.seedFleetVehicleTypes(ddl); }
         ddl.execute();
         var rows = new ArrayList<GameConfigParameterEntity>();
         try (var connection = source.getConnection(); var statement = connection.createStatement();
@@ -49,10 +49,10 @@ class GameConfigRuntimeTest {
     }
 
     @Test void fleetSettingsAreLoadedFromTheirOwnGroup() throws Exception {
-        var repository = new MemoryRepository(withValue(defaults(true), "LIGHT_VEHICLES", "12"));
+        var repository = new MemoryRepository(withValue(defaults(true), "LIGHT_TORPEDO_BOATS", "12"));
         var service = new GameConfigServiceImpl(repository);
         service.refresh();
-        assertEquals(new FleetSizeConfig(12, 20), service.current().fleetSize());
+        assertEquals(new FleetSizeConfig(12, 16, 3, 3, 1, 1), service.current().fleetSize());
     }
 
     @Test void startsWithDefaultsAndHotReadsNeverQueryTheDatabase() throws Exception {

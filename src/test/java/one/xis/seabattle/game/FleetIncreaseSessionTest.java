@@ -10,7 +10,7 @@ class FleetIncreaseSessionTest {
     private final NavigationService navigation = new NavigationService();
     private final Vector2 fixedRespawn = new Vector2(400,400);
     private GameSession session(String id) {
-        return session(id, () -> new GameRuntimeConfig(TorpedoBoatBotConfig.defaults(), new FleetSizeConfig(2,2)));
+        return session(id, () -> new GameRuntimeConfig(TorpedoBoatBotConfig.defaults(), new FleetSizeConfig(0,0,2,0,0,2)));
     }
     private GameSession session(String id, java.util.function.Supplier<GameRuntimeConfig> configuration) {
         var setup = new GameSetup(id, new WorldMap(1,List.of()), List.of(
@@ -50,14 +50,14 @@ class FleetIncreaseSessionTest {
         assertEquals("active",victim.state());
     }
     @Test void reducedSlotsAreRestoredOnNewPointsOnlyAfterTheNextIncreaseInterval() throws Exception {
-        var config = new java.util.concurrent.atomic.AtomicReference<>(new GameRuntimeConfig(TorpedoBoatBotConfig.defaults(),new FleetSizeConfig(0,0)));
+        var config = new java.util.concurrent.atomic.AtomicReference<>(new GameRuntimeConfig(TorpedoBoatBotConfig.defaults(),new FleetSizeConfig(0,0,0,0,0,0)));
         var session = session("islands",config::get); tick(session,0);
         assertEquals(2,session.snapshot().ships().stream().filter(v -> v.state().equals("active")).count());
         var method = GameSession.class.getDeclaredMethod("allShips"); method.setAccessible(true);
         for (Vehicle vehicle : (List<Vehicle>)method.invoke(session)) vehicle.sink(0);
         tick(session,.1);
         assertEquals(0,session.snapshot().ships().stream().filter(v -> v.state().equals("active")).count());
-        config.set(new GameRuntimeConfig(TorpedoBoatBotConfig.defaults(),new FleetSizeConfig(1,1)));
+        config.set(new GameRuntimeConfig(TorpedoBoatBotConfig.defaults(),new FleetSizeConfig(0,0,1,0,0,1)));
         tick(session,0); tick(session,2.9);
         assertEquals(0,session.snapshot().ships().stream().filter(v -> v.state().equals("active")).count());
         tick(session,.11);

@@ -23,13 +23,27 @@ final class FleetPopulation {
         return sizes != null && (fleet.teamId().equals("light") || fleet.teamId().equals("dark"));
     }
 
-    private int target(Fleet fleet) { return fleet.teamId().equals("light") ? sizes.light() : sizes.dark(); }
+    private int target(Fleet fleet) { return sizes.total(fleet.teamId()); }
 
     boolean mayReplace(Vehicle vehicle, Fleet fleet) {
         if (!manages(fleet)) return true;
         if (withheld.contains(vehicle.id())) return false;
-        if (fleet.activeShips().size() >= target(fleet)) withheld.add(vehicle.id());
+        String type = fleet.intendedVehicleType(vehicle);
+        long active = fleet.ships().stream().filter(v -> "active".equals(v.state())
+                && type.equals(v.vehicleType())).count();
+        int target = sizes.count(fleet.teamId(), type);
+        if (active >= target) withheld.add(vehicle.id());
         return !withheld.contains(vehicle.id());
+    }
+
+    private String missingType(Fleet fleet) {
+        for (String type : List.of("torpedo-boat", "submarine", "scout-plane")) {
+            long reserved = fleet.ships().stream().filter(v -> "active".equals(v.state())
+                    ? type.equals(v.vehicleType()) : "sunk".equals(v.state()) && !withheld.contains(v.id())
+                    && type.equals(fleet.intendedVehicleType(v))).count();
+            if (reserved < sizes.count(fleet.teamId(), type)) return type;
+        }
+        return null;
     }
 
     void increase(Map<String, Fleet> fleets, double now, BiPredicate<Fleet, Vehicle> place) {
@@ -42,11 +56,13 @@ final class FleetPopulation {
             // A regular loss already waiting for replacement reserves its slot.
             long capacity = fleet.ships().stream().filter(v -> "active".equals(v.state())
                     || "sunk".equals(v.state()) && !withheld.contains(v.id())).count();
-            if (capacity >= target(fleet)) continue;
+            String missingType = missingType(fleet);
+            if (missingType == null || capacity >= target(fleet)) continue;
             Vehicle slot = fleet.ships().stream().filter(v -> withheld.contains(v.id())
                     && "sunk".equals(v.state())).findFirst().orElse(null);
-            Vehicle candidate = slot == null ? fleet.reinforcementCandidate()
-                    : fleet.changeVehicleType(slot, fleet.intendedVehicleType(slot));
+            Vehicle candidate = slot == null
+                    ? fleet.reinforcementCandidate(missingType)
+                    : fleet.restoreSlotAs(slot, missingType);
             if (!place.test(fleet, candidate)) continue;
             if (slot == null) fleet.addReinforcement(candidate);
             else withheld.remove(slot.id());

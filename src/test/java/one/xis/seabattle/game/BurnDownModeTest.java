@@ -68,14 +68,29 @@ class BurnDownModeTest {
     }
     @Test void initialConfiguredFleetIsFixedForTheRound() {
         var original=setup();
-        var config=new AtomicReference<>(new GameRuntimeConfig(TorpedoBoatBotConfig.defaults(),new FleetSizeConfig(2,1)));
+        var config=new AtomicReference<>(new GameRuntimeConfig(TorpedoBoatBotConfig.defaults(),new FleetSizeConfig(2,1,0,0,0,0)));
         var session=new GameSession(new GameSetup("islands",original.worldMap(),original.fleets(),original.respawnCandidates()),config::get);
         session.configureRound(GameMode.BURN_DOWN,Map::of);
         assertEquals(3,session.snapshot().ships().size());
-        config.set(new GameRuntimeConfig(TorpedoBoatBotConfig.defaults(),new FleetSizeConfig(20,20)));
+        config.set(new GameRuntimeConfig(TorpedoBoatBotConfig.defaults(),new FleetSizeConfig(16,16,3,3,1,1)));
         session.updateIdle(30,new RadarService(),new NavigationService(),session.worldMap());
         assertEquals(3,session.snapshot().ships().size());
     }
+    @Test void roundStartsWithExactlyTheConfiguredVehicleTypesForBothColours() {
+        var original = setup();
+        var size = new FleetSizeConfig(1,2,2,1,1,2);
+        var config = new GameRuntimeConfig(TorpedoBoatBotConfig.defaults(),size);
+        var session = new GameSession(new GameSetup("islands",original.worldMap(),original.fleets(),original.respawnCandidates()),()->config);
+        session.configureRound(GameMode.BURN_DOWN,Map::of);
+        for (String team : List.of("light","dark")) {
+            for (String type : List.of("torpedo-boat","submarine","scout-plane")) {
+                assertEquals(size.count(team,type),session.snapshot().ships().stream()
+                        .filter(v -> v.teamId().equals(team) && v.vehicleType().equals(type)).count(),team+" "+type);
+            }
+        }
+        assertEquals(9,session.snapshot().ships().size());
+    }
+
     @Test void endlessStillReplacesDestroyedBoats() throws Exception {
         var session=new GameSession(setup()); sink(session,"L1"); tick(session);
         assertEquals("active",vehicles(session).stream().filter(v -> v.id().equals("L1")).findFirst().orElseThrow().state());
