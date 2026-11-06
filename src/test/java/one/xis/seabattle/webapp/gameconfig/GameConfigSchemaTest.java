@@ -140,4 +140,18 @@ class GameConfigSchemaTest {
         }
     }
 
+    @Test void profileTableCanBeUpgradedRepeatedlyWithoutLosingStoredProfiles() throws Exception {
+        var source=database();
+        var ddl=new DDL(source);new GameConfigSchema().createProfiles(ddl);ddl.execute();
+        try(var connection=source.getConnection();var statement=connection.createStatement()) {
+            statement.executeUpdate("insert into game_config_profiles(id,name,parameter_values,setup_id,game_mode) values('test','Test','{}','islands','ENDLESS')");
+        }
+        ddl=new DDL(source);new GameConfigSchema().createProfiles(ddl);ddl.execute();
+        try(var connection=source.getConnection();var statement=connection.createStatement();
+            var result=statement.executeQuery("select name,parameter_values,setup_id,game_mode from game_config_profiles where id='test'")) {
+            assertTrue(result.next());assertEquals("Test",result.getString(1));assertEquals("{}",result.getString(2));
+            assertEquals("islands",result.getString(3));assertEquals("ENDLESS",result.getString(4));
+        }
+    }
+
 }

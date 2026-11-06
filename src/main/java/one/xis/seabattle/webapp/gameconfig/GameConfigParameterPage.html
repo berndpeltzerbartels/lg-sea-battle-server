@@ -36,6 +36,30 @@
         <div><span class="kicker">Administration</span><h1>Spielverwaltung</h1></div>
         <a href="/start.html">Zum Spiel</a>
     </header>
+    <section aria-label="Einstellungsprofile">
+        <h2>Profile</h2>
+        <p class="hint">Profile sichern die gespeicherten Bot- und Flottenwerte sowie die aktuelle Landschaft und Aufstellung. Änderungen in den Formularen bitte zuerst speichern. Ein bestehender Name ersetzt das gleichnamige Profil. Profile bleiben nach einem Serverneustart erhalten.</p>
+        <form id="profile-save-form" xis:binding="profileSave">
+            <fieldset><legend>Profil speichern</legend>
+                <label for="profile-name">Name</label>
+                <input id="profile-name" type="text" maxlength="100" xis:binding="name" xis:error-class="error" required>
+                <div class="error" xis:message-for="name"></div>
+                <button id="save-profile" type="submit" xis:action="saveProfile">Gespeicherten Stand als Profil sichern</button>
+            </fieldset>
+        </form>
+        <form id="profile-load-form" xis:binding="profileLoad">
+            <fieldset><legend>Profil laden</legend>
+                <label for="profile-choice">Gespeichertes Profil</label>
+                <select id="profile-choice" xis:binding="profileId" required>
+                    <option value="">Bitte auswählen</option>
+                    <xis:foreach var="profile" array="profiles"><option value="${profile.id}">${profile.name}</option></xis:foreach>
+                </select>
+                <div class="error" xis:message-for="profileId"></div>
+                <button id="load-profile" type="submit" xis:action="loadProfile">Profil laden</button>
+                <p class="hint">Laden übernimmt die gespeicherten Parameter. Die Landschaft wird zum Starten ausgewählt. Ein Neustart erfolgt erst über „Auswahl starten“.</p>
+            </fieldset>
+        </form>
+    </section>
     <form id="game-controls" xis:binding="gameSetup">
         <fieldset><legend>Spiel, Landschaft und Aufstellung</legend>
             <div class="fields">

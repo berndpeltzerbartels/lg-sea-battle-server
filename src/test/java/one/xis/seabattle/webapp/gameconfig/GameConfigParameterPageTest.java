@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class GameConfigParameterPageTest {
     private final TestAdministration game = new TestAdministration();
+    private final GameConfigProfileService profiles = new GameConfigProfileServiceImpl(new GameConfigProfileServiceTest.MemoryRepository());
 
     private static class TestAdministration implements one.xis.seabattle.webapp.admin.GameAdministration {
         String selected = "dense-land";
@@ -31,7 +32,7 @@ class GameConfigParameterPageTest {
             user.setUserId("page-test-user");
             user.setRoles(Set.of(role));
         }
-        return new IsolatedAdminPageContext(service, GameConfigParameterPage.class, GameConfigFormValidator.class, user, game);
+        return new IsolatedAdminPageContext(service, GameConfigParameterPage.class, GameConfigFormValidator.class, user, game, profiles);
     }
 
     @Test void guestsAndNonAdminsAreRedirectedToLogin() throws Exception {
@@ -169,6 +170,69 @@ class GameConfigParameterPageTest {
         assertEquals(new FleetSizeConfig(4,8,2,3,0,1),service.current().fleetSize());
         assertEquals(6,service.current().fleetSize().light());
         assertEquals(12,service.current().fleetSize().dark());
+    }
+
+    @Test void savedProfileRestoresBothFormsAndPreparesTheLandscapeWithoutRestartingTheGame() throws Exception {
+        var service=service();
+        var document=context(service,"ADMIN").openPage("/admin/game-config.html").getDocument();
+        document.getInputElementById("profile-name").setValue("Easy");
+        document.getElementById("save-profile").click();
+        assertEquals(1,profiles.findAll().size());
+        document.getInputElementById("aimResponse").setValue("0.75");
+        document.getElementById("save-config").click();
+        document.getInputElementById("fleet-light-planes").setValue("9");
+        document.getElementById("save-fleet-size").click();
+        game.selected="two-ship-duel";
+        ((one.xis.test.dom.SelectElement)document.getElementById("profile-choice")).setValue("easy");
+        document.getElementById("load-profile").click();
+        assertEquals("0.4",document.getInputElementById("aimResponse").getValue());
+        assertEquals("1",document.getInputElementById("fleet-light-planes").getValue());
+        assertTrue(((one.xis.test.dom.OptionElement)document.querySelector("#setup-choice option[value=\"dense-land\"]")).isSelected());
+        assertEquals("two-ship-duel",game.selected,"Loading a profile must not restart the running game");
+        assertEquals(0,game.restarts);
+        document.getInputElementById("aimResponse").setValue("0.4");
+        document.getElementById("save-config").click();
+        assertTrue(((one.xis.test.dom.OptionElement)document.querySelector("#setup-choice option[value=\"dense-land\"]")).isSelected(),
+                "Saving tuning changes must not discard the profile's prepared landscape");
+        service.refresh();
+        assertEquals(.4,service.current().torpedoBoatBot().aimResponse());
+        assertEquals(1,service.current().fleetSize().lightPlanes());
+    }
+    @Test void profileSaveUsesStoredValuesAndDoesNotSubmitOrValidateOtherForms() throws Exception {
+        var service=service();
+        var document=context(service,"ADMIN").openPage("/admin/game-config.html").getDocument();
+        document.getInputElementById("aimResponse").setValue("");
+        document.getInputElementById("profile-name").setValue("Saved values");
+        document.getElementById("save-profile").click();
+        var profile=profiles.findById("saved values").orElseThrow();
+        assertEquals(.4,Double.parseDouble(profile.values().get("TORPEDO_BOAT_BOT.AIM_RESPONSE")));
+        assertEquals("dense-land",profile.setupId());
+    }
+
+    @Test void defaultLandscapeAliasProducesALoadableProfile() throws Exception {
+        game.selected="default";
+        var document=context(service(),"ADMIN").openPage("/admin/game-config.html").getDocument();
+        document.getInputElementById("profile-name").setValue("Default");
+        document.getElementById("save-profile").click();
+        assertEquals("dense-land",profiles.findById("default").orElseThrow().setupId());
+        ((one.xis.test.dom.SelectElement)document.getElementById("profile-choice")).setValue("default");
+        document.getElementById("load-profile").click();
+        assertEquals(0,game.restarts);
+    }
+    @Test void olderProfilesLeaveNewParametersAndCurrentDescriptionsUntouched() throws Exception {
+        var service=service();
+        var original=service.findById("TORPEDO_BOAT_BOT.AIM_RESPONSE").orElseThrow();
+        profiles.save("Old",java.util.List.of(new GameConfigParameter(original.id(),original.group(),original.type(),original.name(),
+                "Old title","Old description","0.65")),"dense-land","ENDLESS");
+        var document=context(service,"ADMIN").openPage("/admin/game-config.html").getDocument();
+        var untouched=service.findById("FLEET.DARK_PLANES").orElseThrow();
+        ((one.xis.test.dom.SelectElement)document.getElementById("profile-choice")).setValue("old");
+        document.getElementById("load-profile").click();
+        assertEquals(untouched,service.findById(untouched.id()).orElseThrow());
+        var updated=service.findById(original.id()).orElseThrow();
+        assertEquals("0.65",updated.value());
+        assertEquals(original.title(),updated.title());
+        assertEquals(original.description(),updated.description());
     }
 
 }
