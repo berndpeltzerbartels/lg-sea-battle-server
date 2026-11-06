@@ -7,6 +7,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 class GameConfigParameterPageTest {
+    private final GameConfigProfileDownloads downloads=new GameConfigProfileDownloads();
     private final TestAdministration game=new TestAdministration();
     private final GameConfigProfileService profiles=new GameConfigProfileServiceImpl(new GameConfigProfileServiceTest.MemoryRepository());
     private static class TestAdministration implements one.xis.seabattle.webapp.admin.GameAdministration {
@@ -24,7 +25,7 @@ class GameConfigParameterPageTest {
     private IsolatedAdminPageContext context(GameConfigService service,String role){
         UserAccountImpl user=null;
         if(role!=null){user=new UserAccountImpl();user.setUserId("admin-test");user.setRoles(Set.of(role));}
-        return new IsolatedAdminPageContext(service,GameConfigParameterPage.class,GameConfigFormValidator.class,user,game,profiles);
+        return new IsolatedAdminPageContext(service,GameConfigParameterPage.class,GameConfigFormValidator.class,user,game,profiles,downloads);
     }
     @Test void guestsAndNonAdminsCannotReadOrEditProfiles() throws Exception {
         for(String role:new String[]{null,"USER"}){
@@ -85,14 +86,15 @@ class GameConfigParameterPageTest {
     }
     @Test void importAndExportKeepDraftsAndNeverOverwriteAnExistingProfile() throws Exception {
         var service=service();var before=service.findAll();var client=context(service,"ADMIN").openPage("/admin/game-config.html");
-        client.getDocument().getInputElementById("profile-name").setValue("JSON test");
-        client.getDocument().getInputElementById("aimResponse").setValue("0.7");client.getDocument().getElementById("export-profile").click();
-        String json=client.getDocument().getInputElementById("profile-json").getValue();
+        var edited=service.findAll().stream().map(p->p.id().equals("TORPEDO_BOAT_BOT.AIM_RESPONSE")
+                ?new GameConfigParameter(p.id(),p.group(),p.type(),p.name(),p.title(),p.description(),"0.7"):p).toList();
+        var form=GameSettingsForm.from(null,"JSON test","dense-land","ENDLESS",edited);
+        var response=new GameConfigParameterPage(service,game,profiles,downloads).exportProfile(form);
+        assertTrue(response.getUrl().startsWith(GameConfigProfileDownloadController.PATH));
+        String ticket=response.getUrl().substring(GameConfigProfileDownloadController.PATH.length());
+        String json=downloads.take(ticket);
         assertTrue(json.contains("JSON test"));assertFalse(json.contains("profileId"));
-        String url=client.getDocument().getElementById("download-profile").getAttribute("href");
-        assertTrue(url.startsWith("data:application/json;base64,"));
-        assertEquals(json,new String(java.util.Base64.getDecoder().decode(url.substring(url.indexOf(',')+1)),java.nio.charset.StandardCharsets.UTF_8));
-        assertEquals("0.7",client.getDocument().getInputElementById("aimResponse").getValue());
+        assertEquals("0.7",GameConfigProfileJson.read(json).parameters().get("TORPEDO_BOAT_BOT.AIM_RESPONSE"));
         client.getDocument().getInputElementById("profile-file").setFile("profile.json","application/json",json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         client.getDocument().getElementById("import-file").click();
         assertEquals("JSON test",client.getDocument().getInputElementById("profile-name").getValue());

@@ -246,10 +246,6 @@
         </form>
     <fieldset id="profile-transfer"><legend>JSON-Import und -Export</legend>
         <div class="transfer-actions"><button id="download-export" type="button">Profil exportieren · JSON herunterladen</button>
-        <form id="profile-json-form" xis:binding="transfer" hidden>
-            <input id="profile-json" type="hidden" xis:binding="json">
-            <a id="download-profile" href="${profileDownload}" data-export-id="${profileExportId}" download="spielprofil.json" hidden>Download</a>
-        </form>
         <form id="profile-file-form" xis:binding="fileImport">
             <label for="profile-file">JSON-Datei auswählen</label>
             <input id="profile-file" type="file" accept=".json,application/json" xis:binding="json">

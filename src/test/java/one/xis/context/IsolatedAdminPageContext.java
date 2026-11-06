@@ -10,7 +10,25 @@ public final class IsolatedAdminPageContext {
     private final UserContextFaker user;
 
     public IsolatedAdminPageContext(Object service, Class<?> page, Class<?> validator, UserAccount account, Object... dependencies) {
-        var builder = new AppContextBuilderImpl() {
+        var builder = isolatedBuilder();
+        user = new UserContextFaker();
+        user.setUserAccount(account);
+        context = builder.withXIS().withSingleton(user).withSingleton(service).withSingletons(dependencies)
+                .withSingletonClass(page).withSingletonClass(validator)
+                .withSingletonClass(one.xis.seabattle.webapp.validation.RangeValidator.class)
+                .withSingletonClass(TestUserAccountService.class)
+                .withSingletonClass(TestLocalCredentialService.class).build();
+    }
+
+    public static RestControllerService httpControllers(Object... singletons) {
+        return isolatedBuilder().withXIS().withSingletons(singletons)
+                .withSingletonClass(TestUserAccountService.class)
+                .withSingletonClass(TestLocalCredentialService.class).build()
+                .getSingleton(RestControllerService.class);
+    }
+
+    private static AppContextBuilderImpl isolatedBuilder() {
+        return new AppContextBuilderImpl() {
             @Override protected PackageScanResult scanResult(Annotations annotations) {
                 var result = super.scanResult(annotations);
                 result.getAnnotatedComponentClasses().removeIf(type -> type.getName().startsWith("one.xis.seabattle."));
@@ -19,13 +37,6 @@ public final class IsolatedAdminPageContext {
                 return result;
             }
         };
-        user = new UserContextFaker();
-        user.setUserAccount(account);
-        context = builder.withXIS().withSingleton(user).withSingleton(service).withSingletons(dependencies)
-                .withSingletonClass(page).withSingletonClass(validator)
-                .withSingletonClass(one.xis.seabattle.webapp.validation.RangeValidator.class)
-                .withSingletonClass(TestUserAccountService.class)
-                .withSingletonClass(TestLocalCredentialService.class).build();
     }
 
     public TestClient openPage(String uri) {

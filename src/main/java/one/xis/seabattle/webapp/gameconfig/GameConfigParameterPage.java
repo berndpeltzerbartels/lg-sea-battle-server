@@ -4,7 +4,6 @@ import one.xis.*;
 import one.xis.seabattle.webapp.admin.GameAdministration;
 import one.xis.validation.Mandatory;
 import one.xis.validation.ValidationFailedException;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -14,13 +13,13 @@ import java.util.stream.Collectors;
 class GameConfigParameterPage {
     private static final String PAGE="/admin/game-config.html";
     private static final String DRAFT="adminGameConfigDraft";
-    private static final String TRANSFER="adminGameConfigTransfer";
     private final GameConfigService configuration;
     private final GameAdministration game;
     private final GameConfigProfileService profiles;
+    private final GameConfigProfileDownloads downloads;
 
-    GameConfigParameterPage(GameConfigService configuration,GameAdministration game,GameConfigProfileService profiles) {
-        this.configuration=configuration;this.game=game;this.profiles=profiles;
+    GameConfigParameterPage(GameConfigService configuration,GameAdministration game,GameConfigProfileService profiles,GameConfigProfileDownloads downloads) {
+        this.configuration=configuration;this.game=game;this.profiles=profiles;this.downloads=downloads;
     }
     @ModelData("profiles") List<GameConfigProfile.Summary> profiles(){return profiles.findAll();}
     @ModelData("setups") List<GameAdministration.SetupOption> setups(){return game.setups();}
@@ -41,15 +40,7 @@ class GameConfigParameterPage {
         return GameSettingsForm.from(null,"",setup,game.currentMode(),configuration.findAll());
     }
     @FormData("profileLoad") ProfileLoadForm profileLoad(@QueryParameter("profile") @NullAllowed String id){return new ProfileLoadForm(id==null?"":id);}
-    @FormData("transfer") TransferForm transfer(@ClientState(TRANSFER) @NullAllowed TransferForm value){return value==null?new TransferForm(""):value;}
     @FormData("fileImport") FileImportForm fileImport(){return new FileImportForm();}
-    @ModelData("profileDownload") String profileDownload(@ClientState(TRANSFER) @NullAllowed TransferForm value){
-        String json=value==null?"":value.json();
-        return "data:application/json;base64,"+Base64.getEncoder().encodeToString(json.getBytes(StandardCharsets.UTF_8));
-    }
-    @ModelData("profileExportId") String profileExportId(@ClientState(TRANSFER) @NullAllowed TransferForm value){
-        return value==null?"":value.exportId;
-    }
     @Action("loadProfile") PageUrlResponse loadProfile(@FormData("profileLoad") ProfileLoadForm form){
         profile(form.profileId());
         return edit(form.profileId()).clientState(DRAFT,null);
@@ -84,12 +75,10 @@ class GameConfigParameterPage {
         return form;
     }
     @Action("restartGame") void restartGame(ToastMessages messages){game.restart();messages.show("Aktuelles Spiel neu gestartet.",ToastLevel.SUCCESS);}
-    @Action("exportProfile") @ClientState(DRAFT) @FormData("settings")
-    GameSettingsForm exportProfile(@FormData("settings") GameSettingsForm form,
-                                  @ClientState(TRANSFER) TransferForm transfer){
-        transfer.exportId=UUID.randomUUID().toString();
-        transfer.json=GameConfigProfileJson.write(form.name(),form.setupId(),form.mode(),form.parameters(configuration.findAll()));
-        return form;
+    @Action("exportProfile")
+    PageUrlResponse exportProfile(@FormData("settings") GameSettingsForm form){
+        String json=GameConfigProfileJson.write(form.name(),form.setupId(),form.mode(),form.parameters(configuration.findAll()));
+        return new PageUrlResponse(GameConfigProfileDownloadController.PATH+downloads.prepare(json));
     }
     @Action("importFile") @ClientState(DRAFT) @FormData("settings")
     GameSettingsForm importFile(@FormData("fileImport") FileImportForm form){return importJson(form.json);}
@@ -111,12 +100,5 @@ class GameConfigParameterPage {
     }
     private PageUrlResponse edit(String id){return id==null||id.isBlank()?new PageUrlResponse(PAGE):new PageUrlResponse(PAGE,Map.of("profile",id));}
     record ProfileLoadForm(@Mandatory String profileId){}
-    static class TransferForm {
-        public String json;
-        public String exportId="";
-        TransferForm() { }
-        TransferForm(String json) { this.json=json; }
-        public String json() { return json; }
-    }
     static class FileImportForm { @Upload(maxSize=1024*1024) public String json; }
 }
