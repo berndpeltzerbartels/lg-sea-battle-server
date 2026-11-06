@@ -152,8 +152,13 @@ public final class GameSession {
         return waterPointGrid.points();
     }
 
+    synchronized List<Vector2> spawnWaterPoints() {
+        if (waterPointGrid == null) waterPointGrid = WaterPointGrid.cached(worldMap, respawnCandidates);
+        return waterPointGrid.spawnPoints();
+    }
+
     private boolean placeReinforcement(Fleet fleet, Vehicle vehicle) {
-        List<Vector2> points = waterPoints();
+        List<Vector2> points = spawnWaterPoints();
         if (points.isEmpty()) return false;
         var random = new SplittableRandom(Double.doubleToLongBits(nowSeconds) ^ vehicle.id().hashCode());
         var navigation = new NavigationService();

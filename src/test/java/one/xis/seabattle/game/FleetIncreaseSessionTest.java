@@ -30,7 +30,7 @@ class FleetIncreaseSessionTest {
         for (var added : session.snapshot().ships().stream().filter(v -> v.id().contains("-R")).toList()) {
             var position = new Vector2(added.x(),added.z());
             assertNotEquals(fixedRespawn,position);
-            assertTrue(session.waterPoints().stream().anyMatch(p -> p.distanceTo(position) < .01));
+            assertTrue(session.spawnWaterPoints().stream().anyMatch(p -> p.distanceTo(position) < .01));
             if (added.vehicleType().equals("scout-plane")) assertEquals(ScoutPlane.CRUISE_Y,added.y());
         }
         tick(session,30); assertEquals(4,session.snapshot().ships().size());

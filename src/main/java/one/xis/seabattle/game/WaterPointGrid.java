@@ -10,9 +10,28 @@ public final class WaterPointGrid {
     private record Key(List<Landmass> land, List<Vector2> anchors) { }
     private static final java.util.Map<Key, WaterPointGrid> CACHE = new java.util.LinkedHashMap<>();
     private final List<Vector2> points;
+    private final List<Vector2> spawnPoints;
 
-    private WaterPointGrid(List<Vector2> points) { this.points = List.copyOf(points); }
+    private WaterPointGrid(List<Vector2> points, List<Vector2> anchors) {
+        this.points = List.copyOf(points);
+        this.spawnPoints = selectSpawnPoints(this.points, anchors);
+    }
     public List<Vector2> points() { return points; }
+    public List<Vector2> spawnPoints() { return spawnPoints; }
+
+    private static List<Vector2> selectSpawnPoints(List<Vector2> points, List<Vector2> anchors) {
+        if (anchors.isEmpty()) return List.of(); // No defined play area: never fall back to the whole sea.
+        double minX = anchors.stream().mapToDouble(Vector2::x).min().orElseThrow();
+        double maxX = anchors.stream().mapToDouble(Vector2::x).max().orElseThrow();
+        double minZ = anchors.stream().mapToDouble(Vector2::z).min().orElseThrow();
+        double maxZ = anchors.stream().mapToDouble(Vector2::z).max().orElseThrow();
+        // A lone/collinear anchor still needs room for spaced hulls on small custom maps.
+        double halfX = Math.max((maxX - minX) / 2, 6 * SPACING);
+        double halfZ = Math.max((maxZ - minZ) / 2, 6 * SPACING);
+        double centerX = (minX + maxX) / 2, centerZ = (minZ + maxZ) / 2;
+        return points.stream().filter(p -> Math.abs(p.x() - centerX) <= halfX
+                && Math.abs(p.z() - centerZ) <= halfZ).toList();
+    }
 
     static synchronized WaterPointGrid cached(WorldMap world, List<Vector2> existingPoints) {
         var key = new Key(List.copyOf(world.landmasses()), List.copyOf(existingPoints));
@@ -46,7 +65,7 @@ public final class WaterPointGrid {
                 if (hasClearance(point, world)) points.add(point);
             }
         }
-        return new WaterPointGrid(points);
+        return new WaterPointGrid(points, existingPoints);
     }
 
     static boolean hasClearance(Vector2 point, WorldMap world) {

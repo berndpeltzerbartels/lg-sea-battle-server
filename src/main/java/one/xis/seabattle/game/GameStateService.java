@@ -76,6 +76,8 @@ public class GameStateService {
 
     public BotNavigationDebug botNavigationDebug() { return session.botNavigationDebug(); }
 
+    public List<Vector2> spawnWaterPoints() { return session.spawnWaterPoints(); }
+
     public List<Vector2> waterPoints() { return session.waterPoints(); }
 
     public List<Vector2> respawnCandidates() {
