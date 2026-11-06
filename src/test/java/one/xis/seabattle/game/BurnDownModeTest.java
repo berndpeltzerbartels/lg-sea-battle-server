@@ -45,6 +45,25 @@ class BurnDownModeTest {
         assertEquals("active",vehicles(session).stream().filter(v -> v.id().equals("DS")).findFirst().orElseThrow().state());
         double end=session.snapshot().t(); tick(session); assertEquals(end,session.snapshot().t());
     }
+    @Test void survivingHumanSubmarineLosesWhenLastFriendlyBotBoatSinks() throws Exception {
+        var fixture = new Fixture();
+        String player = fixture.start("SUB", "submarine");
+        var assigned = fixture.game.snapshot().ships().stream()
+                .filter(v -> player.equals(v.controlledBy())).findFirst().orElseThrow();
+        assertEquals("submarine", assigned.vehicleType());
+        assertNull(fixture.crew.view(player));
+        fixture.sink("L1");
+        tick(fixture.session);
+        assertEquals("running", fixture.session.snapshot().state());
+        fixture.sink("L2");
+        tick(fixture.session);
+        fixture.publish();
+        assertEquals("finished", fixture.game.snapshot().state());
+        assertEquals("dark", fixture.game.snapshot().winningTeam());
+        assertTrue(fixture.game.snapshot().ships().stream()
+                .anyMatch(v -> player.equals(v.controlledBy()) && "active".equals(v.state())));
+        assertNull(fixture.crew.view(player));
+    }
     @Test void humanSubmarinePlayersCountTowardCapacity() throws Exception {
         var session=session(Map.of("light",5)); sink(session,"L1"); tick(session);
         assertEquals("dark",session.snapshot().winningTeam());
