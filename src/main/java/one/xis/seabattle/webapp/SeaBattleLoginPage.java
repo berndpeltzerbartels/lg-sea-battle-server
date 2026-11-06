@@ -158,6 +158,8 @@ public class SeaBattleLoginPage {
             crew.startOwnShip(savedAccount, vehicleType);
         } catch (one.xis.seabattle.game.DuelSlotUnavailableException e) {
             throw new ValidationFailedException("/login/team", "seaBattle.duelColorTaken");
+        } catch (one.xis.seabattle.game.RoundAdmissionException e) {
+            throw new ValidationFailedException("/login/team", "seaBattle.roundFull");
         }
         String target = switch (vehicleType) {
             case "submarine" -> "/app?vehicle=submarine";
@@ -176,7 +178,7 @@ public class SeaBattleLoginPage {
             playerId = createPlayerId(initials);
         }
         boolean gameIsEmpty = playerRegistry.players().isEmpty();
-        playerRegistry.register(playerId, initials, normalizeName(account.nickname()), teamId, account.id());
+        gameStateService.registerPlayer(playerId, initials, normalizeName(account.nickname()), teamId, account.id());
         if (gameIsEmpty) {
             gameStateService.resetCurrentSetup();
         }

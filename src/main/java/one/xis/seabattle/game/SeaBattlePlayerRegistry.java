@@ -11,16 +11,27 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class SeaBattlePlayerRegistry {
 
+    private volatile Map<String, Integer> teamCounts = Map.of();
+
+    public Map<String, Integer> teamCounts() { return teamCounts; }
+
+    private void refreshCounts() {
+        var counts = new java.util.HashMap<String, Integer>();
+        registrationByAlias.values().forEach(p -> counts.merge(p.teamId(), 1, Integer::sum));
+        teamCounts = Map.copyOf(counts);
+    }
+
     private final Map<String, PlayerRegistration> registrationByAlias = new ConcurrentHashMap<>();
 
-    public void register(String playerId, String initials, String nickname, String teamId, String accountId) {
+    public synchronized void register(String playerId, String initials, String nickname, String teamId, String accountId) {
         String alias = normalizeAlias(initials);
         registrationByAlias.entrySet().removeIf(entry ->
                 accountId != null && accountId.equals(entry.getValue().accountId()) && !entry.getKey().equals(alias));
         registrationByAlias.put(alias, new PlayerRegistration(playerId, nickname, teamId, accountId));
+        refreshCounts();
     }
 
-    public String registerPlayer(String playerId, String nickname, String teamId) {
+    public synchronized String registerPlayer(String playerId, String nickname, String teamId) {
         String initials = initialsFromPlayerId(playerId);
         if (initials.isBlank()) {
             return null;
@@ -38,13 +49,14 @@ public class SeaBattlePlayerRegistry {
         return null;
     }
 
-    public void unregisterPlayer(String playerId) {
+    public synchronized void unregisterPlayer(String playerId) {
         String initials = initialsFromPlayerId(playerId);
         if (initials.isBlank()) {
             return;
         }
         registrationByAlias.computeIfPresent(initials, (ignored, registration) ->
                 registration.playerId() == null || registration.playerId().equals(playerId) ? null : registration);
+        refreshCounts();
     }
 
     public boolean isAliasRegistered(String initials) {

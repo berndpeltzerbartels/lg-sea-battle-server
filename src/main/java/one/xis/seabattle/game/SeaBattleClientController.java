@@ -161,7 +161,7 @@ public class SeaBattleClientController {
         String playerId;
         try {
             playerId = crew.startOwnShip(account, vehicleType);
-        } catch (DuelSlotUnavailableException e) {
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.status(409, e.getMessage());
         }
         PlayerLogin player = new PlayerLogin(playerId, account.alias(), account.team());
@@ -429,7 +429,7 @@ public class SeaBattleClientController {
             playerId = createPlayerId(initials);
         }
         boolean gameIsEmpty = playerRegistry.players().isEmpty();
-        playerRegistry.register(playerId, initials, normalizeName(account.nickname()), teamId, account.id());
+        gameStateService.registerPlayer(playerId, initials, normalizeName(account.nickname()), teamId, account.id());
         if (gameIsEmpty) {
             gameStateService.resetCurrentSetup();
         }

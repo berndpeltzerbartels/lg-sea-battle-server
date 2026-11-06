@@ -114,6 +114,16 @@ class GameConfigParameterPageTest {
         client.getDocument().getInputElementById("fireMinRange").setValue("3900");client.getDocument().getElementById("save-config").click();
         service.refresh();assertEquals(195,service.current().torpedoBoatBot().fireMinRange());
     }
+    @Test void burnDownModeSurvivesProfileEditingAndOnlyStartsOnExplicitRequest() throws Exception {
+        var service=service();var profile=profiles.save(null,"Burn",service.findAll(),"dense-land","BURN_DOWN");
+        var client=context(service,"ADMIN").openPage("/admin/game-config.html?profile="+profile.id());
+        assertTrue(((one.xis.test.dom.OptionElement)client.getDocument().querySelector("#mode-choice option[value=\"BURN_DOWN\"]")).isSelected());
+        client.getDocument().getInputElementById("profile-name").setValue("Burn renamed");client.getDocument().getElementById("save-profile").click();
+        assertEquals("BURN_DOWN",profiles.findById(profile.id()).orElseThrow().mode());
+        assertEquals("ENDLESS",game.mode);
+        client.getDocument().getElementById("apply-setup").click();assertEquals("BURN_DOWN",game.mode);assertEquals(1,game.restarts);
+    }
+
     @Test void jsonFileUploadOpensANewDraftWithoutSavingOrApplyingIt() throws Exception {
         var service=service();var before=service.findAll();
         String json=GameConfigProfileJson.write("Imported file","dense-land","ENDLESS",service.findAll());

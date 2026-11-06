@@ -79,7 +79,7 @@ class GameConfigParameterPage {
     @Action("selectSetup") @ClientState(DRAFT) @FormData("settings")
     GameSettingsForm selectSetup(@FormData("settings") GameSettingsForm form,ToastMessages messages){
         configuration.saveAll(form.parameters(configuration.findAll()));
-        game.selectSetup(form.setupId());
+        game.start(form.setupId(),form.mode());
         messages.show("Spiel mit diesen Einstellungen neu gestartet.",ToastLevel.SUCCESS);
         return form;
     }

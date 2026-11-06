@@ -29,6 +29,7 @@ public class GameStateService {
 
     private volatile GameSession session;
     private final Supplier<GameRuntimeConfig> runtimeConfigSource;
+    private final GameConfigService configuration;
     private final DefaultGameSetupFactory setupFactory;
     private final RadarService radarService;
     private final NavigationService navigationService;
@@ -41,6 +42,41 @@ public class GameStateService {
     });
     private volatile PublishedGameModel publishedModel;
     private String setupId = "default";
+    private GameMode mode = GameMode.ENDLESS;
+    @one.xis.context.Inject
+    private SeaBattlePlayerRegistry playerRegistry = new SeaBattlePlayerRegistry();
+
+    synchronized void usePlayerRegistry(SeaBattlePlayerRegistry registry) { this.playerRegistry = registry; }
+    public synchronized GameMode gameMode() { return mode; }
+    synchronized java.util.Optional<VehicleSnapshot> reenter(String player, String team, String preferred) {
+        var result = session.reenter(player, team, preferred);
+        publishedModel = publishCurrentModel();
+        return result;
+    }
+
+    public synchronized void registerPlayer(String player, String alias, String name, String team, String account) {
+        if (mode == GameMode.BURN_DOWN && !playerRegistry.isRegisteredPlayer(player)) {
+            int existing = playerRegistry.teamCounts().getOrDefault(team, 0);
+            boolean replacing = playerRegistry.players().stream().anyMatch(p -> account.equals(playerRegistry.accountIdForPlayer(p.playerId())) && team.equals(p.teamId()));
+            if (!"running".equals(session.snapshot().state()) || session.torpedoBoatCapacity(team) < existing + (replacing ? 0 : 1))
+                throw new RoundAdmissionException();
+        }
+        playerRegistry.register(player, alias, name, team, account);
+    }
+
+    public synchronized GameSnapshot startRound(String setup, GameMode mode) {
+        GameMode previous = this.mode;
+        this.mode = java.util.Objects.requireNonNull(mode);
+        try { return resetToSetup(setup); }
+        catch (RuntimeException failure) { this.mode = previous; throw failure; }
+    }
+
+    private GameSession newSession(GameSetup setup) {
+        var next = new GameSession(setup, runtimeConfigSource);
+        next.configureRound(mode, () -> playerRegistry.teamCounts(), configuration.forNewRound());
+        return next;
+    }
+
     private long tickMetricsStartedAtNanos = System.nanoTime();
     private long measuredTicks;
     private double measuredTickMillisTotal;
@@ -54,6 +90,7 @@ public class GameStateService {
     public GameStateService(DefaultGameSetupFactory setupFactory, RadarService radarService,
                             NavigationService navigationService, GameConfigService configuration) {
         this.runtimeConfigSource = configuration::current;
+        this.configuration = configuration;
         this.setupFactory = setupFactory;
         this.radarService = radarService;
         this.navigationService = navigationService;
@@ -279,7 +316,7 @@ public class GameStateService {
             scenarioSetupActive = true;
             scenarioSetup = setup;
             requestedTeamIds.clear();
-            session = new GameSession(setup, runtimeConfigSource);
+            session = newSession(setup);
             view = captureSessionView();
         }
         publishModel(view);
@@ -289,11 +326,12 @@ public class GameStateService {
     public GameSnapshot resetToSetup(String nextSetupId) {
         SessionView view;
         synchronized (this) {
+            GameSession nextSession = newSession(setupFactory.setup(nextSetupId, List.of()));
             setupId = nextSetupId;
             scenarioSetupActive = false;
             scenarioSetup = null;
             requestedTeamIds.clear();
-            session = new GameSession(setupFactory.setup(setupId, List.copyOf(requestedTeamIds)), runtimeConfigSource);
+            session = nextSession;
             view = captureSessionView();
         }
         publishModel(view);
@@ -303,14 +341,14 @@ public class GameStateService {
     public synchronized String currentSetupId() { return setupId; }
 
     public synchronized GameSnapshot resetCurrentSetup() {
-        if (scenarioSetupActive && !"finished".equals(session.snapshot().state())) return snapshot();
+        if (mode == GameMode.BURN_DOWN || scenarioSetupActive && !"finished".equals(session.snapshot().state())) return snapshot();
         return restartCurrentSetup();
     }
 
     /** Explicit administrator restart also restarts a currently running text scenario. */
     public synchronized GameSnapshot restartCurrentSetup() {
         if (scenarioSetupActive) {
-            session = new GameSession(scenarioSetup, runtimeConfigSource);
+            session = newSession(scenarioSetup);
             publishModel(captureSessionView());
             return snapshot();
         }
@@ -320,7 +358,7 @@ public class GameStateService {
     public void activateTeam(String teamId) {
         SessionView view;
         synchronized (this) {
-            if (scenarioSetupActive) {
+            if (scenarioSetupActive || mode == GameMode.BURN_DOWN) {
                 return;
             }
             if (!setupFactory.isKnownTeam(teamId) || !setupFactory.isPublicTeam(teamId) || requestedTeamIds.contains(teamId)) {

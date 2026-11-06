@@ -102,6 +102,30 @@ final class Fleet {
         });
     }
 
+    /** Finite rounds take over existing hulls and never convert them. */
+    Optional<Vehicle> assignExistingVehicle(String player, String preferredType) {
+        var current = assignedShip(player);
+        if (current.isPresent()) return current;
+        var available = activeShips().stream().filter(Vehicle::isBotControlled).toList();
+        var selected = available.stream().filter(v -> v.vehicleType().equals(preferredType)).findFirst()
+                .or(() -> available.stream().filter(v -> v instanceof TorpedoBoat).findFirst());
+        selected.ifPresent(v -> {
+            v.controlledBy(player);
+            v.nextFireTime(0);
+            activeShipIdByPlayerId.put(player, v.id());
+        });
+        return selected;
+    }
+
+    void trimInitialFleet(int target) {
+        while (ships.size() > target) ships.remove(ships.size() - 1);
+    }
+
+    String previousVehicleType(String player) {
+        String id = activeShipIdByPlayerId.get(player);
+        return ships.stream().filter(v -> v.id().equals(id)).map(Vehicle::vehicleType).findFirst().orElse("torpedo-boat");
+    }
+
     Vehicle changeVehicleType(Vehicle current, String type) {
         Vehicle replacement = current.convertedTo(type);
         if (replacement == current) return current;

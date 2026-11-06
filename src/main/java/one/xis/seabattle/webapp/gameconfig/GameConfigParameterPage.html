@@ -90,7 +90,7 @@
                     <select id="setup-choice" xis:binding="setupId"><xis:foreach var="setup" array="setups"><option value="${setup.id}">${setup.title}</option></xis:foreach></select>
                 </div>
                 <div class="field"><label for="mode-choice">Spielmodus</label>
-                    <select id="mode-choice" xis:binding="mode"><option value="ENDLESS">Endlos</option></select>
+                    <select id="mode-choice" xis:binding="mode"><option value="ENDLESS">Endlos</option><option value="BURN_DOWN">Burn-down</option></select>
                 </div>
             </div>
             <div class="actions">
@@ -107,7 +107,7 @@
                 <tr><th scope="row">U-Boote</th><td><input id="fleet-light-submarines" aria-label="U-Boote · Hell" type="number" step="1" min="0" max="200" xis:binding="lightSubmarines" xis:error-class="error" required><div class="error" xis:message-for="lightSubmarines"></div></td><td><input id="fleet-dark-submarines" aria-label="U-Boote · Dunkel" type="number" step="1" min="0" max="200" xis:binding="darkSubmarines" xis:error-class="error" required><div class="error" xis:message-for="darkSubmarines"></div></td></tr>
                 <tr><th scope="row">Flugzeuge</th><td><input id="fleet-light-planes" aria-label="Flugzeuge · Hell" type="number" step="1" min="0" max="200" xis:binding="lightPlanes" xis:error-class="error" required><div class="error" xis:message-for="lightPlanes"></div></td><td><input id="fleet-dark-planes" aria-label="Flugzeuge · Dunkel" type="number" step="1" min="0" max="200" xis:binding="darkPlanes" xis:error-class="error" required><div class="error" xis:message-for="darkPlanes"></div></td></tr>
             </tbody></table>
-            <p class="hint">Die Gesamtzahl ergibt sich aus den drei Fahrzeugzahlen je Partei. Von Menschen gesteuerte Fahrzeuge zählen mit. Bei einer Verringerung bleiben vorhandene Fahrzeuge erhalten; Verluste werden bis zur Sollgröße nicht ersetzt. Bei einer Erhöhung kommt insgesamt alle drei Sekunden ein Fahrzeug auf einem freien Wasserpunkt hinzu. Feste Testaufstellungen behalten ihre Besetzung.</p>
+            <p class="hint">Die Gesamtzahl ergibt sich aus den drei Fahrzeugzahlen je Partei. Von Menschen gesteuerte Fahrzeuge zählen mit. Bei einer Verringerung bleiben vorhandene Fahrzeuge erhalten; Verluste werden bis zur Sollgröße nicht ersetzt. Bei einer Erhöhung kommt insgesamt alle drei Sekunden ein Fahrzeug auf einem freien Wasserpunkt hinzu. Feste Testaufstellungen behalten ihre Besetzung. Im Burn-down gelten Fahrzeugzahlen ab der nächsten Runde; während der Runde gibt es keinen Nachschub.</p>
         </fieldset>
 
 <details class="vehicle-settings" open><summary>Torpedoboot-Bots · 17 Parameter</summary>
