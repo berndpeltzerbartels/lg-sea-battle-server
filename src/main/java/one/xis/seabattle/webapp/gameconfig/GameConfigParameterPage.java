@@ -115,5 +115,5 @@ class GameConfigParameterPage {
         TransferForm(String json) { this.json=json; }
         public String json() { return json; }
     }
-    static class FileImportForm { @Mandatory @Upload(maxSize=1024*1024) public String json; }
+    static class FileImportForm { @Upload(maxSize=1024*1024) public String json; }
 }

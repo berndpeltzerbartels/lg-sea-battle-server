@@ -113,4 +113,14 @@ class GameConfigParameterPageTest {
         client.getDocument().getInputElementById("fireMinRange").setValue("3900");client.getDocument().getElementById("save-config").click();
         service.refresh();assertEquals(195,service.current().torpedoBoatBot().fireMinRange());
     }
+    @Test void jsonFileUploadOpensANewDraftWithoutSavingOrApplyingIt() throws Exception {
+        var service=service();var before=service.findAll();
+        String json=GameConfigProfileJson.write("Imported file","dense-land","ENDLESS",service.findAll());
+        var client=context(service,"ADMIN").openPage("/admin/game-config.html");
+        client.getDocument().getInputElementById("profile-file").setFile("profile.json","application/json",json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        client.getDocument().getElementById("import-file").click();
+        assertEquals("Imported file",client.getDocument().getInputElementById("profile-name").getValue());
+        assertTrue(profiles.findAll().isEmpty());assertEquals(before,service.findAll());assertEquals(0,game.restarts);
+    }
+
 }
