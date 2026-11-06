@@ -23,6 +23,15 @@ class GameConfigServiceImpl implements GameConfigService {
         return current;
     }
 
+    @Override
+    public GameRuntimeConfig forNewRound() {
+        try { return GameRuntimeConfig.fromParameters(findAll()); }
+        catch (RuntimeException error) {
+            LOG.log(System.Logger.Level.WARNING, "Gespeicherte Konfiguration nicht lesbar; letzter gültiger Stand wird für die neue Runde verwendet.", error);
+            return current;
+        }
+    }
+
     // The XIS scheduler is the sole writer. The first invocation runs after context initialization.
     @Scheduled(fixedDelay = 30, timeUnit = TimeUnit.SECONDS)
     public void refresh() {

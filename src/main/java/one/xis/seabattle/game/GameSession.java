@@ -76,11 +76,15 @@ public final class GameSession {
     private Supplier<Map<String, Integer>> humanCounts = Map::of;
 
     synchronized void configureRound(GameMode mode, Supplier<Map<String, Integer>> humanCounts) {
+        configureRound(mode, humanCounts, runtimeConfigSource.get());
+    }
+
+    synchronized void configureRound(GameMode mode, Supplier<Map<String, Integer>> humanCounts, GameRuntimeConfig initialConfiguration) {
         if (nowSeconds != 0) throw new IllegalStateException("Der Spielmodus wird vor Rundenbeginn festgelegt.");
         this.mode = Objects.requireNonNull(mode);
         this.humanCounts = Objects.requireNonNull(humanCounts);
         if (mode == GameMode.BURN_DOWN && adjustableFleet) {
-            var size = runtimeConfigSource.get().fleetSize();
+            var size = initialConfiguration.fleetSize();
             if (size != null) for (Fleet fleet : fleets.values()) {
                 configureInitialFleet(fleet, size);
             }

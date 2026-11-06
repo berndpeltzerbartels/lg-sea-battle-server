@@ -29,6 +29,7 @@ public class GameStateService {
 
     private volatile GameSession session;
     private final Supplier<GameRuntimeConfig> runtimeConfigSource;
+    private final GameConfigService configuration;
     private final DefaultGameSetupFactory setupFactory;
     private final RadarService radarService;
     private final NavigationService navigationService;
@@ -72,7 +73,7 @@ public class GameStateService {
 
     private GameSession newSession(GameSetup setup) {
         var next = new GameSession(setup, runtimeConfigSource);
-        next.configureRound(mode, () -> playerRegistry.teamCounts());
+        next.configureRound(mode, () -> playerRegistry.teamCounts(), configuration.forNewRound());
         return next;
     }
 
@@ -89,6 +90,7 @@ public class GameStateService {
     public GameStateService(DefaultGameSetupFactory setupFactory, RadarService radarService,
                             NavigationService navigationService, GameConfigService configuration) {
         this.runtimeConfigSource = configuration::current;
+        this.configuration = configuration;
         this.setupFactory = setupFactory;
         this.radarService = radarService;
         this.navigationService = navigationService;

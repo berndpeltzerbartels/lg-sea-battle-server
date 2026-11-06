@@ -36,7 +36,30 @@
         <div><span class="kicker">Administration</span><h1>Spielverwaltung</h1></div>
         <a href="/start.html">Zum Spiel</a>
     </header>
-    <form id="game-controls" xis:binding="gameSetup">
+    <form id="profile-load-form" xis:binding="profileLoad">
+        <fieldset><legend>Profile</legend>
+            <label for="profile-choice">Profil auswählen</label>
+            <select id="profile-choice" xis:binding="profileId"><option value="">Bitte auswählen</option>
+                <xis:foreach var="profile" array="profiles"><option value="${profile.id}">${profile.name}</option></xis:foreach>
+            </select>
+            <div class="error" xis:message-for="profileId"></div>
+            <button id="load-profile" type="submit" xis:action="loadProfile">Profil bearbeiten</button>
+            <button id="new-profile" type="submit" xis:action="newProfile" formnovalidate>Neues Profil aus aktuellen Spieleinstellungen</button>
+        </fieldset>
+    </form>
+    <form id="settings-form" xis:binding="settings">
+        <fieldset><legend>Profil bearbeiten</legend>
+            <input type="hidden" xis:binding="profileId">
+            <label for="profile-name">Profilname</label>
+            <input id="profile-name" type="text" maxlength="100" xis:binding="name" xis:error-class="error">
+            <div class="error" xis:message-for="name"></div>
+            <button id="save-profile" type="submit" xis:action="saveProfile">Profil speichern</button>
+            <button id="copy-profile" type="submit" xis:action="copyProfile">Kopie anlegen</button>
+            <button id="export-profile" type="submit" xis:action="exportProfile">Als JSON exportieren</button>
+            <p class="hint">Profil laden, Werte oder Namen ändern und speichern. Namen sind eindeutig; die feste Profil-ID bleibt beim Umbenennen gleich. Bearbeiten und Speichern verändern das laufende Spiel nicht. Änderungen werden erst über „Bot- und Flottenwerte übernehmen“ oder einen Spielstart aktiv.</p>
+            <xis:global-messages/>
+        </fieldset>
+
         <fieldset><legend>Spiel, Landschaft und Aufstellung</legend>
             <div class="fields">
                 <div class="field">
@@ -47,22 +70,17 @@
                         </xis:foreach>
                     </select>
                     <label for="mode-choice">Spielmodus</label>
-                    <select id="mode-choice" xis:binding="mode">
-                        <option value="ENDLESS">Endlos</option>
-                        <option value="BURN_DOWN">Burn-down · endliche Flotte</option>
-                    </select>
-                    <p class="hint">Burn-down: Keine Ersatzfahrzeuge. Eine Partei verliert, wenn kein Torpedoboot oder nicht genug Plätze für ihre Menschen übrig sind (vier je Boot). U-Boote und Flugzeuge zählen nicht für den Sieg. Flottengrößen gelten bei Rundenstart.</p>
-                    <button id="apply-setup" type="submit" xis:action="selectSetup">Auswahl starten</button>
+                    <select id="mode-choice" xis:binding="mode"><option value="ENDLESS">Endlos</option><option value="BURN_DOWN">Burn-down</option></select>
+                    <button id="apply-setup" type="submit" xis:action="selectSetup">Mit diesen Einstellungen starten</button>
                 </div>
                 <div class="field">
                     <label>Aktuelles Spiel</label>
-                    <button id="restart-game" type="submit" xis:action="restartGame">Mit bisheriger Aufstellung neu starten</button>
+                    <button id="restart-game" type="submit" formnovalidate xis:action="restartGame">Mit bisheriger Aufstellung neu starten</button>
                 </div>
             </div>
             <p class="hint">Ein Neustart gilt für alle Spieler. Die gespeicherten Bot-Parameter bleiben erhalten.</p>
         </fieldset>
-    </form>
-    <form id="fleet-size-form" xis:binding="fleetSize">
+
         <fieldset><legend>Flottengröße je Partei</legend>
             <xis:global-messages/>
             <div class="fields">
@@ -85,13 +103,12 @@
                     <input id="fleet-dark-planes" type="number" step="1" min="0" max="200" xis:binding="darkPlanes" xis:error-class="error" required>
                     <div class="error" xis:message-for="darkPlanes"></div></div>
             </div>
-            <p class="hint">Die Gesamtzahl ergibt sich aus den drei Fahrzeugzahlen je Partei. Von Menschen gesteuerte Fahrzeuge zählen mit. Bei einer Verringerung bleiben vorhandene Fahrzeuge erhalten; Verluste werden bis zur Sollgröße nicht ersetzt. Bei einer Erhöhung kommt insgesamt alle drei Sekunden ein Fahrzeug auf einem freien Wasserpunkt hinzu. Feste Testaufstellungen behalten ihre Besetzung. Im Burn-down gelten die Fahrzeugzahlen nur beim Start einer neuen Runde; während der Runde gibt es keinen Nachschub.</p>
-            <button id="save-fleet-size" type="submit" xis:action="saveFleetSize">Flottengrößen speichern</button>
+            <p class="hint">Die Gesamtzahl ergibt sich aus den drei Fahrzeugzahlen je Partei. Von Menschen gesteuerte Fahrzeuge zählen mit. Bei einer Verringerung bleiben vorhandene Fahrzeuge erhalten; Verluste werden bis zur Sollgröße nicht ersetzt. Bei einer Erhöhung kommt insgesamt alle drei Sekunden ein Fahrzeug auf einem freien Wasserpunkt hinzu. Feste Testaufstellungen behalten ihre Besetzung. Im Burn-down gelten Fahrzeugzahlen ab der nächsten Runde; während der Runde gibt es keinen Nachschub.</p>
+            <button id="save-fleet-size" type="submit" xis:action="save">Bot- und Flottenwerte übernehmen</button>
         </fieldset>
-    </form>
-    <h2>Torpedoboot-Bots</h2>
-    <p class="hint">Diese Einstellungen gelten für Torpedoboot-Bots. Passe die Parameter an und speichere die Änderungen gemeinsam. Gespeicherte Änderungen werden innerhalb von 30 Sekunden im laufenden Spiel wirksam.</p>
-    <form id="config-form" xis:binding="config">
+
+<h2>Torpedoboot-Bots</h2>
+
         <div id="validation-messages" role="alert"><xis:global-messages/></div>
         <fieldset><legend>Ausrichten und Schießen</legend><div class="fields">
             <div class="field">
@@ -218,8 +235,25 @@
                 <div class="error" xis:message-for="targetAlternativeDistanceFactor"></div>
             </div>
         </div></fieldset>
-        <button id="save-config" type="submit" xis:action="save">Änderungen speichern</button>
+        <button id="save-config" type="submit" xis:action="save">Bot- und Flottenwerte übernehmen</button>
         <p class="hint">Entfernungen gelten in Metern, Winkel in Grad, Zeiten in Sekunden. Bereits laufende Nachladezeiten bleiben bestehen.</p>
+        </form>
+    <form id="profile-json-form" xis:binding="transfer">
+        <fieldset><legend>JSON-Export und -Import</legend>
+            <label for="profile-json">Profil als JSON</label>
+            <textarea id="profile-json" rows="12" xis:binding="json"></textarea>
+            <div class="error" xis:message-for="json"></div>
+            <a id="download-profile" href="${profileDownload}" download="spielprofil.json">JSON-Datei herunterladen</a>
+            <button id="import-profile" type="submit" xis:action="importProfile">JSON zur Bearbeitung importieren</button>
+            <p class="hint">Exportiere zuerst das aktuell bearbeitete Profil. Ein Import öffnet eine neue Vorlage. Vor dem Speichern kannst du den Namen ändern; vorhandene Profile werden nicht überschrieben.</p>
+        </fieldset>
+    </form>
+    <form id="profile-file-form" xis:binding="fileImport">
+        <fieldset><legend>JSON-Datei importieren</legend>
+            <input id="profile-file" type="file" accept=".json,application/json" xis:binding="json">
+            <div class="error" xis:message-for="json"></div>
+            <button id="import-file" type="submit" xis:action="importFile">Datei zur Bearbeitung importieren</button>
+        </fieldset>
     </form>
 </main>
 </body>

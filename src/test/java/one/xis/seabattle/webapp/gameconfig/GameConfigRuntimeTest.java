@@ -156,6 +156,16 @@ class GameConfigRuntimeTest {
         assertEquals(0, schedule.initialDelay());
     }
 
+    @Test void newRoundReadsSavedValuesImmediatelyWithoutChangingTheLiveCache() throws Exception {
+        var service=new GameConfigServiceImpl(new MemoryRepository(defaults(true)));
+        service.refresh();
+        var current=service.current();
+        var row=service.findById("FLEET.LIGHT_PLANES").orElseThrow();
+        service.save(new GameConfigParameter(row.id(),row.group(),row.type(),row.name(),row.title(),row.description(),"8"));
+        assertEquals(8,service.forNewRound().fleetSize().lightPlanes());
+        assertSame(current,service.current(),"The scheduler remains the only writer of live configuration");
+    }
+
     static final class MemoryRepository implements GameConfigParameterRepository {
         private volatile List<GameConfigParameterEntity> rows;
         private final AtomicInteger queries = new AtomicInteger();

@@ -92,6 +92,24 @@ class GameConfigSchema {
                 """.formatted(id, name, title, expression, team, id));
     }
 
+    @Change("005-create-game-config-profiles")
+    void createProfiles(DDL ddl) {
+        var table = ddl.createTableIfNotExists("game_config_profiles");
+        table.addColumn("id").varchar(100).notNull().primaryKey();
+        table.addColumn("name").varchar(100).notNull();
+        table.addColumn("parameter_values").text().notNull();
+        table.addColumn("setup_id").varchar(100).notNull();
+        table.addColumn("game_mode").varchar(40).notNull();
+    }
+
+    @Change("006-unique-profile-names")
+    void uniqueProfileNames(DDL ddl) {
+        ddl.alterTable("game_config_profiles").addColumn("name_key").varchar(100);
+        ddl.sql("update game_config_profiles set name_key=lower(trim(name))");
+        ddl.sql("alter table game_config_profiles alter column name_key set not null");
+        ddl.sql("create unique index game_config_profiles_name_uq on game_config_profiles(name_key)");
+    }
+
     private void insertDefault(DDL ddl, String name, GameConfigParameterType type, String value,
                                String title, String description) {
         insertDefault(ddl, GameConfigParameterGroup.TORPEDO_BOAT_BOT, name, type, value, title, description);

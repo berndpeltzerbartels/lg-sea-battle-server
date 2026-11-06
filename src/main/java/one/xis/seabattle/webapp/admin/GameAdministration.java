@@ -10,7 +10,7 @@ public interface GameAdministration {
     void selectSetup(String setupId);
 
     default String currentMode() { return "ENDLESS"; }
-    default void start(String setup, String mode) { selectSetup(setup); }
+    default void start(String setup,String mode) { selectSetup(setup); }
 
     record SetupOption(String id, String title) { }
 }
