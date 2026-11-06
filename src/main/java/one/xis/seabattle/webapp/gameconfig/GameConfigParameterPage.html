@@ -260,26 +260,6 @@
         <p class="hint">Der Export enthält die aktuell bearbeiteten Einstellungen. Der Import öffnet einen Entwurf; vorhandene Profile und das laufende Spiel bleiben erhalten. Zum dauerhaften Speichern anschließend „Gesamtes Profil speichern“ wählen.</p>
     </fieldset>
 </main>
-<script>
-(() => {
-    let pendingExport = null;
-    document.addEventListener('invalid', event => {
-        const section = event.target.closest('details');
-        if (section) section.open = true;
-    }, true);
-    document.addEventListener('click', event => {
-        if (!event.target.closest('#download-export')) return;
-        pendingExport = document.getElementById('download-profile').dataset.exportId;
-        document.getElementById('export-profile').click();
-    });
-    new MutationObserver(() => {
-        if (pendingExport === null) return;
-        const link = document.getElementById('download-profile');
-        if (!link || !link.dataset.exportId || link.dataset.exportId === pendingExport) return;
-        pendingExport = null;
-        link.click();
-    }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-export-id'] });
-})();
-</script>
+
 </body>
 </html>
