@@ -21,27 +21,24 @@ class GameConfigProfileServiceTest {
     @Test void profilesSurviveServiceRecreationAndRetainValuesAndRoundSelection() {
         var repository=new MemoryRepository();
         var service=new GameConfigProfileServiceImpl(repository);
-        var saved=service.save("  Ruhige See  ",parameters("7"),"islands","ENDLESS");
+        var saved=service.save(null,"  Ruhige See  ",parameters("7"),"islands","ENDLESS");
         assertEquals("Ruhige See",saved.name());
         var restored=new GameConfigProfileServiceImpl(repository).findById(saved.id()).orElseThrow();
         assertEquals(saved,restored);
         assertEquals("7",restored.values().get("FLEET.LIGHT_PLANES"));
         assertThrows(UnsupportedOperationException.class,()->restored.values().clear());
     }
-    @Test void savingTheSameNameReplacesOnlyThatProfileAndKeepsNamesSorted() {
+    @Test void duplicateNamesCannotSilentlyReplaceAnotherProfile() {
         var repository=new MemoryRepository();var service=new GameConfigProfileServiceImpl(repository);
-        service.save("Zulu",parameters("2"),"islands","ENDLESS");
-        service.save("Alpha",parameters("3"),"dense-land","ENDLESS");
-        var updated=service.save(" zULU ",parameters("9"),"dense-land","ENDLESS");
-        assertEquals(2,repository.count());
-        assertEquals(List.of("Alpha","zULU"),service.findAll().stream().map(GameConfigProfile.Summary::name).toList());
-        assertEquals("9",updated.values().get("FLEET.LIGHT_PLANES"));
-        assertEquals("3",service.findById("alpha").orElseThrow().values().get("FLEET.LIGHT_PLANES"));
+        var first=service.save(null,"Zulu",parameters("2"),"islands","ENDLESS");
+        assertThrows(one.xis.validation.ValidationFailedException.class,()->service.save(null," zULU ",parameters("9"),"islands","ENDLESS"));
+        var renamed=service.save(first.id(),"Alpha",parameters("3"),"islands","ENDLESS");
+        assertEquals(first.id(),renamed.id());assertEquals(1,repository.count());
     }
     @Test void profilesKeepRawValuesWithoutCreatingASecondParameterValidation() {
         var service=new GameConfigProfileServiceImpl(new MemoryRepository());
-        assertEquals("-3",service.save("Repair",parameters("-3"),"islands","ENDLESS").values().get("FLEET.LIGHT_PLANES"));
-        assertThrows(IllegalArgumentException.class,()->service.save(" ",parameters("3"),"islands","ENDLESS"));
-        assertThrows(IllegalArgumentException.class,()->service.save("a".repeat(101),parameters("3"),"islands","ENDLESS"));
+        assertEquals("-3",service.save(null,"Repair",parameters("-3"),"islands","ENDLESS").values().get("FLEET.LIGHT_PLANES"));
+        assertThrows(one.xis.validation.ValidationFailedException.class,()->service.save(null," ",parameters("3"),"islands","ENDLESS"));
+        assertThrows(one.xis.validation.ValidationFailedException.class,()->service.save(null,"a".repeat(101),parameters("3"),"islands","ENDLESS"));
     }
 }

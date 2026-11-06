@@ -11,6 +11,7 @@ import one.xis.sql.Entity;
 class GameConfigProfileEntity {
     String id;
     String name;
+    @Column("name_key") String nameKey;
     @Column("parameter_values") String parameterValues;
     @Column("setup_id") String setupId;
     @Column("game_mode") String mode;

@@ -154,4 +154,19 @@ class GameConfigSchemaTest {
         }
     }
 
+    @Test void uniqueProfileNamesAreBackfilledAndEnforcedByTheDatabase() throws Exception {
+        var source=database();var ddl=new DDL(source);new GameConfigSchema().createProfiles(ddl);ddl.execute();
+        try(var connection=source.getConnection();var statement=connection.createStatement()) {
+            statement.executeUpdate("insert into game_config_profiles values('stable-id','First','{}','dense-land','ENDLESS')");
+        }
+        ddl=new DDL(source);new GameConfigSchema().uniqueProfileNames(ddl);ddl.execute();
+        try(var connection=source.getConnection();var statement=connection.createStatement()) {
+            assertThrows(java.sql.SQLException.class,()->statement.executeUpdate("insert into game_config_profiles(id,name,name_key,parameter_values,setup_id,game_mode) values('another-id','FIRST','first','{}','dense-land','ENDLESS')"));
+            statement.executeUpdate("update game_config_profiles set name='Renamed',name_key='renamed' where id='stable-id'");
+            try(var result=statement.executeQuery("select name from game_config_profiles where id='stable-id'")) {
+                assertTrue(result.next());assertEquals("Renamed",result.getString(1));
+            }
+        }
+    }
+
 }

@@ -9,25 +9,24 @@ import java.util.List;
 import java.util.Map;
 
 /** Typed admin form, independent of the individual database rows. */
-@ValidGameConfig
 record GameConfigForm(
-        @Mandatory @Range(min = 0, minInclusive = false) @LabelKey("gameConfig.aimResponse") Double aimResponse,
-        @Mandatory @Range(min = 0) @LabelKey("gameConfig.aimTurnDamping") Double aimTurnDamping,
-        @Mandatory @Range(min = 0, max = 180) @LabelKey("gameConfig.aimMinCorrectionAngle") Double aimMinCorrectionAngle,
-        @Mandatory @Range(min = 0, minInclusive = false, max = 180) @LabelKey("gameConfig.fireArc") Double fireArc,
-        @Mandatory @Range(min = 0, max = 180) @LabelKey("gameConfig.closeFireArc") Double closeFireArc,
-        @Mandatory @Range(min = 0) @LabelKey("gameConfig.fireMinRange") Double fireMinRange,
-        @Mandatory @Range(min = 0, minInclusive = false) @LabelKey("gameConfig.fireMaxRange") Double fireMaxRange,
-        @Mandatory @Range(min = 0) @LabelKey("gameConfig.closeFireRange") Double closeFireRange,
-        @Mandatory @Range(min = 0, minInclusive = false) @LabelKey("gameConfig.torpedoCooldownMin") Double torpedoCooldownMin,
-        @Mandatory @Range(min = 0) @LabelKey("gameConfig.torpedoCooldownVariation") Double torpedoCooldownVariation,
-        @Mandatory @Range(min = 0) @LabelKey("gameConfig.approachSlowRange") Double approachSlowRange,
-        @Mandatory @Range(min = 0) @LabelKey("gameConfig.closeManeuverRange") Double closeManeuverRange,
-        @Mandatory @Range(min = 0) @LabelKey("gameConfig.radarInterceptRange") Double radarInterceptRange,
-        @Mandatory @Range(min = 0) @LabelKey("gameConfig.ramRange") Double ramRange,
-        @Mandatory @Range(min = 0) @LabelKey("gameConfig.humanTargetPriorityClearance") Double humanTargetPriorityClearance,
-        @Mandatory @Range(min = 1) @UseFormatter(WholeNumberFormatter.class) @LabelKey("gameConfig.targetPreferredAttackers") Integer targetPreferredAttackers,
-        @Mandatory @Range(min = 1) @LabelKey("gameConfig.targetAlternativeDistanceFactor") Double targetAlternativeDistanceFactor
+        Double aimResponse,
+        Double aimTurnDamping,
+        Double aimMinCorrectionAngle,
+        Double fireArc,
+        Double closeFireArc,
+        Double fireMinRange,
+        Double fireMaxRange,
+        Double closeFireRange,
+        Double torpedoCooldownMin,
+        Double torpedoCooldownVariation,
+        Double approachSlowRange,
+        Double closeManeuverRange,
+        Double radarInterceptRange,
+        Double ramRange,
+        Double humanTargetPriorityClearance,
+        Integer targetPreferredAttackers,
+        Double targetAlternativeDistanceFactor
 ) {
     /** Loading is conversion only: out-of-range values must remain editable. */
     static GameConfigForm fromParameters(List<GameConfigParameter> parameters) {

@@ -8,12 +8,12 @@ import one.xis.seabattle.webapp.validation.WholeNumberFormatter;
 import java.util.List;
 
 record FleetSizeForm(
-        @Mandatory @Range(min = 0, max = 200) @UseFormatter(WholeNumberFormatter.class) @LabelKey("fleet.lightTorpedoBoats") Integer lightTorpedoBoats,
-        @Mandatory @Range(min = 0, max = 200) @UseFormatter(WholeNumberFormatter.class) @LabelKey("fleet.darkTorpedoBoats") Integer darkTorpedoBoats,
-        @Mandatory @Range(min = 0, max = 200) @UseFormatter(WholeNumberFormatter.class) @LabelKey("fleet.lightSubmarines") Integer lightSubmarines,
-        @Mandatory @Range(min = 0, max = 200) @UseFormatter(WholeNumberFormatter.class) @LabelKey("fleet.darkSubmarines") Integer darkSubmarines,
-        @Mandatory @Range(min = 0, max = 200) @UseFormatter(WholeNumberFormatter.class) @LabelKey("fleet.lightPlanes") Integer lightPlanes,
-        @Mandatory @Range(min = 0, max = 200) @UseFormatter(WholeNumberFormatter.class) @LabelKey("fleet.darkPlanes") Integer darkPlanes) {
+        Integer lightTorpedoBoats,
+        Integer darkTorpedoBoats,
+        Integer lightSubmarines,
+        Integer darkSubmarines,
+        Integer lightPlanes,
+        Integer darkPlanes) {
     static FleetSizeForm fromParameters(List<GameConfigParameter> parameters) {
         return new FleetSizeForm(value(parameters, "LIGHT_TORPEDO_BOATS"), value(parameters, "DARK_TORPEDO_BOATS"),
                 value(parameters, "LIGHT_SUBMARINES"), value(parameters, "DARK_SUBMARINES"),

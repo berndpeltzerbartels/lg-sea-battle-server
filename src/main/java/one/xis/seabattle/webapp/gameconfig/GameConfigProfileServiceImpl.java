@@ -24,13 +24,27 @@ class GameConfigProfileServiceImpl implements GameConfigProfileService {
         return repository.findById(id).map(this::toProfile);
     }
 
-    @Override public GameConfigProfile save(String name, List<GameConfigParameter> parameters, String setupId, String mode) {
-        if (name == null || name.isBlank() || name.strip().length() > 100)
-            throw new IllegalArgumentException("Ein Profilname mit höchstens 100 Zeichen ist erforderlich.");
-        String title = name.strip();
+    @Override public GameConfigProfile save(String id, String name, List<GameConfigParameter> parameters, String setupId, String mode) {
+        String title = validName(name), key = title.toLowerCase(Locale.ROOT);
+        if (id != null && !id.isBlank() && repository.findById(id).isEmpty())
+            throw new IllegalArgumentException("Profil nicht mehr vorhanden.");
+        String profileId = id == null || id.isBlank() ? UUID.randomUUID().toString() : id;
+        ensureUniqueName(key, profileId);
         Map<String,String> values = parameters.stream().collect(Collectors.toMap(GameConfigParameter::id, GameConfigParameter::value));
-        var entity = new GameConfigProfileEntity(title.toLowerCase(Locale.ROOT),title,JSON.toJson(values),setupId,mode);
-        return toProfile(repository.save(entity));
+        var entity = new GameConfigProfileEntity(profileId,title,key,JSON.toJson(values),setupId,mode);
+        try { return toProfile(repository.save(entity)); }
+        catch (RuntimeException failure) { ensureUniqueName(key,profileId); throw failure; }
+    }
+
+    private String validName(String name) {
+        if (name == null || name.isBlank() || name.strip().length() > 100)
+            throw new one.xis.validation.ValidationFailedException("/settings/name", "gameConfig.profileNameInvalid");
+        return name.strip();
+    }
+
+    private void ensureUniqueName(String key, String id) {
+        if (repository.findAll().stream().anyMatch(p -> !p.getId().equals(id) && key.equals(p.getNameKey())))
+            throw new one.xis.validation.ValidationFailedException("/settings/name", "gameConfig.profileNameTaken");
     }
 
     private GameConfigProfile toProfile(GameConfigProfileEntity entity) {

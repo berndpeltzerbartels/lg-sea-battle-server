@@ -9,9 +9,10 @@ import java.util.Map;
 
 /** Only relationships between form fields; individual limits belong to @Range. */
 @Component
-class GameConfigFormValidator implements Validator<GameConfigForm> {
+class GameConfigFormValidator implements Validator<GameSettingsForm> {
     @Override
-    public void validate(GameConfigForm form, AnnotatedElement element, UserContext user) throws ValidatorException {
+    public void validate(GameSettingsForm settings, AnnotatedElement element, UserContext user) throws ValidatorException {
+        var form=settings.config();
         if (!form.complete()) return; // XIS reports missing fields at their inputs.
         String reason = form.closeFireArc() < form.fireArc()
                 ? "Der Feuerwinkel im Nahbereich darf nicht enger sein als der normale Feuerwinkel."
