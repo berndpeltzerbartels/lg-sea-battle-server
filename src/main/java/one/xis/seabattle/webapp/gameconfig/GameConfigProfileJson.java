@@ -12,7 +12,8 @@ final class GameConfigProfileJson {
         parameters.forEach(p -> values.put(p.id(),p.value()));
         return JSON.toJson(new Document(1,name,setupId,mode,values));
     }
-    static Document read(String json) {
+    static Document read(String json) { return read(json, "/transfer/json"); }
+    static Document read(String json, String errorPath) {
         try {
             if (json == null || json.length()>1024*1024) throw new IllegalArgumentException();
             var root=JsonParser.parseString(json).getAsJsonObject();
@@ -24,7 +25,7 @@ final class GameConfigProfileJson {
             }
             return new Document(1,root.get("name").getAsString(),root.get("setupId").getAsString(),root.get("mode").getAsString(),Map.copyOf(values));
         } catch (RuntimeException invalid) {
-            throw new one.xis.validation.ValidationFailedException("/transfer/json", "gameConfig.profileJsonInvalid");
+            throw new one.xis.validation.ValidationFailedException(errorPath, "gameConfig.profileJsonInvalid");
         }
     }
 }

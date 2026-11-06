@@ -53,10 +53,9 @@
             <label for="profile-name">Profilname</label>
             <input id="profile-name" type="text" maxlength="100" xis:binding="name" xis:error-class="error">
             <div class="error" xis:message-for="name"></div>
-            <button id="save-profile" type="submit" xis:action="saveProfile">Profil speichern</button>
             <button id="copy-profile" type="submit" xis:action="copyProfile">Kopie anlegen</button>
-            <button id="export-profile" type="submit" xis:action="exportProfile">Als JSON exportieren</button>
-            <p class="hint">Profil laden, Werte oder Namen ändern und speichern. Namen sind eindeutig; die feste Profil-ID bleibt beim Umbenennen gleich. Bearbeiten und Speichern verändern das laufende Spiel nicht. Änderungen werden erst über „Bot- und Flottenwerte übernehmen“ oder einen Spielstart aktiv.</p>
+            <button id="export-profile" type="submit" xis:action="exportProfile" hidden>JSON-Download vorbereiten</button>
+            <p class="hint">„Gesamtes Profil speichern“ speichert den Namen und alle unten eingestellten Werte im Profil. Bearbeiten und Speichern verändern das laufende Spiel nicht. Änderungen werden erst über „Bot- und Flottenwerte übernehmen“ oder einen Spielstart aktiv.</p>
             <xis:global-messages/>
         </fieldset>
 
@@ -235,26 +234,41 @@
                 <div class="error" xis:message-for="targetAlternativeDistanceFactor"></div>
             </div>
         </div></fieldset>
+        <button id="save-profile" type="submit" xis:action="saveProfile">Gesamtes Profil speichern</button>
         <button id="save-config" type="submit" xis:action="save">Bot- und Flottenwerte übernehmen</button>
         <p class="hint">Entfernungen gelten in Metern, Winkel in Grad, Zeiten in Sekunden. Bereits laufende Nachladezeiten bleiben bestehen.</p>
         </form>
-    <form id="profile-json-form" xis:binding="transfer">
-        <fieldset><legend>JSON-Export und -Import</legend>
-            <label for="profile-json">Profil als JSON</label>
-            <textarea id="profile-json" rows="12" xis:binding="json"></textarea>
-            <div class="error" xis:message-for="json"></div>
-            <a id="download-profile" href="${profileDownload}" download="spielprofil.json">JSON-Datei herunterladen</a>
-            <button id="import-profile" type="submit" xis:action="importProfile">JSON zur Bearbeitung importieren</button>
-            <p class="hint">Exportiere zuerst das aktuell bearbeitete Profil. Ein Import öffnet eine neue Vorlage. Vor dem Speichern kannst du den Namen ändern; vorhandene Profile werden nicht überschrieben.</p>
-        </fieldset>
-    </form>
-    <form id="profile-file-form" xis:binding="fileImport">
-        <fieldset><legend>JSON-Datei importieren</legend>
+    <fieldset id="profile-transfer"><legend>JSON-Import und -Export</legend>
+        <button id="download-export" type="button">Profil exportieren · JSON herunterladen</button>
+        <form id="profile-json-form" xis:binding="transfer" hidden>
+            <input id="profile-json" type="hidden" xis:binding="json">
+            <a id="download-profile" href="${profileDownload}" data-export-id="${profileExportId}" download="spielprofil.json" hidden>Download</a>
+        </form>
+        <form id="profile-file-form" xis:binding="fileImport">
+            <label for="profile-file">JSON-Datei auswählen</label>
             <input id="profile-file" type="file" accept=".json,application/json" xis:binding="json">
             <div class="error" xis:message-for="json"></div>
-            <button id="import-file" type="submit" xis:action="importFile">Datei zur Bearbeitung importieren</button>
-        </fieldset>
-    </form>
+            <button id="import-file" type="submit" xis:action="importFile">Profil importieren · JSON hochladen</button>
+        </form>
+        <p class="hint">Der Export enthält die aktuell bearbeiteten Einstellungen. Der Import öffnet einen Entwurf; vorhandene Profile und das laufende Spiel bleiben erhalten. Zum dauerhaften Speichern anschließend „Gesamtes Profil speichern“ wählen.</p>
+    </fieldset>
 </main>
+<script>
+(() => {
+    let pendingExport = null;
+    document.addEventListener('click', event => {
+        if (!event.target.closest('#download-export')) return;
+        pendingExport = document.getElementById('download-profile').dataset.exportId;
+        document.getElementById('export-profile').click();
+    });
+    new MutationObserver(() => {
+        if (pendingExport === null) return;
+        const link = document.getElementById('download-profile');
+        if (!link || !link.dataset.exportId || link.dataset.exportId === pendingExport) return;
+        pendingExport = null;
+        link.click();
+    }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-export-id'] });
+})();
+</script>
 </body>
 </html>

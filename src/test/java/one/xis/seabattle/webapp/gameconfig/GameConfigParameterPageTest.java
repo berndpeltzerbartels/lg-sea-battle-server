@@ -93,7 +93,8 @@ class GameConfigParameterPageTest {
         assertTrue(url.startsWith("data:application/json;base64,"));
         assertEquals(json,new String(java.util.Base64.getDecoder().decode(url.substring(url.indexOf(',')+1)),java.nio.charset.StandardCharsets.UTF_8));
         assertEquals("0.7",client.getDocument().getInputElementById("aimResponse").getValue());
-        client.getDocument().getElementById("import-profile").click();
+        client.getDocument().getInputElementById("profile-file").setFile("profile.json","application/json",json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        client.getDocument().getElementById("import-file").click();
         assertEquals("JSON test",client.getDocument().getInputElementById("profile-name").getValue());
         assertTrue(profiles.findAll().isEmpty());assertEquals(before,service.findAll());assertEquals(0,game.restarts);
     }
