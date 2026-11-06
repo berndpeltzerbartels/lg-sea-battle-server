@@ -7,27 +7,52 @@
     <style>
         :root { color-scheme:dark; font-family:system-ui,-apple-system,sans-serif; background:#092433; color:#f7fbff; }
         * { box-sizing:border-box; }
-        body { margin:0; }
-        main { max-width:1240px; margin:auto; padding:32px 24px 64px; }
-        header { display:flex; justify-content:space-between; gap:24px; align-items:baseline; flex-wrap:wrap; }
-        h1 { margin:8px 0; font-size:clamp(28px,4vw,42px); }
-        h2 { margin:0; font-size:22px; }
+        [hidden] { display:none !important; }
+        body { margin:0; font-size:14px; }
+        main { max-width:1320px; margin:auto; padding:20px 24px 40px; }
+        header, .actions { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+        header { justify-content:space-between; }
+        h1 { margin:4px 0 12px; font-size:28px; }
         a { color:#a8eeed; }
-        .kicker, label { color:#a8eeed; font-weight:700; }
-        .hint, .description { color:#bfd3da; line-height:1.55; }
-        form { display:grid; gap:24px; margin-top:28px; }
-        fieldset { margin:0; padding:24px; border:1px solid #395865; border-radius:8px; background:#061c27; }
-        legend { font-size:20px; font-weight:700; padding:0 8px; }
-        .fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:28px 32px; }
-        .field { display:grid; gap:8px; align-content:start; }
-        .description { margin:0; font-size:14px; }
-        .unit { color:#bfd3da; font-size:12px; }
-        .error { color:#ffb39f; }
-        select, input { width:100%; min-height:46px; padding:10px; border:1px solid #698894; border-radius:6px; background:#092433; color:#fff; font:inherit; }
-        input:focus { outline:2px solid #a8eeed; outline-offset:2px; }
+        .kicker, label { color:#a8eeed; font-weight:650; }
+        .hint, .description { color:#bfd3da; line-height:1.4; font-size:13px; }
+        .hint { margin:8px 0 0; }
+        form { display:grid; gap:12px; margin-top:12px; }
+        fieldset, .vehicle-settings { min-width:0; margin:0; padding:12px 16px; border:1px solid #395865; border-radius:8px; background:#061c27; }
+        legend { font-size:16px; font-weight:700; padding:0 6px; }
+        .fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px 20px; }
+        .field { display:grid; grid-template-columns:minmax(0,1fr) 100px; gap:4px 10px; align-items:center; align-content:start; }
+        .field label { grid-column:1; }
+        .field input { grid-column:2; grid-row:1 / span 2; }
+        .unit { grid-column:1; color:#bfd3da; font-size:11px; }
+        .description { grid-column:1 / -1; grid-row:3; margin:0; display:none; }
+        #settings-form:has(#show-descriptions:checked) .description { display:block; }
+        .error { grid-column:1 / -1; color:#ffb39f; }
+        .error:empty { display:none; }
+        select, input { width:100%; min-height:34px; padding:6px 8px; border:1px solid #698894; border-radius:5px; background:#092433; color:#fff; font:inherit; }
+        input:focus, select:focus, summary:focus-visible { outline:2px solid #a8eeed; outline-offset:2px; }
         input.error { border-color:#ffb39f; }
-        button { min-height:48px; padding:12px 24px; justify-self:start; border:0; border-radius:6px; background:#d9f4f5; color:#082330; font:700 16px system-ui; cursor:pointer; }
-        @media(max-width:700px) { .fields { grid-template-columns:1fr; } main { padding:20px 16px 40px; } fieldset { padding:16px; } }
+        button { min-height:36px; padding:8px 14px; justify-self:start; border:0; border-radius:5px; background:#d9f4f5; color:#082330; font:650 14px system-ui; cursor:pointer; }
+        .profile-controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+        .profile-controls select, .profile-controls input[type=text] { flex:1; min-width:180px; width:auto; max-width:360px; }
+        .setup-fields { grid-template-columns:1fr 1fr; align-items:end; }
+        .setup-fields .field { grid-template-columns:1fr; }
+        .setup-fields select { grid-column:1; }
+        .fleet-table { width:100%; max-width:650px; border-collapse:collapse; }
+        .fleet-table th, .fleet-table td { padding:4px 10px; text-align:left; }
+        .fleet-table thead th { color:#bfd3da; }
+        .fleet-table input { max-width:120px; }
+        .vehicle-settings > summary { cursor:pointer; font-size:18px; font-weight:700; color:#a8eeed; }
+        .vehicle-settings[open] > summary { margin-bottom:12px; }
+        .vehicle-settings fieldset + fieldset { margin-top:10px; }
+        .help-toggle { display:flex; align-items:center; gap:8px; margin-bottom:10px; font-size:13px; }
+        .help-toggle input { width:16px; min-height:16px; }
+        #profile-transfer { margin-top:16px; }
+        #profile-file-form { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin:0; }
+        #profile-file { width:260px; }
+        .transfer-actions { display:flex; align-items:center; flex-wrap:wrap; gap:12px 24px; }
+        @media(max-width:1000px) { .fields { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+        @media(max-width:650px) { main { padding:16px 12px 32px; } .fields { grid-template-columns:1fr; } fieldset,.vehicle-settings { padding:10px 12px; } .field { grid-template-columns:minmax(0,1fr) 100px; } .setup-fields .field { grid-template-columns:1fr; } }
     </style>
 </head>
 <body>
@@ -38,75 +63,55 @@
     </header>
     <form id="profile-load-form" xis:binding="profileLoad">
         <fieldset><legend>Profile</legend>
-            <label for="profile-choice">Profil auswählen</label>
+            <div class="profile-controls"><label for="profile-choice">Profil auswählen</label>
             <select id="profile-choice" xis:binding="profileId"><option value="">Bitte auswählen</option>
                 <xis:foreach var="profile" array="profiles"><option value="${profile.id}">${profile.name}</option></xis:foreach>
             </select>
             <div class="error" xis:message-for="profileId"></div>
             <button id="load-profile" type="submit" xis:action="loadProfile">Profil bearbeiten</button>
-            <button id="new-profile" type="submit" xis:action="newProfile" formnovalidate>Neues Profil aus aktuellen Spieleinstellungen</button>
+            <button id="new-profile" type="submit" xis:action="newProfile" formnovalidate>Neues Profil</button></div>
         </fieldset>
     </form>
     <form id="settings-form" xis:binding="settings">
         <fieldset><legend>Profil bearbeiten</legend>
             <input type="hidden" xis:binding="profileId">
-            <label for="profile-name">Profilname</label>
+            <div class="profile-controls"><label for="profile-name">Profilname</label>
             <input id="profile-name" type="text" maxlength="100" xis:binding="name" xis:error-class="error">
             <div class="error" xis:message-for="name"></div>
-            <button id="copy-profile" type="submit" xis:action="copyProfile">Kopie anlegen</button>
+            <button id="copy-profile" type="submit" xis:action="copyProfile">Kopie anlegen</button></div>
             <button id="export-profile" type="submit" xis:action="exportProfile" hidden>JSON-Download vorbereiten</button>
             <p class="hint">„Gesamtes Profil speichern“ speichert den Namen und alle unten eingestellten Werte im Profil. Bearbeiten und Speichern verändern das laufende Spiel nicht. Änderungen werden erst über „Bot- und Flottenwerte übernehmen“ oder einen Spielstart aktiv.</p>
             <xis:global-messages/>
         </fieldset>
 
         <fieldset><legend>Spiel, Landschaft und Aufstellung</legend>
-            <div class="fields">
-                <div class="field">
-                    <label for="setup-choice">Landschaft und Aufstellung</label>
-                    <select id="setup-choice" xis:binding="setupId">
-                        <xis:foreach var="setup" array="setups">
-                            <option value="${setup.id}">${setup.title}</option>
-                        </xis:foreach>
-                    </select>
-                    <label for="mode-choice">Spielmodus</label>
+            <div class="fields setup-fields">
+                <div class="field"><label for="setup-choice">Landschaft und Aufstellung</label>
+                    <select id="setup-choice" xis:binding="setupId"><xis:foreach var="setup" array="setups"><option value="${setup.id}">${setup.title}</option></xis:foreach></select>
+                </div>
+                <div class="field"><label for="mode-choice">Spielmodus</label>
                     <select id="mode-choice" xis:binding="mode"><option value="ENDLESS">Endlos</option></select>
-                    <button id="apply-setup" type="submit" xis:action="selectSetup">Mit diesen Einstellungen starten</button>
                 </div>
-                <div class="field">
-                    <label>Aktuelles Spiel</label>
-                    <button id="restart-game" type="submit" formnovalidate xis:action="restartGame">Mit bisheriger Aufstellung neu starten</button>
-                </div>
+            </div>
+            <div class="actions">
+                <button id="apply-setup" type="submit" xis:action="selectSetup">Mit diesen Einstellungen starten</button>
+                <button id="restart-game" type="submit" formnovalidate xis:action="restartGame">Bisherige Aufstellung neu starten</button>
             </div>
             <p class="hint">Ein Neustart gilt für alle Spieler. Die gespeicherten Bot-Parameter bleiben erhalten.</p>
         </fieldset>
 
         <fieldset><legend>Flottengröße je Partei</legend>
             <xis:global-messages/>
-            <div class="fields">
-                <div class="field"><label for="fleet-light">Flotte Hell · Torpedoboote</label>
-                    <input id="fleet-light" type="number" step="1" min="0" max="200" xis:binding="lightTorpedoBoats" xis:error-class="error" required>
-                    <div class="error" xis:message-for="lightTorpedoBoats"></div></div>
-                <div class="field"><label for="fleet-dark">Flotte Dunkel · Torpedoboote</label>
-                    <input id="fleet-dark" type="number" step="1" min="0" max="200" xis:binding="darkTorpedoBoats" xis:error-class="error" required>
-                    <div class="error" xis:message-for="darkTorpedoBoats"></div></div>
-                <div class="field"><label for="fleet-light-submarines">Flotte Hell · U-Boote</label>
-                    <input id="fleet-light-submarines" type="number" step="1" min="0" max="200" xis:binding="lightSubmarines" xis:error-class="error" required>
-                    <div class="error" xis:message-for="lightSubmarines"></div></div>
-                <div class="field"><label for="fleet-dark-submarines">Flotte Dunkel · U-Boote</label>
-                    <input id="fleet-dark-submarines" type="number" step="1" min="0" max="200" xis:binding="darkSubmarines" xis:error-class="error" required>
-                    <div class="error" xis:message-for="darkSubmarines"></div></div>
-                <div class="field"><label for="fleet-light-planes">Flotte Hell · Flugzeuge</label>
-                    <input id="fleet-light-planes" type="number" step="1" min="0" max="200" xis:binding="lightPlanes" xis:error-class="error" required>
-                    <div class="error" xis:message-for="lightPlanes"></div></div>
-                <div class="field"><label for="fleet-dark-planes">Flotte Dunkel · Flugzeuge</label>
-                    <input id="fleet-dark-planes" type="number" step="1" min="0" max="200" xis:binding="darkPlanes" xis:error-class="error" required>
-                    <div class="error" xis:message-for="darkPlanes"></div></div>
-            </div>
+            <table class="fleet-table"><thead><tr><th scope="col">Fahrzeug</th><th scope="col">Hell</th><th scope="col">Dunkel</th></tr></thead><tbody>
+                <tr><th scope="row">Torpedoboote</th><td><input id="fleet-light" aria-label="Torpedoboote · Hell" type="number" step="1" min="0" max="200" xis:binding="lightTorpedoBoats" xis:error-class="error" required><div class="error" xis:message-for="lightTorpedoBoats"></div></td><td><input id="fleet-dark" aria-label="Torpedoboote · Dunkel" type="number" step="1" min="0" max="200" xis:binding="darkTorpedoBoats" xis:error-class="error" required><div class="error" xis:message-for="darkTorpedoBoats"></div></td></tr>
+                <tr><th scope="row">U-Boote</th><td><input id="fleet-light-submarines" aria-label="U-Boote · Hell" type="number" step="1" min="0" max="200" xis:binding="lightSubmarines" xis:error-class="error" required><div class="error" xis:message-for="lightSubmarines"></div></td><td><input id="fleet-dark-submarines" aria-label="U-Boote · Dunkel" type="number" step="1" min="0" max="200" xis:binding="darkSubmarines" xis:error-class="error" required><div class="error" xis:message-for="darkSubmarines"></div></td></tr>
+                <tr><th scope="row">Flugzeuge</th><td><input id="fleet-light-planes" aria-label="Flugzeuge · Hell" type="number" step="1" min="0" max="200" xis:binding="lightPlanes" xis:error-class="error" required><div class="error" xis:message-for="lightPlanes"></div></td><td><input id="fleet-dark-planes" aria-label="Flugzeuge · Dunkel" type="number" step="1" min="0" max="200" xis:binding="darkPlanes" xis:error-class="error" required><div class="error" xis:message-for="darkPlanes"></div></td></tr>
+            </tbody></table>
             <p class="hint">Die Gesamtzahl ergibt sich aus den drei Fahrzeugzahlen je Partei. Von Menschen gesteuerte Fahrzeuge zählen mit. Bei einer Verringerung bleiben vorhandene Fahrzeuge erhalten; Verluste werden bis zur Sollgröße nicht ersetzt. Bei einer Erhöhung kommt insgesamt alle drei Sekunden ein Fahrzeug auf einem freien Wasserpunkt hinzu. Feste Testaufstellungen behalten ihre Besetzung.</p>
-            <button id="save-fleet-size" type="submit" xis:action="save">Bot- und Flottenwerte übernehmen</button>
         </fieldset>
 
-<h2>Torpedoboot-Bots</h2>
+<details class="vehicle-settings" open><summary>Torpedoboot-Bots · 17 Parameter</summary>
+        <label class="help-toggle"><input id="show-descriptions" type="checkbox">Erläuterungen anzeigen</label>
 
         <div id="validation-messages" role="alert"><xis:global-messages/></div>
         <fieldset><legend>Ausrichten und Schießen</legend><div class="fields">
@@ -234,12 +239,13 @@
                 <div class="error" xis:message-for="targetAlternativeDistanceFactor"></div>
             </div>
         </div></fieldset>
-        <button id="save-profile" type="submit" xis:action="saveProfile">Gesamtes Profil speichern</button>
-        <button id="save-config" type="submit" xis:action="save">Bot- und Flottenwerte übernehmen</button>
+        </details>
+        <div class="actions"><button id="save-profile" type="submit" xis:action="saveProfile">Gesamtes Profil speichern</button>
+        <button id="save-config" type="submit" xis:action="save">Bot- und Flottenwerte übernehmen</button></div>
         <p class="hint">Entfernungen gelten in Metern, Winkel in Grad, Zeiten in Sekunden. Bereits laufende Nachladezeiten bleiben bestehen.</p>
         </form>
     <fieldset id="profile-transfer"><legend>JSON-Import und -Export</legend>
-        <button id="download-export" type="button">Profil exportieren · JSON herunterladen</button>
+        <div class="transfer-actions"><button id="download-export" type="button">Profil exportieren · JSON herunterladen</button>
         <form id="profile-json-form" xis:binding="transfer" hidden>
             <input id="profile-json" type="hidden" xis:binding="json">
             <a id="download-profile" href="${profileDownload}" data-export-id="${profileExportId}" download="spielprofil.json" hidden>Download</a>
@@ -250,12 +256,17 @@
             <div class="error" xis:message-for="json"></div>
             <button id="import-file" type="submit" xis:action="importFile">Profil importieren · JSON hochladen</button>
         </form>
+        </div>
         <p class="hint">Der Export enthält die aktuell bearbeiteten Einstellungen. Der Import öffnet einen Entwurf; vorhandene Profile und das laufende Spiel bleiben erhalten. Zum dauerhaften Speichern anschließend „Gesamtes Profil speichern“ wählen.</p>
     </fieldset>
 </main>
 <script>
 (() => {
     let pendingExport = null;
+    document.addEventListener('invalid', event => {
+        const section = event.target.closest('details');
+        if (section) section.open = true;
+    }, true);
     document.addEventListener('click', event => {
         if (!event.target.closest('#download-export')) return;
         pendingExport = document.getElementById('download-profile').dataset.exportId;
