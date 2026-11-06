@@ -109,6 +109,8 @@ public class GameStateService {
         return instrumentWorld;
     }
 
+    public BotNavigationDebug botNavigationDebug() { return session.botNavigationDebug(); }
+
     public List<Vector2> waterPoints() { return session.waterPoints(); }
 
     public List<Vector2> respawnCandidates() {

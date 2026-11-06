@@ -70,6 +70,7 @@ public final class GameSession {
     double nowSeconds;
     double nextBotScoutPlaneTorpedoTime;
     private String state = "running";
+    private Map<String, BotGoal> lastBotGoals = Map.of();
     private GameMode mode = GameMode.ENDLESS;
     private String winningTeam;
     private Supplier<Map<String, Integer>> humanCounts = Map::of;
@@ -237,6 +238,19 @@ public final class GameSession {
                 .anyMatch(ship -> "active".equals(ship.state())
                         && ship.controlledBy() != null
                         && activePlayerIds.contains(ship.controlledBy()));
+    }
+
+    synchronized BotNavigationDebug botNavigationDebug() {
+        var plans = new ArrayList<BotNavigationDebug.Plan>();
+        for (Fleet fleet : fleets.values()) for (Vehicle vehicle : fleet.ships()) {
+            BotGoal goal = lastBotGoals.get(vehicle.id());
+            if (goal == null || !vehicle.isBotControlled() || !"active".equals(vehicle.state())) continue;
+            BotNavigation plan = vehicle instanceof SurfaceVehicle surface ? surface.botNavigation : null;
+            plans.add(new BotNavigationDebug.Plan(vehicle.id(), goal.kind().name(), goal.targetShipId(),
+                    new Vector2(goal.x(), goal.z()), plan == null ? null : plan.largeWaypoint,
+                    plan == null ? null : plan.routeWaypoint));
+        }
+        return new BotNavigationDebug(instanceId, nowSeconds, List.copyOf(plans));
     }
 
     public synchronized GameSnapshot snapshot() {
@@ -909,7 +923,8 @@ public final class GameSession {
             goals.put(plane.id(), targetSelection.goal(new BotTargetSituation(this, plane, List.of(), visibilityCache,
                     scoutPlaneTargetReservations), target, true));
         }
-        return new BotRound(activeShips, surfaceShips, visibilityCache, boats, planes, Map.copyOf(goals));
+        lastBotGoals = Map.copyOf(goals);
+        return new BotRound(activeShips, surfaceShips, visibilityCache, boats, planes, lastBotGoals);
     }
 
     private void tryBotDepthCharges(Vehicle ship, RadarService.VisibilityCache visibilityCache) {

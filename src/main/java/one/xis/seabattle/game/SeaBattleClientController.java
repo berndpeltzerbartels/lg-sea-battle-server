@@ -96,6 +96,10 @@ public class SeaBattleClientController {
         return SeaBattleGameConfig.current();
     }
 
+    @Get("/game/debug/bot-navigation")
+    @Produces(ContentType.JSON_UTF8)
+    public BotNavigationDebug getBotNavigationDebug() { return gameStateService.botNavigationDebug(); }
+
     @Get("/game/debug/water-points")
     @Produces(ContentType.JSON_UTF8)
     public List<Vector2> getWaterPoints() { return gameStateService.waterPoints(); }
