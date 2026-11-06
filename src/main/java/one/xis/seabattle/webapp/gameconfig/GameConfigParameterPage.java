@@ -47,6 +47,9 @@ class GameConfigParameterPage {
         String json=value==null?"":value.json();
         return "data:application/json;base64,"+Base64.getEncoder().encodeToString(json.getBytes(StandardCharsets.UTF_8));
     }
+    @ModelData("profileExportId") String profileExportId(@ClientState(TRANSFER) @NullAllowed TransferForm value){
+        return value==null?"":value.exportId;
+    }
     @Action("loadProfile") PageUrlResponse loadProfile(@FormData("profileLoad") ProfileLoadForm form){
         profile(form.profileId());
         return edit(form.profileId()).clientState(DRAFT,null);
@@ -84,17 +87,16 @@ class GameConfigParameterPage {
     @Action("exportProfile") @ClientState(DRAFT) @FormData("settings")
     GameSettingsForm exportProfile(@FormData("settings") GameSettingsForm form,
                                   @ClientState(TRANSFER) TransferForm transfer){
+        transfer.exportId=UUID.randomUUID().toString();
         transfer.json=GameConfigProfileJson.write(form.name(),form.setupId(),form.mode(),form.parameters(configuration.findAll()));
         return form;
     }
-    @Action("importProfile") @ClientState(DRAFT) @FormData("settings")
-    GameSettingsForm importProfile(@FormData("transfer") TransferForm form){return importJson(form.json());}
     @Action("importFile") @ClientState(DRAFT) @FormData("settings")
     GameSettingsForm importFile(@FormData("fileImport") FileImportForm form){return importJson(form.json);}
     private GameSettingsForm importJson(String json){
-        var imported=GameConfigProfileJson.read(json);
+        var imported=GameConfigProfileJson.read(json,"/fileImport/json");
         if(game.setups().stream().noneMatch(s->s.id().equals(imported.setupId())))
-            throw new ValidationFailedException("/transfer/json","gameConfig.profileSetupMissing");
+            throw new ValidationFailedException("/fileImport/json","gameConfig.profileSetupMissing");
         return GameSettingsForm.from(null,imported.name(),imported.setupId(),imported.mode(),overlay(imported.parameters()));
     }
     private GameConfigParameter displayParameter(GameConfigParameter parameter) {
@@ -110,7 +112,8 @@ class GameConfigParameterPage {
     private PageUrlResponse edit(String id){return id==null||id.isBlank()?new PageUrlResponse(PAGE):new PageUrlResponse(PAGE,Map.of("profile",id));}
     record ProfileLoadForm(@Mandatory String profileId){}
     static class TransferForm {
-        @Mandatory public String json;
+        public String json;
+        public String exportId="";
         TransferForm() { }
         TransferForm(String json) { this.json=json; }
         public String json() { return json; }
