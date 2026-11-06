@@ -21,6 +21,7 @@ final class BotNavigation {
     boolean trackingPeriscope;
     BotAircraftEvasion aircraftEvasion;
     Course route, encounter, near, forward;
+    Vector2 largeWaypoint, routeWaypoint;
     boolean directAttackRoute;
     final BotCruiseAcceleration acceleration = new BotCruiseAcceleration();
     private int encounterClearChecks;
@@ -59,21 +60,67 @@ final class BotNavigation {
         return urgent != null ? urgent : near != null ? near : forward != null ? forward : encounter != null ? encounter : aircraft != null ? aircraft : route;
     }
 
+    /** Each finer scan aims at its parent's point; a failed scan contributes no point. */
+    void planRoute(Vehicle ship, Vector2 destination, int engineOrder, NavigationService navigation, WorldMap world) {
+        double largeRange = planningRange(ship, world);
+        largeWaypoint = largeRange > ROUTE_RANGE
+                ? freeWaypoint(ship, destination, largeRange, navigation, world) : null;
+        Vector2 inherited = largeWaypoint == null ? destination : largeWaypoint;
+        routeWaypoint = freeWaypoint(ship, inherited, ROUTE_RANGE, navigation, world);
+        if (routeWaypoint == null) {
+            routeWaypoint = freeWaypoint(ship, inherited, FORWARD_RANGE, navigation, world);
+            engineOrder = Math.min(4, engineOrder);
+        }
+        if (routeWaypoint == null) {
+            route = null;
+            encounter = null;
+            forward = null;
+            near = null;
+        } else route = new Course(bearing(ship.position(), routeWaypoint), engineOrder);
+    }
+
+    static Vector2 freeWaypoint(Vehicle ship, Vector2 destination, double range,
+                               NavigationService navigation, WorldMap world) {
+        double distance = Math.min(range, ship.position().distanceTo(destination));
+        if (distance < .001) return destination;
+        double heading = freeHeading(ship, bearing(ship.position(), destination), distance, navigation, world);
+        return Double.isNaN(heading) ? null : ship.position().add(Vector2.fromHeading(heading).scale(distance));
+    }
+
+    private static double bearing(Vector2 from, Vector2 to) {
+        return Math.atan2(to.x() - from.x(), to.z() - from.z());
+    }
+
     static Course freeRoute(Vehicle ship, Course desired, double distance,
                             NavigationService navigation, WorldMap world) {
+        double heading = freeHeading(ship, desired.heading(), distance, navigation, world);
+        return Double.isNaN(heading) ? new Course(ship.heading(), 3) : new Course(heading, desired.engineOrder());
+    }
+
+    private static double freeHeading(Vehicle ship, double desired, double distance,
+                                      NavigationService navigation, WorldMap world) {
         world = nearbyLand(ship, world, distance);
-        if (pathClear(ship, desired.heading, distance, navigation, world)) return desired;
+        if (pathClear(ship, desired, distance, navigation, world)) return desired;
         // Smallest deviation first. Equal choices use the current heading, avoiding arbitrary flips.
-        int firstSide = MathSupport.normalizeAngle(desired.heading - ship.heading()) >= 0 ? 1 : -1;
+        int firstSide = MathSupport.normalizeAngle(desired - ship.heading()) >= 0 ? 1 : -1;
         for (int step = 1; step <= 18; step++) {
             for (int side : new int[]{firstSide, -firstSide}) {
-                double heading = MathSupport.normalizeAngle(desired.heading + side * step * Math.PI / 18);
-                if (pathClear(ship, heading, distance, navigation, world)) {
-                    return new Course(heading, desired.engineOrder);
-                }
+                double heading = MathSupport.normalizeAngle(desired + side * step * Math.PI / 18);
+                if (pathClear(ship, heading, distance, navigation, world)) return heading;
             }
         }
-        return new Course(ship.heading(), 3); // Only the near-land escape may order reverse.
+        return Double.NaN;
+    }
+
+    /** Only the coarse course planner expands near large coasts. Near/traffic checks stay local. */
+    static double planningRange(Vehicle ship, WorldMap world) {
+        double range = ROUTE_RANGE;
+        for (Landmass land : world.landmasses()) {
+            if (Math.abs(ship.position().x() - land.x()) <= Math.abs(land.rx()) * 1.51 + ROUTE_RANGE
+                    && Math.abs(ship.position().z() - land.z()) <= Math.abs(land.rz()) * 1.51 + ROUTE_RANGE)
+                range = Math.max(range, Math.max(Math.abs(land.rx()), Math.abs(land.rz())));
+        }
+        return range;
     }
 
     private static WorldMap nearbyLand(Vehicle ship, WorldMap world, double distance) {
@@ -105,8 +152,7 @@ final class BotNavigation {
         if (corridorLand.size() != world.landmasses().size()) world = new WorldMap(world.version(), corridorLand);
         // The far scan is deliberately coarse: small islands between samples are handled on approach.
         // Near safety checks keep their existing fine spacing.
-        double stepDistance = distance > NEAR_RANGE ? 2 * SHIP_LENGTH : 8;
-        int steps = Math.max(1, (int) Math.ceil(distance / stepDistance));
+        int steps = distance > NEAR_RANGE ? 8 : Math.max(1, (int) Math.ceil(distance / 8));
         for (int i = 1; i <= steps; i++) {
             if (navigation.isShipBlocked(ship.position().add(forward.scale(distance * i / steps)), heading, world)) return false;
         }

@@ -91,10 +91,13 @@ final class WaterBotNavigation {
     if (routeUpdated) {
       BotNavigation.Course desired = courseForGoal(vehicle, contact, goal, attackSpeed);
       if (aim != null) desired = new BotNavigation.Course(aim.heading(), desired.engineOrder());
-      plan.route =
-          BotNavigation.freeRoute(
-              vehicle, desired, BotNavigation.ROUTE_RANGE, navigationService, worldMap);
-      plan.directAttackRoute = aim != null && plan.route.heading() == desired.heading();
+      Vector2 destination = new Vector2(goal.x(), goal.z());
+      if (aim != null) destination = vehicle.position().add(Vector2.fromHeading(aim.heading())
+          .scale(vehicle.position().distanceTo(destination)));
+      plan.planRoute(vehicle, destination, desired.engineOrder(), navigationService, worldMap);
+      plan.directAttackRoute = aim != null && plan.route != null
+          && Math.abs(MathSupport.normalizeAngle(plan.route.heading() - aim.heading())) < 1e-9;
+      if (plan.directAttackRoute) plan.route = new BotNavigation.Course(aim.heading(), plan.route.engineOrder());
     }
     if (plan.encounterDue(tick))
       plan.planEncounter(vehicle, waterVehicles, navigationService, worldMap, wreckObstacles);
@@ -153,6 +156,7 @@ final class WaterBotNavigation {
               : BotHelm.rudder(
                   vehicle.heading(), vehicle.turnVelocity(), vehicle.speed(), selected.heading()));
     }
+    else vehicle.applyCommand(ENGINE_STOP, 0);
     // Reuse the staggered one-second route slot; blocked shots must not rescan terrain every tick.
     if (contact != null && routeUpdated) fireBotWeapons(vehicle, contact, aim);
   }
