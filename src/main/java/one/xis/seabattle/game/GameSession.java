@@ -5,7 +5,7 @@ import static one.xis.seabattle.game.GameRules.*;
 import java.util.*;
 import java.util.function.Supplier;
 import one.xis.seabattle.webapp.gameconfig.GameRuntimeConfig;
-import one.xis.seabattle.webapp.gameconfig.TorpedoBoatBotConfig;
+import one.xis.seabattle.webapp.gameconfig.BotCombatConfig;
 
 public final class GameSession {
 
@@ -192,10 +192,20 @@ public final class GameSession {
         return runtimeConfig;
     }
 
-    /** Shared water routines keep legacy defaults for submarines and human weapons. */
-    TorpedoBoatBotConfig botCombatConfig(Vehicle vehicle) {
-        return vehicle instanceof TorpedoBoat && vehicle.isBotControlled()
-                ? runtimeConfig.torpedoBoatBot() : DEFAULT_RUNTIME_CONFIG.torpedoBoatBot();
+    /** Shared algorithms read the independent configuration of the actual bot type. */
+    BotCombatConfig botCombatConfig(Vehicle vehicle) {
+        if (!vehicle.isBotControlled()) return DEFAULT_RUNTIME_CONFIG.torpedoBoatBot();
+        return vehicle.isSubmarine() ? runtimeConfig.submarineBot().combat() : runtimeConfig.torpedoBoatBot();
+    }
+
+    double botAimErrorAngle(Vehicle vehicle, Vehicle target) {
+        return vehicle.isBotControlled() && vehicle instanceof SurfaceVehicle surface
+                ? surface.botAimError.angle(surface, target, botCombatConfig(vehicle).aimErrorAngle()) : 0;
+    }
+
+    private double underwaterBotRange(Vehicle observer) {
+        return observer.isBotControlled() ? runtimeConfig.submarineBot().underwaterContactRange()
+                : GameRules.BOT_SUBMARINE_UNDERWATER_RANGE;
     }
 
     WorldMap worldMap() {
@@ -1085,10 +1095,10 @@ public final class GameSession {
     }
 
     boolean submarineHasAscentShot(Vehicle ship, Vehicle target) {
-        if (Math.abs(relativeBearing(ship, target.position())) > BOT_FIRE_ARC) return false;
+        if (Math.abs(relativeBearing(ship, target.position())) > botCombatConfig(ship).fireArc()) return false;
         Vector2 muzzle = torpedoMuzzlePosition(ship, ship.heading(), 1);
         return torpedoLineHitsShip(muzzle, Vector2.fromHeading(ship.heading()), target,
-                BOT_FIRE_MAX_RANGE, TORPEDO_HULL_MARGIN)
+                botCombatConfig(ship).fireMaxRange(), TORPEDO_HULL_MARGIN)
                 && !torpedoLaunchWouldHitFriendlyShip(ship, muzzle, ship.heading());
     }
 
@@ -1111,7 +1121,7 @@ public final class GameSession {
 
     private List<Vehicle> visibleTargets(Vehicle ship, RadarService.VisibilityCache visibilityCache) {
         if (ship.isFullySubmerged()) {
-            return visibilityCache.candidates(ship, GameRules.BOT_SUBMARINE_UNDERWATER_RANGE).stream()
+            return visibilityCache.candidates(ship, underwaterBotRange(ship)).stream()
                     .filter(target -> !target.teamId().equals(ship.teamId()))
                     .filter(target -> isUnderwaterBotContact(ship, target) && target.isFullySubmerged())
                     .toList();
@@ -1130,7 +1140,7 @@ public final class GameSession {
     boolean isUnderwaterBotContact(Vehicle observer, Vehicle target) {
         return observer.isSubmarine() && target.isSubmarine() && !target.isOnSurface()
                 && !observer.id().equals(target.id()) && "active".equals(target.state())
-                && observer.position().distanceTo(target.position()) <= GameRules.BOT_SUBMARINE_UNDERWATER_RANGE;
+                && observer.position().distanceTo(target.position()) <= underwaterBotRange(observer);
     }
 
     boolean isVisiblePeriscopeRamContact(Vehicle observer, Vehicle target) {
@@ -2789,12 +2799,20 @@ public final class GameSession {
         double launchY = ship.isSubmarine() && ship.y() < -1.87 * TORPEDO_BOAT_MODEL_SCALE
                 ? ship.y() + .2 * TORPEDO_BOAT_MODEL_SCALE : .05;
         if (target != null && !torpedoDepthCanDamageShip(launchY, target)) return false;
-        if (target != null && !botTorpedoIntercepts(ship, muzzlePosition, forward, target, launchY)) {
+        // Test whether the underlying aim estimate is plausible; the real tube course may
+        // differ by the configured aiming error. All safety checks use the real course.
+        double aimError = target == null ? 0 : botAimErrorAngle(ship, target);
+        Vector2 estimateForward = aimError == 0 ? forward : Vector2.fromHeading(heading - aimError);
+        Vector2 estimateMuzzle = aimError == 0 ? muzzlePosition : torpedoMuzzlePosition(ship, heading - aimError, tubeSide);
+        if (target != null && !botTorpedoIntercepts(ship, estimateMuzzle, estimateForward, target, launchY)) {
             return false;
         }
         if (target != null) {
             BotTorpedoAim aim = BotTorpedoAim.forTarget(ship, target, botCombatConfig(ship).fireMaxRange());
-            if (aim == null || botTorpedoPathBlockedByLand(muzzlePosition, aim.targetPosition())) return false;
+            if (aim == null) return false;
+            Vector2 realEnd = aimError == 0 ? aim.targetPosition()
+                    : muzzlePosition.add(forward.scale(muzzlePosition.distanceTo(aim.targetPosition())));
+            if (botTorpedoPathBlockedByLand(muzzlePosition, aim.targetPosition(), realEnd)) return false;
         }
         if (target != null && torpedoLaunchWouldHitFriendlyShip(ship, muzzlePosition, heading, launchY)) {
             return false;
@@ -2857,18 +2875,20 @@ public final class GameSession {
         return torpedoLaunchWouldHitFriendlyShip(shooter, muzzlePosition, heading, .05);
     }
 
-    private boolean botTorpedoPathBlockedByLand(Vector2 start, Vector2 end) {
+    private boolean botTorpedoPathBlockedByLand(Vector2 start, Vector2 end, Vector2 realEnd) {
         // Only just before a possible shot. Most islands can be rejected with four comparisons.
-        double minX = Math.min(start.x(), end.x()), maxX = Math.max(start.x(), end.x());
-        double minZ = Math.min(start.z(), end.z()), maxZ = Math.max(start.z(), end.z());
+        double minX = Math.min(Math.min(start.x(), end.x()), realEnd.x()), maxX = Math.max(Math.max(start.x(), end.x()), realEnd.x());
+        double minZ = Math.min(Math.min(start.z(), end.z()), realEnd.z()), maxZ = Math.max(Math.max(start.z(), end.z()), realEnd.z());
         var obstacles = new ArrayList<Landmass>();
         for (Landmass land : worldMap.landmasses()) {
             if (land.x() + Math.abs(land.rx()) * 1.51 < minX || land.x() - Math.abs(land.rx()) * 1.51 > maxX
                     || land.z() + Math.abs(land.rz()) * 1.51 < minZ || land.z() - Math.abs(land.rz()) * 1.51 > maxZ) continue;
             obstacles.add(land);
         }
-        return !obstacles.isEmpty() && LandGeometry.lineIntersectsBlockedLand(start, end,
-                new WorldMap(worldMap.version(), obstacles));
+        if (obstacles.isEmpty()) return false;
+        var nearbyLand = new WorldMap(worldMap.version(), obstacles);
+        return LandGeometry.lineIntersectsBlockedLand(start, end, nearbyLand)
+                || realEnd != end && LandGeometry.lineIntersectsBlockedLand(start, realEnd, nearbyLand);
     }
 
     boolean torpedoLaunchWouldHitFriendlyShip(Vehicle shooter, Vector2 muzzlePosition, double heading, double launchY) {

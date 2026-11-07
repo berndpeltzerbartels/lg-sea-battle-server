@@ -3,18 +3,11 @@ package one.xis.seabattle.game;
 import static one.xis.seabattle.game.GameRules.*;
 
 import java.util.List;
+import one.xis.seabattle.webapp.gameconfig.SubmarineBotConfig;
+import one.xis.seabattle.webapp.gameconfig.GameRuntimeConfig;
 
 /** Owns submarine decisions: attack spacing, diving and threat escape. Navigation executes them. */
 public final class SubmarineBotCalculation implements VehicleBotCalculation<Submarine> {
-  private static final double DIVE_RANGE = 500;
-  private static final double DEEP_RANGE = 130;
-  private static final double SAFE_RANGE = 220;
-  private static final double SHOT_ASCENT_RANGE = 180;
-  private static final double SURFACE_RANGE = 650;
-  static final double ATTACK_MIN_RANGE = 250;
-  static final double ATTACK_MAX_RANGE = 400;
-  private static final double AIM_TOLERANCE = Math.toRadians(.15);
-
   private final WaterBotNavigation navigation;
   private static final WaterBotNavigation.AttackSpeed<Submarine> ATTACK_SPEED =
       SubmarineBotCalculation::attackEngineOrder;
@@ -30,10 +23,11 @@ public final class SubmarineBotCalculation implements VehicleBotCalculation<Subm
   @Override
   public void calculate(Submarine submarine, BotSituation situation, long tickId, BotGoal goal) {
     GameSession session = situation.session();
+    SubmarineBotConfig config = session.runtimeConfig().submarineBot();
     RadarService.VisibilityCache perception = situation.round().cache();
     List<Vehicle> contacts =
         submarine.isFullySubmerged()
-            ? perception.candidates(submarine, BOT_SUBMARINE_UNDERWATER_RANGE)
+            ? perception.candidates(submarine, config.underwaterContactRange())
             : perception.candidates(submarine, RadarService.RADAR_RANGE).stream()
                 .filter(
                     target ->
@@ -51,49 +45,54 @@ public final class SubmarineBotCalculation implements VehicleBotCalculation<Subm
                             && !target.isScoutPlane())
                 .anyMatch(target -> session.submarineHasAscentShot(submarine, target));
     Vector2 escapeFromThreat =
-        updateDiveAndEscape(submarine, contacts, situation.timeSeconds(), ascentShot);
+        updateDiveAndEscape(submarine, contacts, situation.timeSeconds(), ascentShot, config);
     navigation.calculate(submarine, situation, tickId, goal, escapeFromThreat, ATTACK_SPEED);
   }
 
   static int attackEngineOrder(Submarine submarine, Vehicle target, double distance, double targetBearing,
-                               one.xis.seabattle.webapp.gameconfig.TorpedoBoatBotConfig ignored) {
-    return attackEngineOrder(submarine, target, distance, targetBearing);
+                               GameRuntimeConfig runtime) {
+    return attackEngineOrder(submarine, target, distance, targetBearing, runtime.submarineBot());
   }
 
   static int attackEngineOrder(
       Submarine submarine, Vehicle target, double distance, double targetBearing) {
+    return attackEngineOrder(submarine, target, distance, targetBearing, SubmarineBotConfig.defaults());
+  }
+
+  static int attackEngineOrder(Submarine submarine, Vehicle target, double distance, double targetBearing,
+                               SubmarineBotConfig config) {
     boolean humanTarget = target != null && target.isHumanControlled();
     if (target != null && submarine.isAtPeriscopeDepth()) {
-      return holdPeriscopeAttackDistance(submarine, target, distance, targetBearing);
+      return holdPeriscopeAttackDistance(submarine, target, distance, targetBearing, config);
     }
     if (target == null) return ENGINE_HALF; // Map-centre patrol stays relaxed.
     if (!humanTarget) {
-      if (distance <= BOT_APPROACH_SLOW_RANGE) return ENGINE_HALF;
+      if (distance <= config.combat().approachSlowRange()) return ENGINE_HALF;
       return distance <= BotNavigation.RADAR_RING ? ENGINE_TWO_THIRDS : ENGINE_FULL;
     }
     if (target.isAtPeriscopeDepth()) {
       return ENGINE_FULL;
     }
     double absoluteBearing = Math.abs(targetBearing);
-    if (distance < BOT_RAM_RANGE) {
+    if (distance < config.combat().ramRange()) {
       return absoluteBearing <= Math.toRadians(30) ? ENGINE_HALF : ENGINE_FULL;
     }
-    if (humanTarget && Math.abs(submarine.speed()) < 0.8 && distance <= BOT_APPROACH_SLOW_RANGE) {
+    if (humanTarget && Math.abs(submarine.speed()) < 0.8 && distance <= config.combat().approachSlowRange()) {
       return ENGINE_FULL;
     }
-    if (distance < BOT_CLOSE_MANEUVER_RANGE) {
+    if (distance < config.combat().closeManeuverRange()) {
       if (absoluteBearing <= Math.toRadians(30)) {
         return ENGINE_HALF;
       }
-      if (absoluteBearing <= BOT_CLOSE_FIRE_ARC) {
+      if (absoluteBearing <= config.combat().closeFireArc()) {
         return ENGINE_HALF;
       }
       return ENGINE_FULL;
     }
-    if (distance > BOT_RADAR_INTERCEPT_RANGE) {
+    if (distance > config.combat().radarInterceptRange()) {
       return ENGINE_FULL;
     }
-    if (distance > BOT_APPROACH_SLOW_RANGE) {
+    if (distance > config.combat().approachSlowRange()) {
       return ENGINE_TWO_THIRDS;
     }
     return ENGINE_HALF;
@@ -102,26 +101,32 @@ public final class SubmarineBotCalculation implements VehicleBotCalculation<Subm
   /** Keep a firing band, not a single distance. Only a too-close target calls for reverse. */
   static int holdPeriscopeAttackDistance(
       Submarine submarine, Vehicle target, double distance, double targetBearing) {
+    return holdPeriscopeAttackDistance(submarine, target, distance, targetBearing, SubmarineBotConfig.defaults());
+  }
+
+  static int holdPeriscopeAttackDistance(Submarine submarine, Vehicle target, double distance, double targetBearing,
+                                       SubmarineBotConfig config) {
     double bearing = Math.abs(targetBearing);
     // If the target is behind us, turn ahead; reversing would move closer to it.
     if (bearing > Math.PI / 3) return ENGINE_HALF;
     double radialTargetSpeed = target.speed()
         * Math.cos(target.heading() - submarine.heading() - targetBearing);
-    if (distance < ATTACK_MIN_RANGE) {
+    if (distance < config.attackMinRange()) {
       double retreatSpeed = -Math.max(2.2,
-          (ATTACK_MIN_RANGE - distance) * .04 + Math.max(0, -radialTargetSpeed));
+          (config.attackMinRange() - distance) * .04 + Math.max(0, -radialTargetSpeed));
       return closestEngineOrder(retreatSpeed, ENGINE_FULL_ASTERN, ENGINE_ASTERN);
     }
-    BotTorpedoAim aim = BotTorpedoAim.forTarget(submarine, target);
+    BotTorpedoAim aim = BotTorpedoAim.forTarget(submarine, target, config.combat().fireMaxRange(),
+        submarine.isBotControlled() ? submarine.botAimError.angle(submarine, target, config.combat().aimErrorAngle()) : 0);
     Vector2 toTarget = target.position().subtract(submarine.position());
     double lead = aim == null ? 0 : MathSupport.normalizeAngle(
         aim.heading() - Math.atan2(toTarget.x(), toTarget.z()));
     double aimingError = Math.abs(MathSupport.normalizeAngle(targetBearing + lead));
-    if (aimingError > AIM_TOLERANCE || aim != null && Math.abs(aim.angularVelocity()) > .001)
+    if (aimingError > config.aimTolerance() || aim != null && Math.abs(aim.angularVelocity()) > .001)
       return ENGINE_ONE_THIRD;
-    if (distance <= ATTACK_MAX_RANGE) return ENGINE_STOP;
+    if (distance <= config.attackMaxRange()) return ENGINE_STOP;
     double approachSpeed = Math.max(EngineOrders.speedFor(ENGINE_ONE_THIRD),
-        Math.max(0, radialTargetSpeed) + (distance - ATTACK_MAX_RANGE) * .04);
+        Math.max(0, radialTargetSpeed) + (distance - config.attackMaxRange()) * .04);
     return closestEngineOrder(approachSpeed, ENGINE_ONE_THIRD, ENGINE_FULL);
   }
 
@@ -142,6 +147,11 @@ public final class SubmarineBotCalculation implements VehicleBotCalculation<Subm
 
   static Vector2 updateDiveAndEscape(
       Submarine submarine, List<Vehicle> contacts, double now, boolean hasShotOpportunity) {
+    return updateDiveAndEscape(submarine, contacts, now, hasShotOpportunity, SubmarineBotConfig.defaults());
+  }
+
+  static Vector2 updateDiveAndEscape(Submarine submarine, List<Vehicle> contacts, double now, boolean hasShotOpportunity,
+                                   SubmarineBotConfig config) {
     SubmarineBotState state = submarine.botState();
     if (!submarine.isFullySubmerged()) {
       Vehicle aircraft =
@@ -153,7 +163,7 @@ public final class SubmarineBotCalculation implements VehicleBotCalculation<Subm
                       other -> submarine.position().distanceTo(other.position())))
               .orElse(null);
       state.lastAircraftPosition = aircraft == null ? null : aircraft.position();
-      state.aircraftMemoryUntil = now + 10;
+      state.aircraftMemoryUntil = now + config.aircraftMemorySeconds();
     }
     Vehicle nearest =
         contacts.stream()
@@ -163,7 +173,7 @@ public final class SubmarineBotCalculation implements VehicleBotCalculation<Subm
                 other ->
                     !submarine.isFullySubmerged()
                         || submarine.position().distanceTo(other.position())
-                            <= BOT_SUBMARINE_UNDERWATER_RANGE)
+                            <= config.underwaterContactRange())
             .min(
                 java.util.Comparator.comparingDouble(
                     other -> submarine.position().distanceTo(other.position())))
@@ -187,15 +197,15 @@ public final class SubmarineBotCalculation implements VehicleBotCalculation<Subm
     if (!aircraftThreat
         && nearest != null
         && nearest.isFullySubmerged()
-        && distance <= BOT_SUBMARINE_UNDERWATER_RANGE) {
+        && distance <= config.underwaterContactRange()) {
       state.divePhase = "submerged";
       submarine.botDepth(state.divePhase);
-      return distance < DEEP_RANGE ? threatPosition : null;
+      return distance < config.deepRange() ? threatPosition : null;
     }
 
     if ("submerged".equals(state.divePhase)) {
-      if (distance < SAFE_RANGE
-          && !(hasShotOpportunity && !aircraftThreat && distance >= SHOT_ASCENT_RANGE)) {
+      if (distance < config.safeRange()
+          && !(hasShotOpportunity && !aircraftThreat && distance >= config.shotAscentRange())) {
         submarine.botDepth(state.divePhase);
         return threatPosition;
       }
@@ -204,11 +214,11 @@ public final class SubmarineBotCalculation implements VehicleBotCalculation<Subm
       submarine.botDepth(state.divePhase);
       return null; // Reacquire contacts on the next simulation tick.
     }
-    if (distance <= DEEP_RANGE) {
+    if (distance <= config.deepRange()) {
       state.divePhase = "submerged";
-    } else if (distance <= DIVE_RANGE) {
+    } else if (distance <= config.diveRange()) {
       state.divePhase = "periscope";
-    } else if (distance > SURFACE_RANGE) {
+    } else if (distance > config.surfaceRange()) {
       surface(state);
     }
     submarine.botDepth(state.divePhase);

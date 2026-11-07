@@ -13,6 +13,10 @@ record BotTorpedoAim(double heading, Vector2 targetPosition, double angularVeloc
   }
 
   static BotTorpedoAim forTarget(Vehicle shooter, Vehicle target, double maxRange) {
+    return forTarget(shooter, target, maxRange, 0);
+  }
+
+  static BotTorpedoAim forTarget(Vehicle shooter, Vehicle target, double maxRange, double headingError) {
     Vector2 velocity = Vector2.fromHeading(target.heading()).scale(target.speed());
     Vector2 origin = shooter.position();
     double speed = speed(shooter);
@@ -52,6 +56,6 @@ record BotTorpedoAim(double heading, Vector2 targetPosition, double angularVeloc
     double square = offset.x() * offset.x() + offset.z() * offset.z();
     double angularVelocity = square < 1 ? 0
         : (offset.z() * change.x() - offset.x() * change.z()) / square;
-    return new BotTorpedoAim(heading, future, angularVelocity);
+    return new BotTorpedoAim(MathSupport.normalizeAngle(heading + headingError), future, angularVelocity);
   }
 }

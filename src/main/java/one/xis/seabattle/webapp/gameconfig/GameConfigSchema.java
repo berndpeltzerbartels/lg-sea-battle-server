@@ -110,6 +110,68 @@ class GameConfigSchema {
         ddl.sql("create unique index game_config_profiles_name_uq on game_config_profiles(name_key)");
     }
 
+    @Change("007-seed-bot-aim-error")
+    void seedAimError(DDL ddl) {
+        insertDefault(ddl, "AIM_ERROR_ANGLE", ANGLE, "0.017453292519943295", "Zielungenauigkeit",
+                "Maximale absichtliche Zielabweichung in Radiant je Zielvorgang. Bis zum nächsten Schuss stabil. Null bedeutet präzises Zielen. Insel- und Freundschiffprüfung bleiben aktiv.");
+    }
+
+    @Change("008-seed-submarine-bot")
+    void seedSubmarineBot(DDL ddl) {
+        // Historical submarine defaults, not live torpedo-boat settings.
+        // Reuse the seed definitions only to create independent rows in the other group.
+        seedSubmarineCombat(ddl);
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "DIVE_RANGE", DISTANCE, "500", "Sehrohrtiefe ab Gegnernähe", "Unabhängige Einstellung für die U-Boot-Bots.");
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "DEEP_RANGE", DISTANCE, "130", "Tieftauchen und Flucht bei Gegnernähe", "Unabhängige Einstellung für die U-Boot-Bots.");
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "SAFE_RANGE", DISTANCE, "220", "Sicherheitsabstand beim Tieftauchen", "Unabhängige Einstellung für die U-Boot-Bots.");
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "SHOT_ASCENT_RANGE", DISTANCE, "180", "Mindestabstand für Auftauchen zum Schuss", "Unabhängige Einstellung für die U-Boot-Bots.");
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "SURFACE_RANGE", DISTANCE, "650", "Auftauchen ohne nahen Gegner", "Unabhängige Einstellung für die U-Boot-Bots.");
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "ATTACK_MIN_RANGE", DISTANCE, "250", "Unterer Angriffsabstand", "Unabhängige Einstellung für die U-Boot-Bots.");
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "ATTACK_MAX_RANGE", DISTANCE, "400", "Oberer Angriffsabstand", "Unabhängige Einstellung für die U-Boot-Bots.");
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "AIM_TOLERANCE", ANGLE, "0.002617993877991494", "Zielabweichung für Fahrtstopp", "Unabhängige Einstellung für die U-Boot-Bots.");
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "AIRCRAFT_MEMORY_SECONDS", SECONDS, "10", "Erinnerung an Flugzeuggefahr", "Unabhängige Einstellung für die U-Boot-Bots.");
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "UNDERWATER_CONTACT_RANGE", DISTANCE, "849.555", "Kontaktweite unter Wasser", "Unabhängige Einstellung für die U-Boot-Bots.");
+    }
+
+    private void seedSubmarineCombat(DDL ddl) {
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "AIM_RESPONSE", NUMBER, "0.40", "Einlenken beim Zielen",
+                "Teiler der Winkelkorrektur beim Torpedozielen. Größer bedeutet schwächeres Einlenken; kleiner bedeutet schnelleres Ausrichten.");
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "AIM_TURN_DAMPING", NUMBER, "0.45", "Dämpfung beim Zielen",
+                "Gewichtung der Differenz zwischen benötigter und tatsächlicher Drehrate. Bremst die Drehbewegung beim Ausrichten ab.");
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "AIM_MIN_CORRECTION_ANGLE", ANGLE, "0.0015", "Kleinste Zielkorrektur",
+                "Restabweichung in Radiant, oberhalb derer auch bei gerundetem Ruderwert null noch eine kleine Korrektur erfolgt.");
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "FIRE_ARC", ANGLE, "0.16", "Feuerwinkel",
+                "Maximale Winkelabweichung in Radiant links oder rechts vom Vorhaltewinkel für einen normalen Torpedoschuss. Die Trefferbahn wird zusätzlich geprüft.");
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "CLOSE_FIRE_ARC", ANGLE, "1.15", "Feuerwinkel im Nahbereich",
+                "Maximale Winkelabweichung in Radiant im Nahbereich. Erlaubt nur einen Schussversuch; eine tatsächlich passende Torpedobahn bleibt erforderlich.");
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "FIRE_MIN_RANGE", DISTANCE, "195", "Beginn des normalen Schussbereichs",
+                "Untere Distanzgrenze in Welteinheiten für normale Torpedoschüsse. Aktuell 65 mal Modellskalierung 3; Nahbereichsschüsse werden separat geprüft.");
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "FIRE_MAX_RANGE", DISTANCE, "690", "Maximale Torpedoschussweite",
+                "Obere Distanzgrenze für Bot-Torpedoangriffe in Welteinheiten. Aktuell 230 mal Modellskalierung 3; nicht die gesamte Laufweite des Torpedos.");
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "CLOSE_FIRE_RANGE", DISTANCE, "435", "Schussbereich für Nahangriffe",
+                "Bis zu dieser Distanz in Welteinheiten gilt der Nahbereichs-Feuerwinkel. Aktuell 145 mal Modellskalierung 3.");
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "TORPEDO_COOLDOWN_MIN", SECONDS, "10.5", "Minimale Torpedopause",
+                "Grundpause in Sekunden nach einem abgefeuerten Torpedo. Dazu kommt der bootsabhängige Zusatz.");
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "TORPEDO_COOLDOWN_VARIATION", SECONDS, "3.0", "Zusätzliche Torpedopause",
+                "Maximaler bootsabhängiger Zuschlag zur Torpedopause in Sekunden. Mit dem aktuellen Grundwert ergeben sich 10,5 bis 13,5 Sekunden.");
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "APPROACH_SLOW_RANGE", DISTANCE, "230", "Distanz zum langsameren Annähern",
+                "Distanzgrenze in Welteinheiten für die langsamere Annäherung im Angriff. Die konkrete Fahrstufe hängt zusätzlich von Zieltyp und Nahkampfsituation ab.");
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "CLOSE_MANEUVER_RANGE", DISTANCE, "130", "Nahkampf-Manövrierbereich",
+                "Innerhalb dieser Distanz in Welteinheiten entscheidet der Zielwinkel stärker über die Angriffsgeschwindigkeit.");
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "RADAR_INTERCEPT_RANGE", DISTANCE, "360", "Distanz für schnelle Annäherung",
+                "Distanzgrenze in Welteinheiten für schnelle Annäherung an menschliche Oberflächenziele. Andere Regeln, etwa Vollgas ab einem Radarring, haben Vorrang.");
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "RAM_RANGE", DISTANCE, "102", "Rammangriffsbereich",
+                "Nahbereich in Welteinheiten für die Geschwindigkeitsregel beim Rammen. Aktuell 34 mal Modellskalierung 3.");
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "HUMAN_TARGET_PRIORITY_CLEARANCE", DISTANCE, "320", "Spielerbevorzugung gegenüber Bot-Zielen",
+                "Ist kein gegnerischer Bot innerhalb dieser Distanz in Welteinheiten, wird ein erkanntes menschliches Ziel bevorzugt ausgewählt.");
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "TARGET_PREFERRED_ATTACKERS", NUMBER, "2", "Bevorzugte Angreiferzahl je Ziel",
+                "Ab dieser Zahl bereits zugeteilter Angreifer wird eine passende Alternative gesucht. Spielerbevorzugung und U-Boot-Jagd behalten ihre Regeln.");
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "TARGET_ALTERNATIVE_DISTANCE_FACTOR", NUMBER, "1.3", "Entfernungsspielraum für Alternativziele",
+                "Ein alternatives Ziel darf höchstens diesen Faktor weiter entfernt sein als die erste Wahl. 1,3 entspricht 30 Prozent zusätzlicher Entfernung.");
+        insertDefault(ddl, GameConfigParameterGroup.SUBMARINE_BOT, "AIM_ERROR_ANGLE", ANGLE, "0", "Zielungenauigkeit",
+                "Maximale Zielabweichung in Radiant, stabil pro Zielvorgang. Null bedeutet präzises Zielen.");
+    }
+
     private void insertDefault(DDL ddl, String name, GameConfigParameterType type, String value,
                                String title, String description) {
         insertDefault(ddl, GameConfigParameterGroup.TORPEDO_BOAT_BOT, name, type, value, title, description);

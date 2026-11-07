@@ -3,7 +3,7 @@ package one.xis.seabattle.game;
 import static one.xis.seabattle.game.GameRules.*;
 
 import java.util.*;
-import one.xis.seabattle.webapp.gameconfig.TorpedoBoatBotConfig;
+import one.xis.seabattle.webapp.gameconfig.BotCombatConfig;
 
 /** Shared water-contact priorities and search orders; no aircraft decisions. */
 final class WaterBotTargetSelection {
@@ -56,7 +56,7 @@ final class WaterBotTargetSelection {
         && !situation.isVisible(situation.currentTarget())
         && !situation.isStrategicContact(situation.currentTarget()))
       return situation.currentTarget();
-    TorpedoBoatBotConfig config = situation.session().botCombatConfig(vehicle);
+    BotCombatConfig config = situation.session().botCombatConfig(vehicle);
     Vehicle preferred = chooseBotTarget(vehicle, situation.candidates(), config).orElse(null);
     // Hunt/search and remembered approaches retain their existing priorities and group size.
     if (preferred == null
@@ -69,7 +69,7 @@ final class WaterBotTargetSelection {
   }
 
   private Vehicle lessCrowdedAlternative(
-      SurfaceVehicle vehicle, BotTargetSituation situation, Vehicle preferred, TorpedoBoatBotConfig config) {
+      SurfaceVehicle vehicle, BotTargetSituation situation, Vehicle preferred, BotCombatConfig config) {
     Vector2 offset = preferred.position().subtract(vehicle.position());
     double limitSquared =
         (offset.x() * offset.x() + offset.z() * offset.z())
@@ -93,7 +93,7 @@ final class WaterBotTargetSelection {
     return alternative == null ? preferred : alternative;
   }
 
-  private Optional<Vehicle> chooseBotTarget(SurfaceVehicle vehicle, List<Vehicle> targets, TorpedoBoatBotConfig config) {
+  private Optional<Vehicle> chooseBotTarget(SurfaceVehicle vehicle, List<Vehicle> targets, BotCombatConfig config) {
     if (targets.isEmpty()) {
       return Optional.empty();
     }

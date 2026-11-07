@@ -10,7 +10,7 @@ final class BotHelm {
     }
 
     static int aimRudder(double heading, double turnVelocity, double speed, BotTorpedoAim aim,
-                         one.xis.seabattle.webapp.gameconfig.TorpedoBoatBotConfig config) {
+                         one.xis.seabattle.webapp.gameconfig.BotCombatConfig config) {
         return aimRudder(heading, turnVelocity, speed, aim, config.aimResponse(),
                 config.aimTurnDamping(), config.aimMinCorrectionAngle());
     }

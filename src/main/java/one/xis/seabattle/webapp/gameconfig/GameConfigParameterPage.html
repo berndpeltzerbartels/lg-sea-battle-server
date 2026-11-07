@@ -173,9 +173,10 @@
                 Fahrzeugzahlen ab der nächsten Runde; während der Runde gibt es keinen Nachschub.</p>
         </fieldset>
 
-        <details class="vehicle-settings" open>
-            <summary>Torpedoboot-Bots · 17 Parameter</summary>
+
             <label class="help-toggle"><input id="show-descriptions" type="checkbox">Erläuterungen anzeigen</label>
+<details class="vehicle-settings" open>
+            <summary>Torpedoboot-Bots · 18 Parameter</summary>
 
             <div id="validation-messages" role="alert">
                 <xis:global-messages/>
@@ -263,7 +264,15 @@
                                xis:binding="torpedoCooldownVariation" xis:error-class="error" required>
                         <div class="error" xis:message-for="torpedoCooldownVariation"></div>
                     </div>
+
+                <div class="field">
+                    <label for="aimErrorAngle">${parameters['AIM_ERROR_ANGLE'].title}</label>
+                    <p class="description">${parameters['AIM_ERROR_ANGLE'].description}</p>
+                    <span class="unit">Grad</span>
+                    <input id="aimErrorAngle" type="number" step="any" min="0" max="5" xis:binding="aimErrorAngle" xis:error-class="error" required>
+                    <div class="error" xis:message-for="aimErrorAngle"></div>
                 </div>
+            </div>
             </fieldset>
             <fieldset>
                 <legend>Fahrt im Angriff</legend>
@@ -332,6 +341,215 @@
                 </div>
             </fieldset>
         </details>
+<details class="vehicle-settings">
+            <summary>U-Boot-Bots · 28 Parameter</summary>
+
+            <div id="validation-messages" role="alert">
+                <xis:global-messages/>
+            </div>
+            <fieldset>
+                <legend>Ausrichten und Schießen</legend>
+                <div class="fields">
+                    <div class="field">
+                        <label for="subAimResponse">${submarineParameters['AIM_RESPONSE'].title}</label>
+                        <p class="description">${submarineParameters['AIM_RESPONSE'].description}</p>
+                        <span class="unit">Zahl</span>
+                        <input id="subAimResponse" type="number" step="any" min="0" xis:binding="subAimResponse"
+                               xis:error-class="error" required>
+                        <div class="error" xis:message-for="subAimResponse"></div>
+                    </div>
+                    <div class="field">
+                        <label for="subAimTurnDamping">${submarineParameters['AIM_TURN_DAMPING'].title}</label>
+                        <p class="description">${submarineParameters['AIM_TURN_DAMPING'].description}</p>
+                        <span class="unit">Zahl</span>
+                        <input id="subAimTurnDamping" type="number" step="any" min="0" xis:binding="subAimTurnDamping"
+                               xis:error-class="error" required>
+                        <div class="error" xis:message-for="subAimTurnDamping"></div>
+                    </div>
+                    <div class="field">
+                        <label for="subAimMinCorrectionAngle">${submarineParameters['AIM_MIN_CORRECTION_ANGLE'].title}</label>
+                        <p class="description">${submarineParameters['AIM_MIN_CORRECTION_ANGLE'].description}</p>
+                        <span class="unit">Grad</span>
+                        <input id="subAimMinCorrectionAngle" type="number" step="any" min="0"
+                               xis:binding="subAimMinCorrectionAngle" xis:error-class="error" required>
+                        <div class="error" xis:message-for="subAimMinCorrectionAngle"></div>
+                    </div>
+                    <div class="field">
+                        <label for="subFireArc">${submarineParameters['FIRE_ARC'].title}</label>
+                        <p class="description">${submarineParameters['FIRE_ARC'].description}</p>
+                        <span class="unit">Grad</span>
+                        <input id="subFireArc" type="number" step="any" min="0" xis:binding="subFireArc"
+                               xis:error-class="error" required>
+                        <div class="error" xis:message-for="subFireArc"></div>
+                    </div>
+                    <div class="field">
+                        <label for="subCloseFireArc">${submarineParameters['CLOSE_FIRE_ARC'].title}</label>
+                        <p class="description">${submarineParameters['CLOSE_FIRE_ARC'].description}</p>
+                        <span class="unit">Grad</span>
+                        <input id="subCloseFireArc" type="number" step="any" min="0" xis:binding="subCloseFireArc"
+                               xis:error-class="error" required>
+                        <div class="error" xis:message-for="subCloseFireArc"></div>
+                    </div>
+                    <div class="field">
+                        <label for="subFireMinRange">${submarineParameters['FIRE_MIN_RANGE'].title}</label>
+                        <p class="description">${submarineParameters['FIRE_MIN_RANGE'].description}</p>
+                        <span class="unit">Meter</span>
+                        <input id="subFireMinRange" type="number" step="any" min="0" xis:binding="subFireMinRange"
+                               xis:error-class="error" required>
+                        <div class="error" xis:message-for="subFireMinRange"></div>
+                    </div>
+                    <div class="field">
+                        <label for="subFireMaxRange">${submarineParameters['FIRE_MAX_RANGE'].title}</label>
+                        <p class="description">${submarineParameters['FIRE_MAX_RANGE'].description}</p>
+                        <span class="unit">Meter</span>
+                        <input id="subFireMaxRange" type="number" step="any" min="0" xis:binding="subFireMaxRange"
+                               xis:error-class="error" required>
+                        <div class="error" xis:message-for="subFireMaxRange"></div>
+                    </div>
+                    <div class="field">
+                        <label for="subCloseFireRange">${submarineParameters['CLOSE_FIRE_RANGE'].title}</label>
+                        <p class="description">${submarineParameters['CLOSE_FIRE_RANGE'].description}</p>
+                        <span class="unit">Meter</span>
+                        <input id="subCloseFireRange" type="number" step="any" min="0" xis:binding="subCloseFireRange"
+                               xis:error-class="error" required>
+                        <div class="error" xis:message-for="subCloseFireRange"></div>
+                    </div>
+                    <div class="field">
+                        <label for="subTorpedoCooldownMin">${submarineParameters['TORPEDO_COOLDOWN_MIN'].title}</label>
+                        <p class="description">${submarineParameters['TORPEDO_COOLDOWN_MIN'].description}</p>
+                        <span class="unit">Sekunden</span>
+                        <input id="subTorpedoCooldownMin" type="number" step="any" min="0" xis:binding="subTorpedoCooldownMin"
+                               xis:error-class="error" required>
+                        <div class="error" xis:message-for="subTorpedoCooldownMin"></div>
+                    </div>
+                    <div class="field">
+                        <label for="subTorpedoCooldownVariation">${submarineParameters['TORPEDO_COOLDOWN_VARIATION'].title}</label>
+                        <p class="description">${submarineParameters['TORPEDO_COOLDOWN_VARIATION'].description}</p>
+                        <span class="unit">Sekunden</span>
+                        <input id="subTorpedoCooldownVariation" type="number" step="any" min="0"
+                               xis:binding="subTorpedoCooldownVariation" xis:error-class="error" required>
+                        <div class="error" xis:message-for="subTorpedoCooldownVariation"></div>
+                    </div>
+
+                <div class="field">
+                    <label for="subAimErrorAngle">${submarineParameters['AIM_ERROR_ANGLE'].title}</label>
+                    <p class="description">${submarineParameters['AIM_ERROR_ANGLE'].description}</p>
+                    <span class="unit">Grad</span>
+                    <input id="subAimErrorAngle" type="number" step="any" min="0" max="5" xis:binding="subAimErrorAngle" xis:error-class="error" required>
+                    <div class="error" xis:message-for="subAimErrorAngle"></div>
+                </div>
+            </div>
+            </fieldset>
+            <fieldset>
+                <legend>Fahrt im Angriff</legend>
+                <div class="fields">
+                    <div class="field">
+                        <label for="subApproachSlowRange">${submarineParameters['APPROACH_SLOW_RANGE'].title}</label>
+                        <p class="description">${submarineParameters['APPROACH_SLOW_RANGE'].description}</p>
+                        <span class="unit">Meter</span>
+                        <input id="subApproachSlowRange" type="number" step="any" min="0" xis:binding="subApproachSlowRange"
+                               xis:error-class="error" required>
+                        <div class="error" xis:message-for="subApproachSlowRange"></div>
+                    </div>
+                    <div class="field">
+                        <label for="subCloseManeuverRange">${submarineParameters['CLOSE_MANEUVER_RANGE'].title}</label>
+                        <p class="description">${submarineParameters['CLOSE_MANEUVER_RANGE'].description}</p>
+                        <span class="unit">Meter</span>
+                        <input id="subCloseManeuverRange" type="number" step="any" min="0" xis:binding="subCloseManeuverRange"
+                               xis:error-class="error" required>
+                        <div class="error" xis:message-for="subCloseManeuverRange"></div>
+                    </div>
+                    <div class="field">
+                        <label for="subRadarInterceptRange">${submarineParameters['RADAR_INTERCEPT_RANGE'].title}</label>
+                        <p class="description">${submarineParameters['RADAR_INTERCEPT_RANGE'].description}</p>
+                        <span class="unit">Meter</span>
+                        <input id="subRadarInterceptRange" type="number" step="any" min="0"
+                               xis:binding="subRadarInterceptRange" xis:error-class="error" required>
+                        <div class="error" xis:message-for="subRadarInterceptRange"></div>
+                    </div>
+                    <div class="field">
+                        <label for="subRamRange">${submarineParameters['RAM_RANGE'].title}</label>
+                        <p class="description">${submarineParameters['RAM_RANGE'].description}</p>
+                        <span class="unit">Meter</span>
+                        <input id="subRamRange" type="number" step="any" min="0" xis:binding="subRamRange"
+                               xis:error-class="error" required>
+                        <div class="error" xis:message-for="subRamRange"></div>
+                    </div>
+                </div>
+            </fieldset>
+            <fieldset>
+                <legend>Zielauswahl</legend>
+                <div class="fields">
+                    <div class="field">
+                        <label for="subHumanTargetPriorityClearance">${submarineParameters['HUMAN_TARGET_PRIORITY_CLEARANCE'].title}</label>
+                        <p class="description">${submarineParameters['HUMAN_TARGET_PRIORITY_CLEARANCE'].description}</p>
+                        <span class="unit">Meter</span>
+                        <input id="subHumanTargetPriorityClearance" type="number" step="any" min="0"
+                               xis:binding="subHumanTargetPriorityClearance" xis:error-class="error" required>
+                        <div class="error" xis:message-for="subHumanTargetPriorityClearance"></div>
+                    </div>
+                    <div class="field">
+                        <label for="subTargetPreferredAttackers">${submarineParameters['TARGET_PREFERRED_ATTACKERS'].title}</label>
+                        <p class="description">${submarineParameters['TARGET_PREFERRED_ATTACKERS'].description}</p>
+                        <span class="unit">Zahl</span>
+                        <input id="subTargetPreferredAttackers" type="number" step="1" min="1"
+                               xis:binding="subTargetPreferredAttackers" xis:error-class="error" required>
+                        <div class="error" xis:message-for="subTargetPreferredAttackers"></div>
+                    </div>
+                    <div class="field">
+                        <label for="subTargetAlternativeDistanceFactor">${submarineParameters['TARGET_ALTERNATIVE_DISTANCE_FACTOR'].title}</label>
+                        <p class="description">${submarineParameters['TARGET_ALTERNATIVE_DISTANCE_FACTOR'].description}</p>
+                        <span class="unit">Zahl</span>
+                        <input id="subTargetAlternativeDistanceFactor" type="number" step="any" min="1"
+                               xis:binding="subTargetAlternativeDistanceFactor" xis:error-class="error" required>
+                        <div class="error" xis:message-for="subTargetAlternativeDistanceFactor"></div>
+                    </div>
+                </div>
+            </fieldset>
+
+            <fieldset><legend>Tauchen, Flucht und Angriffsabstand</legend><div class="fields">
+                <div class="field"><label for="subDiveRange">${submarineParameters['DIVE_RANGE'].title}</label>
+                    <p class="description">${submarineParameters['DIVE_RANGE'].description}</p><span class="unit">Meter</span>
+                    <input id="subDiveRange" type="number" step="any" min="0" xis:binding="subDiveRange" xis:error-class="error" required>
+                    <div class="error" xis:message-for="subDiveRange"></div></div>
+                <div class="field"><label for="subDeepRange">${submarineParameters['DEEP_RANGE'].title}</label>
+                    <p class="description">${submarineParameters['DEEP_RANGE'].description}</p><span class="unit">Meter</span>
+                    <input id="subDeepRange" type="number" step="any" min="0" xis:binding="subDeepRange" xis:error-class="error" required>
+                    <div class="error" xis:message-for="subDeepRange"></div></div>
+                <div class="field"><label for="subSafeRange">${submarineParameters['SAFE_RANGE'].title}</label>
+                    <p class="description">${submarineParameters['SAFE_RANGE'].description}</p><span class="unit">Meter</span>
+                    <input id="subSafeRange" type="number" step="any" min="0" xis:binding="subSafeRange" xis:error-class="error" required>
+                    <div class="error" xis:message-for="subSafeRange"></div></div>
+                <div class="field"><label for="subShotAscentRange">${submarineParameters['SHOT_ASCENT_RANGE'].title}</label>
+                    <p class="description">${submarineParameters['SHOT_ASCENT_RANGE'].description}</p><span class="unit">Meter</span>
+                    <input id="subShotAscentRange" type="number" step="any" min="0" xis:binding="subShotAscentRange" xis:error-class="error" required>
+                    <div class="error" xis:message-for="subShotAscentRange"></div></div>
+                <div class="field"><label for="subSurfaceRange">${submarineParameters['SURFACE_RANGE'].title}</label>
+                    <p class="description">${submarineParameters['SURFACE_RANGE'].description}</p><span class="unit">Meter</span>
+                    <input id="subSurfaceRange" type="number" step="any" min="0" xis:binding="subSurfaceRange" xis:error-class="error" required>
+                    <div class="error" xis:message-for="subSurfaceRange"></div></div>
+                <div class="field"><label for="subAttackMinRange">${submarineParameters['ATTACK_MIN_RANGE'].title}</label>
+                    <p class="description">${submarineParameters['ATTACK_MIN_RANGE'].description}</p><span class="unit">Meter</span>
+                    <input id="subAttackMinRange" type="number" step="any" min="0" xis:binding="subAttackMinRange" xis:error-class="error" required>
+                    <div class="error" xis:message-for="subAttackMinRange"></div></div>
+                <div class="field"><label for="subAttackMaxRange">${submarineParameters['ATTACK_MAX_RANGE'].title}</label>
+                    <p class="description">${submarineParameters['ATTACK_MAX_RANGE'].description}</p><span class="unit">Meter</span>
+                    <input id="subAttackMaxRange" type="number" step="any" min="0" xis:binding="subAttackMaxRange" xis:error-class="error" required>
+                    <div class="error" xis:message-for="subAttackMaxRange"></div></div>
+                <div class="field"><label for="subAimTolerance">${submarineParameters['AIM_TOLERANCE'].title}</label>
+                    <p class="description">${submarineParameters['AIM_TOLERANCE'].description}</p><span class="unit">Grad</span>
+                    <input id="subAimTolerance" type="number" step="any" min="0" xis:binding="subAimTolerance" xis:error-class="error" required>
+                    <div class="error" xis:message-for="subAimTolerance"></div></div>
+                <div class="field"><label for="subAircraftMemorySeconds">${submarineParameters['AIRCRAFT_MEMORY_SECONDS'].title}</label>
+                    <p class="description">${submarineParameters['AIRCRAFT_MEMORY_SECONDS'].description}</p><span class="unit">Sekunden</span>
+                    <input id="subAircraftMemorySeconds" type="number" step="any" min="0" xis:binding="subAircraftMemorySeconds" xis:error-class="error" required>
+                    <div class="error" xis:message-for="subAircraftMemorySeconds"></div></div>
+                <div class="field"><label for="subUnderwaterContactRange">${submarineParameters['UNDERWATER_CONTACT_RANGE'].title}</label>
+                    <p class="description">${submarineParameters['UNDERWATER_CONTACT_RANGE'].description}</p><span class="unit">Meter</span>
+                    <input id="subUnderwaterContactRange" type="number" step="any" min="0" xis:binding="subUnderwaterContactRange" xis:error-class="error" required>
+                    <div class="error" xis:message-for="subUnderwaterContactRange"></div></div>
+            </div></fieldset>
+</details>
         <div class="actions">
             <button id="save-config" type="submit" xis:action="save">Gesamtes Profil speichern</button>
         </div>

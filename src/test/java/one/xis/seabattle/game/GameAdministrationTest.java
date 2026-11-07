@@ -59,9 +59,9 @@ class GameAdministrationTest {
         assertEquals("administration-test", game.snapshot().sessionId());
     }
     @Test void burnDownStartReadsFreshSavedCountsOnceRatherThanWaitingForTheLiveCache() {
-        var fresh=new one.xis.seabattle.webapp.gameconfig.GameRuntimeConfig(one.xis.seabattle.webapp.gameconfig.TorpedoBoatBotConfig.defaults(),
+        var fresh=new one.xis.seabattle.webapp.gameconfig.GameRuntimeConfig(one.xis.seabattle.webapp.gameconfig.BotCombatConfig.defaults(),
                 new one.xis.seabattle.webapp.gameconfig.FleetSizeConfig(2,1,0,0,0,0));
-        var old=new one.xis.seabattle.webapp.gameconfig.GameRuntimeConfig(one.xis.seabattle.webapp.gameconfig.TorpedoBoatBotConfig.defaults(),
+        var old=new one.xis.seabattle.webapp.gameconfig.GameRuntimeConfig(one.xis.seabattle.webapp.gameconfig.BotCombatConfig.defaults(),
                 new one.xis.seabattle.webapp.gameconfig.FleetSizeConfig(8,8,3,3,1,1));
         var reads=new java.util.concurrent.atomic.AtomicInteger();
         var configuration=new one.xis.seabattle.webapp.gameconfig.GameConfigService() {

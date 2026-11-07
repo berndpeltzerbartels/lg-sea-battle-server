@@ -103,6 +103,27 @@ class GameConfigSchemaTest {
             }
         }
     }
+    @Test void newBotGroupsSeedIndependentlyAndPreservePreviouslyEditedValues() throws Exception {
+        var source=database();create(source);seed(source);
+        try(var connection=source.getConnection();var statement=connection.createStatement()) {
+            statement.executeUpdate("update game_config_parameters set parameter_value='0.72' where id='TORPEDO_BOAT_BOT.AIM_RESPONSE'");
+        }
+        for(int pass=0;pass<2;pass++) {
+            var ddl=new DDL(source);var schema=new GameConfigSchema();schema.seedAimError(ddl);schema.seedSubmarineBot(ddl);ddl.execute();
+        }
+        try(var connection=source.getConnection();var statement=connection.createStatement()) {
+            try(var result=statement.executeQuery("select parameter_value from game_config_parameters where id='TORPEDO_BOAT_BOT.AIM_RESPONSE'")) {
+                assertTrue(result.next());assertEquals("0.72",result.getString(1));
+            }
+            try(var result=statement.executeQuery("select parameter_value from game_config_parameters where id='SUBMARINE_BOT.AIM_RESPONSE'")) {
+                assertTrue(result.next());assertEquals("0.40",result.getString(1));
+            }
+            try(var result=statement.executeQuery("select count(*) from game_config_parameters where parameter_group='SUBMARINE_BOT'")) {
+                assertTrue(result.next());assertEquals(28,result.getInt(1));
+            }
+        }
+    }
+
     @Test void upgradingSeedsBothFleetSizesWithoutOverwritingChanges() throws Exception {
         var source = database(); create(source); seed(source);
         var ddl = new DDL(source); new GameConfigSchema().seedFleetSizes(ddl); ddl.execute();

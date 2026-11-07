@@ -87,18 +87,18 @@ class BurnDownModeTest {
     }
     @Test void initialConfiguredFleetIsFixedForTheRound() {
         var original=setup();
-        var config=new AtomicReference<>(new GameRuntimeConfig(TorpedoBoatBotConfig.defaults(),new FleetSizeConfig(2,1,0,0,0,0)));
+        var config=new AtomicReference<>(new GameRuntimeConfig(BotCombatConfig.defaults(),new FleetSizeConfig(2,1,0,0,0,0)));
         var session=new GameSession(new GameSetup("islands",original.worldMap(),original.fleets(),original.respawnCandidates()),config::get);
         session.configureRound(GameMode.BURN_DOWN,Map::of);
         assertEquals(3,session.snapshot().ships().size());
-        config.set(new GameRuntimeConfig(TorpedoBoatBotConfig.defaults(),new FleetSizeConfig(16,16,3,3,1,1)));
+        config.set(new GameRuntimeConfig(BotCombatConfig.defaults(),new FleetSizeConfig(16,16,3,3,1,1)));
         session.updateIdle(30,new RadarService(),new NavigationService(),session.worldMap());
         assertEquals(3,session.snapshot().ships().size());
     }
     @Test void roundStartsWithExactlyTheConfiguredVehicleTypesForBothColours() {
         var original = setup();
         var size = new FleetSizeConfig(1,2,2,1,1,2);
-        var config = new GameRuntimeConfig(TorpedoBoatBotConfig.defaults(),size);
+        var config = new GameRuntimeConfig(BotCombatConfig.defaults(),size);
         var session = new GameSession(new GameSetup("islands",original.worldMap(),original.fleets(),original.respawnCandidates()),()->config);
         session.configureRound(GameMode.BURN_DOWN,Map::of);
         for (String team : List.of("light","dark")) {

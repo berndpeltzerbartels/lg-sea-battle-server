@@ -18,10 +18,10 @@ class LiveBotConfigurationTest {
 
     private GameRuntimeConfig configuration(Object... values) {
         var gson = new Gson();
-        var json = gson.toJsonTree(TorpedoBoatBotConfig.defaults()).getAsJsonObject();
+        var json = gson.toJsonTree(BotCombatConfig.defaults().withAimErrorAngle(0)).getAsJsonObject();
         for (int i = 0; i < values.length; i += 2)
             json.addProperty((String) values[i], (Number) values[i + 1]);
-        return new GameRuntimeConfig(gson.fromJson(json, TorpedoBoatBotConfig.class));
+        return new GameRuntimeConfig(gson.fromJson(json, BotCombatConfig.class));
     }
 
     private VehicleSetup ship(String id, String team, String controller, double x, double z, String type) {

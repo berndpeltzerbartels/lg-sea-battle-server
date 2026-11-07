@@ -3,7 +3,7 @@ package one.xis.seabattle.game;
 import static one.xis.seabattle.game.GameRules.*;
 
 import java.util.*;
-import one.xis.seabattle.webapp.gameconfig.TorpedoBoatBotConfig;
+import one.xis.seabattle.webapp.gameconfig.BotCombatConfig;
 import one.xis.seabattle.game.GameSession.BotIntent;
 
 /** Shared collision avoidance, helm, escape manoeuvres and torpedo fire for water vehicles. */
@@ -14,7 +14,7 @@ final class WaterBotNavigation {
 
   @FunctionalInterface
   interface AttackSpeed<V extends SurfaceVehicle> {
-    int engineOrder(V vehicle, Vehicle target, double distance, double bearing, TorpedoBoatBotConfig config);
+    int engineOrder(V vehicle, Vehicle target, double distance, double bearing, one.xis.seabattle.webapp.gameconfig.GameRuntimeConfig runtime);
   }
 
   private record BotCommand(int engineOrder, int rudder) {
@@ -84,9 +84,9 @@ final class WaterBotNavigation {
     BotIntent intent = situation.round().boats().get(vehicle);
     BotNavigation plan = vehicle.botNavigation;
     Vehicle contact = goal.kind() == BotGoal.Kind.ENEMY ? goal.target() : null;
-    TorpedoBoatBotConfig config = session.botCombatConfig(vehicle);
+    BotCombatConfig config = session.botCombatConfig(vehicle);
     BotTorpedoAim aim = contact == null || contact.isAtPeriscopeDepth()
-        ? null : BotTorpedoAim.forTarget(vehicle, contact, config.fireMaxRange());
+        ? null : BotTorpedoAim.forTarget(vehicle, contact, config.fireMaxRange(), session.botAimErrorAngle(vehicle, contact));
     boolean routeUpdated = intent.routeUpdated();
     if (routeUpdated) {
       BotNavigation.Course desired = courseForGoal(vehicle, contact, goal, attackSpeed);
@@ -178,7 +178,7 @@ final class WaterBotNavigation {
                   vehicle,
                   contact,
                   vehicle.position().distanceTo(destination),
-                  session.relativeBearing(vehicle, destination), session.botCombatConfig(vehicle));
+                  session.relativeBearing(vehicle, destination), session.runtimeConfig());
           case LAST_KNOWN_COURSE, SEARCH -> ENGINE_FLANK;
           case RETAINED_COURSE -> vehicle.botNavigation.route.engineOrder();
           case PATROL, NONE ->
@@ -186,7 +186,7 @@ final class WaterBotNavigation {
                   vehicle,
                   null,
                   vehicle.position().distanceTo(destination),
-                  session.relativeBearing(vehicle, destination), session.botCombatConfig(vehicle));
+                  session.relativeBearing(vehicle, destination), session.runtimeConfig());
         };
     return new BotNavigation.Course(bearingTo(vehicle, destination), order);
   }
@@ -493,7 +493,7 @@ final class WaterBotNavigation {
   }
 
   private void fireBotWeapons(SurfaceVehicle vehicle, Vehicle target, BotTorpedoAim aim) {
-    TorpedoBoatBotConfig config = session.botCombatConfig(vehicle);
+    BotCombatConfig config = session.botCombatConfig(vehicle);
     double distance = vehicle.position().distanceTo(target.position());
     if (aim == null) return;
     double targetBearing = MathSupport.normalizeAngle(aim.heading() - vehicle.heading());

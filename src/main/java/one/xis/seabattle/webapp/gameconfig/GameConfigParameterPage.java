@@ -45,6 +45,12 @@ class GameConfigParameterPage {
                 .map(this::displayParameter).collect(Collectors.toMap(GameConfigParameter::name, Function.identity()));
     }
 
+    @ModelData("submarineParameters")
+    Map<String, GameConfigParameter> submarineParameters() {
+        return configuration.findAll().stream().filter(p -> p.group() == GameConfigParameterGroup.SUBMARINE_BOT)
+                .map(this::displayParameter).collect(Collectors.toMap(GameConfigParameter::name, Function.identity()));
+    }
+
     @FormData("settings")
     GameSettingsForm settings(@QueryParameter("profile") @NullAllowed String id,
                               @ClientState(DRAFT) @NullAllowed GameSettingsForm draft) {

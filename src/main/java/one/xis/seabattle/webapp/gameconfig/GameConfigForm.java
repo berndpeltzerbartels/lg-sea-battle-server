@@ -26,13 +26,18 @@ record GameConfigForm(
         Double ramRange,
         Double humanTargetPriorityClearance,
         Integer targetPreferredAttackers,
-        Double targetAlternativeDistanceFactor
+        Double targetAlternativeDistanceFactor,
+        Double aimErrorAngle
 ) {
     /** Loading is conversion only: out-of-range values must remain editable. */
     static GameConfigForm fromParameters(List<GameConfigParameter> parameters) {
+        return fromParameters(parameters, GameConfigParameterGroup.TORPEDO_BOAT_BOT);
+    }
+
+    static GameConfigForm fromParameters(List<GameConfigParameter> parameters, GameConfigParameterGroup group) {
         Map<String, String> values = new java.util.HashMap<>();
         for (GameConfigParameter parameter : parameters)
-            if (parameter.group() == GameConfigParameterGroup.TORPEDO_BOAT_BOT)
+            if (parameter.group() == group)
                 values.putIfAbsent(parameter.name(), parameter.value());
         return new GameConfigForm(
                 number(values.get("AIM_RESPONSE")),
@@ -51,18 +56,19 @@ record GameConfigForm(
                 meters(number(values.get("RAM_RANGE"))),
                 meters(number(values.get("HUMAN_TARGET_PRIORITY_CLEARANCE"))),
                 integer(values.get("TARGET_PREFERRED_ATTACKERS")),
-                number(values.get("TARGET_ALTERNATIVE_DISTANCE_FACTOR")));
+                number(values.get("TARGET_ALTERNATIVE_DISTANCE_FACTOR")),
+                degrees(number(values.get("AIM_ERROR_ANGLE"))));
     }
 
     // Same world scale as the existing game display: 20 metres per world unit.
     private static final double METERS_PER_WORLD_UNIT = 20;
 
-    private static Double meters(Double value) { return value == null ? null : finite(value * METERS_PER_WORLD_UNIT); }
-    private static Double degrees(Double value) { return value == null ? null : finite(Math.toDegrees(value)); }
+    static Double meters(Double value) { return value == null ? null : finite(value * METERS_PER_WORLD_UNIT); }
+    static Double degrees(Double value) { return value == null ? null : finite(Math.toDegrees(value)); }
 
     private static Double finite(double value) { return Double.isFinite(value) ? value : null; }
 
-    private static Double number(String value) {
+    static Double number(String value) {
         try {
             double number = Double.parseDouble(value);
             return Double.isFinite(number) ? number : null;
@@ -96,10 +102,15 @@ record GameConfigForm(
                 && ramRange != null
                 && humanTargetPriorityClearance != null
                 && targetPreferredAttackers != null
-                && targetAlternativeDistanceFactor != null;
+                && targetAlternativeDistanceFactor != null
+                && aimErrorAngle != null;
     }
 
     List<GameConfigParameter> applyTo(List<GameConfigParameter> parameters) {
+        return applyTo(parameters, GameConfigParameterGroup.TORPEDO_BOAT_BOT);
+    }
+
+    List<GameConfigParameter> applyTo(List<GameConfigParameter> parameters, GameConfigParameterGroup group) {
         Map<String, String> values = Map.ofEntries(
                 Map.entry("AIM_RESPONSE", aimResponse.toString()),
                 Map.entry("AIM_TURN_DAMPING", aimTurnDamping.toString()),
@@ -117,8 +128,9 @@ record GameConfigForm(
                 Map.entry("RAM_RANGE", Double.toString(ramRange / METERS_PER_WORLD_UNIT)),
                 Map.entry("HUMAN_TARGET_PRIORITY_CLEARANCE", Double.toString(humanTargetPriorityClearance / METERS_PER_WORLD_UNIT)),
                 Map.entry("TARGET_PREFERRED_ATTACKERS", targetPreferredAttackers.toString()),
-                Map.entry("TARGET_ALTERNATIVE_DISTANCE_FACTOR", targetAlternativeDistanceFactor.toString()));
-        return parameters.stream().map(p -> p.group() != GameConfigParameterGroup.TORPEDO_BOAT_BOT ? p
+                Map.entry("TARGET_ALTERNATIVE_DISTANCE_FACTOR", targetAlternativeDistanceFactor.toString()),
+                Map.entry("AIM_ERROR_ANGLE", Double.toString(Math.toRadians(aimErrorAngle))));
+        return parameters.stream().map(p -> p.group() != group ? p
                 : new GameConfigParameter(p.id(), p.group(), p.type(), p.name(), p.title(), p.description(),
                         values.getOrDefault(p.name(), p.value()))).toList();
     }

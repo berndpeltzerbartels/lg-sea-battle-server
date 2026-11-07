@@ -2170,7 +2170,10 @@ class GameSessionTest {
             var session = new GameSession(new GameSetup("blocked-shot", map,
                     List.of(new FleetSetup("red", List.of(ship("shooter", "red", 0, 0, 0, "bot", ENGINE_STOP, 0, 0))),
                             new FleetSetup("blue", List.of(ship("target", "blue", 0, 260, 0, "player-target", ENGINE_STOP, 0, 99)))),
-                    List.of(new Vector2(2000, 2000))));
+                    List.of(new Vector2(2000, 2000))), () -> new one.xis.seabattle.webapp.gameconfig.GameRuntimeConfig(
+                            one.xis.seabattle.webapp.gameconfig.BotCombatConfig.defaults().withAimErrorAngle(0)));
+            // Isolate the safety rule from the separately tested aiming error.
+            session.updateIdle(0, radarService, navigationService, session.worldMap());
             assertEquals(islandX != 0, fireTorpedoAtTargetForTest(session, "shooter", "target"));
             if (islandX == 0) assertTrue(shipEntity(session, "shooter").canFire(0), "A withheld shot consumes no reload");
         }
@@ -2184,7 +2187,10 @@ class GameSessionTest {
                                     ship("shooter", "red", 0, 0, 0, "bot", ENGINE_STOP, 0, 0),
                                     ship("friend", "red", -30, 55, heading, "player-friend", ENGINE_STOP, 0, 99))),
                             new FleetSetup("blue", List.of(ship("target", "blue", 0, 260, 0, "player-target", ENGINE_STOP, 0, 99)))),
-                    List.of(new Vector2(2000, 2000))));
+                    List.of(new Vector2(2000, 2000))), () -> new one.xis.seabattle.webapp.gameconfig.GameRuntimeConfig(
+                            one.xis.seabattle.webapp.gameconfig.BotCombatConfig.defaults().withAimErrorAngle(0)));
+            // Isolate the safety rule from the separately tested aiming error.
+            session.updateIdle(0, radarService, navigationService, session.worldMap());
             shipEntity(session, "friend").applyPlayerState(new PlayerStateUpdate("player-friend", "red", -30, 55, heading, 17.5, 0,
                     ENGINE_FLANK, 0, 0, true, "torpedo-boat", 0, 0, null, null, null, null, "surface"), navigationService, session.worldMap());
             assertEquals(heading < 0, fireTorpedoAtTargetForTest(session, "shooter", "target"),

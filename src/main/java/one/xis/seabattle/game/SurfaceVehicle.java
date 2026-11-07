@@ -14,6 +14,7 @@ public abstract sealed class SurfaceVehicle extends Vehicle permits TorpedoBoat,
 
   SubmarineAttackCourse botSubmarineAttackCourse;
   BotNavigation botNavigation;
+  final BotAimError botAimError = new BotAimError();
   Vector2 motionStartPosition;
   double motionStartHeading;
 
@@ -29,6 +30,7 @@ public abstract sealed class SurfaceVehicle extends Vehicle permits TorpedoBoat,
   protected void resetControllerState() {
     botNavigation = new BotNavigation(id());
     botSubmarineAttackCourse = null;
+    botAimError.reset();
     clearImpactState();
   }
 
@@ -141,6 +143,7 @@ public abstract sealed class SurfaceVehicle extends Vehicle permits TorpedoBoat,
     botReverseUntil = 0;
     botForwardEscapeUntil = 0;
     botSubmarineAttackCourse = null;
+    botAimError.reset();
     botNavigation = new BotNavigation(id());
     motionStartPosition = position;
     motionStartHeading = heading;

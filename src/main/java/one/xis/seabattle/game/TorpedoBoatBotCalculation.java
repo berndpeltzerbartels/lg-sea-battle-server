@@ -2,7 +2,7 @@ package one.xis.seabattle.game;
 
 import static one.xis.seabattle.game.GameRules.*;
 
-import one.xis.seabattle.webapp.gameconfig.TorpedoBoatBotConfig;
+import one.xis.seabattle.webapp.gameconfig.BotCombatConfig;
 
 /** Torpedo-boat pursuit and attack speed; water safety is shared with submarines. */
 public final class TorpedoBoatBotCalculation implements VehicleBotCalculation<TorpedoBoat> {
@@ -23,13 +23,18 @@ public final class TorpedoBoatBotCalculation implements VehicleBotCalculation<To
     navigation.calculate(boat, situation, tickId, goal, null, ATTACK_SPEED);
   }
 
+  static int attackEngineOrder(TorpedoBoat boat, Vehicle target, double distance, double targetBearing,
+                               one.xis.seabattle.webapp.gameconfig.GameRuntimeConfig runtime) {
+    return attackEngineOrder(boat, target, distance, targetBearing, runtime.torpedoBoatBot());
+  }
+
   static int attackEngineOrder(
       TorpedoBoat boat, Vehicle target, double distance, double targetBearing) {
     return attackEngineOrder(boat, target, distance, targetBearing, GameSession.DEFAULT_RUNTIME_CONFIG.torpedoBoatBot());
   }
 
   static int attackEngineOrder(TorpedoBoat boat, Vehicle target, double distance, double targetBearing,
-                               TorpedoBoatBotConfig config) {
+                               BotCombatConfig config) {
     boolean humanTarget = target != null && target.isHumanControlled();
     if (target == null) return ENGINE_HALF; // Map-centre patrol stays relaxed.
     if (!humanTarget) {

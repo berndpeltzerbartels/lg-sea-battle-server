@@ -29,6 +29,8 @@ class GameConfigRuntimeTest {
         var ddl = new DDL(source);
         schema.createParameters(ddl);
         schema.seedTorpedoBoatBot(ddl);
+        schema.seedAimError(ddl);
+        schema.seedSubmarineBot(ddl);
         if (includeFleet) { schema.seedFleetSizes(ddl); schema.seedFleetVehicleTypes(ddl); }
         ddl.execute();
         var rows = new ArrayList<GameConfigParameterEntity>();
@@ -43,7 +45,7 @@ class GameConfigRuntimeTest {
     }
 
     private List<GameConfigParameterEntity> withValue(List<GameConfigParameterEntity> rows, String name, String value) {
-        return rows.stream().map(p -> p.getName().equals(name)
+        return rows.stream().map(p -> p.getName().equals(name) && p.getGroup() != GameConfigParameterGroup.SUBMARINE_BOT
                 ? new GameConfigParameterEntity(p.getId(), p.getGroup(), p.getType(), p.getName(),
                     p.getTitle(), p.getDescription(), value) : p).toList();
     }

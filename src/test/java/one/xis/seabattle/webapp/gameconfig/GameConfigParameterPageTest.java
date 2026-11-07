@@ -117,6 +117,39 @@ class GameConfigParameterPageTest {
         assertEquals("JSON test",client.getDocument().getInputElementById("profile-name").getValue());
         assertTrue(profiles.findAll().isEmpty());assertEquals(before,service.findAll());assertEquals(0,game.restarts);
     }
+    @Test void submarineAndTorpedoBoatEditorValuesSaveAndExportIndependently() throws Exception {
+        var service=service();var client=context(service,"ADMIN").openPage("/admin/game-config.html");
+        var document=client.getDocument();
+        assertEquals(10000,Double.parseDouble(document.getInputElementById("subDiveRange").getValue()));
+        document.getInputElementById("profile-name").setValue("Independent bots");
+        document.getInputElementById("aimErrorAngle").setValue("1.5");
+        document.getInputElementById("subAimResponse").setValue("0.85");
+        document.getInputElementById("subAttackMinRange").setValue("5200");
+        document.getElementById("save-config").click();service.refresh();
+        assertEquals(Math.toRadians(1.5),service.current().torpedoBoatBot().aimErrorAngle(),1e-12);
+        assertEquals(.85,service.current().submarineBot().combat().aimResponse());
+        assertEquals(260,service.current().submarineBot().attackMinRange());
+        assertEquals(.4,service.current().torpedoBoatBot().aimResponse());
+        assertEquals(0,service.current().submarineBot().combat().aimErrorAngle());
+        var profile=profiles.findById(profiles.findAll().get(0).id()).orElseThrow();
+        assertEquals("0.85",profile.values().get("SUBMARINE_BOT.AIM_RESPONSE"));
+        assertEquals("260.0",profile.values().get("SUBMARINE_BOT.ATTACK_MIN_RANGE"));
+        var export=new GameConfigParameterPage(service,game,profiles,downloads).exportProfile(
+                GameSettingsForm.from(profile.id(),profile.name(),profile.setupId(),profile.mode(),service.findAll()));
+        var download=downloads.take(export.getUrl().substring(GameConfigProfileDownloadController.PATH.length()));
+        assertEquals("0.85",GameConfigProfileJson.read(download.json()).parameters().get("SUBMARINE_BOT.AIM_RESPONSE"));
+    }
+
+    @Test void invalidSubmarineRangeAndExcessiveAimErrorDoNotWriteEitherGroup() throws Exception {
+        var service=service();var before=service.findAll();var client=context(service,"ADMIN").openPage("/admin/game-config.html");
+        var document=client.getDocument();document.getInputElementById("profile-name").setValue("Invalid sub");
+        document.getInputElementById("subAttackMinRange").setValue("9000");document.getElementById("save-config").click();
+        assertEquals(before,service.findAll());assertTrue(profiles.findAll().isEmpty());
+        document.getInputElementById("subAttackMinRange").setValue("5000");
+        document.getInputElementById("aimErrorAngle").setValue("30");document.getElementById("save-config").click();
+        assertEquals(before,service.findAll());assertTrue(profiles.findAll().isEmpty());
+    }
+
     @Test void numericLimitsAndCrossFieldValidationPreventWrites() throws Exception {
         var service=service();var before=service.findAll();var client=context(service,"ADMIN").openPage("/admin/game-config.html");
         client.getDocument().getInputElementById("aimResponse").setValue("");client.getDocument().getElementById("save-config").click();assertEquals(before,service.findAll());
