@@ -58,202 +58,301 @@
 <body>
 <main>
     <header>
-        <div><span class="kicker">Administration</span><h1>Spielverwaltung</h1></div>
+        <div><span class="kicker">Administration</span>
+            <h1>Spielverwaltung</h1></div>
         <a href="/start.html">Zum Spiel</a>
     </header>
-    <form id="profile-load-form" xis:binding="profileLoad">
-        <fieldset><legend>Profile</legend>
+    <form id="profile-load-form" xis:binding="profileLoad" xis:onchange-action="loadProfile">
+        <fieldset>
+            <legend>Profile</legend>
             <div class="profile-controls"><label for="profile-choice">Profil auswählen</label>
-            <select id="profile-choice" xis:binding="profileId"><option value="">Bitte auswählen</option>
-                <xis:foreach var="profile" array="profiles"><option value="${profile.id}">${profile.name}</option></xis:foreach>
-            </select>
-            <div class="error" xis:message-for="profileId"></div>
-            <button id="load-profile" type="submit" xis:action="loadProfile">Profil bearbeiten</button>
-            <button id="new-profile" type="submit" xis:action="newProfile" formnovalidate>Neues Profil</button></div>
+                <select id="profile-choice" xis:binding="profileId">
+                    <option value="">Bitte auswählen</option>
+                    <xis:foreach var="profile" array="profiles">
+                        <option value="${profile.id}">${profile.name}</option>
+                    </xis:foreach>
+                </select>
+                <div class="error" xis:message-for="profileId"></div>
+                <button id="new-profile" type="submit" xis:action="newProfile" formnovalidate>Neues Profil</button>
+            </div>
         </fieldset>
     </form>
     <form id="settings-form" xis:binding="settings">
-        <fieldset><legend>Profil bearbeiten</legend>
+        <fieldset>
+            <legend>Profil bearbeiten</legend>
             <input type="hidden" xis:binding="profileId">
             <div class="profile-controls"><label for="profile-name">Profilname</label>
-            <input id="profile-name" type="text" maxlength="100" xis:binding="name" xis:error-class="error">
-            <div class="error" xis:message-for="name"></div>
-            <button id="copy-profile" type="submit" xis:action="copyProfile">Kopie anlegen</button></div>
-            <button id="export-profile" type="submit" xis:action="exportProfile" hidden>JSON-Download vorbereiten</button>
-            <p class="hint">„Gesamtes Profil speichern“ speichert den Namen und alle unten eingestellten Werte im Profil. Bearbeiten und Speichern verändern das laufende Spiel nicht. Änderungen werden erst über „Bot- und Flottenwerte übernehmen“ oder einen Spielstart aktiv.</p>
+                <input id="profile-name" type="text" maxlength="100" xis:binding="name" xis:error-class="error">
+                <div class="error" xis:message-for="name"></div>
+                <button id="copy-profile" type="submit" xis:action="copyProfile">Kopie anlegen</button>
+            </div>
+            <button id="export-profile" type="submit" xis:action="exportProfile" hidden>JSON-Download vorbereiten
+            </button>
+            <p class="hint">„Gesamtes Profil speichern“ speichert Name und Einstellungen im Profil und übernimmt die Bot- und Flottenwerte für das laufende Spiel. Landschaft und Spielmodus wechseln erst beim nächsten Spielstart.</p>
             <xis:global-messages/>
         </fieldset>
 
-        <fieldset><legend>Spiel, Landschaft und Aufstellung</legend>
+        <fieldset>
+            <legend>Spiel, Landschaft und Aufstellung</legend>
             <div class="fields setup-fields">
                 <div class="field"><label for="setup-choice">Landschaft und Aufstellung</label>
-                    <select id="setup-choice" xis:binding="setupId"><xis:foreach var="setup" array="setups"><option value="${setup.id}">${setup.title}</option></xis:foreach></select>
+                    <select id="setup-choice" xis:binding="setupId">
+                        <xis:foreach var="setup" array="setups">
+                            <option value="${setup.id}">${setup.title}</option>
+                        </xis:foreach>
+                    </select>
                 </div>
                 <div class="field"><label for="mode-choice">Spielmodus</label>
-                    <select id="mode-choice" xis:binding="mode"><option value="ENDLESS">Endlos</option><option value="BURN_DOWN">Burn-down</option></select>
+                    <select id="mode-choice" xis:binding="mode">
+                        <option value="ENDLESS">Endlos</option>
+                        <option value="BURN_DOWN">Burn-down</option>
+                    </select>
                 </div>
             </div>
             <div class="actions">
-                <button id="apply-setup" type="submit" xis:action="selectSetup">Mit diesen Einstellungen starten</button>
-                <button id="restart-game" type="submit" formnovalidate xis:action="restartGame">Bisherige Aufstellung neu starten</button>
+                <button id="apply-setup" type="submit" xis:action="selectSetup">Mit diesen Einstellungen starten
+                </button>
+                <button id="restart-game" type="submit" formnovalidate xis:action="restartGame">Bisherige Aufstellung
+                    neu starten
+                </button>
             </div>
             <p class="hint">Ein Neustart gilt für alle Spieler. Die gespeicherten Bot-Parameter bleiben erhalten.</p>
         </fieldset>
 
-        <fieldset><legend>Flottengröße je Partei</legend>
+        <fieldset>
+            <legend>Flottengröße je Partei</legend>
             <xis:global-messages/>
-            <table class="fleet-table"><thead><tr><th scope="col">Fahrzeug</th><th scope="col">Hell</th><th scope="col">Dunkel</th></tr></thead><tbody>
-                <tr><th scope="row">Torpedoboote</th><td><input id="fleet-light" aria-label="Torpedoboote · Hell" type="number" step="1" min="0" max="200" xis:binding="lightTorpedoBoats" xis:error-class="error" required><div class="error" xis:message-for="lightTorpedoBoats"></div></td><td><input id="fleet-dark" aria-label="Torpedoboote · Dunkel" type="number" step="1" min="0" max="200" xis:binding="darkTorpedoBoats" xis:error-class="error" required><div class="error" xis:message-for="darkTorpedoBoats"></div></td></tr>
-                <tr><th scope="row">U-Boote</th><td><input id="fleet-light-submarines" aria-label="U-Boote · Hell" type="number" step="1" min="0" max="200" xis:binding="lightSubmarines" xis:error-class="error" required><div class="error" xis:message-for="lightSubmarines"></div></td><td><input id="fleet-dark-submarines" aria-label="U-Boote · Dunkel" type="number" step="1" min="0" max="200" xis:binding="darkSubmarines" xis:error-class="error" required><div class="error" xis:message-for="darkSubmarines"></div></td></tr>
-                <tr><th scope="row">Flugzeuge</th><td><input id="fleet-light-planes" aria-label="Flugzeuge · Hell" type="number" step="1" min="0" max="200" xis:binding="lightPlanes" xis:error-class="error" required><div class="error" xis:message-for="lightPlanes"></div></td><td><input id="fleet-dark-planes" aria-label="Flugzeuge · Dunkel" type="number" step="1" min="0" max="200" xis:binding="darkPlanes" xis:error-class="error" required><div class="error" xis:message-for="darkPlanes"></div></td></tr>
-            </tbody></table>
-            <p class="hint">Die Gesamtzahl ergibt sich aus den drei Fahrzeugzahlen je Partei. Von Menschen gesteuerte Fahrzeuge zählen mit. Bei einer Verringerung bleiben vorhandene Fahrzeuge erhalten; Verluste werden bis zur Sollgröße nicht ersetzt. Bei einer Erhöhung kommt insgesamt alle drei Sekunden ein Fahrzeug auf einem freien Wasserpunkt hinzu. Feste Testaufstellungen behalten ihre Besetzung. Im Burn-down gelten Fahrzeugzahlen ab der nächsten Runde; während der Runde gibt es keinen Nachschub.</p>
+            <table class="fleet-table">
+                <thead>
+                <tr>
+                    <th scope="col">Fahrzeug</th>
+                    <th scope="col">Hell</th>
+                    <th scope="col">Dunkel</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <th scope="row">Torpedoboote</th>
+                    <td><input id="fleet-light" aria-label="Torpedoboote · Hell" type="number" step="1" min="0"
+                               max="200" xis:binding="lightTorpedoBoats" xis:error-class="error" required>
+                        <div class="error" xis:message-for="lightTorpedoBoats"></div>
+                    </td>
+                    <td><input id="fleet-dark" aria-label="Torpedoboote · Dunkel" type="number" step="1" min="0"
+                               max="200" xis:binding="darkTorpedoBoats" xis:error-class="error" required>
+                        <div class="error" xis:message-for="darkTorpedoBoats"></div>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">U-Boote</th>
+                    <td><input id="fleet-light-submarines" aria-label="U-Boote · Hell" type="number" step="1" min="0"
+                               max="200" xis:binding="lightSubmarines" xis:error-class="error" required>
+                        <div class="error" xis:message-for="lightSubmarines"></div>
+                    </td>
+                    <td><input id="fleet-dark-submarines" aria-label="U-Boote · Dunkel" type="number" step="1" min="0"
+                               max="200" xis:binding="darkSubmarines" xis:error-class="error" required>
+                        <div class="error" xis:message-for="darkSubmarines"></div>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">Flugzeuge</th>
+                    <td><input id="fleet-light-planes" aria-label="Flugzeuge · Hell" type="number" step="1" min="0"
+                               max="200" xis:binding="lightPlanes" xis:error-class="error" required>
+                        <div class="error" xis:message-for="lightPlanes"></div>
+                    </td>
+                    <td><input id="fleet-dark-planes" aria-label="Flugzeuge · Dunkel" type="number" step="1" min="0"
+                               max="200" xis:binding="darkPlanes" xis:error-class="error" required>
+                        <div class="error" xis:message-for="darkPlanes"></div>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+            <p class="hint">Die Gesamtzahl ergibt sich aus den drei Fahrzeugzahlen je Partei. Von Menschen gesteuerte
+                Fahrzeuge zählen mit. Bei einer Verringerung bleiben vorhandene Fahrzeuge erhalten; Verluste werden bis
+                zur Sollgröße nicht ersetzt. Bei einer Erhöhung kommt insgesamt alle drei Sekunden ein Fahrzeug auf
+                einem freien Wasserpunkt hinzu. Feste Testaufstellungen behalten ihre Besetzung. Im Burn-down gelten
+                Fahrzeugzahlen ab der nächsten Runde; während der Runde gibt es keinen Nachschub.</p>
         </fieldset>
 
-<details class="vehicle-settings" open><summary>Torpedoboot-Bots · 17 Parameter</summary>
-        <label class="help-toggle"><input id="show-descriptions" type="checkbox">Erläuterungen anzeigen</label>
+        <details class="vehicle-settings" open>
+            <summary>Torpedoboot-Bots · 17 Parameter</summary>
+            <label class="help-toggle"><input id="show-descriptions" type="checkbox">Erläuterungen anzeigen</label>
 
-        <div id="validation-messages" role="alert"><xis:global-messages/></div>
-        <fieldset><legend>Ausrichten und Schießen</legend><div class="fields">
-            <div class="field">
-                <label for="aimResponse">${parameters['AIM_RESPONSE'].title}</label>
-                <p class="description">${parameters['AIM_RESPONSE'].description}</p>
-                <span class="unit">Zahl</span>
-                <input id="aimResponse" type="number" step="any" min="0" xis:binding="aimResponse" xis:error-class="error" required>
-                <div class="error" xis:message-for="aimResponse"></div>
+            <div id="validation-messages" role="alert">
+                <xis:global-messages/>
             </div>
-            <div class="field">
-                <label for="aimTurnDamping">${parameters['AIM_TURN_DAMPING'].title}</label>
-                <p class="description">${parameters['AIM_TURN_DAMPING'].description}</p>
-                <span class="unit">Zahl</span>
-                <input id="aimTurnDamping" type="number" step="any" min="0" xis:binding="aimTurnDamping" xis:error-class="error" required>
-                <div class="error" xis:message-for="aimTurnDamping"></div>
-            </div>
-            <div class="field">
-                <label for="aimMinCorrectionAngle">${parameters['AIM_MIN_CORRECTION_ANGLE'].title}</label>
-                <p class="description">${parameters['AIM_MIN_CORRECTION_ANGLE'].description}</p>
-                <span class="unit">Grad</span>
-                <input id="aimMinCorrectionAngle" type="number" step="any" min="0" xis:binding="aimMinCorrectionAngle" xis:error-class="error" required>
-                <div class="error" xis:message-for="aimMinCorrectionAngle"></div>
-            </div>
-            <div class="field">
-                <label for="fireArc">${parameters['FIRE_ARC'].title}</label>
-                <p class="description">${parameters['FIRE_ARC'].description}</p>
-                <span class="unit">Grad</span>
-                <input id="fireArc" type="number" step="any" min="0" xis:binding="fireArc" xis:error-class="error" required>
-                <div class="error" xis:message-for="fireArc"></div>
-            </div>
-            <div class="field">
-                <label for="closeFireArc">${parameters['CLOSE_FIRE_ARC'].title}</label>
-                <p class="description">${parameters['CLOSE_FIRE_ARC'].description}</p>
-                <span class="unit">Grad</span>
-                <input id="closeFireArc" type="number" step="any" min="0" xis:binding="closeFireArc" xis:error-class="error" required>
-                <div class="error" xis:message-for="closeFireArc"></div>
-            </div>
-            <div class="field">
-                <label for="fireMinRange">${parameters['FIRE_MIN_RANGE'].title}</label>
-                <p class="description">${parameters['FIRE_MIN_RANGE'].description}</p>
-                <span class="unit">Meter</span>
-                <input id="fireMinRange" type="number" step="any" min="0" xis:binding="fireMinRange" xis:error-class="error" required>
-                <div class="error" xis:message-for="fireMinRange"></div>
-            </div>
-            <div class="field">
-                <label for="fireMaxRange">${parameters['FIRE_MAX_RANGE'].title}</label>
-                <p class="description">${parameters['FIRE_MAX_RANGE'].description}</p>
-                <span class="unit">Meter</span>
-                <input id="fireMaxRange" type="number" step="any" min="0" xis:binding="fireMaxRange" xis:error-class="error" required>
-                <div class="error" xis:message-for="fireMaxRange"></div>
-            </div>
-            <div class="field">
-                <label for="closeFireRange">${parameters['CLOSE_FIRE_RANGE'].title}</label>
-                <p class="description">${parameters['CLOSE_FIRE_RANGE'].description}</p>
-                <span class="unit">Meter</span>
-                <input id="closeFireRange" type="number" step="any" min="0" xis:binding="closeFireRange" xis:error-class="error" required>
-                <div class="error" xis:message-for="closeFireRange"></div>
-            </div>
-            <div class="field">
-                <label for="torpedoCooldownMin">${parameters['TORPEDO_COOLDOWN_MIN'].title}</label>
-                <p class="description">${parameters['TORPEDO_COOLDOWN_MIN'].description}</p>
-                <span class="unit">Sekunden</span>
-                <input id="torpedoCooldownMin" type="number" step="any" min="0" xis:binding="torpedoCooldownMin" xis:error-class="error" required>
-                <div class="error" xis:message-for="torpedoCooldownMin"></div>
-            </div>
-            <div class="field">
-                <label for="torpedoCooldownVariation">${parameters['TORPEDO_COOLDOWN_VARIATION'].title}</label>
-                <p class="description">${parameters['TORPEDO_COOLDOWN_VARIATION'].description}</p>
-                <span class="unit">Sekunden</span>
-                <input id="torpedoCooldownVariation" type="number" step="any" min="0" xis:binding="torpedoCooldownVariation" xis:error-class="error" required>
-                <div class="error" xis:message-for="torpedoCooldownVariation"></div>
-            </div>
-        </div></fieldset>
-        <fieldset><legend>Fahrt im Angriff</legend><div class="fields">
-            <div class="field">
-                <label for="approachSlowRange">${parameters['APPROACH_SLOW_RANGE'].title}</label>
-                <p class="description">${parameters['APPROACH_SLOW_RANGE'].description}</p>
-                <span class="unit">Meter</span>
-                <input id="approachSlowRange" type="number" step="any" min="0" xis:binding="approachSlowRange" xis:error-class="error" required>
-                <div class="error" xis:message-for="approachSlowRange"></div>
-            </div>
-            <div class="field">
-                <label for="closeManeuverRange">${parameters['CLOSE_MANEUVER_RANGE'].title}</label>
-                <p class="description">${parameters['CLOSE_MANEUVER_RANGE'].description}</p>
-                <span class="unit">Meter</span>
-                <input id="closeManeuverRange" type="number" step="any" min="0" xis:binding="closeManeuverRange" xis:error-class="error" required>
-                <div class="error" xis:message-for="closeManeuverRange"></div>
-            </div>
-            <div class="field">
-                <label for="radarInterceptRange">${parameters['RADAR_INTERCEPT_RANGE'].title}</label>
-                <p class="description">${parameters['RADAR_INTERCEPT_RANGE'].description}</p>
-                <span class="unit">Meter</span>
-                <input id="radarInterceptRange" type="number" step="any" min="0" xis:binding="radarInterceptRange" xis:error-class="error" required>
-                <div class="error" xis:message-for="radarInterceptRange"></div>
-            </div>
-            <div class="field">
-                <label for="ramRange">${parameters['RAM_RANGE'].title}</label>
-                <p class="description">${parameters['RAM_RANGE'].description}</p>
-                <span class="unit">Meter</span>
-                <input id="ramRange" type="number" step="any" min="0" xis:binding="ramRange" xis:error-class="error" required>
-                <div class="error" xis:message-for="ramRange"></div>
-            </div>
-        </div></fieldset>
-        <fieldset><legend>Zielauswahl</legend><div class="fields">
-            <div class="field">
-                <label for="humanTargetPriorityClearance">${parameters['HUMAN_TARGET_PRIORITY_CLEARANCE'].title}</label>
-                <p class="description">${parameters['HUMAN_TARGET_PRIORITY_CLEARANCE'].description}</p>
-                <span class="unit">Meter</span>
-                <input id="humanTargetPriorityClearance" type="number" step="any" min="0" xis:binding="humanTargetPriorityClearance" xis:error-class="error" required>
-                <div class="error" xis:message-for="humanTargetPriorityClearance"></div>
-            </div>
-            <div class="field">
-                <label for="targetPreferredAttackers">${parameters['TARGET_PREFERRED_ATTACKERS'].title}</label>
-                <p class="description">${parameters['TARGET_PREFERRED_ATTACKERS'].description}</p>
-                <span class="unit">Zahl</span>
-                <input id="targetPreferredAttackers" type="number" step="1" min="1" xis:binding="targetPreferredAttackers" xis:error-class="error" required>
-                <div class="error" xis:message-for="targetPreferredAttackers"></div>
-            </div>
-            <div class="field">
-                <label for="targetAlternativeDistanceFactor">${parameters['TARGET_ALTERNATIVE_DISTANCE_FACTOR'].title}</label>
-                <p class="description">${parameters['TARGET_ALTERNATIVE_DISTANCE_FACTOR'].description}</p>
-                <span class="unit">Zahl</span>
-                <input id="targetAlternativeDistanceFactor" type="number" step="any" min="1" xis:binding="targetAlternativeDistanceFactor" xis:error-class="error" required>
-                <div class="error" xis:message-for="targetAlternativeDistanceFactor"></div>
-            </div>
-        </div></fieldset>
+            <fieldset>
+                <legend>Ausrichten und Schießen</legend>
+                <div class="fields">
+                    <div class="field">
+                        <label for="aimResponse">${parameters['AIM_RESPONSE'].title}</label>
+                        <p class="description">${parameters['AIM_RESPONSE'].description}</p>
+                        <span class="unit">Zahl</span>
+                        <input id="aimResponse" type="number" step="any" min="0" xis:binding="aimResponse"
+                               xis:error-class="error" required>
+                        <div class="error" xis:message-for="aimResponse"></div>
+                    </div>
+                    <div class="field">
+                        <label for="aimTurnDamping">${parameters['AIM_TURN_DAMPING'].title}</label>
+                        <p class="description">${parameters['AIM_TURN_DAMPING'].description}</p>
+                        <span class="unit">Zahl</span>
+                        <input id="aimTurnDamping" type="number" step="any" min="0" xis:binding="aimTurnDamping"
+                               xis:error-class="error" required>
+                        <div class="error" xis:message-for="aimTurnDamping"></div>
+                    </div>
+                    <div class="field">
+                        <label for="aimMinCorrectionAngle">${parameters['AIM_MIN_CORRECTION_ANGLE'].title}</label>
+                        <p class="description">${parameters['AIM_MIN_CORRECTION_ANGLE'].description}</p>
+                        <span class="unit">Grad</span>
+                        <input id="aimMinCorrectionAngle" type="number" step="any" min="0"
+                               xis:binding="aimMinCorrectionAngle" xis:error-class="error" required>
+                        <div class="error" xis:message-for="aimMinCorrectionAngle"></div>
+                    </div>
+                    <div class="field">
+                        <label for="fireArc">${parameters['FIRE_ARC'].title}</label>
+                        <p class="description">${parameters['FIRE_ARC'].description}</p>
+                        <span class="unit">Grad</span>
+                        <input id="fireArc" type="number" step="any" min="0" xis:binding="fireArc"
+                               xis:error-class="error" required>
+                        <div class="error" xis:message-for="fireArc"></div>
+                    </div>
+                    <div class="field">
+                        <label for="closeFireArc">${parameters['CLOSE_FIRE_ARC'].title}</label>
+                        <p class="description">${parameters['CLOSE_FIRE_ARC'].description}</p>
+                        <span class="unit">Grad</span>
+                        <input id="closeFireArc" type="number" step="any" min="0" xis:binding="closeFireArc"
+                               xis:error-class="error" required>
+                        <div class="error" xis:message-for="closeFireArc"></div>
+                    </div>
+                    <div class="field">
+                        <label for="fireMinRange">${parameters['FIRE_MIN_RANGE'].title}</label>
+                        <p class="description">${parameters['FIRE_MIN_RANGE'].description}</p>
+                        <span class="unit">Meter</span>
+                        <input id="fireMinRange" type="number" step="any" min="0" xis:binding="fireMinRange"
+                               xis:error-class="error" required>
+                        <div class="error" xis:message-for="fireMinRange"></div>
+                    </div>
+                    <div class="field">
+                        <label for="fireMaxRange">${parameters['FIRE_MAX_RANGE'].title}</label>
+                        <p class="description">${parameters['FIRE_MAX_RANGE'].description}</p>
+                        <span class="unit">Meter</span>
+                        <input id="fireMaxRange" type="number" step="any" min="0" xis:binding="fireMaxRange"
+                               xis:error-class="error" required>
+                        <div class="error" xis:message-for="fireMaxRange"></div>
+                    </div>
+                    <div class="field">
+                        <label for="closeFireRange">${parameters['CLOSE_FIRE_RANGE'].title}</label>
+                        <p class="description">${parameters['CLOSE_FIRE_RANGE'].description}</p>
+                        <span class="unit">Meter</span>
+                        <input id="closeFireRange" type="number" step="any" min="0" xis:binding="closeFireRange"
+                               xis:error-class="error" required>
+                        <div class="error" xis:message-for="closeFireRange"></div>
+                    </div>
+                    <div class="field">
+                        <label for="torpedoCooldownMin">${parameters['TORPEDO_COOLDOWN_MIN'].title}</label>
+                        <p class="description">${parameters['TORPEDO_COOLDOWN_MIN'].description}</p>
+                        <span class="unit">Sekunden</span>
+                        <input id="torpedoCooldownMin" type="number" step="any" min="0" xis:binding="torpedoCooldownMin"
+                               xis:error-class="error" required>
+                        <div class="error" xis:message-for="torpedoCooldownMin"></div>
+                    </div>
+                    <div class="field">
+                        <label for="torpedoCooldownVariation">${parameters['TORPEDO_COOLDOWN_VARIATION'].title}</label>
+                        <p class="description">${parameters['TORPEDO_COOLDOWN_VARIATION'].description}</p>
+                        <span class="unit">Sekunden</span>
+                        <input id="torpedoCooldownVariation" type="number" step="any" min="0"
+                               xis:binding="torpedoCooldownVariation" xis:error-class="error" required>
+                        <div class="error" xis:message-for="torpedoCooldownVariation"></div>
+                    </div>
+                </div>
+            </fieldset>
+            <fieldset>
+                <legend>Fahrt im Angriff</legend>
+                <div class="fields">
+                    <div class="field">
+                        <label for="approachSlowRange">${parameters['APPROACH_SLOW_RANGE'].title}</label>
+                        <p class="description">${parameters['APPROACH_SLOW_RANGE'].description}</p>
+                        <span class="unit">Meter</span>
+                        <input id="approachSlowRange" type="number" step="any" min="0" xis:binding="approachSlowRange"
+                               xis:error-class="error" required>
+                        <div class="error" xis:message-for="approachSlowRange"></div>
+                    </div>
+                    <div class="field">
+                        <label for="closeManeuverRange">${parameters['CLOSE_MANEUVER_RANGE'].title}</label>
+                        <p class="description">${parameters['CLOSE_MANEUVER_RANGE'].description}</p>
+                        <span class="unit">Meter</span>
+                        <input id="closeManeuverRange" type="number" step="any" min="0" xis:binding="closeManeuverRange"
+                               xis:error-class="error" required>
+                        <div class="error" xis:message-for="closeManeuverRange"></div>
+                    </div>
+                    <div class="field">
+                        <label for="radarInterceptRange">${parameters['RADAR_INTERCEPT_RANGE'].title}</label>
+                        <p class="description">${parameters['RADAR_INTERCEPT_RANGE'].description}</p>
+                        <span class="unit">Meter</span>
+                        <input id="radarInterceptRange" type="number" step="any" min="0"
+                               xis:binding="radarInterceptRange" xis:error-class="error" required>
+                        <div class="error" xis:message-for="radarInterceptRange"></div>
+                    </div>
+                    <div class="field">
+                        <label for="ramRange">${parameters['RAM_RANGE'].title}</label>
+                        <p class="description">${parameters['RAM_RANGE'].description}</p>
+                        <span class="unit">Meter</span>
+                        <input id="ramRange" type="number" step="any" min="0" xis:binding="ramRange"
+                               xis:error-class="error" required>
+                        <div class="error" xis:message-for="ramRange"></div>
+                    </div>
+                </div>
+            </fieldset>
+            <fieldset>
+                <legend>Zielauswahl</legend>
+                <div class="fields">
+                    <div class="field">
+                        <label for="humanTargetPriorityClearance">${parameters['HUMAN_TARGET_PRIORITY_CLEARANCE'].title}</label>
+                        <p class="description">${parameters['HUMAN_TARGET_PRIORITY_CLEARANCE'].description}</p>
+                        <span class="unit">Meter</span>
+                        <input id="humanTargetPriorityClearance" type="number" step="any" min="0"
+                               xis:binding="humanTargetPriorityClearance" xis:error-class="error" required>
+                        <div class="error" xis:message-for="humanTargetPriorityClearance"></div>
+                    </div>
+                    <div class="field">
+                        <label for="targetPreferredAttackers">${parameters['TARGET_PREFERRED_ATTACKERS'].title}</label>
+                        <p class="description">${parameters['TARGET_PREFERRED_ATTACKERS'].description}</p>
+                        <span class="unit">Zahl</span>
+                        <input id="targetPreferredAttackers" type="number" step="1" min="1"
+                               xis:binding="targetPreferredAttackers" xis:error-class="error" required>
+                        <div class="error" xis:message-for="targetPreferredAttackers"></div>
+                    </div>
+                    <div class="field">
+                        <label for="targetAlternativeDistanceFactor">${parameters['TARGET_ALTERNATIVE_DISTANCE_FACTOR'].title}</label>
+                        <p class="description">${parameters['TARGET_ALTERNATIVE_DISTANCE_FACTOR'].description}</p>
+                        <span class="unit">Zahl</span>
+                        <input id="targetAlternativeDistanceFactor" type="number" step="any" min="1"
+                               xis:binding="targetAlternativeDistanceFactor" xis:error-class="error" required>
+                        <div class="error" xis:message-for="targetAlternativeDistanceFactor"></div>
+                    </div>
+                </div>
+            </fieldset>
         </details>
-        <div class="actions"><button id="save-profile" type="submit" xis:action="saveProfile">Gesamtes Profil speichern</button>
-        <button id="save-config" type="submit" xis:action="save">Bot- und Flottenwerte übernehmen</button></div>
-        <p class="hint">Entfernungen gelten in Metern, Winkel in Grad, Zeiten in Sekunden. Bereits laufende Nachladezeiten bleiben bestehen.</p>
-        </form>
-    <fieldset id="profile-transfer"><legend>JSON-Import und -Export</legend>
-        <div class="transfer-actions"><button id="download-export" type="button">Profil exportieren · JSON herunterladen</button>
-        <form id="profile-file-form" xis:binding="fileImport">
-            <label for="profile-file">JSON-Datei auswählen</label>
-            <input id="profile-file" type="file" accept=".json,application/json" xis:binding="json">
-            <div class="error" xis:message-for="json"></div>
-            <button id="import-file" type="submit" xis:action="importFile">Profil importieren · JSON hochladen</button>
-        </form>
+        <div class="actions">
+            <button id="save-config" type="submit" xis:action="save">Gesamtes Profil speichern</button>
         </div>
-        <p class="hint">Der Export enthält die aktuell bearbeiteten Einstellungen. Der Import öffnet einen Entwurf; vorhandene Profile und das laufende Spiel bleiben erhalten. Zum dauerhaften Speichern anschließend „Gesamtes Profil speichern“ wählen.</p>
+        <p class="hint">Entfernungen gelten in Metern, Winkel in Grad, Zeiten in Sekunden. Bereits laufende
+            Nachladezeiten bleiben bestehen.</p>
+    </form>
+    <fieldset id="profile-transfer">
+        <legend>JSON-Import und -Export</legend>
+        <div class="transfer-actions">
+            <button id="download-export" type="button">Profil exportieren · JSON herunterladen</button>
+            <form id="profile-file-form" xis:binding="fileImport">
+                <label for="profile-file">JSON-Datei auswählen</label>
+                <input id="profile-file" type="file" accept=".json,application/json" xis:binding="json">
+                <div class="error" xis:message-for="json"></div>
+                <button id="import-file" type="submit" xis:action="importFile">Profil importieren · JSON hochladen
+                </button>
+            </form>
+        </div>
+        <p class="hint">Der Export enthält die aktuell bearbeiteten Einstellungen. Der Import öffnet einen Entwurf;
+            vorhandene Profile und das laufende Spiel bleiben erhalten. Zum dauerhaften Speichern anschließend „Gesamtes
+            Profil speichern“ wählen.</p>
     </fieldset>
 </main>
 

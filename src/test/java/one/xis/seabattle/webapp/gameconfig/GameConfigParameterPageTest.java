@@ -34,32 +34,47 @@ class GameConfigParameterPageTest {
             assertNull(client.getDocument().getElementById("settings-form"));
         }
     }
-    @Test void applyUsesAllCurrentEditorValuesButDoesNotCreateAProfile() throws Exception {
+    @Test void savingPersistsTheProfileAndAppliesAllCurrentEditorValues() throws Exception {
         var service=service();var client=context(service,"ADMIN").openPage("/admin/game-config.html");var document=client.getDocument();
+        document.getInputElementById("profile-name").setValue("Easy");
         document.getInputElementById("aimResponse").setValue("0.65");
         document.getInputElementById("fleet-light-planes").setValue("7");
         document.getElementById("save-config").click();
         service.refresh();assertEquals(.65,service.current().torpedoBoatBot().aimResponse());
-        assertEquals(7,service.current().fleetSize().lightPlanes());assertTrue(profiles.findAll().isEmpty());
+        assertEquals(7,service.current().fleetSize().lightPlanes());assertEquals(1,profiles.findAll().size());
     }
-    @Test void profileSaveCapturesUnsavedFormValuesWithoutChangingTheRunningConfiguration() throws Exception {
+    @Test void savingCapturesUnsavedFormValuesWithoutRestartingTheGame() throws Exception {
         var service=service();var before=service.findAll();var client=context(service,"ADMIN").openPage("/admin/game-config.html");var document=client.getDocument();
         document.getInputElementById("profile-name").setValue("Easy");
         document.getInputElementById("aimResponse").setValue("0.65");
         document.getInputElementById("fleet-light-planes").setValue("7");
-        document.getElementById("save-profile").click();
-        assertEquals(before,service.findAll());assertEquals(0,game.restarts);
+        document.getElementById("save-config").click();
+        assertNotEquals(before,service.findAll());assertEquals(0,game.restarts);
         var profile=profiles.findById(profiles.findAll().get(0).id()).orElseThrow();
         assertEquals("7",profile.values().get("FLEET.LIGHT_PLANES"));
         assertEquals(.65,Double.parseDouble(profile.values().get("TORPEDO_BOAT_BOT.AIM_RESPONSE")));
         assertTrue(client.getWindow().location.href.contains(profile.id()));
     }
+    @Test void profileSelectionLoadsImmediatelyWithoutAnExtraButton() throws Exception {
+        var service=service();
+        var profile=profiles.save(null,"Direct selection",service.findAll(),"dense-land","ENDLESS");
+        var client=context(service,"ADMIN").openPage("/admin/game-config.html");
+        assertEquals("loadProfile",client.getDocument().getElementById("profile-load-form").getAttribute("xis:onchange-action"));
+        assertNull(client.getDocument().getElementById("load-profile"));
+        ((one.xis.test.dom.SelectElement)client.getDocument().getElementById("profile-choice")).setValue(profile.id());
+        // SelectElement.setValue changes selection only; emit the user's change event explicitly.
+        var change=one.xis.test.dom.ElementImpl.class.getDeclaredMethod("fireEvent",String.class,Object.class);
+        change.setAccessible(true);
+        change.invoke(client.getDocument().getElementById("profile-choice"),"change",new one.xis.test.js.Event("change"));
+        assertEquals("Direct selection",client.getDocument().getInputElementById("profile-name").getValue());
+        assertTrue(client.getWindow().location.href.contains(profile.id()));
+    }
     @Test void renameKeepsTheSameIdAndReloadFindsTheNewNameAndValues() throws Exception {
         var service=service();var client=context(service,"ADMIN").openPage("/admin/game-config.html");
-        client.getDocument().getInputElementById("profile-name").setValue("First");client.getDocument().getElementById("save-profile").click();
+        client.getDocument().getInputElementById("profile-name").setValue("First");client.getDocument().getElementById("save-config").click();
         String id=profiles.findAll().get(0).id();
         client.getDocument().getInputElementById("profile-name").setValue("Renamed");
-        client.getDocument().getInputElementById("aimResponse").setValue("0.8");client.getDocument().getElementById("save-profile").click();
+        client.getDocument().getInputElementById("aimResponse").setValue("0.8");client.getDocument().getElementById("save-config").click();
         assertEquals(1,profiles.findAll().size());assertEquals(id,profiles.findAll().get(0).id());
         var reopened=context(service,"ADMIN").openPage("/admin/game-config.html?profile="+id);
         assertEquals("Renamed",reopened.getDocument().getInputElementById("profile-name").getValue());
@@ -68,11 +83,11 @@ class GameConfigParameterPageTest {
     @Test void duplicateNamesAreRejectedOnCreationAndRename() throws Exception {
         var service=service();profiles.save(null,"Taken",service.findAll(),"dense-land","ENDLESS");
         var client=context(service,"ADMIN").openPage("/admin/game-config.html");
-        client.getDocument().getInputElementById("profile-name").setValue(" taken ");client.getDocument().getElementById("save-profile").click();
+        client.getDocument().getInputElementById("profile-name").setValue(" taken ");client.getDocument().getElementById("save-config").click();
         assertEquals(1,profiles.findAll().size());assertTrue(client.getDocument().getElementById("settings-form").getInnerText().contains("existiert bereits"));
-        client.getDocument().getInputElementById("profile-name").setValue("Other");client.getDocument().getElementById("save-profile").click();
+        client.getDocument().getInputElementById("profile-name").setValue("Other");client.getDocument().getElementById("save-config").click();
         var id=profiles.findAll().stream().filter(p->p.name().equals("Other")).findFirst().orElseThrow().id();
-        client.getDocument().getInputElementById("profile-name").setValue("TAKEN");client.getDocument().getElementById("save-profile").click();
+        client.getDocument().getInputElementById("profile-name").setValue("TAKEN");client.getDocument().getElementById("save-config").click();
         assertEquals("Other",profiles.findById(id).orElseThrow().name());
     }
     @Test void copyingGetsANewIdentityAndUsesTheCurrentlyEditedValues() throws Exception {
@@ -92,7 +107,9 @@ class GameConfigParameterPageTest {
         var response=new GameConfigParameterPage(service,game,profiles,downloads).exportProfile(form);
         assertTrue(response.getUrl().startsWith(GameConfigProfileDownloadController.PATH));
         String ticket=response.getUrl().substring(GameConfigProfileDownloadController.PATH.length());
-        String json=downloads.take(ticket);
+        var download=downloads.take(ticket);
+        assertEquals("JSON test.json",download.fileName());
+        String json=download.json();
         assertTrue(json.contains("JSON test"));assertFalse(json.contains("profileId"));
         assertEquals("0.7",GameConfigProfileJson.read(json).parameters().get("TORPEDO_BOAT_BOT.AIM_RESPONSE"));
         client.getDocument().getInputElementById("profile-file").setFile("profile.json","application/json",json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
@@ -113,6 +130,7 @@ class GameConfigParameterPageTest {
         service.save(new GameConfigParameter(row.id(),row.group(),row.type(),row.name(),row.title(),row.description(),"1000"));
         var client=context(service,"ADMIN").openPage("/admin/game-config.html");
         assertEquals(20000,Double.parseDouble(client.getDocument().getInputElementById("fireMinRange").getValue()));
+        client.getDocument().getInputElementById("profile-name").setValue("Repair");
         client.getDocument().getInputElementById("fireMinRange").setValue("3900");client.getDocument().getElementById("save-config").click();
         service.refresh();assertEquals(195,service.current().torpedoBoatBot().fireMinRange());
     }
@@ -120,7 +138,7 @@ class GameConfigParameterPageTest {
         var service=service();var profile=profiles.save(null,"Burn",service.findAll(),"dense-land","BURN_DOWN");
         var client=context(service,"ADMIN").openPage("/admin/game-config.html?profile="+profile.id());
         assertTrue(((one.xis.test.dom.OptionElement)client.getDocument().querySelector("#mode-choice option[value=\"BURN_DOWN\"]")).isSelected());
-        client.getDocument().getInputElementById("profile-name").setValue("Burn renamed");client.getDocument().getElementById("save-profile").click();
+        client.getDocument().getInputElementById("profile-name").setValue("Burn renamed");client.getDocument().getElementById("save-config").click();
         assertEquals("BURN_DOWN",profiles.findById(profile.id()).orElseThrow().mode());
         assertEquals("ENDLESS",game.mode);
         client.getDocument().getElementById("apply-setup").click();assertEquals("BURN_DOWN",game.mode);assertEquals(1,game.restarts);
