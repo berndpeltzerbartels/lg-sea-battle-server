@@ -8,7 +8,6 @@ import java.util.function.Supplier;
 /** Shares the last confirmed position; only a fresh sonar contact can renew an existing area. */
 public final class BotSubmarineHunt {
   static final double DURATION = 60;
-  static final double DETECTION_NOTICE_SECONDS = 3;
   // Three quarters of the normal on-screen combat radar, not the strategic human-target range.
   static final double RECRUIT_RADIUS = RadarService.RADAR_RANGE * 2.5 * .62 * .75;
   static final double SEARCH_RADIUS = 6 * BotNavigation.SHIP_LENGTH;
@@ -19,12 +18,10 @@ public final class BotSubmarineHunt {
   public static final class Area {
     private Vector2 center;
     private double until;
-    private final double noticeUntil;
 
     public Area(Vector2 center, double until) {
       this.center = center;
       this.until = until;
-      noticeUntil = until - DURATION + DETECTION_NOTICE_SECONDS;
     }
 
     public Vector2 center() { return center; }
@@ -60,7 +57,7 @@ public final class BotSubmarineHunt {
     Map<String, Detection> result = new HashMap<>();
     sightings.forEach(
         (contact, area) -> {
-          double until = area.noticeUntil;
+          double until = area.until();
           if (until > now)
             result.merge(
                 contact.target(),

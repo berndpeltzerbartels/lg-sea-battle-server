@@ -194,13 +194,13 @@ class BotSubmarineHuntTest {
         var detection = session.snapshot().submarineDetections().get("sub");
         assertNotNull(detection);
         assertEquals(target.lifeId(), detection.lifeId());
-        assertEquals(3, detection.until());
+        assertEquals(60, detection.until());
         assertEquals(9, all.stream().filter(b -> b.submarineSearch() != null).count());
         assertEquals(new Vector2(0, -37), detector.submarineSearch().area().center());
         depth(target, 3000, 3000, "submerged", 0);
         session.update(3.1, radar, navigation, water);
-        assertTrue(session.snapshot().submarineDetections().isEmpty(), "Notice ends independently after three seconds");
-        assertNotNull(detector.submarineSearch(), "The one-minute search continues after the notice");
+        assertTrue(session.snapshot().submarineDetections().containsKey("sub"), "Eye stays on during the search after contact is lost");
+        assertNotNull(detector.submarineSearch(), "The one-minute search continues after contact is lost");
         assertEquals(60, detector.submarineSearch().area().until());
     }
 

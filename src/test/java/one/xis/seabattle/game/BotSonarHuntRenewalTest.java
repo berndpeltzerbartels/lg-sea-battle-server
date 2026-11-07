@@ -53,7 +53,7 @@ class BotSonarHuntRenewalTest {
       assertSame(search, detector.submarineSearch(), "Renew the assigned hunt instead of resetting its route");
       assertEquals(80, search.area().until());
       assertTrue(s.snapshot().depthCharges().isEmpty(), "A steady signal must never cause a drop");
-      assertTrue(s.snapshot().submarineDetections().isEmpty(), "Renewal must not keep the yellow eye lit");
+      assertEquals(80, s.snapshot().submarineDetections().get("enemy").until(), "Eye follows the renewed hunt deadline");
     }
   }
 
@@ -104,7 +104,8 @@ class BotSonarHuntRenewalTest {
     assertEquals(new Vector2(120, 40), search.area().center());
     assertTrue(search.active(89.9));
     assertFalse(search.active(90));
-    assertTrue(hunt.detections(31).isEmpty());
+    assertEquals(90, hunt.detections(89.9).get("enemy").until());
+    assertTrue(hunt.detections(90).isEmpty(), "Eye expires with the renewed hunt");
     assertEquals(1, scans.get());
   }
 }
