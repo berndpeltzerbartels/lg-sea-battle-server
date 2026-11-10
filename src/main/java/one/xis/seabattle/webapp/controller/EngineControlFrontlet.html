@@ -1,0 +1,11 @@
+<section class="controller-card" aria-labelledby="heading-EngineControlFrontlet">
+ <p class="scope">Alle Schiffe · auf der Brücke</p><h3 id="heading-EngineControlFrontlet">Maschine einstellen</h3>
+ <p>Diese Tasten ändern auf der Brücke die Fahrstufe schrittweise. Nach dem Loslassen bleibt die gewählte Fahrstufe bestehen. Eine neue Bewegung des direkten Gas-Sticks übernimmt wieder das Gas. Für andere Positionen kannst du dieselben Tasten zusätzlich unter „Zielen und Umschauen“ belegen.</p>
+ <div class="binding-row" data-controller-action="up" data-prompt="Gewünschte Taste für mehr Fahrt oder nach oben drücken.">
+    <div><span class="binding-label">Fahrstufe erhöhen / nach oben</span><output data-binding-value>Nicht belegt</output><span class="keyboard-hint">Ohne Controller: <kbd>↑</kbd> auf der Tastatur.</span><span class="live-input" data-binding-live></span></div>
+    <div class="row-buttons"><button type="button" data-bind="up" aria-label="Fahrstufe erhöhen / nach oben belegen">Belegen</button><button type="button" class="quiet" data-clear="up" aria-label="Fahrstufe erhöhen / nach oben löschen">Löschen</button></div>
+</div><div class="binding-row" data-controller-action="down" data-prompt="Gewünschte Taste für weniger Fahrt oder nach unten drücken.">
+    <div><span class="binding-label">Fahrstufe verringern / nach unten</span><output data-binding-value>Nicht belegt</output><span class="keyboard-hint">Ohne Controller: <kbd>↓</kbd> auf der Tastatur.</span><span class="live-input" data-binding-live></span></div>
+    <div class="row-buttons"><button type="button" data-bind="down" aria-label="Fahrstufe verringern / nach unten belegen">Belegen</button><button type="button" class="quiet" data-clear="down" aria-label="Fahrstufe verringern / nach unten löschen">Löschen</button></div>
+</div>
+</section>

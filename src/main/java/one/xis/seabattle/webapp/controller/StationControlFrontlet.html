@@ -1,0 +1,19 @@
+<section class="controller-card" aria-labelledby="heading-StationControlFrontlet">
+ <p class="scope">Alle Fahrzeuge · freie Positionen</p><h3 id="heading-StationControlFrontlet">Position wechseln</h3>
+ <p>Wechselt zur vorherigen oder nächsten verfügbaren Position. Besetzte Positionen werden übersprungen. Welche Positionen vorhanden sind, hängt vom Fahrzeug und bei U-Booten auch von der Tauchtiefe ab.</p>
+ <div class="binding-row" data-controller-action="stationPrevious" data-prompt="Taste oder Steuerkreuz für vorherige Position drücken.">
+    <div><span class="binding-label">Vorherige freie Position</span><output data-binding-value>Nicht belegt</output><span class="keyboard-hint">Ohne Controller: Position direkt mit den unten genannten Tastaturtasten auswählen.</span><span class="live-input" data-binding-live></span></div>
+    <div class="row-buttons"><button type="button" data-bind="stationPrevious" aria-label="Vorherige freie Position belegen">Belegen</button><button type="button" class="quiet" data-clear="stationPrevious" aria-label="Vorherige freie Position löschen">Löschen</button></div>
+</div><div class="binding-row" data-controller-action="stationNext" data-prompt="Taste oder Steuerkreuz für nächste Position drücken.">
+    <div><span class="binding-label">Nächste freie Position</span><output data-binding-value>Nicht belegt</output><span class="keyboard-hint">Ohne Controller: Position direkt mit den unten genannten Tastaturtasten auswählen.</span><span class="live-input" data-binding-live></span></div>
+    <div class="row-buttons"><button type="button" data-bind="stationNext" aria-label="Nächste freie Position belegen">Belegen</button><button type="button" class="quiet" data-clear="stationNext" aria-label="Nächste freie Position löschen">Löschen</button></div>
+</div>
+<div class="keyboard-alternatives">
+<p class="keyboard-hint"><strong>Torpedoboot · auf der Tastatur:</strong><br>
+<kbd>B</kbd> Brücke · <kbd>O</kbd> Ausguck · <kbd>F</kbd> Flak · <kbd>C</kbd> Kanone · <kbd>T</kbd> Torpedo-Präzision.</p>
+<p class="keyboard-hint"><strong>U-Boot · auf der Tastatur:</strong><br>
+<kbd>B</kbd> Brücke · <kbd>F</kbd> Flak.<br>
+In der Sehrohransicht: <kbd>1</kbd> Sehrohr voraus · <kbd>2</kbd> 360°-Sehrohr.</p>
+<p class="keyboard-hint">Besetzte oder momentan nicht verfügbare Positionen können nicht übernommen werden.</p>
+</div>
+</section>

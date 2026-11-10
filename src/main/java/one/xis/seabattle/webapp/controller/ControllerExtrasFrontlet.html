@@ -1,0 +1,13 @@
+<section class="controller-card" aria-labelledby="heading-ControllerExtrasFrontlet">
+ <p class="scope">Optional</p><h3 id="heading-ControllerExtrasFrontlet">Weitere Funktionen</h3>
+ <p>Diese Belegungen ergänzen die Grundsteuerung. Gas festhalten lässt sich nur auf der Brücke aktivieren; eine neue Vor-/Rückbewegung des Sticks auf der Brücke löst es wieder. Nicht benötigte Funktionen dürfen frei bleiben.</p>
+ <div class="binding-row" data-controller-action="throttleHold" data-prompt="Gewünschte Taste zum Festhalten des Gases drücken.">
+    <div><span class="binding-label">Gas festhalten</span><output data-binding-value>Nicht belegt</output><span class="keyboard-hint">Ohne Controller: Mit <kbd>↑</kbd> / <kbd>↓</kbd> auf der Tastatur eine bleibende Fahrstufe wählen. Eine eigene Feststelltaste ist dafür nicht nötig.</span><span class="live-input" data-binding-live></span></div>
+    <div class="row-buttons"><button type="button" data-bind="throttleHold" aria-label="Gas festhalten belegen">Belegen</button><button type="button" class="quiet" data-clear="throttleHold" aria-label="Gas festhalten löschen">Löschen</button></div>
+</div><div class="binding-row" data-controller-action="align" data-prompt="Gewünschte Taste zum Ausrichten drücken.">
+    <div><span class="binding-label">Ausrichten / Boot auf Peilung</span><output data-binding-value>Nicht belegt</output><span class="keyboard-hint">Ohne Controller: <kbd>A</kbd> zum Ausrichten der Geschütze oder <kbd>3</kbd>, um das U-Boot auf die Sehrohrpeilung zu drehen.</span><span class="live-input" data-binding-live></span></div>
+    <div class="row-buttons"><button type="button" data-bind="align" aria-label="Ausrichten / Boot auf Peilung belegen">Belegen</button><button type="button" class="quiet" data-clear="align" aria-label="Ausrichten / Boot auf Peilung löschen">Löschen</button></div>
+</div><div class="binding-row" data-controller-action="help" data-prompt="Gewünschte Hilfetaste drücken.">
+    <div><span class="binding-label">Positionshilfe anzeigen</span><output data-binding-value>Nicht belegt</output><span class="keyboard-hint">Ohne Controller: <kbd>H</kbd> auf der Tastatur.</span><span class="live-input" data-binding-live></span></div>
+    <div class="row-buttons"><button type="button" data-bind="help" aria-label="Positionshilfe anzeigen belegen">Belegen</button><button type="button" class="quiet" data-clear="help" aria-label="Positionshilfe anzeigen löschen">Löschen</button></div>
+</div></section>

@@ -354,7 +354,10 @@
                 <p><a id="vehicleGuide" href="${vehicleHandbook.href}" onclick="event.stopPropagation()" style="color:#a8eeed">${vehicleHandbook.label} →</a></p>
             </div>
 
-            <button type="submit" xis:action="startGame">Einsteigen</button>
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:12px">
+                <button type="submit" xis:action="startGame">Einsteigen</button>
+                <button type="submit" xis:action="configureController" formnovalidate>Controller einrichten</button>
+            </div>
         </form>
     </section>
 

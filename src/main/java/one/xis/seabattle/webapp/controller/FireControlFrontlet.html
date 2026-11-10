@@ -1,0 +1,8 @@
+<section class="controller-card" aria-labelledby="heading-FireControlFrontlet">
+ <p class="scope">Alle Fahrzeuge · aktuelle Position</p><h3 id="heading-FireControlFrontlet">Feuern</h3>
+ <p>Feuert die Waffe der aktuellen Position: Torpedo, Kanone oder Flak. Beim Ausguck gibt es keine eigene Waffe. Die Belegung ändert keine Berechtigungen innerhalb einer Besatzung.</p>
+ <div class="binding-row" data-controller-action="fire" data-prompt="Gewünschte Feuertaste drücken.">
+    <div><span class="binding-label">Feuern</span><output data-binding-value>Nicht belegt</output><span class="keyboard-hint">Ohne Controller: <kbd>Leertaste</kbd> auf der Tastatur.</span><span class="live-input" data-binding-live></span></div>
+    <div class="row-buttons"><button type="button" data-bind="fire" aria-label="Feuern belegen">Belegen</button><button type="button" class="quiet" data-clear="fire" aria-label="Feuern löschen">Löschen</button></div>
+</div>
+</section>

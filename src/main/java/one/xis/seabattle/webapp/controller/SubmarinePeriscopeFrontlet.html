@@ -1,0 +1,11 @@
+<section class="controller-card" aria-labelledby="heading-SubmarinePeriscopeFrontlet">
+<p class="scope">Nur U-Boot · Sehrohransicht</p><h3 id="heading-SubmarinePeriscopeFrontlet">Sehrohr auswählen</h3>
+<p>Sobald die Sehrohransicht verfügbar ist, kannst du zwischen dem Blick voraus und dem drehbaren 360°-Sehrohr wechseln. Diese Auswahl gibt es nur beim U-Boot.</p>
+<div class="binding-row" data-controller-action="forward-scope" data-prompt="Gewünschte Taste für das vordere Sehrohr drücken.">
+    <div><span class="binding-label">Sehrohr voraus</span><output data-binding-value>Nicht belegt</output><span class="keyboard-hint">Ohne Controller: <kbd>1</kbd> auf der Tastatur – Sehrohr voraus.</span><span class="live-input" data-binding-live></span></div>
+    <div class="row-buttons"><button type="button" data-bind="forward-scope" aria-label="Sehrohr voraus belegen">Belegen</button><button type="button" class="quiet" data-clear="forward-scope" aria-label="Sehrohr voraus löschen">Löschen</button></div>
+</div><div class="binding-row" data-controller-action="observation-scope" data-prompt="Gewünschte Taste für das Rundum-Sehrohr drücken.">
+    <div><span class="binding-label">360°-Sehrohr</span><output data-binding-value>Nicht belegt</output><span class="keyboard-hint">Ohne Controller: <kbd>2</kbd> auf der Tastatur – 360°-Sehrohr.</span><span class="live-input" data-binding-live></span></div>
+    <div class="row-buttons"><button type="button" data-bind="observation-scope" aria-label="360°-Sehrohr belegen">Belegen</button><button type="button" class="quiet" data-clear="observation-scope" aria-label="360°-Sehrohr löschen">Löschen</button></div>
+</div>
+</section>

@@ -1,0 +1,11 @@
+<section class="controller-card" aria-labelledby="heading-RudderControlFrontlet">
+ <p class="scope">Alle Schiffe · auf der Brücke</p><h3 id="heading-RudderControlFrontlet">Ruder einstellen</h3>
+ <p>Diese Tasten verändern auf der Brücke den Ruderausschlag. Beim Loslassen bleibt das Ruder eingeschlagen. Eine neue seitliche Bewegung des direkten Ruder-Sticks übernimmt das Ruder wieder. Für Geschütze oder Ausguck kannst du dieselben Tasten zusätzlich unter „Zielen und Umschauen“ belegen.</p>
+ <div class="binding-row" data-controller-action="left" data-prompt="Gewünschte Taste für links drücken.">
+    <div><span class="binding-label">Ruder links / nach links</span><output data-binding-value>Nicht belegt</output><span class="keyboard-hint">Ohne Controller: <kbd>←</kbd> auf der Tastatur.</span><span class="live-input" data-binding-live></span></div>
+    <div class="row-buttons"><button type="button" data-bind="left" aria-label="Ruder links / nach links belegen">Belegen</button><button type="button" class="quiet" data-clear="left" aria-label="Ruder links / nach links löschen">Löschen</button></div>
+</div><div class="binding-row" data-controller-action="right" data-prompt="Gewünschte Taste für rechts drücken.">
+    <div><span class="binding-label">Ruder rechts / nach rechts</span><output data-binding-value>Nicht belegt</output><span class="keyboard-hint">Ohne Controller: <kbd>→</kbd> auf der Tastatur.</span><span class="live-input" data-binding-live></span></div>
+    <div class="row-buttons"><button type="button" data-bind="right" aria-label="Ruder rechts / nach rechts belegen">Belegen</button><button type="button" class="quiet" data-clear="right" aria-label="Ruder rechts / nach rechts löschen">Löschen</button></div>
+</div>
+</section>

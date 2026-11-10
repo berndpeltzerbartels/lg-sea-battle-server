@@ -1,0 +1,11 @@
+<section class="controller-card" aria-labelledby="heading-DiveControlFrontlet">
+ <p class="scope">Nur U-Boot</p><h3 id="heading-DiveControlFrontlet">Tauchtiefe</h3>
+ <p>Wechselt schrittweise zwischen aufgetaucht, Sehrohrtiefe und tief getaucht. Beim Torpedoboot werden diese beiden Tasten nicht verwendet.</p>
+ <div class="binding-row" data-controller-action="ascend" data-prompt="Gewünschte Taste zum Auftauchen drücken.">
+    <div><span class="binding-label">Eine Stufe auftauchen</span><output data-binding-value>Nicht belegt</output><span class="keyboard-hint">Ohne Controller: <kbd>Umschalt</kbd> + <kbd>↑</kbd> auf der Tastatur.</span><span class="live-input" data-binding-live></span></div>
+    <div class="row-buttons"><button type="button" data-bind="ascend" aria-label="Eine Stufe auftauchen belegen">Belegen</button><button type="button" class="quiet" data-clear="ascend" aria-label="Eine Stufe auftauchen löschen">Löschen</button></div>
+</div><div class="binding-row" data-controller-action="dive" data-prompt="Gewünschte Taste zum Abtauchen drücken.">
+    <div><span class="binding-label">Eine Stufe abtauchen</span><output data-binding-value>Nicht belegt</output><span class="keyboard-hint">Ohne Controller: <kbd>Umschalt</kbd> + <kbd>↓</kbd> auf der Tastatur.</span><span class="live-input" data-binding-live></span></div>
+    <div class="row-buttons"><button type="button" data-bind="dive" aria-label="Eine Stufe abtauchen belegen">Belegen</button><button type="button" class="quiet" data-clear="dive" aria-label="Eine Stufe abtauchen löschen">Löschen</button></div>
+</div>
+</section>

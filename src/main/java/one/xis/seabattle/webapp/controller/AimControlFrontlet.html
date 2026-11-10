@@ -1,0 +1,23 @@
+<section class="controller-card" aria-labelledby="heading-AimControlFrontlet">
+<p class="scope">Geschütze · Ausguck · Sehrohr-Blickrichtung</p><h3 id="heading-AimControlFrontlet">Zielen und Umschauen</h3>
+<p>Stick oder Tasten bewegen die Ziel- beziehungsweise Blickrichtung, solange du sie betätigst. Beim Loslassen endet diese Bewegung. Gas und Ruder werden damit an Geschützen oder im Ausguck nicht verändert.</p>
+<p>Diese Belegung ist von der Brückensteuerung getrennt. Du darfst dafür denselben Stick und dieselben Tasten verwenden, weil die jeweilige Position entscheidet, welche Funktion aktiv ist. Beim 360°-Sehrohr dreht links/rechts die Blickrichtung; vor/zurück bedient dort weiterhin die Maschine.</p>
+<div class="binding-row" data-controller-action="aimX" data-prompt="Zum Zielen gewünschten Stick nach rechts bewegen.">
+ <div><span class="binding-label">Stick: links/rechts zielen</span><output data-binding-value>Nicht belegt</output><span class="keyboard-hint">Ohne Controller: <kbd>← / →</kbd> auf der Tastatur.</span><span class="live-input" data-binding-live></span></div>
+ <div class="row-buttons"><button type="button" data-bind="aimX" aria-label="Stick: links/rechts zielen belegen">Belegen</button><button type="button" class="quiet" data-clear="aimX" aria-label="Stick: links/rechts zielen löschen">Löschen</button></div>
+</div><div class="binding-row" data-controller-action="aimY" data-prompt="Zum Zielen gewünschten Stick nach vorne bewegen.">
+ <div><span class="binding-label">Stick: nach oben/unten zielen</span><output data-binding-value>Nicht belegt</output><span class="keyboard-hint">Ohne Controller: <kbd>↑ / ↓</kbd> auf der Tastatur.</span><span class="live-input" data-binding-live></span></div>
+ <div class="row-buttons"><button type="button" data-bind="aimY" aria-label="Stick: nach oben/unten zielen belegen">Belegen</button><button type="button" class="quiet" data-clear="aimY" aria-label="Stick: nach oben/unten zielen löschen">Löschen</button></div>
+</div><div class="binding-row" data-controller-action="aimLeft" data-prompt="Gewünschte Taste zum Zielen nach links drücken.">
+ <div><span class="binding-label">Nach links zielen / schauen</span><output data-binding-value>Nicht belegt</output><span class="keyboard-hint">Ohne Controller: <kbd>←</kbd> auf der Tastatur.</span><span class="live-input" data-binding-live></span></div>
+ <div class="row-buttons"><button type="button" data-bind="aimLeft" aria-label="Nach links zielen / schauen belegen">Belegen</button><button type="button" class="quiet" data-clear="aimLeft" aria-label="Nach links zielen / schauen löschen">Löschen</button></div>
+</div><div class="binding-row" data-controller-action="aimRight" data-prompt="Gewünschte Taste zum Zielen nach rechts drücken.">
+ <div><span class="binding-label">Nach rechts zielen / schauen</span><output data-binding-value>Nicht belegt</output><span class="keyboard-hint">Ohne Controller: <kbd>→</kbd> auf der Tastatur.</span><span class="live-input" data-binding-live></span></div>
+ <div class="row-buttons"><button type="button" data-bind="aimRight" aria-label="Nach rechts zielen / schauen belegen">Belegen</button><button type="button" class="quiet" data-clear="aimRight" aria-label="Nach rechts zielen / schauen löschen">Löschen</button></div>
+</div><div class="binding-row" data-controller-action="aimUp" data-prompt="Gewünschte Taste zum Zielen nach oben drücken.">
+ <div><span class="binding-label">Nach oben zielen / schauen</span><output data-binding-value>Nicht belegt</output><span class="keyboard-hint">Ohne Controller: <kbd>↑</kbd> auf der Tastatur.</span><span class="live-input" data-binding-live></span></div>
+ <div class="row-buttons"><button type="button" data-bind="aimUp" aria-label="Nach oben zielen / schauen belegen">Belegen</button><button type="button" class="quiet" data-clear="aimUp" aria-label="Nach oben zielen / schauen löschen">Löschen</button></div>
+</div><div class="binding-row" data-controller-action="aimDown" data-prompt="Gewünschte Taste zum Zielen nach unten drücken.">
+ <div><span class="binding-label">Nach unten zielen / schauen</span><output data-binding-value>Nicht belegt</output><span class="keyboard-hint">Ohne Controller: <kbd>↓</kbd> auf der Tastatur.</span><span class="live-input" data-binding-live></span></div>
+ <div class="row-buttons"><button type="button" data-bind="aimDown" aria-label="Nach unten zielen / schauen belegen">Belegen</button><button type="button" class="quiet" data-clear="aimDown" aria-label="Nach unten zielen / schauen löschen">Löschen</button></div>
+</div></section>

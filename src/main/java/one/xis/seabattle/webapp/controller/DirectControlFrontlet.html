@@ -1,0 +1,13 @@
+<section class="controller-card" aria-labelledby="heading-DirectControlFrontlet">
+ <p class="scope">Nur auf der Brücke · optional</p><h3 id="heading-DirectControlFrontlet">Direkte Brückensteuerung</h3>
+<p>Hier bestimmt der Stickausschlag unmittelbar Ruder und Gas. Loslassen bedeutet mittschiffs beziehungsweise Stop, sofern das Gas nicht festgestellt ist. Das kann praktisch sein, erfordert aber Aufmerksamkeit, wenn du gleichzeitig noch andere Aufgaben übernimmst.</p>
+<p>Du brauchst diese Belegung nicht zwingend: Wenn du eine bleibende Fahrstufe und Ruderstellung bevorzugst, kannst du stattdessen die Tasten unter „Maschine einstellen“ und „Ruder einstellen“ benutzen.</p>
+<p class="keyboard-hint"><strong>Auf der Tastatur gibt es diese direkte Brückensteuerung nicht.</strong> Die Pfeiltasten verändern dort Fahrstufe und Ruderausschlag schrittweise.</p>
+<div class="binding-row" data-controller-action="directX" data-prompt="Stick ganz nach rechts bewegen.">
+    <div><span class="binding-label">Stick: Ruder direkt</span><output data-binding-value>Nicht belegt</output><span class="live-input" data-binding-live></span></div>
+    <div class="row-buttons"><button type="button" data-bind="directX" aria-label="Stick: Ruder direkt belegen">Belegen</button><button type="button" class="quiet" data-clear="directX" aria-label="Stick: Ruder direkt löschen">Löschen</button></div>
+</div><div class="binding-row" data-controller-action="directY" data-prompt="Stick ganz nach vorne bewegen.">
+    <div><span class="binding-label">Stick: Gas direkt</span><output data-binding-value>Nicht belegt</output><span class="live-input" data-binding-live></span></div>
+    <div class="row-buttons"><button type="button" data-bind="directY" aria-label="Stick: Gas direkt belegen">Belegen</button><button type="button" class="quiet" data-clear="directY" aria-label="Stick: Gas direkt löschen">Löschen</button></div>
+</div>
+</section>

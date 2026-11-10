@@ -1,0 +1,8 @@
+<html xmlns:xis="https://xis.one/xsd"><head><title>Fahrzeugauswahl</title></head><body>
+<form xis:binding="login"><input xis:binding="id" type="hidden"><label>Name<input id="fixture-nickname" xis:binding="nickname"></label>
+<label>Kennung<input id="fixture-alias" xis:binding="alias"></label>
+<label>Team<select id="fixture-team" xis:binding="team"><option value="light">Hell</option><option value="dark">Dunkel</option></select></label>
+<input type="hidden" xis:binding="email">
+<label>Fahrzeug<select id="fixture-vehicle" xis:binding="vehicleType"><option value="torpedo-boat">Torpedoboot</option><option value="submarine">U-Boot</option></select></label>
+<button id="fixture-configure" type="submit" xis:action="configureController" formnovalidate>Controller einrichten</button>
+</form></body></html>

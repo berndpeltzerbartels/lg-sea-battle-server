@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="de" xmlns:xis="https://xis.one/xsd"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Controller einrichten · Küstenkrieg</title>
+<link rel="stylesheet" href="/sea-battle/controller-config.css">
+</head><body>
+<main id="controller-setup">
+<header><div><p class="scope">Küstenkrieg · Vor dem Einsteigen</p><h1>Controller einrichten</h1></div><a id="controller-back-top" xis:page="/start.html">Zurück zur Fahrzeugauswahl</a></header>
+<p class="intro"><strong>Diese Einrichtung ist nur für Gamecontroller.</strong> Spielst du mit der Tastatur, musst du hier nichts ausfüllen. Die Tasten findest du in der Hilfe im Spiel mit <kbd>H</kbd> und in der <a href="/sea-battle/handbuch/index.html">Spielanleitung</a>.</p>
+<p class="intro">Richte alle gewünschten Controllerfunktionen vorab ein. Die Belegung bleibt beim Fahrzeugwechsel erhalten; Funktionen des anderen Fahrzeugs werden einfach nicht verwendet. Nicht benötigte Tasten dürfen frei bleiben. Die Tastatur funktioniert weiterhin.</p>
+<section class="controller-summary" aria-label="Controller auswählen">
+<label for="controller-choice">Controller</label><select id="controller-choice"><option value="">Bitte eine Controller-Taste drücken</option></select>
+<p id="controller-connection" role="status">Hier klicken und eine Taste am verbundenen Controller drücken. Die Einrichtung startet kein Spiel.</p>
+<p>Gespeichert wird nur in diesem Browser auf diesem Gerät. Eine andere Verbindung oder ein anderer Browser kann eine andere Belegung benötigen.</p>
+</section>
+<div class="capture-panel" id="controller-capture" hidden><strong id="controller-instruction"></strong><p>Erst loslassen, dann nur das angegebene Bedienelement betätigen. Esc bricht die Messung ab.</p><button type="button" id="controller-cancel">Messung abbrechen</button></div>
+<section class="vehicle-family" data-vehicle="all" aria-labelledby="family-all">
+<header><p class="scope">Gemeinsame Belegung</p><h2 id="family-all">Für alle Fahrzeuge</h2><p>Diese Funktionen gelten sowohl für Torpedoboot als auch U-Boot. Was die Taste gerade bewirkt, hängt von deiner Position ab. Die Tastatur bleibt zusätzlich immer aktiv.</p></header>
+<div class="controller-grid">
+<xis:frontlet name="DirectControlFrontlet"/>
+<xis:frontlet name="EngineControlFrontlet"/>
+<xis:frontlet name="RudderControlFrontlet"/>
+<xis:frontlet name="AimControlFrontlet"/>
+<xis:frontlet name="FireControlFrontlet"/>
+<xis:frontlet name="StationControlFrontlet"/>
+<xis:frontlet name="ZoomControlFrontlet"/>
+</div>
+<details class="controller-shared-extras"><summary>Weitere gemeinsame Funktionen · optional</summary><xis:frontlet name="ControllerExtrasFrontlet"/></details>
+</section>
+<section class="vehicle-family" data-vehicle="torpedo-boat" aria-labelledby="family-boat">
+<header><p class="scope">Fahrzeugspezifische Belegung</p><h2 id="family-boat">Nur Torpedoboot</h2><p>Diese Funktionen werden beim U-Boot nicht ausgelöst. Eine hier belegte Taste darf dort eine andere Funktion erhalten.</p></header>
+<div class="controller-grid"><xis:frontlet name="DepthChargeControlFrontlet"/></div>
+</section>
+<section class="vehicle-family" data-vehicle="submarine" aria-labelledby="family-submarine">
+<header><p class="scope">Fahrzeugspezifische Belegung</p><h2 id="family-submarine">Nur U-Boot</h2><p>Diese Funktionen werden beim Torpedoboot nicht ausgelöst. Zum Beispiel darf dieselbe Taste dort Wasserbomben werfen und hier das Sehrohr auswählen.</p></header>
+<div class="controller-grid"><xis:frontlet name="DiveControlFrontlet"/><xis:frontlet name="SubmarinePeriscopeFrontlet"/></div>
+</section>
+<footer class="controller-summary"><p>Mehrfachbelegungen sind erlaubt, wenn die Funktionen zu unterschiedlichen Fahrzeugen oder Positionen gehören und deshalb nicht gleichzeitig verfügbar sind.</p><p id="controller-conflicts" role="status"></p><p id="controller-save-status" role="status">Noch keine Änderungen gespeichert.</p>
+<div class="page-actions"><button type="button" id="controller-save" disabled>Belegung speichern</button><button type="button" class="quiet" id="controller-defaults" disabled>Voreinstellung laden</button><a id="controller-back-bottom" xis:page="/start.html">Zurück zur Fahrzeugauswahl</a></div>
+<p>„Voreinstellung laden“ verändert zunächst nur die Anzeige. Erst „Belegung speichern“ übernimmt die Änderung.</p>
+</footer>
+</main></body></html>

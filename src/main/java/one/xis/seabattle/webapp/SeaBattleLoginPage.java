@@ -53,7 +53,9 @@ public class SeaBattleLoginPage {
 
     @FormData("login")
     LoginForm login(@NullAllowed @LocalStorage("accountId") String accountId,
-                    @NullAllowed @LocalStorage("vehicleType") String vehicleType) {
+                    @NullAllowed @LocalStorage("vehicleType") String vehicleType,
+                    @NullAllowed @SessionStorage("controllerStartDraft") one.xis.seabattle.webapp.controller.ControllerStartDraft draft) {
+        if (draft != null) return new LoginForm(draft.id(), draft.nickname(), draft.alias(), draft.team(), draft.email(), normalizeVehicleType(draft.vehicleType()));
         Account account = accountService.findAccountById(accountId).orElseGet(this::newAccount);
         return new LoginForm(
                 account.id(),
@@ -145,6 +147,11 @@ public class SeaBattleLoginPage {
                 .toList();
     }
 
+    @Action("configureController")
+    PageUrlResponse configureController(@FormData("login") one.xis.seabattle.webapp.controller.ControllerStartDraft draft) {
+        return new PageUrlResponse("/controller.html").sessionStorage("controllerStartDraft", draft);
+    }
+
     @Action
     PageUrlResponse startGame(@FormData("login") LoginForm form) {
         Account account = normalizeAccount(form);
@@ -167,7 +174,8 @@ public class SeaBattleLoginPage {
         };
         return new PageUrlResponse(target)
                 .localStorage("accountId", savedAccount.id())
-                .localStorage("vehicleType", vehicleType);
+                .localStorage("vehicleType", vehicleType)
+                .sessionStorage("controllerStartDraft", null);
     }
 
     private void startOrFindSession(Account account, String vehicleType) {
